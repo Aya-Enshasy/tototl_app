@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,6 +32,16 @@ class _PilotRegisterStepFourScreenState
   _PilotDocumentType? _pickingDocument;
   bool _isSubmitting = false;
   bool _showLicenseUploadError = false;
+
+  // Upload progress state per document
+  final Map<_PilotDocumentType, double> _uploadProgress = {
+    _PilotDocumentType.license: 0,
+    _PilotDocumentType.permit: 0,
+  };
+  final Map<_PilotDocumentType, bool> _isUploading = {
+    _PilotDocumentType.license: false,
+    _PilotDocumentType.permit: false,
+  };
 
   final ImagePicker _picker = ImagePicker();
 
@@ -89,6 +100,22 @@ class _PilotRegisterStepFourScreenState
     }
   }
 
+  // Simulates an upload progress bar (replace later with real upload call)
+  Future<void> _simulateUpload(_PilotDocumentType document) async {
+    setState(() {
+      _isUploading[document] = true;
+      _uploadProgress[document] = 0;
+    });
+    const steps = 12;
+    for (int i = 1; i <= steps; i++) {
+      await Future.delayed(const Duration(milliseconds: 60));
+      if (!mounted) return;
+      setState(() => _uploadProgress[document] = i / steps);
+    }
+    if (!mounted) return;
+    setState(() => _isUploading[document] = false);
+  }
+
   Future<void> _pickDocumentImage(
       _PilotDocumentType document,
       ImageSource source,
@@ -108,6 +135,7 @@ class _PilotRegisterStepFourScreenState
       final file = File(picked.path);
       if (await file.exists() && mounted) {
         setState(() => _setDocumentFile(document, file));
+        await _simulateUpload(document);
       }
     } on PlatformException catch (_) {
       if (mounted) {
@@ -116,6 +144,30 @@ class _PilotRegisterStepFourScreenState
     } catch (_) {
       if (mounted) {
         _showSnack('Unable to upload this image. Please try another photo.');
+      }
+    } finally {
+      if (mounted) setState(() => _pickingDocument = null);
+    }
+  }
+
+  // Allows picking a PDF (or image) file from device storage
+  Future<void> _pickDocumentFile(_PilotDocumentType document) async {
+    if (_pickingDocument != null) return;
+    setState(() => _pickingDocument = document);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+      if (result == null || result.files.single.path == null) return;
+      final file = File(result.files.single.path!);
+      if (await file.exists() && mounted) {
+        setState(() => _setDocumentFile(document, file));
+        await _simulateUpload(document);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showSnack('Unable to upload this file. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _pickingDocument = null);
@@ -188,6 +240,15 @@ class _PilotRegisterStepFourScreenState
                     onTap: () {
                       Navigator.pop(context);
                       _pickDocumentImage(document, ImageSource.gallery);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSheetOption(
+                    icon: Icons.insert_drive_file_outlined,
+                    label: 'Choose File (PDF)',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickDocumentFile(document);
                     },
                   ),
                   if (currentFile != null) ...[
@@ -736,114 +797,160 @@ class _PilotRegisterStepFourScreenState
     );
   }
 
+  // ---------------------------------------------------------------------
+  // NEW: Compact document upload card with thumbnail + progress bar
+  // ---------------------------------------------------------------------
   Widget _buildDocumentUploadCard({
     required _PilotDocumentType documentType,
     required bool showError,
   }) {
     final file = _documentFile(documentType);
     final isPicking = _pickingDocument == documentType;
+    final isUploading = _isUploading[documentType] ?? false;
+    final progress = _uploadProgress[documentType] ?? 0;
+    final isImage = file != null &&
+        ['.jpg', '.jpeg', '.png']
+            .any((ext) => file.path.toLowerCase().endsWith(ext));
 
     return GestureDetector(
-      onTap: () => _showImageSourceActionSheet(documentType),
+      onTap: isUploading ? null : () => _showImageSourceActionSheet(documentType),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 120,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: file != null ? kPrimarySoft.withOpacity(0.3) : Colors.white,
+          color: file != null ? kPrimarySoft.withOpacity(0.25) : kSurfaceSoft,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: showError
                 ? kDanger
-                : (file != null ? kPrimary : kBorder),
-            width: showError ? 1.4 : (file != null ? 1.2 : 0.8),
+                : (file != null ? kPrimary.withOpacity(0.4) : kBorder),
+            width: showError ? 1.4 : 0.8,
           ),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: isPicking
-              ? const Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: kPrimary,
-            ),
-          )
-              : file != null
-              ? Stack(
-            children: [
-              Positioned.fill(
-                child: Image.file(
-                  file,
-                  fit: BoxFit.cover,
-                ),
+        child: (file == null && !isPicking)
+            ? Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: showError ? kDanger.withOpacity(0.1) : kPrimarySoft,
+                shape: BoxShape.circle,
               ),
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withOpacity(0.35),
-                ),
-              ),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.check_circle_rounded,
-                        color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Document Selected',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.edit_rounded,
-                    size: 16,
-                    color: kTextDark,
-                  ),
-                ),
-              ),
-            ],
-          )
-              : Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
+              child: Icon(
                 Icons.cloud_upload_outlined,
-                size: 30,
+                size: 22,
                 color: showError ? kDanger : kPrimary,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Tap to upload document photo',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: showError ? kDanger : kTextDark,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Tap to upload document',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: showError ? kDanger : kTextDark,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'JPG, PNG or PDF · Max 10MB',
+              style: TextStyle(fontSize: 11, color: kHint),
+            ),
+          ],
+        )
+            : Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kBorder, width: 0.8),
+              ),
+              child: isPicking
+                  ? const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: kPrimary,
+                  ),
+                ),
+              )
+                  : (isImage
+                  ? Image.file(file!, fit: BoxFit.cover)
+                  : const Icon(
+                Icons.picture_as_pdf_rounded,
+                color: kPrimary,
+                size: 22,
+              )),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isPicking
+                        ? 'Preparing file…'
+                        : file!.path.split('/').last,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: kTextDark,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (isUploading)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 5,
+                        backgroundColor: kBorder,
+                        valueColor:
+                        const AlwaysStoppedAnimation(kPrimary),
+                      ),
+                    )
+                  else if (!isPicking)
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: kSuccess,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Uploaded',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: kSuccess,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            if (!isPicking && !isUploading)
+              IconButton(
+                onPressed: () =>
+                    _showImageSourceActionSheet(documentType),
+                icon: const Icon(
+                  Icons.more_horiz_rounded,
+                  color: kTextMuted,
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 2),
-              const Text(
-                'JPG, PNG or PDF formats supported',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: kHint,
-                ),
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

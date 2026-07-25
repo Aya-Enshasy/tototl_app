@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -296,13 +297,27 @@ class _CompanyRegisterStepTwoScreenState
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'I agree to the User Contract Agreement and Terms & Conditions',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFF1A1A1A),
-                          fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF1A1A1A),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          children: [
+                            const TextSpan(text: 'I agree to the '),
+                            TextSpan(
+                              text: 'User Contract Agreement and Terms & Conditions',
+                              style: const TextStyle(
+                                color: Color(0xFF3F6DFB),
+                                fontWeight: FontWeight.w700,
+                                decoration: TextDecoration.underline,
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = _showTermsAndConditionsSheet,
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -496,6 +511,108 @@ class _CompanyRegisterStepTwoScreenState
           ),
         ),
       ),
+    );
+  }
+  Future<void> _showTermsAndConditionsSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      transitionAnimationController: AnimationController(
+        duration: const Duration(milliseconds: 420),
+        reverseDuration: const Duration(milliseconds: 300),
+        vsync: Navigator.of(context),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.92,
+          expand: false,
+          builder: (context, scrollController) {
+            return Material(
+              color: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'User Contract Agreement & Terms',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF9FAFB),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close_rounded,
+                                size: 18, color: Color(0xFF1A1A1A)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                      child: const Text(
+                        // ضع نص الشروط والأحكام الفعلي هون
+                        '1. Acceptance of Terms\n'
+                            'By creating a company account on this platform, you agree to be bound by these Terms & Conditions and our User Contract Agreement.\n\n'
+                            '2. Company Responsibilities\n'
+                            'Your company agrees to provide accurate information, comply with local aviation regulations, and ensure all posted jobs meet safety standards.\n\n'
+                            '3. Pilot Engagement\n'
+                            'All engagements with pilots through the platform must follow the agreed scope of work, payment terms, and safety protocols outlined in each job listing.\n\n'
+                            '4. Payments & Subscriptions\n'
+                            'Subscription fees are billed according to the plan selected and are non-refundable except as required by law.\n\n'
+                            '5. Data & Privacy\n'
+                            'We collect and process data in accordance with our Privacy Policy to match companies with qualified drone pilots.\n\n'
+                            '6. Limitation of Liability\n'
+                            'The platform acts as an intermediary and is not liable for damages arising from services performed by independent pilots.\n\n'
+                            '7. Termination\n'
+                            'We reserve the right to suspend or terminate accounts that violate these terms or engage in fraudulent activity.\n\n'
+                            '8. Governing Law\n'
+                            'These terms are governed by the laws of the jurisdiction in which the platform operates.',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF4B5563),
+                          height: 1.6,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

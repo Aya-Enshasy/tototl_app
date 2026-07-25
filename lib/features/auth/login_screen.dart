@@ -71,74 +71,67 @@ class _LoginScreenState extends State<LoginScreen> {
           // الطبقة 3: عناصر الهيدر (اللوجو والنصوص العلوية)
           // ==========================================
           Positioned(
-            top: 50,
+            top: 0,
             left: 0,
             right: 0,
-            height: size.height * 0.42,
+            bottom: size.height * 0.65, // نفس ارتفاع الـ Bottom Sheet بالضبط
             child: SafeArea(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 10),
-
-                  // اللوجو بحجم 70px
-                  Image.asset(
-                    'assets/images/logo.png',
-                    width: 90,
-                    height: 90,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 4),
-
-                  // اسم TOTOTL ببنط 42 ووزن ExtraBold و LetterSpacing -1
-                  const Text(
-                    'TOTOTL',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 42,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1.0,
-                      height: 1.1,
+              bottom: false,
+              child: Center( // <-- هاد اللي بيعمل التمركز التلقائي
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // يخلي الـ Column ياخد حجم محتواه فقط
+                  children: [
+                    Image.asset(
+                      'assets/images/logo.png',
+                      width: 90,
+                      height: 90,
+                      fit: BoxFit.contain,
                     ),
-                  ),
-
-                  // كلمة INTGRX باللون #3E63F4 وتباعد 4.5
-                  const Text(
-                    'I N T G R X',
-                    style: TextStyle(
-                      color: Color(0xFF3E63F4),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 5.5,
+                    const SizedBox(height: 4),
+                    const Text(
+                      'TOTOTL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 42,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.0,
+                        height: 1.1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // النص السفلي مع خطين بعرض 45px
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(width: 45, height: 1, color: Colors.white38),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Text(
-                          'DRONE PILOT & COMPANY PLATFORM',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            letterSpacing: 0.8,
-                            fontWeight: FontWeight.w500,
+                    const Text(
+                      'I N T G R X',
+                      style: TextStyle(
+                        color: Color(0xFF3E63F4),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 5.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(width: 45, height: 1, color: Colors.white38),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text(
+                            'DRONE PILOT & COMPANY PLATFORM',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              letterSpacing: 0.8,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                      Container(width: 45, height: 1, color: Colors.white38),
-                    ],
-                  ),
-                ],
+                        Container(width: 45, height: 1, color: Colors.white38),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-
           // ==========================================
           // الطبقة 4: الـ Bottom Sheet الأبيض يطفو فوق الخلفية
           // ==========================================

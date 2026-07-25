@@ -22,6 +22,8 @@ class _PilotRegisterStepTwoScreenState
   final TextEditingController _stateController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _aboutController = TextEditingController();
+  final TextEditingController _otherLanguageController =
+  TextEditingController();
 
   // Selection States
   String? _yearsOfExperience;
@@ -72,6 +74,7 @@ class _PilotRegisterStepTwoScreenState
     _stateController.dispose();
     _cityController.dispose();
     _aboutController.dispose();
+    _otherLanguageController.dispose();
     super.dispose();
   }
 
@@ -88,7 +91,7 @@ class _PilotRegisterStepTwoScreenState
   }
 
   // ---------------------------------------------------------------------
-  // Bottom Sheet Selection Helper
+  // Bottom Sheet Selection Helper (Single select)
   // ---------------------------------------------------------------------
   Future<void> _openSelectSheet({
     required String title,
@@ -217,6 +220,12 @@ class _PilotRegisterStepTwoScreenState
       return;
     }
 
+    if (_selectedLanguages.contains('Other') &&
+        _otherLanguageController.text.trim().isEmpty) {
+      _showSnack('Please specify the other language');
+      return;
+    }
+
     if (_selectedWillingRegions.isEmpty) {
       _showSnack('Please select at least one region you are willing to work in');
       return;
@@ -339,6 +348,15 @@ class _PilotRegisterStepTwoScreenState
                     });
                   },
                 ),
+                // Show text field only when "Other" is selected
+                if (_selectedLanguages.contains('Other')) ...[
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _otherLanguageController,
+                    hintText: 'Please specify the language',
+                    prefixIcon: Icons.translate_rounded,
+                  ),
+                ],
                 const SizedBox(height: 20),
 
                 // 3. Current Region (Main Working Location)

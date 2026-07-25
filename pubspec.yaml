@@ -30,6 +30,8 @@ environment:
 dependencies:
   image_picker: ^1.0.7
   liquid_glass_bottom_bar: ^0.0.6
+  adaptive_platform_ui: ^0.1.111
+  file_picker: ^8.1.0
   intl: ^0.19.0
   flutter:
     sdk: flutter

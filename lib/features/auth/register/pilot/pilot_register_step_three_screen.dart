@@ -20,12 +20,24 @@ class _PilotRegisterStepThreeScreenState
   final TextEditingController _makeController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
   final TextEditingController _serialController = TextEditingController();
-  final TextEditingController _accessoriesController = TextEditingController();
 
   String? _selectedYear;
   File? _droneImage;
   bool _isPickingImage = false;
   bool _isSubmitting = false;
+
+  // Accessories multi-select state
+  final List<String> _availableAccessories = const [
+    'Thermal Camera',
+    'RTK Module',
+    'Spotlight',
+    'Parachute Safety System',
+    'Zoom Camera',
+    'Multispectral Sensor',
+    'Speaker / Loudspeaker',
+    'Winch / Release Mechanism',
+  ];
+  Set<String> _selectedAccessories = {};
 
   final ImagePicker _picker = ImagePicker();
   late final List<String> _years = List.generate(
@@ -47,7 +59,6 @@ class _PilotRegisterStepThreeScreenState
     _makeController.dispose();
     _modelController.dispose();
     _serialController.dispose();
-    _accessoriesController.dispose();
     super.dispose();
   }
 
@@ -320,6 +331,172 @@ class _PilotRegisterStepThreeScreenState
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Multi-select Bottom Sheet (used for Accessories)
+  // ---------------------------------------------------------------------
+  Future<void> _openMultiSelectSheet({
+    required String title,
+    required List<String> items,
+    required Set<String> selectedItems,
+    required ValueChanged<Set<String>> onConfirm,
+  }) async {
+    HapticFeedback.lightImpact();
+    Set<String> tempSelected = Set<String>.from(selectedItems);
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Material(
+              color: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 18),
+                        decoration: BoxDecoration(
+                          color: kBorder,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: kTextDark,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${tempSelected.length} selected',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: kTextMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.45,
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            final isSelected = tempSelected.contains(item);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Material(
+                                color:
+                                isSelected ? kPrimarySoft : kSurfaceSoft,
+                                borderRadius: BorderRadius.circular(14),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setSheetState(() {
+                                      isSelected
+                                          ? tempSelected.remove(item)
+                                          : tempSelected.add(item);
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isSelected
+                                              ? Icons.check_box_rounded
+                                              : Icons
+                                              .check_box_outline_blank_rounded,
+                                          size: 20,
+                                          color:
+                                          isSelected ? kPrimary : kHint,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            item,
+                                            style: TextStyle(
+                                              fontSize: 14.5,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w500,
+                                              color: isSelected
+                                                  ? kPrimary
+                                                  : kTextDark,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            onConfirm(tempSelected);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _handleNext() async {
     if (!_formKey.currentState!.validate()) {
       HapticFeedback.heavyImpact();
@@ -483,17 +660,16 @@ class _PilotRegisterStepThreeScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Accessories (Optional)
+                // Accessories (Optional) — Multi-select dropdown
                 _buildSectionLabel('Accessories & Payload (Optional)'),
                 const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _accessoriesController,
-                  hintText: 'e.g. Thermal Camera, RTK Module, Spotlight',
-                  suffixIcon: const Icon(
-                    Icons.add_box_outlined,
-                    size: 18,
-                    color: kHint,
-                  ),
+                _buildMultiSelectField(
+                  hintText: 'Select accessories',
+                  icon: Icons.add_box_outlined,
+                  selectedItems: _selectedAccessories,
+                  items: _availableAccessories,
+                  onChanged: (updated) =>
+                      setState(() => _selectedAccessories = updated),
                 ),
                 const SizedBox(height: 32),
 
@@ -821,6 +997,103 @@ class _PilotRegisterStepThreeScreenState
           ),
         );
       },
+    );
+  }
+
+  // Multi-select "field" that looks like a TextField and shows selected chips
+  Widget _buildMultiSelectField({
+    required String hintText,
+    required IconData icon,
+    required Set<String> selectedItems,
+    required List<String> items,
+    required ValueChanged<Set<String>> onChanged,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _openMultiSelectSheet(
+        title: hintText,
+        items: items,
+        selectedItems: selectedItems,
+        onConfirm: onChanged,
+      ),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: kBorder, width: 0.8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: kHint),
+            const SizedBox(width: 10),
+            Expanded(
+              child: selectedItems.isEmpty
+                  ? Text(
+                hintText,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: kHint,
+                  fontWeight: FontWeight.w400,
+                ),
+              )
+                  : Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: selectedItems.map((item) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kPrimarySoft,
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                      Border.all(color: kPrimary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: kPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            final updated =
+                            Set<String>.from(selectedItems)
+                              ..remove(item);
+                            onChanged(updated);
+                          },
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: kPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: kHint,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -15,7 +15,16 @@ class _CompanyRegisterStepThreeScreenState
     extends State<CompanyRegisterStepThreeScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // 1. Job Types (اختيار متعدد)
+  // Theme colors (same palette used across the flow)
+  static const Color kPrimary = Color(0xFF3F6DFB);
+  static const Color kPrimarySoft = Color(0xFFEBF1FF);
+  static const Color kTextDark = Color(0xFF1A1A1A);
+  static const Color kTextMuted = Color(0xFF8F93A3);
+  static const Color kBorder = Color(0xFFE5E7EB);
+  static const Color kSurfaceSoft = Color(0xFFF9FAFB);
+  static const Color kDanger = Color(0xFFEF4444);
+
+  // 1. Job Types (multi-select)
   final List<String> _jobTypes = [
     'Inspection',
     'Mapping',
@@ -24,9 +33,11 @@ class _CompanyRegisterStepThreeScreenState
     'Surveying',
     'Other',
   ];
-  final List<String> _selectedJobTypes = [];
+  Set<String> _selectedJobTypes = {};
+  final TextEditingController _otherJobTypeController =
+  TextEditingController();
 
-  // 2. Drone Requirements (اختيار متعدد)
+  // 2. Drone Requirements (multi-select)
   final List<String> _droneRequirements = [
     'Thermal Camera',
     'Laser',
@@ -35,13 +46,13 @@ class _CompanyRegisterStepThreeScreenState
     'Radar',
     'Imaging',
   ];
-  final List<String> _selectedDroneRequirements = [];
+  Set<String> _selectedDroneRequirements = {};
 
-  // 3. Drone Size Requirement (اختيار واحد)
+  // 3. Drone Size Requirement (single-select)
   String? _selectedDroneSize;
   final List<String> _droneSizes = ['Small', 'Medium', 'Large'];
 
-  // 4. Safety Requirements (خيارات إضافية)
+  // 4. Safety Requirements
   bool _safetyTrainingRequired = false;
   bool _specialCertificationsRequired = false;
 
@@ -56,6 +67,7 @@ class _CompanyRegisterStepThreeScreenState
   @override
   void dispose() {
     _otherRequirementsController.dispose();
+    _otherJobTypeController.dispose();
     super.dispose();
   }
 
@@ -64,7 +76,7 @@ class _CompanyRegisterStepThreeScreenState
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: kTextDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
@@ -79,16 +91,288 @@ class _CompanyRegisterStepThreeScreenState
       _showSnack('Please select at least one Job Type');
       return;
     }
+    if (_selectedJobTypes.contains('Other') &&
+        _otherJobTypeController.text.trim().isEmpty) {
+      _showSnack('Please specify the other job type');
+      return;
+    }
     if (_selectedDroneSize == null) {
       _showSnack('Please select a Drone Size Requirement');
       return;
     }
 
-    // الانتقال للخطوة الرابعة والأخيرة
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const CompanyRegisterStepFourScreen(),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Multi-select Bottom Sheet (used for Job Types & Drone Requirements)
+  // ---------------------------------------------------------------------
+  Future<void> _openMultiSelectSheet({
+    required String title,
+    required List<String> items,
+    required Set<String> selectedItems,
+    required ValueChanged<Set<String>> onConfirm,
+  }) async {
+    HapticFeedback.lightImpact();
+    Set<String> tempSelected = Set<String>.from(selectedItems);
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Material(
+              color: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 18),
+                        decoration: BoxDecoration(
+                          color: kBorder,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: kTextDark,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${tempSelected.length} selected',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: kTextMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.45,
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            final isSelected = tempSelected.contains(item);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Material(
+                                color:
+                                isSelected ? kPrimarySoft : kSurfaceSoft,
+                                borderRadius: BorderRadius.circular(14),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setSheetState(() {
+                                      isSelected
+                                          ? tempSelected.remove(item)
+                                          : tempSelected.add(item);
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isSelected
+                                              ? Icons.check_box_rounded
+                                              : Icons
+                                              .check_box_outline_blank_rounded,
+                                          size: 20,
+                                          color: isSelected
+                                              ? kPrimary
+                                              : kTextMuted,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            item,
+                                            style: TextStyle(
+                                              fontSize: 14.5,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w500,
+                                              color: isSelected
+                                                  ? kPrimary
+                                                  : kTextDark,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            onConfirm(tempSelected);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Field that looks like a bordered input, opens the multi-select sheet,
+  // and displays selected values as removable chips inside the field.
+  Widget _buildMultiSelectField({
+    required String hintText,
+    required IconData icon,
+    required Set<String> selectedItems,
+    required List<String> items,
+    required ValueChanged<Set<String>> onChanged,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _openMultiSelectSheet(
+        title: hintText,
+        items: items,
+        selectedItems: selectedItems,
+        onConfirm: onChanged,
+      ),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 56),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: kSurfaceSoft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: kTextMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: selectedItems.isEmpty
+                  ? Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  hintText,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFFA0A5BA),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              )
+                  : Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: selectedItems.map((item) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kPrimarySoft,
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                      Border.all(color: kPrimary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: kPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            final updated =
+                            Set<String>.from(selectedItems)
+                              ..remove(item);
+                            onChanged(updated);
+                          },
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: kPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: Color(0xFF9CA3AF),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -113,9 +397,7 @@ class _CompanyRegisterStepThreeScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ==========================================
-                // 1. الشريط العلوي (زر الرجوع + مؤشر الـ 4 خطوات)
-                // ==========================================
+                // Top Navigation Bar
                 Row(
                   children: [
                     _buildBackButton(),
@@ -124,20 +406,18 @@ class _CompanyRegisterStepThreeScreenState
                         child: _buildStepIndicator(currentStep: 3),
                       ),
                     ),
-                    const SizedBox(width: 38), // لموازنة زر الرجوع
+                    const SizedBox(width: 38),
                   ],
                 ),
                 const SizedBox(height: 30),
 
-                // ==========================================
-                // 2. العنوان الرئيسي والفرعي
-                // ==========================================
+                // Title & Subtitle
                 const Text(
                   'Job Requirements',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                     height: 1.2,
                     letterSpacing: -0.5,
                   ),
@@ -147,67 +427,77 @@ class _CompanyRegisterStepThreeScreenState
                   'Define your drone job specifications to match suitable pilots',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF8F93A3),
+                    color: kTextMuted,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 28),
 
-                // ==========================================
-                // 3. نوع المهمة (Job Types)
-                // ==========================================
+                // Job Types (multi-select dropdown field)
                 const Text(
                   'Job Types',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                   ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Select all services required for your projects',
-                  style: TextStyle(fontSize: 12.5, color: Color(0xFF8F93A3)),
+                  style: TextStyle(fontSize: 12.5, color: kTextMuted),
                 ),
                 const SizedBox(height: 12),
-                _buildMultiSelectChips(
-                  options: _jobTypes,
-                  selectedList: _selectedJobTypes,
+                _buildMultiSelectField(
+                  hintText: 'Select job types',
+                  icon: Icons.work_outline_rounded,
+                  selectedItems: _selectedJobTypes,
+                  items: _jobTypes,
+                  onChanged: (updated) =>
+                      setState(() => _selectedJobTypes = updated),
                 ),
+                // "Other" text field appears only when Other is selected
+                if (_selectedJobTypes.contains('Other')) ...[
+                  const SizedBox(height: 10),
+                  _buildTextField(
+                    controller: _otherJobTypeController,
+                    hintText: 'Please specify the job type',
+                  ),
+                ],
                 const SizedBox(height: 24),
 
-                // ==========================================
-                // 4. مواصفات ومعدات الدرون (Drone Requirements)
-                // ==========================================
+                // Drone Requirements (multi-select dropdown field)
                 const Text(
                   'Drone Equipment & Sensors',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                   ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Select required sensors and cameras',
-                  style: TextStyle(fontSize: 12.5, color: Color(0xFF8F93A3)),
+                  style: TextStyle(fontSize: 12.5, color: kTextMuted),
                 ),
                 const SizedBox(height: 12),
-                _buildMultiSelectChips(
-                  options: _droneRequirements,
-                  selectedList: _selectedDroneRequirements,
+                _buildMultiSelectField(
+                  hintText: 'Select equipment & sensors',
+                  icon: Icons.sensors_rounded,
+                  selectedItems: _selectedDroneRequirements,
+                  items: _droneRequirements,
+                  onChanged: (updated) =>
+                      setState(() => _selectedDroneRequirements = updated),
                 ),
                 const SizedBox(height: 24),
 
-                // ==========================================
-                // 5. حجم الدرون (Drone Size Requirement)
-                // ==========================================
+                // Drone Size Requirement
                 const Text(
                   'Drone Size Requirement',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -226,14 +516,10 @@ class _CompanyRegisterStepThreeScreenState
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF3F6DFB)
-                                  : const Color(0xFFF9FAFB),
+                              color: isSelected ? kPrimary : kSurfaceSoft,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isSelected
-                                    ? const Color(0xFF3F6DFB)
-                                    : const Color(0xFFE5E7EB),
+                                color: isSelected ? kPrimary : kBorder,
                                 width: 1.2,
                               ),
                             ),
@@ -245,9 +531,7 @@ class _CompanyRegisterStepThreeScreenState
                                   fontWeight: isSelected
                                       ? FontWeight.w700
                                       : FontWeight.w500,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : const Color(0xFF1A1A1A),
+                                  color: isSelected ? Colors.white : kTextDark,
                                 ),
                               ),
                             ),
@@ -259,15 +543,13 @@ class _CompanyRegisterStepThreeScreenState
                 ),
                 const SizedBox(height: 24),
 
-                // ==========================================
-                // 6. متطلبات السلامة (Safety Requirements)
-                // ==========================================
+                // Safety Requirements
                 const Text(
                   'Safety Requirements',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -288,34 +570,31 @@ class _CompanyRegisterStepThreeScreenState
                 ),
                 const SizedBox(height: 24),
 
-                // ==========================================
-                // 7. متطلبات إضافية (Other Requirements)
-                // ==========================================
+                // Other Requirements
                 const Text(
                   'Other Requirements',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                   ),
                 ),
                 const SizedBox(height: 8),
                 _buildTextField(
                   controller: _otherRequirementsController,
-                  hintText: 'Any special permissions, insurance, or pilot experience...',
+                  hintText:
+                  'Any special permissions, insurance, or pilot experience...',
                   maxLines: 3,
                 ),
                 const SizedBox(height: 24),
 
-                // ==========================================
-                // 8. خيارات موقع العمل (Job Site Options)
-                // ==========================================
+                // Job Site Options
                 const Text(
                   'Job Site Options',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -335,9 +614,7 @@ class _CompanyRegisterStepThreeScreenState
                 ),
                 const SizedBox(height: 32),
 
-                // ==========================================
-                // 9. زر الانتقال للخطوة التالية (Next Button)
-                // ==========================================
+                // Next Button
                 Container(
                   width: double.infinity,
                   height: 54,
@@ -353,7 +630,7 @@ class _CompanyRegisterStepThreeScreenState
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF3F6DFB).withOpacity(0.35),
+                        color: kPrimary.withOpacity(0.35),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -399,7 +676,7 @@ class _CompanyRegisterStepThreeScreenState
   }
 
   // ===========================================================================
-  // WIDGETS المخصصة الموحدة مع قسم الدرون
+  // WIDGETS
   // ===========================================================================
 
   Widget _buildBackButton() {
@@ -409,14 +686,14 @@ class _CompanyRegisterStepThreeScreenState
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: kSurfaceSoft,
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+          border: Border.all(color: kBorder, width: 1),
         ),
         child: const Icon(
           Icons.arrow_back_ios_new_rounded,
           size: 15,
-          color: Color(0xFF1A1A1A),
+          color: kTextDark,
         ),
       ),
     );
@@ -437,13 +714,9 @@ class _CompanyRegisterStepThreeScreenState
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive || isPassed
-                    ? const Color(0xFF3F6DFB)
-                    : Colors.white,
+                color: isActive || isPassed ? kPrimary : Colors.white,
                 border: Border.all(
-                  color: isActive || isPassed
-                      ? const Color(0xFF3F6DFB)
-                      : const Color(0xFFE5E7EB),
+                  color: isActive || isPassed ? kPrimary : kBorder,
                   width: 2,
                 ),
               ),
@@ -455,7 +728,8 @@ class _CompanyRegisterStepThreeScreenState
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: isActive ? Colors.white : const Color(0xFF9CA3AF),
+                    color:
+                    isActive ? Colors.white : const Color(0xFF9CA3AF),
                   ),
                 ),
               ),
@@ -464,64 +738,11 @@ class _CompanyRegisterStepThreeScreenState
               Container(
                 width: 26,
                 height: 2,
-                color: isPassed ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                color: isPassed ? kPrimary : kBorder,
               ),
           ],
         );
       }),
-    );
-  }
-
-  Widget _buildMultiSelectChips({
-    required List<String> options,
-    required List<String> selectedList,
-  }) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 10,
-      children: options.map((option) {
-        final isSelected = selectedList.contains(option);
-        return InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                selectedList.remove(option);
-              } else {
-                selectedList.add(option);
-              }
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFF9FAFB),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  option,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-                  ),
-                ),
-                if (isSelected) ...[
-                  const SizedBox(width: 6),
-                  const Icon(Icons.check, size: 14, color: Colors.white),
-                ],
-              ],
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 
@@ -544,7 +765,7 @@ class _CompanyRegisterStepThreeScreenState
                 height: 24,
                 child: Checkbox(
                   value: value,
-                  activeColor: const Color(0xFF3F6DFB),
+                  activeColor: kPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -557,7 +778,7 @@ class _CompanyRegisterStepThreeScreenState
                   title,
                   style: const TextStyle(
                     fontSize: 13.5,
-                    color: Color(0xFF1A1A1A),
+                    color: kTextDark,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -577,7 +798,7 @@ class _CompanyRegisterStepThreeScreenState
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: kSurfaceSoft,
         borderRadius: BorderRadius.circular(16),
       ),
       child: TextFormField(
@@ -586,7 +807,7 @@ class _CompanyRegisterStepThreeScreenState
         validator: validator,
         style: const TextStyle(
           fontSize: 14.5,
-          color: Color(0xFF1A1A1A),
+          color: kTextDark,
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
@@ -596,15 +817,15 @@ class _CompanyRegisterStepThreeScreenState
           const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            borderSide: const BorderSide(color: kBorder),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            borderSide: const BorderSide(color: kBorder),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
+            borderSide: const BorderSide(color: kPrimary, width: 1.5),
           ),
         ),
       ),
