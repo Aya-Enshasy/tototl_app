@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+// TODO: بدّل هاد الاستيراد بمسار شاشة الإعدادات الفعلي عندك
+// import 'settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -9,7 +11,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(top: 24, bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -63,8 +65,8 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// غلاف الصورة العلوي (صورة درون فوق جبال) + سهم رجوع + زر تعديل +
-/// صورة البروفايل الدائرية اللي "تطفو" فوق حافة الصورة السفلية.
+/// غلاف الصورة العلوي (صورة درون فوق جبال) + سهم رجوع + زر الإعدادات +
+/// صورة البروفايل الدائرية اللي "تطفو" فوق حافة الصورة السفلية + أيقونة تعديل عليها.
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader();
 
@@ -99,48 +101,65 @@ class _ProfileHeader extends StatelessWidget {
         Positioned(
           top: 10,
           right: 12,
-          child: _circleIconButton(Icons.edit_outlined, () {}),
+          child: _circleIconButton(Icons.settings_outlined, () {
+            // ينتقل على شاشة الإعدادات
+            // Navigator.push(
+            //   context,
+            //   MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            // );
+          }),
         ),
         Positioned(
           left: 20,
           bottom: -50,
-          child: Container(
-            width: 96,
-            height: 96,
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: ClipOval(
-              child: Image.network(
-                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: AppColors.tagBg,
-                  child: const Icon(Icons.person, color: AppColors.grey, size: 40),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: ClipOval(
+                  child: Image.network(
+                    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.tagBg,
+                      child: const Icon(Icons.person,
+                          color: AppColors.grey, size: 40),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: _circleIconButton(Icons.edit_outlined, () {}, size: 30),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _circleIconButton(IconData icon, VoidCallback onTap) {
+  Widget _circleIconButton(IconData icon, VoidCallback onTap, {double size = 38}) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(size / 2),
       child: Container(
-        width: 38,
-        height: 38,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.cardBorder),
         ),
-        child: Icon(icon, size: 18, color: AppColors.navy),
+        child: Icon(icon, size: size * 0.47, color: AppColors.navy),
       ),
     );
   }

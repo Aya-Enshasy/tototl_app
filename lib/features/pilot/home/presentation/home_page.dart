@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // 👈 خلفية الصورة تغطي الشاشة كاملة
           Positioned.fill(
             child: Image.asset(
-              "assets/images/group.png", // ضع مسار الصورة هنا
+              "assets/images/home_bac.png", // ضع مسار الصورة هنا
               fit: BoxFit.fill,
             ),
           ),

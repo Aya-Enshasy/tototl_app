@@ -101,14 +101,11 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 12),
+            // مسافة ثابتة من فوق
+            const SizedBox(height: 24),
             _buildTopBar(),
             const SizedBox(height: 12),
             _buildSearchBar(),
-            const SizedBox(height: 12),
-            _buildFiltersRow1(),
-            const SizedBox(height: 10),
-            _buildFiltersRow2(),
             const SizedBox(height: 14),
             _buildListMapToggle(),
             const SizedBox(height: 14),
@@ -159,7 +156,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen> {
               ),
             ),
           ),
-         ],
+        ],
       ),
     );
   }
@@ -184,132 +181,24 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 46,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.chipBorder),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search, color: AppColors.grey, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Search jobs, company, location...',
-                    style: TextStyle(color: AppColors.grey, fontSize: 13.5),
-                  ),
-                ],
-              ),
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.chipBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: AppColors.grey, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Search jobs, company, location...',
+              style: TextStyle(color: AppColors.grey, fontSize: 13.5),
             ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.chipBorder),
-            ),
-            child: Icon(Icons.tune, size: 20, color: AppColors.navy),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dropdownChip(String label) {
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.chipBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.chipBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.navy,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.keyboard_arrow_down_rounded,
-              size: 18, color: AppColors.navy),
-        ],
-      ),
-    );
-  }
-
-  Widget _dateChip(String label) {
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.chipBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.chipBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.calendar_today_outlined,
-              size: 15, color: AppColors.navy),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.navy,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.keyboard_arrow_down_rounded,
-              size: 18, color: AppColors.navy),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFiltersRow1() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          _dropdownChip('Country'),
-          const SizedBox(width: 10),
-          _dropdownChip('State'),
-          const SizedBox(width: 10),
-          _dropdownChip('City'),
-          const SizedBox(width: 10),
-          _dropdownChip('Drone Type'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFiltersRow2() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          _dropdownChip('Pay Range'),
-          const SizedBox(width: 10),
-          _dateChip('May 20 – Jun 5'),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -461,11 +350,6 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen> {
                       ),
                     ],
                   ),
-                ),
-                Icon(
-                  Icons.bookmark_border_rounded,
-                  color: AppColors.grey,
-                  size: 22,
                 ),
               ],
             ),

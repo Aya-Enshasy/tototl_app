@@ -6,30 +6,6 @@ import '../../../core/theme/app_colors.dart';
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
-  static const _filters = [
-    _ContactFilter(label: 'All', isAll: true, selected: true),
-    _ContactFilter(
-      label: 'GeoVision',
-      imageUrl:
-      'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=150&q=80',
-    ),
-    _ContactFilter(
-      label: 'BuildCore',
-      imageUrl:
-      'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=150&q=80',
-    ),
-    _ContactFilter(
-      label: 'SunPeak',
-      imageUrl:
-      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=150&q=80',
-    ),
-    _ContactFilter(
-      label: 'VoltEdge',
-      imageUrl:
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
-    ),
-  ];
-
   static const _messages = [
     _MessageData(
       name: 'GeoVision Solutions',
@@ -79,10 +55,12 @@ class MessagesScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // مسافة ثابتة من فوق
+              const SizedBox(height: 24),
               const Text(
                 'Messages',
                 style: TextStyle(
@@ -93,18 +71,13 @@ class MessagesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _buildSearchBar(),
-              const SizedBox(height: 16),
-              _buildFilterRow(),
             ],
           ),
         ),
         Expanded(
-          child: ListView.separated(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            itemCount: _messages.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 4),
-            itemBuilder: (context, index) =>
-                _MessageTile(data: _messages[index]),
+            child: _MessageGroupCard(items: _messages),
           ),
         ),
       ],
@@ -149,88 +122,6 @@ class MessagesScreen extends StatelessWidget {
       ],
     );
   }
-
-  Widget _buildFilterRow() {
-    return SizedBox(
-      height: 74,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) => _ContactFilterChip(data: _filters[index]),
-      ),
-    );
-  }
-}
-
-class _ContactFilter {
-  final String label;
-  final String? imageUrl;
-  final bool isAll;
-  final bool selected;
-
-  const _ContactFilter({
-    required this.label,
-    this.imageUrl,
-    this.isAll = false,
-    this.selected = false,
-  });
-}
-
-/// دائرة فلترة جهة اتصال واحدة أعلى شاشة الرسائل (All / اسم الشركة).
-class _ContactFilterChip extends StatelessWidget {
-  final _ContactFilter data;
-  const _ContactFilterChip({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: data.selected ? AppColors.blue : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          child: data.isAll
-              ? Container(
-            decoration: const BoxDecoration(
-              color: AppColors.blue,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.apps_rounded,
-                color: Colors.white, size: 20),
-          )
-              : ClipOval(
-            child: Image.network(
-              data.imageUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: AppColors.tagBg,
-                child: const Icon(Icons.business,
-                    color: AppColors.grey, size: 20),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          data.label,
-          style: TextStyle(
-            fontSize: 11,
-            color: data.selected ? AppColors.blue : AppColors.grey,
-            fontWeight: data.selected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _MessageData {
@@ -249,6 +140,39 @@ class _MessageData {
   });
 }
 
+/// كرت أبيض واحد يحتوي كل المحادثات ورا بعض، مفصولة بخط رفيع (Divider).
+class _MessageGroupCard extends StatelessWidget {
+  final List<_MessageData> items;
+  const _MessageGroupCard({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        children: List.generate(items.length, (i) {
+          final item = items[i];
+          final isLast = i == items.length - 1;
+          return Container(
+            decoration: BoxDecoration(
+              border: isLast
+                  ? null
+                  : const Border(
+                bottom: BorderSide(color: AppColors.cardBorder),
+              ),
+            ),
+            child: _MessageTile(data: item),
+          );
+        }),
+      ),
+    );
+  }
+}
+
 /// صف محادثة واحد داخل قائمة الرسائل.
 class _MessageTile extends StatelessWidget {
   final _MessageData data;
@@ -259,7 +183,7 @@ class _MessageTile extends StatelessWidget {
     final bool unread = data.unreadCount > 0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(14),
       child: Row(
         children: [
           ClipOval(

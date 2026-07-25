@@ -6,7 +6,7 @@ import '../../../core/theme/app_colors.dart';
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
-  static const _today = [
+  static const _allNotifications = [
     _NotificationData(
       icon: Icons.check_rounded,
       iconBg: AppColors.greenBg,
@@ -31,9 +31,6 @@ class NotificationsScreen extends StatelessWidget {
       description: 'GeoVision Solutions sent you a new message',
       time: '7:15 AM',
     ),
-  ];
-
-  static const _yesterday = [
     _NotificationData(
       icon: Icons.account_balance_wallet_outlined,
       iconBg: AppColors.greenBg,
@@ -51,9 +48,6 @@ class NotificationsScreen extends StatelessWidget {
       description: 'High winds expected in your area tomorrow',
       time: 'Yesterday',
     ),
-  ];
-
-  static const _earlier = [
     _NotificationData(
       icon: Icons.remove_red_eye_outlined,
       iconBg: AppColors.redBg,
@@ -67,10 +61,12 @@ class NotificationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // مسافة ثابتة من فوق (بدل ما كانت 10 تبع الـ padding القديم)
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
@@ -86,35 +82,8 @@ class NotificationsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          const _SectionLabel('Today'),
-          const SizedBox(height: 10),
-          _NotificationGroupCard(items: _today),
-          const SizedBox(height: 18),
-          const _SectionLabel('Yesterday'),
-          const SizedBox(height: 10),
-          _NotificationGroupCard(items: _yesterday),
-          const SizedBox(height: 18),
-          const _SectionLabel('Earlier'),
-          const SizedBox(height: 10),
-          _NotificationGroupCard(items: _earlier),
+          _NotificationGroupCard(items: _allNotifications),
         ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.navy,
-        fontSize: 14.5,
-        fontWeight: FontWeight.w700,
       ),
     );
   }
@@ -138,7 +107,7 @@ class _NotificationData {
   });
 }
 
-/// كرت أبيض واحد يحتوي عدة صفوف إشعارات مفصولة بخط رفيع (Divider).
+/// كرت أبيض واحد يحتوي كل الإشعارات ورا بعض، مفصولة بخط رفيع (Divider).
 class _NotificationGroupCard extends StatelessWidget {
   final List<_NotificationData> items;
   const _NotificationGroupCard({required this.items});
