@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_three_screen.dart';
 
+// ===========================================================================
+// SCREEN 2: Pilot Experience & Work Details
+// ===========================================================================
 class PilotRegisterStepTwoScreen extends StatefulWidget {
   const PilotRegisterStepTwoScreen({super.key});
 
@@ -14,31 +17,46 @@ class _PilotRegisterStepTwoScreenState
     extends State<PilotRegisterStepTwoScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _phoneController = TextEditingController();
+  // Text Controllers
+  final TextEditingController _countryController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
   final TextEditingController _aboutController = TextEditingController();
 
-  String? _currentRegion;
-  String? _willingToWorkRegion;
+  // Selection States
   String? _yearsOfExperience;
+  final Set<String> _selectedLanguages = {'English', 'Arabic'};
+  final Set<String> _selectedWillingRegions = {'Riyadh', 'Jeddah'};
 
   bool _isSubmitting = false;
 
-  final List<String> _regions = const [
+  // Options Lists
+  final List<String> _experienceYears = const [
+    'Less than 1 year',
+    '1-3 years',
+    '3-5 years',
+    'More than 5 years',
+  ];
+
+  final List<String> _availableLanguages = const [
+    'English',
+    'Arabic',
+    'French',
+    'Spanish',
+    'Other',
+  ];
+
+  final List<String> _availableWillingRegions = const [
     'Riyadh',
     'Jeddah',
     'Dammam',
     'NEOM',
     'Dubai',
     'Abu Dhabi',
-  ];
-  final List<String> _experienceYears = const [
-    'Less than 1 year',
-    '1-3 Years',
-    '3-5 Years',
-    '5+ Years',
+    'All Regions',
   ];
 
-  // ألوان التطبيق الموحدة — نفس الألوان المستخدمة بالخطوة الأولى
+  // Application Theme Colors
   static const Color kPrimary = Color(0xFF1E56F0);
   static const Color kPrimarySoft = Color(0xFFEFF3FE);
   static const Color kTextDark = Color(0xFF0F172A);
@@ -50,7 +68,9 @@ class _PilotRegisterStepTwoScreenState
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _countryController.dispose();
+    _stateController.dispose();
+    _cityController.dispose();
     _aboutController.dispose();
     super.dispose();
   }
@@ -68,7 +88,7 @@ class _PilotRegisterStepTwoScreenState
   }
 
   // ---------------------------------------------------------------------
-  // اختيار من القائمة (نفس Bottom Sheet المستخدم بالخطوة الأولى)
+  // Bottom Sheet Selection Helper
   // ---------------------------------------------------------------------
   Future<void> _openSelectSheet({
     required String title,
@@ -178,15 +198,27 @@ class _PilotRegisterStepTwoScreenState
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Navigation & Validation
+  // ---------------------------------------------------------------------
   Future<void> _handleNext() async {
     if (!_formKey.currentState!.validate()) {
       HapticFeedback.heavyImpact();
       return;
     }
-    if (_currentRegion == null ||
-        _willingToWorkRegion == null ||
-        _yearsOfExperience == null) {
-      _showSnack('Please complete all fields');
+
+    if (_yearsOfExperience == null) {
+      _showSnack('Please select your years of experience');
+      return;
+    }
+
+    if (_selectedLanguages.isEmpty) {
+      _showSnack('Please select at least one language');
+      return;
+    }
+
+    if (_selectedWillingRegions.isEmpty) {
+      _showSnack('Please select at least one region you are willing to work in');
       return;
     }
 
@@ -199,7 +231,7 @@ class _PilotRegisterStepTwoScreenState
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const PilotRegisterStepThreeScreen(),
+        const PilotRegisterStepThreeScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(0.3, 0.0);
           const end = Offset.zero;
@@ -245,6 +277,7 @@ class _PilotRegisterStepTwoScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Top Navigation Bar
                 Row(
                   children: [
                     _buildBackButton(),
@@ -256,8 +289,9 @@ class _PilotRegisterStepTwoScreenState
                 ),
                 const SizedBox(height: 28),
 
+                // Screen Title & Subtitle
                 const Text(
-                  'More About\nYou',
+                  'Pilot Experience',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -268,64 +302,115 @@ class _PilotRegisterStepTwoScreenState
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  "Tell us more about yourself and your experience",
+                  "Provide your professional background, skills, and work preferences.",
                   style: TextStyle(
                     fontSize: 14,
                     color: kTextMuted,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
-                _buildTextField(
-                  controller: _phoneController,
-                  hintText: 'Phone Number',
-                  keyboardType: TextInputType.phone,
-                  suffixIcon: const Icon(
-                    Icons.phone_outlined,
-                    size: 16,
-                    color: kHint,
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 12),
-
+                // 1. Years of Experience
+                _buildSectionLabel('Years of Experience'),
+                const SizedBox(height: 8),
                 _buildSelectField(
-                  hintText: 'Current Region',
-                  icon: Icons.my_location_rounded,
-                  value: _currentRegion,
-                  items: _regions,
-                  onChanged: (val) => setState(() => _currentRegion = val),
-                ),
-                const SizedBox(height: 12),
-
-                _buildSelectField(
-                  hintText: 'Regions willing to work',
-                  icon: Icons.map_outlined,
-                  value: _willingToWorkRegion,
-                  items: _regions,
-                  onChanged: (val) =>
-                      setState(() => _willingToWorkRegion = val),
-                ),
-                const SizedBox(height: 12),
-
-                _buildSelectField(
-                  hintText: 'Years of Experience',
+                  hintText: 'Select Experience Level',
                   icon: Icons.workspace_premium_outlined,
                   value: _yearsOfExperience,
                   items: _experienceYears,
                   onChanged: (val) => setState(() => _yearsOfExperience = val),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
 
+                // 2. Languages Spoken (Multi-select Chips)
+                _buildSectionLabel('Languages'),
+                const SizedBox(height: 8),
+                _buildMultiSelectChips(
+                  options: _availableLanguages,
+                  selectedItems: _selectedLanguages,
+                  onToggle: (lang) {
+                    setState(() {
+                      if (_selectedLanguages.contains(lang)) {
+                        _selectedLanguages.remove(lang);
+                      } else {
+                        _selectedLanguages.add(lang);
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // 3. Current Region (Main Working Location)
+                _buildSectionLabel('Current Region (Main Working Location)'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _countryController,
+                  hintText: 'Country (e.g. Saudi Arabia)',
+                  prefixIcon: Icons.public_rounded,
+                  validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Country is required' : null,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _stateController,
+                        hintText: 'State / Region',
+                        prefixIcon: Icons.map_outlined,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'State/Region is required'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _cityController,
+                        hintText: 'City',
+                        prefixIcon: Icons.location_city_rounded,
+                        validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'City is required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // 4. Regions Willing To Work (Multi-select)
+                _buildSectionLabel('Regions Willing To Work'),
+                const SizedBox(height: 8),
+                _buildMultiSelectChips(
+                  options: _availableWillingRegions,
+                  selectedItems: _selectedWillingRegions,
+                  onToggle: (region) {
+                    setState(() {
+                      if (_selectedWillingRegions.contains(region)) {
+                        _selectedWillingRegions.remove(region);
+                      } else {
+                        _selectedWillingRegions.add(region);
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // 5. About Me / Professional Description
+                _buildSectionLabel('About Me / Professional Description'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _aboutController,
-                  hintText: 'About Yourself',
-                  maxLines: 4,
+                  hintText:
+                  'Describe your drone experience, skills, types of drone jobs you specialize in, and professional background...',
+                  maxLines: 5,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Professional description is required'
+                      : null,
                 ),
                 const SizedBox(height: 32),
 
+                // Next Button
                 _buildPrimaryButton(
                   text: 'Next',
                   isLoading: _isSubmitting,
@@ -341,8 +426,19 @@ class _PilotRegisterStepTwoScreenState
   }
 
   // ---------------------------------------------------------------------
-  // Widgets
+  // Sub-Widgets
   // ---------------------------------------------------------------------
+
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+        color: kTextDark,
+      ),
+    );
+  }
 
   Widget _buildBackButton() {
     return GestureDetector(
@@ -354,12 +450,12 @@ class _PilotRegisterStepTwoScreenState
           color: const Color(0xFFFAFAFA),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withOpacity(0.03),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -401,13 +497,13 @@ class _PilotRegisterStepTwoScreenState
                 child: isPassed
                     ? const Icon(Icons.check, size: 11, color: Colors.white)
                     : Text(
-                        '$stepNumber',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.bold,
-                          color: isActive ? Colors.white : kHint,
-                        ),
-                      ),
+                  '$stepNumber',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? Colors.white : kHint,
+                  ),
+                ),
               ),
             ),
             if (index < 3)
@@ -422,9 +518,60 @@ class _PilotRegisterStepTwoScreenState
     );
   }
 
+  Widget _buildMultiSelectChips({
+    required List<String> options,
+    required Set<String> selectedItems,
+    required ValueChanged<String> onToggle,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((item) {
+        final isSelected = selectedItems.contains(item);
+        return InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onToggle(item);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: isSelected ? kPrimarySoft : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected ? kPrimary : kBorder,
+                width: isSelected ? 1.4 : 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[
+                  const Icon(Icons.check_rounded, size: 15, color: kPrimary),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? kPrimary : kTextDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
+    IconData? prefixIcon,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     Widget? suffixIcon,
@@ -447,13 +594,16 @@ class _PilotRegisterStepTwoScreenState
           fontSize: 13,
           fontWeight: FontWeight.w400,
         ),
+        prefixIcon: prefixIcon != null
+            ? Icon(prefixIcon, size: 18, color: kHint)
+            : null,
         suffixIcon: suffixIcon,
         errorStyle: const TextStyle(fontSize: 11, color: kDanger),
         fillColor: Colors.white,
         filled: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 13,
+          vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -475,7 +625,6 @@ class _PilotRegisterStepTwoScreenState
     );
   }
 
-  // حقل الاختيار (Bottom Sheet) بدل الـ Dropdown العادي — نفس ستايل الخطوة الأولى
   Widget _buildSelectField({
     required String hintText,
     required IconData icon,
@@ -485,7 +634,7 @@ class _PilotRegisterStepTwoScreenState
   }) {
     return FormField<String>(
       initialValue: value,
-      validator: (v) => value == null ? 'Required' : null,
+      validator: (v) => value == null ? 'Selection is required' : null,
       builder: (state) {
         return InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -499,7 +648,7 @@ class _PilotRegisterStepTwoScreenState
             },
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -513,7 +662,7 @@ class _PilotRegisterStepTwoScreenState
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 17, color: kHint),
+                    Icon(icon, size: 18, color: kHint),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -536,7 +685,7 @@ class _PilotRegisterStepTwoScreenState
                 ),
                 if (state.hasError)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 27),
+                    padding: const EdgeInsets.only(top: 6, left: 28),
                     child: Text(
                       state.errorText!,
                       style: const TextStyle(fontSize: 11, color: kDanger),
@@ -570,7 +719,7 @@ class _PilotRegisterStepTwoScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withValues(alpha: 0.28),
+              color: kPrimary.withOpacity(0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -587,32 +736,32 @@ class _PilotRegisterStepTwoScreenState
           ),
           child: isLoading
               ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                )
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: Colors.white,
+            ),
+          )
               : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      text,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ],
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ],
+          ),
         ),
       ),
     );

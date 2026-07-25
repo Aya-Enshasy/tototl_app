@@ -20,11 +20,12 @@ class _PilotRegisterStepFourScreenState
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _licenseNumberController =
-      TextEditingController();
+  TextEditingController();
   final TextEditingController _authorityController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
 
   String? _selectedLicenseType;
+  DateTime? _selectedExpiryDate;
   File? _licenseImage;
   File? _permitImage;
   _PilotDocumentType? _pickingDocument;
@@ -70,9 +71,9 @@ class _PilotRegisterStepFourScreenState
   String _documentTitle(_PilotDocumentType document) {
     switch (document) {
       case _PilotDocumentType.license:
-        return 'Pilot License';
+        return 'Pilot License Document';
       case _PilotDocumentType.permit:
-        return 'Permit / Insurance';
+        return 'Permit / Insurance Document';
     }
   }
 
@@ -89,9 +90,9 @@ class _PilotRegisterStepFourScreenState
   }
 
   Future<void> _pickDocumentImage(
-    _PilotDocumentType document,
-    ImageSource source,
-  ) async {
+      _PilotDocumentType document,
+      ImageSource source,
+      ) async {
     if (_pickingDocument != null) return;
     setState(() => _pickingDocument = document);
 
@@ -133,15 +134,13 @@ class _PilotRegisterStepFourScreenState
     );
   }
 
-  void _showDocumentActionSheet(_PilotDocumentType document) {
+  void _showImageSourceActionSheet(_PilotDocumentType document) {
     HapticFeedback.lightImpact();
-    final title = _documentTitle(document);
-    final hasImage = _documentFile(document) != null;
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final currentFile = _documentFile(document);
         return Material(
           color: Colors.white,
           surfaceTintColor: Colors.transparent,
@@ -165,7 +164,7 @@ class _PilotRegisterStepFourScreenState
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      title,
+                      _documentTitle(document),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -176,7 +175,7 @@ class _PilotRegisterStepFourScreenState
                   const SizedBox(height: 16),
                   _buildSheetOption(
                     icon: Icons.camera_alt_rounded,
-                    label: 'Take a Photo',
+                    label: 'Take Photo',
                     onTap: () {
                       Navigator.pop(context);
                       _pickDocumentImage(document, ImageSource.camera);
@@ -191,11 +190,11 @@ class _PilotRegisterStepFourScreenState
                       _pickDocumentImage(document, ImageSource.gallery);
                     },
                   ),
-                  if (hasImage) ...[
+                  if (currentFile != null) ...[
                     const SizedBox(height: 10),
                     _buildSheetOption(
                       icon: Icons.delete_outline_rounded,
-                      label: 'Remove Photo',
+                      label: 'Remove Document',
                       isDestructive: true,
                       onTap: () {
                         Navigator.pop(context);
@@ -246,14 +245,14 @@ class _PilotRegisterStepFourScreenState
     );
   }
 
-  Future<void> _pickExpiryDate() async {
-    HapticFeedback.selectionClick();
+  Future<void> _selectExpiryDate() async {
+    HapticFeedback.lightImpact();
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime(now.year + 1, now.month, now.day),
+      initialDate: _selectedExpiryDate ?? now.add(const Duration(days: 365)),
       firstDate: now,
-      lastDate: DateTime(now.year + 20, now.month, now.day),
+      lastDate: DateTime(now.year + 15),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -268,8 +267,11 @@ class _PilotRegisterStepFourScreenState
       },
     );
 
-    if (picked != null) {
-      _expiryController.text = DateFormat('dd / MM / yyyy').format(picked);
+    if (pickedDate != null) {
+      setState(() {
+        _selectedExpiryDate = pickedDate;
+        _expiryController.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+      });
     }
   }
 
@@ -381,26 +383,105 @@ class _PilotRegisterStepFourScreenState
     );
   }
 
-  Future<void> _handleComplete() async {
-    if (!_formKey.currentState!.validate()) {
-      HapticFeedback.heavyImpact();
-      return;
-    }
-    if (_selectedLicenseType == null) {
-      _showSnack('Please complete all fields');
-      return;
-    }
+  Future<void> _handleSubmit() async {
+    bool isFormValid = _formKey.currentState!.validate();
+
     if (_licenseImage == null) {
       setState(() => _showLicenseUploadError = true);
-      _showSnack('Please upload your pilot license');
+      isFormValid = false;
+    }
+
+    if (!isFormValid) {
+      HapticFeedback.heavyImpact();
+      if (_licenseImage == null) {
+        _showSnack('Please upload your official pilot license photo.');
+      }
       return;
     }
 
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 350));
+    await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
     setState(() => _isSubmitting = false);
-    _showSnack('Registration details saved');
+
+    // Display Registration Completed Dialog
+    _showCompletionSuccessDialog();
+  }
+
+  void _showCompletionSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: kPrimarySoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.verified_user_rounded,
+                  size: 48,
+                  color: kPrimary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Registration Submitted!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: kTextDark,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Your pilot profile and certifications are under review. We will notify you once verified.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: kTextMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -429,6 +510,7 @@ class _PilotRegisterStepFourScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Top Navigation Bar
                 Row(
                   children: [
                     _buildBackButton(),
@@ -439,8 +521,10 @@ class _PilotRegisterStepFourScreenState
                   ],
                 ),
                 const SizedBox(height: 28),
+
+                // Title & Subtitle
                 const Text(
-                  'Pilot\nCredentials',
+                  'Certifications &\nDocuments',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -451,83 +535,125 @@ class _PilotRegisterStepFourScreenState
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Verify your license and supporting documents',
+                  'Upload your drone license and official permits for verification.',
                   style: TextStyle(
                     fontSize: 14,
                     color: kTextMuted,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 28),
+
+                // License Type Dropdown
+                _buildSectionLabel('License Type'),
+                const SizedBox(height: 8),
                 _buildSelectField(
-                  hintText: 'License Type',
-                  icon: Icons.workspace_premium_outlined,
+                  hintText: 'Select License Type',
+                  icon: Icons.card_membership_rounded,
                   value: _selectedLicenseType,
                   items: _licenseTypes,
-                  onChanged: (val) =>
-                      setState(() => _selectedLicenseType = val),
+                  onChanged: (val) => setState(() => _selectedLicenseType = val),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+
+                // License Number
+                _buildSectionLabel('License / Certification Number'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _licenseNumberController,
-                  hintText: 'License Number',
+                  hintText: 'e.g. C-129384910',
                   suffixIcon: const Icon(
                     Icons.badge_outlined,
-                    size: 16,
+                    size: 18,
                     color: kHint,
                   ),
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'License number is required' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+
+                // Issuing Authority
+                _buildSectionLabel('Issuing Authority'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _authorityController,
-                  hintText: 'Issuing Authority',
+                  hintText: 'e.g. GACA / FAA',
                   suffixIcon: const Icon(
                     Icons.account_balance_outlined,
-                    size: 16,
+                    size: 18,
                     color: kHint,
                   ),
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Authority name is required' : null,
                 ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  controller: _expiryController,
-                  hintText: 'Expiration Date',
-                  readOnly: true,
-                  onTap: _pickExpiryDate,
-                  suffixIcon: const Icon(
-                    Icons.calendar_today_rounded,
-                    size: 16,
-                    color: kHint,
+                const SizedBox(height: 16),
+
+                // Expiration Date Picker
+                _buildSectionLabel('License Expiration Date'),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _selectExpiryDate,
+                  child: AbsorbPointer(
+                    child: _buildTextField(
+                      controller: _expiryController,
+                      hintText: 'Select Date (YYYY-MM-DD)',
+                      suffixIcon: const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 18,
+                        color: kHint,
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Expiration date is required'
+                          : null,
+                    ),
                   ),
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
                 ),
-                const SizedBox(height: 18),
-                _buildDocumentUploadTile(
-                  document: _PilotDocumentType.license,
-                  subtitle: 'Required',
-                  hasError: _showLicenseUploadError,
+                const SizedBox(height: 24),
+
+                // License Document Upload Card (Required)
+                _buildSectionLabel('Upload Pilot License (Required)'),
+                const SizedBox(height: 8),
+                _buildDocumentUploadCard(
+                  documentType: _PilotDocumentType.license,
+                  showError: _showLicenseUploadError,
                 ),
-                const SizedBox(height: 12),
-                _buildDocumentUploadTile(
-                  document: _PilotDocumentType.permit,
-                  subtitle: 'Optional',
+                const SizedBox(height: 20),
+
+                // Permit / Insurance Upload Card (Optional)
+                _buildSectionLabel('Upload Permit or Insurance (Optional)'),
+                const SizedBox(height: 8),
+                _buildDocumentUploadCard(
+                  documentType: _PilotDocumentType.permit,
+                  showError: false,
                 ),
                 const SizedBox(height: 32),
+
+                // Submit Button
                 _buildPrimaryButton(
                   text: 'Complete Registration',
-                  icon: Icons.check_circle_rounded,
                   isLoading: _isSubmitting,
-                  onPressed: _isSubmitting ? null : _handleComplete,
+                  onPressed: _isSubmitting ? null : _handleSubmit,
                 ),
                 const SizedBox(height: 20),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Custom Reusable UI Components
+  // ---------------------------------------------------------------------
+
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+        color: kTextDark,
       ),
     );
   }
@@ -542,12 +668,12 @@ class _PilotRegisterStepFourScreenState
           color: const Color(0xFFFAFAFA),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withOpacity(0.03),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -557,129 +683,6 @@ class _PilotRegisterStepFourScreenState
           Icons.arrow_back_ios_new_rounded,
           size: 13,
           color: kTextDark,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDocumentUploadTile({
-    required _PilotDocumentType document,
-    required String subtitle,
-    bool hasError = false,
-  }) {
-    final file = _documentFile(document);
-    final isPicking = _pickingDocument == document;
-    final hasFile = file != null;
-    final borderColor = hasError ? kDanger : (hasFile ? kPrimary : kBorder);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _showDocumentActionSheet(document),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: borderColor, width: hasFile ? 1.2 : 0.8),
-          boxShadow: hasFile
-              ? [
-                  BoxShadow(
-                    color: kPrimary.withValues(alpha: 0.08),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: hasFile ? kPrimarySoft : kSurfaceSoft,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: isPicking
-                    ? const Center(
-                        child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.3,
-                            color: kPrimary,
-                          ),
-                        ),
-                      )
-                    : hasFile
-                    ? Image.file(
-                        file,
-                        key: ValueKey(file.path),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(
-                            Icons.description_outlined,
-                            color: kPrimary,
-                            size: 28,
-                          );
-                        },
-                      )
-                    : Icon(
-                        document == _PilotDocumentType.license
-                            ? Icons.badge_outlined
-                            : Icons.verified_user_outlined,
-                        color: hasError ? kDanger : kHint,
-                        size: 28,
-                      ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _documentTitle(document),
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                            color: kTextDark,
-                          ),
-                        ),
-                      ),
-                      if (hasFile)
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: kSuccess,
-                          size: 18,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    hasFile ? 'Uploaded' : subtitle,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: hasError ? kDanger : kTextMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Icon(
-              hasFile ? Icons.edit_rounded : Icons.add_a_photo_rounded,
-              color: hasError ? kDanger : kPrimary,
-              size: 19,
-            ),
-          ],
         ),
       ),
     );
@@ -712,13 +715,13 @@ class _PilotRegisterStepFourScreenState
                 child: isPassed
                     ? const Icon(Icons.check, size: 11, color: Colors.white)
                     : Text(
-                        '$stepNumber',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.bold,
-                          color: isActive ? Colors.white : kHint,
-                        ),
-                      ),
+                  '$stepNumber',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? Colors.white : kHint,
+                  ),
+                ),
               ),
             ),
             if (index < 3)
@@ -733,22 +736,131 @@ class _PilotRegisterStepFourScreenState
     );
   }
 
+  Widget _buildDocumentUploadCard({
+    required _PilotDocumentType documentType,
+    required bool showError,
+  }) {
+    final file = _documentFile(documentType);
+    final isPicking = _pickingDocument == documentType;
+
+    return GestureDetector(
+      onTap: () => _showImageSourceActionSheet(documentType),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 120,
+        decoration: BoxDecoration(
+          color: file != null ? kPrimarySoft.withOpacity(0.3) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: showError
+                ? kDanger
+                : (file != null ? kPrimary : kBorder),
+            width: showError ? 1.4 : (file != null ? 1.2 : 0.8),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: isPicking
+              ? const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: kPrimary,
+            ),
+          )
+              : file != null
+              ? Stack(
+            children: [
+              Positioned.fill(
+                child: Image.file(
+                  file,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.35),
+                ),
+              ),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.check_circle_rounded,
+                        color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Document Selected',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    size: 16,
+                    color: kTextDark,
+                  ),
+                ),
+              ),
+            ],
+          )
+              : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.cloud_upload_outlined,
+                size: 30,
+                color: showError ? kDanger : kPrimary,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tap to upload document photo',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: showError ? kDanger : kTextDark,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'JPG, PNG or PDF formats supported',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: kHint,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     Widget? suffixIcon,
-    bool readOnly = false,
-    VoidCallback? onTap,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      readOnly: readOnly,
-      onTap: onTap,
       validator: validator,
       style: const TextStyle(
         fontSize: 13.5,
@@ -768,7 +880,7 @@ class _PilotRegisterStepFourScreenState
         filled: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 13,
+          vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -799,7 +911,7 @@ class _PilotRegisterStepFourScreenState
   }) {
     return FormField<String>(
       initialValue: value,
-      validator: (v) => value == null ? 'Required' : null,
+      validator: (v) => value == null ? 'Selection is required' : null,
       builder: (state) {
         return InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -813,7 +925,7 @@ class _PilotRegisterStepFourScreenState
             },
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -827,7 +939,7 @@ class _PilotRegisterStepFourScreenState
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 17, color: kHint),
+                    Icon(icon, size: 18, color: kHint),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -850,7 +962,7 @@ class _PilotRegisterStepFourScreenState
                 ),
                 if (state.hasError)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 27),
+                    padding: const EdgeInsets.only(top: 6, left: 28),
                     child: Text(
                       state.errorText!,
                       style: const TextStyle(fontSize: 11, color: kDanger),
@@ -867,7 +979,6 @@ class _PilotRegisterStepFourScreenState
   Widget _buildPrimaryButton({
     required String text,
     required VoidCallback? onPressed,
-    IconData icon = Icons.arrow_forward_rounded,
     bool isLoading = false,
   }) {
     return AnimatedOpacity(
@@ -885,7 +996,7 @@ class _PilotRegisterStepFourScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withValues(alpha: 0.28),
+              color: kPrimary.withOpacity(0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -902,32 +1013,32 @@ class _PilotRegisterStepFourScreenState
           ),
           child: isLoading
               ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                )
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: Colors.white,
+            ),
+          )
               : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        text,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(icon, color: Colors.white, size: 16),
-                  ],
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.check_circle_outline_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ],
+          ),
         ),
       ),
     );

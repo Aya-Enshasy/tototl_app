@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/widgets/choose_account.dart';
 
+import '../../core/navigation/bottom_navbar.dart';
+
 // تأكد من عمل import لملف شاشة اختيار نوع الحساب إذا كانت في ملف منفصل
 // import 'choose_account_type_screen.dart';
 
@@ -320,7 +322,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MyScreen(),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,

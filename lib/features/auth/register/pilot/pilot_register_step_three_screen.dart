@@ -29,8 +29,8 @@ class _PilotRegisterStepThreeScreenState
 
   final ImagePicker _picker = ImagePicker();
   late final List<String> _years = List.generate(
-    12,
-    (index) => (DateTime.now().year - index).toString(),
+    15,
+        (index) => (DateTime.now().year - index).toString(),
   );
 
   static const Color kPrimary = Color(0xFF1E56F0);
@@ -246,61 +246,71 @@ class _PilotRegisterStepThreeScreenState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  ...items.map((item) {
-                    final isSelected = item == selected;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: isSelected ? kPrimarySoft : kSurfaceSoft,
-                        borderRadius: BorderRadius.circular(14),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            onSelected(item);
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.4,
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        final isSelected = item == selected;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Material(
+                            color: isSelected ? kPrimarySoft : kSurfaceSoft,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isSelected
-                                    ? kPrimary
-                                    : Colors.transparent,
-                                width: 1.2,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item,
-                                    style: TextStyle(
-                                      fontSize: 14.5,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: isSelected ? kPrimary : kTextDark,
-                                    ),
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                onSelected(item);
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? kPrimary
+                                        : Colors.transparent,
+                                    width: 1.2,
                                   ),
                                 ),
-                                if (isSelected)
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    size: 20,
-                                    color: kPrimary,
-                                  ),
-                              ],
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item,
+                                        style: TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          color: isSelected ? kPrimary : kTextDark,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      const Icon(
+                                        Icons.check_circle_rounded,
+                                        size: 20,
+                                        color: kPrimary,
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }),
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -316,7 +326,7 @@ class _PilotRegisterStepThreeScreenState
       return;
     }
     if (_selectedYear == null) {
-      _showSnack('Please complete all fields');
+      _showSnack('Please select manufacturing year');
       return;
     }
 
@@ -329,7 +339,7 @@ class _PilotRegisterStepThreeScreenState
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const PilotRegisterStepFourScreen(),
+        const PilotRegisterStepFourScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(0.3, 0.0);
           const end = Offset.zero;
@@ -375,6 +385,7 @@ class _PilotRegisterStepThreeScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Top Navigation Bar
                 Row(
                   children: [
                     _buildBackButton(),
@@ -385,6 +396,8 @@ class _PilotRegisterStepThreeScreenState
                   ],
                 ),
                 const SizedBox(height: 28),
+
+                // Title & Subtitle
                 const Text(
                   'Your\nDrone',
                   style: TextStyle(
@@ -405,62 +418,86 @@ class _PilotRegisterStepThreeScreenState
                   ),
                 ),
                 const SizedBox(height: 26),
+
+                // Drone Image Upload Section
                 Center(child: _buildDroneImagePicker()),
-                const SizedBox(height: 30),
+                const SizedBox(height: 28),
+
+                // Make / Manufacturer
+                _buildSectionLabel('Make / Manufacturer'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _makeController,
-                  hintText: 'Make',
+                  hintText: 'e.g. DJI, Autel Robotics',
                   suffixIcon: const Icon(
                     Icons.precision_manufacturing_outlined,
-                    size: 16,
+                    size: 18,
                     color: kHint,
                   ),
                   validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
+                  value == null || value.trim().isEmpty ? 'Make is required' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+
+                // Model
+                _buildSectionLabel('Drone Model'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _modelController,
-                  hintText: 'Model',
+                  hintText: 'e.g. Mavic 3 Enterprise',
                   suffixIcon: const Icon(
                     Icons.airplanemode_active_rounded,
-                    size: 16,
+                    size: 18,
                     color: kHint,
                   ),
                   validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
+                  value == null || value.trim().isEmpty ? 'Model is required' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+
+                // Year Selection
+                _buildSectionLabel('Year of Manufacture'),
+                const SizedBox(height: 8),
                 _buildSelectField(
-                  hintText: 'Year',
+                  hintText: 'Select Year',
                   icon: Icons.calendar_month_rounded,
                   value: _selectedYear,
                   items: _years,
                   onChanged: (val) => setState(() => _selectedYear = val),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+
+                // Serial Number
+                _buildSectionLabel('Serial Number'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _serialController,
-                  hintText: 'Serial Number',
+                  hintText: 'e.g. 1581F4ARX2109',
                   suffixIcon: const Icon(
                     Icons.confirmation_number_outlined,
-                    size: 16,
+                    size: 18,
                     color: kHint,
                   ),
                   validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
+                  value == null || value.trim().isEmpty ? 'Serial number is required' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+
+                // Accessories (Optional)
+                _buildSectionLabel('Accessories & Payload (Optional)'),
+                const SizedBox(height: 8),
                 _buildTextField(
                   controller: _accessoriesController,
-                  hintText: 'Accessories (Optional)',
+                  hintText: 'e.g. Thermal Camera, RTK Module, Spotlight',
                   suffixIcon: const Icon(
                     Icons.add_box_outlined,
-                    size: 16,
+                    size: 18,
                     color: kHint,
                   ),
                 ),
                 const SizedBox(height: 32),
+
+                // Next Button
                 _buildPrimaryButton(
                   text: 'Next',
                   isLoading: _isSubmitting,
@@ -475,6 +512,21 @@ class _PilotRegisterStepThreeScreenState
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Custom UI Helpers & Subwidgets
+  // ---------------------------------------------------------------------
+
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+        color: kTextDark,
+      ),
+    );
+  }
+
   Widget _buildBackButton() {
     return GestureDetector(
       onTap: () => Navigator.pop(context),
@@ -485,12 +537,12 @@ class _PilotRegisterStepThreeScreenState
           color: const Color(0xFFFAFAFA),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withOpacity(0.03),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -524,7 +576,7 @@ class _PilotRegisterStepThreeScreenState
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withOpacity(0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -534,36 +586,36 @@ class _PilotRegisterStepThreeScreenState
               borderRadius: BorderRadius.circular(26),
               child: _isPickingImage
                   ? const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: kPrimary,
-                        ),
-                      ),
-                    )
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: kPrimary,
+                  ),
+                ),
+              )
                   : _droneImage != null
                   ? Image.file(
-                      _droneImage!,
-                      key: ValueKey(_droneImage!.path),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.airplanemode_active_rounded,
-                          size: 58,
-                          color: kHint,
-                        );
-                      },
-                    )
+                _droneImage!,
+                key: ValueKey(_droneImage!.path),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.airplanemode_active_rounded,
+                    size: 58,
+                    color: kHint,
+                  );
+                },
+              )
                   : Container(
-                      color: kSurfaceSoft,
-                      child: const Icon(
-                        Icons.airplanemode_active_rounded,
-                        size: 58,
-                        color: Color(0xFFCBD5E1),
-                      ),
-                    ),
+                color: kSurfaceSoft,
+                child: const Icon(
+                  Icons.airplanemode_active_rounded,
+                  size: 58,
+                  color: Color(0xFFCBD5E1),
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -577,7 +629,7 @@ class _PilotRegisterStepThreeScreenState
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: kPrimary.withValues(alpha: 0.25),
+                    color: kPrimary.withOpacity(0.25),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -624,13 +676,13 @@ class _PilotRegisterStepThreeScreenState
                 child: isPassed
                     ? const Icon(Icons.check, size: 11, color: Colors.white)
                     : Text(
-                        '$stepNumber',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.bold,
-                          color: isActive ? Colors.white : kHint,
-                        ),
-                      ),
+                  '$stepNumber',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? Colors.white : kHint,
+                  ),
+                ),
               ),
             ),
             if (index < 3)
@@ -676,7 +728,7 @@ class _PilotRegisterStepThreeScreenState
         filled: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 13,
+          vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -707,7 +759,7 @@ class _PilotRegisterStepThreeScreenState
   }) {
     return FormField<String>(
       initialValue: value,
-      validator: (v) => value == null ? 'Required' : null,
+      validator: (v) => value == null ? 'Selection is required' : null,
       builder: (state) {
         return InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -721,7 +773,7 @@ class _PilotRegisterStepThreeScreenState
             },
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -735,7 +787,7 @@ class _PilotRegisterStepThreeScreenState
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 17, color: kHint),
+                    Icon(icon, size: 18, color: kHint),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -758,7 +810,7 @@ class _PilotRegisterStepThreeScreenState
                 ),
                 if (state.hasError)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 27),
+                    padding: const EdgeInsets.only(top: 6, left: 28),
                     child: Text(
                       state.errorText!,
                       style: const TextStyle(fontSize: 11, color: kDanger),
@@ -792,7 +844,7 @@ class _PilotRegisterStepThreeScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withValues(alpha: 0.28),
+              color: kPrimary.withOpacity(0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -809,32 +861,32 @@ class _PilotRegisterStepThreeScreenState
           ),
           child: isLoading
               ? const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                )
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: Colors.white,
+            ),
+          )
               : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      text,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ],
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -29,6 +29,7 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   image_picker: ^1.0.7
+  liquid_glass_bottom_bar: ^0.0.6
   intl: ^0.19.0
   flutter:
     sdk: flutter
@@ -56,11 +57,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/splash.png
-    - assets/images/drone_login.png
-    - assets/images/logo.png
-    - assets/images/drone.png
-    - assets/images/company.png
+    - assets/images/
 
 
   # To add assets to your application, add an assets section, like this:

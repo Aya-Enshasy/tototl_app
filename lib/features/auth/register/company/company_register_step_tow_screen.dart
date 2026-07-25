@@ -1,40 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tototl_app/features/auth/register/company/company_register_step_three_screen.dart';
+
+// قم باستيراد الخطوة الثالثة هنا
+import 'company_register_step_three_screen.dart';
 
 class CompanyRegisterStepTwoScreen extends StatefulWidget {
   const CompanyRegisterStepTwoScreen({super.key});
 
   @override
-  State<CompanyRegisterStepTwoScreen> createState() => _CompanyRegisterStepTwoScreenState();
+  State<CompanyRegisterStepTwoScreen> createState() =>
+      _CompanyRegisterStepTwoScreenState();
 }
 
-class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScreen> {
+class _CompanyRegisterStepTwoScreenState
+    extends State<CompanyRegisterStepTwoScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // التحكم في النصوص
+  // متحكمات النصوص
+  final TextEditingController _countryController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _websiteController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
-  String? _selectedIndustry;
+  // حالة الموافقة على الشروط
+  bool _isAgreed = false;
 
-  // قائمة القطاعات للـ Dropdown
-  final List<String> _industries = [
-    'Photography & Videography',
-    'Real Estate & Construction',
-    'Agriculture & Farming',
-    'Security & Surveillance',
-    'Geographic Inspection',
-    'Delivery & Logistics'
+  // مناطق العمل والمشروعات (Operating Regions)
+  final List<String> _availableRegions = [
+    'Saudi Arabia',
+    'United Arab Emirates',
+    'GCC Region',
+    'Middle East',
+    'North America',
+    'Europe',
   ];
+  final List<String> _selectedRegions = [];
+
+  @override
+  void dispose() {
+    _countryController.dispose();
+    _stateController.dispose();
+    _cityController.dispose();
+    _addressController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _handleNext() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (_selectedRegions.isEmpty) {
+      _showSnack('Please select at least one operating region');
+      return;
+    }
+    if (!_isAgreed) {
+      _showSnack('Please agree to the User Contract Agreement & Terms');
+      return;
+    }
+
+    // الانتقال للخطوة الثالثة
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CompanyRegisterStepThreeScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -48,75 +102,216 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ==========================================
-                // 1. مؤشر الخطوات (Step 1 Completed, Step 2 Active)
+                // 1. شريط العلوي (زر الرجوع + مؤشر 4 خطوات)
                 // ==========================================
-                const SizedBox(height: 10),
-                _buildStepIndicator(),
-                const SizedBox(height: 35),
+                Row(
+                  children: [
+                    _buildBackButton(),
+                    Expanded(
+                      child: Center(
+                        child: _buildStepIndicator(currentStep: 2),
+                      ),
+                    ),
+                    const SizedBox(width: 38), // لموازنة زر الرجوع
+                  ],
+                ),
+                const SizedBox(height: 30),
 
                 // ==========================================
                 // 2. العناوين والنصوص (Header)
                 // ==========================================
                 const Text(
-                  'Company Details',
+                  'Company\nProfile',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF1A1A1A),
+                    height: 1.2,
                     letterSpacing: -0.5,
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  "Add more details about your business",
+                  'Collect company information and operating areas',
                   style: TextStyle(
                     fontSize: 14,
                     color: Color(0xFF8F93A3),
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 35),
+                const SizedBox(height: 28),
 
                 // ==========================================
-                // 3. حقول الإدخال (Form Fields)
+                // 3. حقول الموقع الجغرافي (Location Fields)
                 // ==========================================
 
-                // حقل عنوان الشركة (Business Address)
+                // Country
+                _buildTextField(
+                  controller: _countryController,
+                  hintText: 'Country',
+                  prefixIcon: const Icon(Icons.public_rounded, size: 20, color: Color(0xFFA0A5BA)),
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Country is required' : null,
+                ),
+                const SizedBox(height: 14),
+
+                // State / Province & City (في صف واحد)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _stateController,
+                        hintText: 'State / Province',
+                        prefixIcon: const Icon(Icons.map_outlined, size: 20, color: Color(0xFFA0A5BA)),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'State is required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _cityController,
+                        hintText: 'City',
+                        prefixIcon: const Icon(Icons.location_city_rounded, size: 20, color: Color(0xFFA0A5BA)),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'City is required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Company Address
                 _buildTextField(
                   controller: _addressController,
-                  hintText: 'Business Address',
-                  prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFA0A5BA)),
+                  hintText: 'Company Address',
+                  prefixIcon: const Icon(Icons.home_work_outlined, size: 20, color: Color(0xFFA0A5BA)),
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Address is required' : null,
                 ),
-                const SizedBox(height: 16),
-
-                // حقل الموقع الإلكتروني (Website - Optional)
-                _buildTextField(
-                  controller: _websiteController,
-                  hintText: 'Website (Optional)',
-                  keyboardType: TextInputType.url,
-                  prefixIcon: const Icon(Icons.language_rounded, size: 20, color: Color(0xFFA0A5BA)),
-                ),
-                const SizedBox(height: 16),
-
-                // حقل قطاع العمل (Industry - Dropdown)
-                _buildDropdownField(
-                  hintText: 'Industry',
-                  value: _selectedIndustry,
-                  items: _industries,
-                  onChanged: (val) => setState(() => _selectedIndustry = val),
-                ),
-                const SizedBox(height: 16),
-
-                // حقل وصف الشركة الممتد (Company Description)
-                _buildTextField(
-                  controller: _descriptionController,
-                  hintText: 'Company Description',
-                  maxLines: 4, // يتيح كتابة نص متعدد الأسطر بشكل مريح للشركات
-                ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
 
                 // ==========================================
-                // 4. زر الانتقال للخطوة التالية (Next Button)
+                // 4. مناطق التشغيل (Operating Regions)
+                // ==========================================
+                const Text(
+                  'Operating Regions',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select regions where your company operates',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF8F93A3),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 10,
+                  children: _availableRegions.map((region) {
+                    final isSelected = _selectedRegions.contains(region);
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedRegions.remove(region);
+                          } else {
+                            _selectedRegions.add(region);
+                          }
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              region,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            if (isSelected) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.check, size: 14, color: Colors.white),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                // ==========================================
+                // 5. وصف الشركة (Company Description)
+                // ==========================================
+                const Text(
+                  'Company Description',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _descriptionController,
+                  hintText: 'Company background, services provided, industry experience...',
+                  maxLines: 4,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Please describe your company' : null,
+                ),
+                const SizedBox(height: 20),
+
+                // ==========================================
+                // 6. الموافقة على الشروط (Agreement Checkbox)
+                // ==========================================
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: _isAgreed,
+                        activeColor: const Color(0xFF3F6DFB),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        onChanged: (val) {
+                          setState(() => _isAgreed = val ?? false);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'I agree to the User Contract Agreement and Terms & Conditions',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF1A1A1A),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // ==========================================
+                // 7. زر الانتقال للخطوة التالية (Next Button)
                 // ==========================================
                 Container(
                   width: double.infinity,
@@ -140,17 +335,7 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const CompanyRegisterStepThreeScreen(),
-                        ),
-                      );
-                      if (_formKey.currentState!.validate()) {
-                        // الانتقال لـ Company Step 3 (Subscription Plan)
-                      }
-                    },
+                    onPressed: _handleNext,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -185,16 +370,38 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
   }
 
   // ===========================================================================
-  // دالات بناء عناصر الواجهة المخصصة (Custom Widgets) الموحدة للمشروع
+  // WIDGETS المخصصة لتناسب أسلوب وتصميم قسم الدرون
   // ===========================================================================
 
-  // بناء مؤشر الخطوات (3 خطوات إجمالية، الخطوة 1 مكتملة بالصح ✅، و 2 نشطة)
-  Widget _buildStepIndicator() {
+  // زر الرجوع المخصص بالدائرة المتناسقة
+  Widget _buildBackButton() {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+        ),
+        child: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 15,
+          color: Color(0xFF1A1A1A),
+        ),
+      ),
+    );
+  }
+
+  // مؤشر الخطوات الـ 4 المخصص للشركة
+  Widget _buildStepIndicator({required int currentStep}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (index) {
-        bool isActive = index == 1; // الخطوة الثانية نشطة
-        bool isPassed = index < 1;  // الخطوة الأولى تم تجاوزها بنجاح
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(4, (index) {
+        final stepNumber = index + 1;
+        final isActive = stepNumber == currentStep;
+        final isPassed = stepNumber < currentStep;
 
         return Row(
           children: [
@@ -209,7 +416,7 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
                 border: Border.all(
                   color: isActive || isPassed
                       ? const Color(0xFF3F6DFB)
-                      : const Color(0xFFE5E7EB),
+                      : const Color(0xFFE5E5E7EB),
                   width: 2,
                 ),
               ),
@@ -217,7 +424,7 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
                 child: isPassed
                     ? const Icon(Icons.check, size: 12, color: Colors.white)
                     : Text(
-                  '${index + 1}',
+                  '$stepNumber',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -226,11 +433,11 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
                 ),
               ),
             ),
-            if (index < 2)
+            if (index < 3)
               Container(
-                width: 60,
+                width: 26,
                 height: 2,
-                color: index < 1 ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                color: isPassed ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
               ),
           ],
         );
@@ -238,13 +445,14 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
     );
   }
 
-  // بناء حقول النصوص الفاخرة
+  // بناء حقول النصوص بأسلوب الخانات الموحد
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     Widget? prefixIcon,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -255,12 +463,17 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
-        style: const TextStyle(fontSize: 14.5, color: Color(0xFF1A1A1A), fontWeight: FontWeight.w500),
+        validator: validator,
+        style: const TextStyle(
+          fontSize: 14.5,
+          color: Color(0xFF1A1A1A),
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: const TextStyle(color: Color(0xFFA0A5BA), fontSize: 14),
           prefixIcon: prefixIcon,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -273,56 +486,14 @@ class _CompanyRegisterStepTwoScreenState extends State<CompanyRegisterStepTwoScr
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
           ),
-        ),
-      ),
-    );
-  }
-
-  // بناء حقل الـ Dropdown للقطاعات
-  Widget _buildDropdownField({
-    required String hintText,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ButtonTheme(
-        alignedDropdown: true,
-        child: DropdownButtonFormField<String>(
-          value: value,
-          hint: Text(
-            hintText,
-            style: const TextStyle(color: Color(0xFFA0A5BA), fontSize: 14, fontWeight: FontWeight.w400),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 1),
           ),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF9E9E9E)),
-          style: const TextStyle(fontSize: 14.5, color: Color(0xFF1A1A1A), fontWeight: FontWeight.w500),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.work_outline_rounded, size: 20, color: Color(0xFFA0A5BA)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
-            ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
           ),
-          items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
-          }).toList(),
-          onChanged: onChanged,
         ),
       ),
     );

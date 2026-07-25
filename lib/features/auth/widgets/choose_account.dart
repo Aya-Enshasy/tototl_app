@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_one_screen.dart';
 
 import '../register/company/company_register_step_one_screen.dart';
-import '../register/pilot/pilot_register_step_tow_screen.dart';
 
 class ChooseAccountTypeScreen extends StatefulWidget {
   const ChooseAccountTypeScreen({super.key});
@@ -33,10 +32,10 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 650), // سرعة حركة متناسقة وأنعم
+      duration: const Duration(milliseconds: 650),
     );
 
-    // 1. ظهور التظليل والـ Blur تدريجياً فوق شاشة اللوجن
+    // 1. ظهور التظليل والـ Blur تدريجياً
     _bgFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -52,7 +51,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
       ),
     );
 
-    // 3. حركة الكرت الأول المتداخلة
+    // 3. حركة الكرت الأول
     _card1FadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -99,30 +98,29 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final sheetHeight = size.height * 0.80;
+    final sheetHeight = size.height * 0.70;
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // مهم جداً لتبقى الخلفية شفافة
+      backgroundColor: Colors.transparent,
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
-          // حساب المسافة الإجمالية لحركة الـ Sheet (الدخول + سحب المستخدم)
           double currentTranslation = (_sheetEntranceAnimation.value * sheetHeight) + _dragOffset;
 
           return Stack(
             children: [
               // ==========================================
-              // الطبقة 1: تأثير التمويه (Blur) يطبق مباشرة على شاشة اللوجن بالخلفية
+              // الطبقة 1: تأثير التمويه (Blur)
               // ==========================================
               Positioned.fill(
                 child: FadeTransition(
                   opacity: _bgFadeAnimation,
                   child: GestureDetector(
-                    onTap: _dismissScreen, // الضغط على المساحة الفارغة يغلق الشاشة
+                    onTap: _dismissScreen,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
                       child: Container(
-                        color: const Color(0xFF0B1731).withOpacity(0.55), // تظليل كحلي داكن شفاف
+                        color: const Color(0xFF0B1731).withOpacity(0.55),
                       ),
                     ),
                   ),
@@ -130,7 +128,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
               ),
 
               // ==========================================
-              // الطبقة 2: الـ Bottom Sheet التفاعلي القابل للسحب باليد
+              // الطبقة 2: الـ Bottom Sheet التفاعلي
               // ==========================================
               Positioned(
                 left: 0,
@@ -143,15 +141,13 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                     onVerticalDragUpdate: (details) {
                       setState(() {
                         _dragOffset += details.primaryDelta!;
-                        if (_dragOffset < 0) _dragOffset = 0; // منع السحب لأعلى من الحد
+                        if (_dragOffset < 0) _dragOffset = 0;
                       });
                     },
                     onVerticalDragEnd: (details) {
-                      // إذا تجاوز السحب 25% من الارتفاع أو كانت سرعة النتر للأسفل عالية يتم الإغلاق
                       if (_dragOffset > sheetHeight * 0.25 || details.primaryVelocity! > 500) {
                         _dismissScreen();
                       } else {
-                        // تأثير الارتداد المرن (Spring Back)
                         setState(() {
                           _dragOffset = 0.0;
                         });
@@ -208,7 +204,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                           ),
                           const SizedBox(height: 36),
 
-                          // الكروت الحركية متداخلة الزمن
+                          // الكروت الحركية
                           Expanded(
                             child: SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
@@ -280,7 +276,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
     );
   }
 
-  // دالة بناء كروت الخيارات الـ Premium
+  // دالة بناء الكرت المعدلة والمتناسقة بصریاً
   Widget _buildAccountCard({
     required String title,
     required String subtitle,
@@ -292,12 +288,13 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 150,
+        height: 140,
         decoration: BoxDecoration(
+          color: baseColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: baseColor.withOpacity(0.25),
+              color: baseColor.withOpacity(0.3),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -307,19 +304,26 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
           borderRadius: BorderRadius.circular(24),
           child: Stack(
             children: [
-              Container(color: baseColor),
+              // 1. الصورة بجهة اليسار بعرض متناسق (120px)
               Positioned(
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: 160,
+                width: 120,
                 child: Image.asset(
                   imageAsset,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(color: Colors.white10),
+                  errorBuilder: (context, error, stackTrace) =>
+                      Container(color: Colors.white10),
                 ),
               ),
-              Positioned.fill(
+
+              // 2. تدرج لوني ناعم لإخفاء حافة الصورة ودمجها مع الخلفية
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 140,
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -327,17 +331,20 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                       end: Alignment.centerRight,
                       colors: [
                         Colors.transparent,
-                        baseColor.withOpacity(0.5),
+                        baseColor.withOpacity(0.3),
+                        baseColor.withOpacity(0.85),
                         baseColor,
                       ],
-                      stops: const [0.15, 0.45, 0.75],
+                      stops: const [0.0, 0.35, 0.7, 1.0],
                     ),
                   ),
                 ),
               ),
+
+              // 3. النص والسهم بمسافة تبدأ من 125px لمنع أي تداخل
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 140, right: 20),
+                  padding: const EdgeInsets.only(left: 125, right: 18, top: 16, bottom: 16),
                   child: Row(
                     children: [
                       Expanded(
@@ -349,28 +356,30 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                               title,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 20,
+                                fontSize: 19,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: -0.3,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             Text(
                               subtitle,
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.85),
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 height: 1.35,
                                 fontWeight: FontWeight.w400,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Container(
-                        width: 32,
-                        height: 32,
+                        width: 34,
+                        height: 34,
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
@@ -378,7 +387,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                         child: Icon(
                           Icons.arrow_forward_rounded,
                           color: arrowColor,
-                          size: 16,
+                          size: 17,
                         ),
                       ),
                     ],

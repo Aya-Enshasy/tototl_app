@@ -1,51 +1,106 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'company_register_step_four_screen.dart';
+
 class CompanyRegisterStepThreeScreen extends StatefulWidget {
   const CompanyRegisterStepThreeScreen({super.key});
 
   @override
-  State<CompanyRegisterStepThreeScreen> createState() => _CompanyRegisterStepThreeScreenState();
+  State<CompanyRegisterStepThreeScreen> createState() =>
+      _CompanyRegisterStepThreeScreenState();
 }
 
-class _CompanyRegisterStepThreeScreenState extends State<CompanyRegisterStepThreeScreen> {
-  // تتبع الخطة المختارة (0 = Basic, 1 = Pro, 2 = Enterprise)
-  int _selectedPlanIndex = 1; // افتراضياً نحدد الـ Pro لأنها الأكثر شعبية
+class _CompanyRegisterStepThreeScreenState
+    extends State<CompanyRegisterStepThreeScreen> {
+  final _formKey = GlobalKey<FormState>();
 
-  // بيانات خطط الاشتراك
-  final List<Map<String, dynamic>> _plans = [
-    {
-      'title': 'Basic',
-      'price': '\$49',
-      'period': '/month',
-      'desc': 'Perfect for small startups starting their drone operations.',
-      'features': ['Up to 3 active pilots', 'Standard support', '5GB Cloud storage'],
-      'isPopular': false,
-    },
-    {
-      'title': 'Professional',
-      'price': '\$149',
-      'period': '/month',
-      'desc': 'Best for growing businesses looking for advanced management.',
-      'features': ['Unlimited pilots', '24/7 Priority support', '100GB Cloud storage', 'Advanced Analytics'],
-      'isPopular': true,
-    },
-    {
-      'title': 'Enterprise',
-      'price': 'Custom',
-      'period': '',
-      'desc': 'Tailored solutions for large organizations and corporations.',
-      'features': ['Custom integration', 'Dedicated account manager', 'Unlimited storage', 'On-site training'],
-      'isPopular': false,
-    },
+  // 1. Job Types (اختيار متعدد)
+  final List<String> _jobTypes = [
+    'Inspection',
+    'Mapping',
+    'Photography',
+    'Construction Monitoring',
+    'Surveying',
+    'Other',
   ];
+  final List<String> _selectedJobTypes = [];
+
+  // 2. Drone Requirements (اختيار متعدد)
+  final List<String> _droneRequirements = [
+    'Thermal Camera',
+    'Laser',
+    'Night Vision',
+    'LiDAR',
+    'Radar',
+    'Imaging',
+  ];
+  final List<String> _selectedDroneRequirements = [];
+
+  // 3. Drone Size Requirement (اختيار واحد)
+  String? _selectedDroneSize;
+  final List<String> _droneSizes = ['Small', 'Medium', 'Large'];
+
+  // 4. Safety Requirements (خيارات إضافية)
+  bool _safetyTrainingRequired = false;
+  bool _specialCertificationsRequired = false;
+
+  // 5. Other Requirements Controller
+  final TextEditingController _otherRequirementsController =
+  TextEditingController();
+
+  // 6. Job Site Options
+  bool _includePIDs = false;
+  bool _includeImages = false;
+
+  @override
+  void dispose() {
+    _otherRequirementsController.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _handleNext() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (_selectedJobTypes.isEmpty) {
+      _showSnack('Please select at least one Job Type');
+      return;
+    }
+    if (_selectedDroneSize == null) {
+      _showSnack('Please select a Drone Size Requirement');
+      return;
+    }
+
+    // الانتقال للخطوة الرابعة والأخيرة
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CompanyRegisterStepFourScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -53,117 +108,290 @@ class _CompanyRegisterStepThreeScreenState extends State<CompanyRegisterStepThre
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ==========================================
-              // 1. مؤشر الخطوات (Step 1 & 2 Completed, Step 3 Active)
-              // ==========================================
-              const SizedBox(height: 10),
-              _buildStepIndicator(),
-              const SizedBox(height: 35),
-
-              // ==========================================
-              // 2. العناوين والنصوص (Header)
-              // ==========================================
-              const Text(
-                'Subscription Plan',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A1A1A),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "Choose the best plan for your company size",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF8F93A3),
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // ==========================================
-              // 3. كروت خطط الأسعار التفاعلية
-              // ==========================================
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _plans.length,
-                itemBuilder: (context, index) {
-                  final plan = _plans[index];
-                  bool isSelected = _selectedPlanIndex == index;
-                  return _buildPlanCard(
-                    index: index,
-                    title: plan['title'],
-                    price: plan['price'],
-                    period: plan['period'],
-                    desc: plan['desc'],
-                    features: plan['features'],
-                    isPopular: plan['isPopular'],
-                    isSelected: isSelected,
-                  );
-                },
-              ),
-              const SizedBox(height: 35),
-
-              // ==========================================
-              // 4. زر الإنهاء وإتمام التسجيل (Finish Button)
-              // ==========================================
-              Container(
-                width: double.infinity,
-                height: 54,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF3F6DFB),
-                      Color(0xFF1E4CE7),
-                    ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF3F6DFB).withOpacity(0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ==========================================
+                // 1. الشريط العلوي (زر الرجوع + مؤشر الـ 4 خطوات)
+                // ==========================================
+                Row(
+                  children: [
+                    _buildBackButton(),
+                    Expanded(
+                      child: Center(
+                        child: _buildStepIndicator(currentStep: 3),
+                      ),
                     ),
+                    const SizedBox(width: 38), // لموازنة زر الرجوع
                   ],
                 ),
-                child: ElevatedButton(
-                  onPressed: () {
-                    // إرسال البيانات كاملة وتوجيه الشركة للوحة التحكم الرئيسية الخاصة بها
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Text(
-                        'Complete Registration',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                    ],
+                const SizedBox(height: 30),
+
+                // ==========================================
+                // 2. العنوان الرئيسي والفرعي
+                // ==========================================
+                const Text(
+                  'Job Requirements',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1A1A1A),
+                    height: 1.2,
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 8),
+                const Text(
+                  'Define your drone job specifications to match suitable pilots',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF8F93A3),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // ==========================================
+                // 3. نوع المهمة (Job Types)
+                // ==========================================
+                const Text(
+                  'Job Types',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select all services required for your projects',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF8F93A3)),
+                ),
+                const SizedBox(height: 12),
+                _buildMultiSelectChips(
+                  options: _jobTypes,
+                  selectedList: _selectedJobTypes,
+                ),
+                const SizedBox(height: 24),
+
+                // ==========================================
+                // 4. مواصفات ومعدات الدرون (Drone Requirements)
+                // ==========================================
+                const Text(
+                  'Drone Equipment & Sensors',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select required sensors and cameras',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF8F93A3)),
+                ),
+                const SizedBox(height: 12),
+                _buildMultiSelectChips(
+                  options: _droneRequirements,
+                  selectedList: _selectedDroneRequirements,
+                ),
+                const SizedBox(height: 24),
+
+                // ==========================================
+                // 5. حجم الدرون (Drone Size Requirement)
+                // ==========================================
+                const Text(
+                  'Drone Size Requirement',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: _droneSizes.map((size) {
+                    final isSelected = _selectedDroneSize == size;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            setState(() => _selectedDroneSize = size);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF3F6DFB)
+                                  : const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF3F6DFB)
+                                    : const Color(0xFFE5E7EB),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                size,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                // ==========================================
+                // 6. متطلبات السلامة (Safety Requirements)
+                // ==========================================
+                const Text(
+                  'Safety Requirements',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildCheckboxRow(
+                  title: 'Safety Training Required',
+                  value: _safetyTrainingRequired,
+                  onChanged: (val) {
+                    setState(() => _safetyTrainingRequired = val ?? false);
+                  },
+                ),
+                _buildCheckboxRow(
+                  title: 'Special Certifications Required',
+                  value: _specialCertificationsRequired,
+                  onChanged: (val) {
+                    setState(
+                            () => _specialCertificationsRequired = val ?? false);
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // ==========================================
+                // 7. متطلبات إضافية (Other Requirements)
+                // ==========================================
+                const Text(
+                  'Other Requirements',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _otherRequirementsController,
+                  hintText: 'Any special permissions, insurance, or pilot experience...',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 24),
+
+                // ==========================================
+                // 8. خيارات موقع العمل (Job Site Options)
+                // ==========================================
+                const Text(
+                  'Job Site Options',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildCheckboxRow(
+                  title: 'Include P&IDs of Job Site',
+                  value: _includePIDs,
+                  onChanged: (val) {
+                    setState(() => _includePIDs = val ?? false);
+                  },
+                ),
+                _buildCheckboxRow(
+                  title: 'Include Images of Job Site',
+                  value: _includeImages,
+                  onChanged: (val) {
+                    setState(() => _includeImages = val ?? false);
+                  },
+                ),
+                const SizedBox(height: 32),
+
+                // ==========================================
+                // 9. زر الانتقال للخطوة التالية (Next Button)
+                // ==========================================
+                Container(
+                  width: double.infinity,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF3F6DFB),
+                        Color(0xFF1E4CE7),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3F6DFB).withOpacity(0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _handleNext,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          'Next',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
@@ -171,16 +399,36 @@ class _CompanyRegisterStepThreeScreenState extends State<CompanyRegisterStepThre
   }
 
   // ===========================================================================
-  // دالات بناء الواجهات المخصصة (Custom Widgets) الموحدة للمشروع
+  // WIDGETS المخصصة الموحدة مع قسم الدرون
   // ===========================================================================
 
-  // بناء مؤشر الخطوات الثلاثي الخاص بالشركات (الخطوة 1 و 2 مكتملتان ✅، و 3 نشطة حالياً)
-  Widget _buildStepIndicator() {
+  Widget _buildBackButton() {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+        ),
+        child: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 15,
+          color: Color(0xFF1A1A1A),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepIndicator({required int currentStep}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (index) {
-        bool isActive = index == 2; // الخطوة الثالثة والأخيرة نشطة
-        bool isPassed = index < 2;  // الخطوتان السابقتان مكتملتان
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(4, (index) {
+        final stepNumber = index + 1;
+        final isActive = stepNumber == currentStep;
+        final isPassed = stepNumber < currentStep;
 
         return Row(
           children: [
@@ -203,7 +451,7 @@ class _CompanyRegisterStepThreeScreenState extends State<CompanyRegisterStepThre
                 child: isPassed
                     ? const Icon(Icons.check, size: 12, color: Colors.white)
                     : Text(
-                  '${index + 1}',
+                  '$stepNumber',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -212,11 +460,11 @@ class _CompanyRegisterStepThreeScreenState extends State<CompanyRegisterStepThre
                 ),
               ),
             ),
-            if (index < 2)
+            if (index < 3)
               Container(
-                width: 60,
+                width: 26,
                 height: 2,
-                color: index < 2 ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                color: isPassed ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
               ),
           ],
         );
@@ -224,136 +472,140 @@ class _CompanyRegisterStepThreeScreenState extends State<CompanyRegisterStepThre
     );
   }
 
-  // دالة بناء كرت الخطة السعرية الفاخر والتفاعلي بالكامل مع قائمة الميزات
-  Widget _buildPlanCard({
-    required int index,
-    required String title,
-    required String price,
-    required String period,
-    required String desc,
-    required List<String> features,
-    required bool isPopular,
-    required bool isSelected,
+  Widget _buildMultiSelectChips({
+    required List<String> options,
+    required List<String> selectedList,
   }) {
-    return GestureDetector(
-      onTap: () => setState(() => _selectedPlanIndex = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0F5FF) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-            BoxShadow(
-              color: const Color(0xFF3F6DFB).withOpacity(0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            )
-          ]
-              : [],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // السطر العلوي: اسم الخطة وشارة Popular إن وجدت
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 10,
+      children: options.map((option) {
+        final isSelected = selectedList.contains(option);
+        return InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                selectedList.remove(option);
+              } else {
+                selectedList.add(option);
+              }
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  title,
+                  option,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isSelected ? const Color(0xFF1E4CE7) : const Color(0xFF1A1A1A),
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
                   ),
                 ),
-                if (isPopular)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3F6DFB).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'Popular',
-                      style: TextStyle(
-                        color: Color(0xFF1E4CE7),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  const Icon(Icons.check, size: 14, color: Colors.white),
+                ],
               ],
             ),
-            const SizedBox(height: 6),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
-            // وصف الخطة السريع
-            Text(
-              desc,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.4),
-            ),
-            const SizedBox(height: 16),
-
-            // السعر والعملة والفترة الزمنية
-            Row(
-              textBaseline: TextBaseline.alphabetic,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              children: [
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
+  Widget _buildCheckboxRow({
+    required String title,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: value,
+                  activeColor: const Color(0xFF3F6DFB),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
                   ),
+                  onChanged: onChanged,
                 ),
-                Text(
-                  period,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
                   style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF8F93A3),
+                    fontSize: 13.5,
+                    color: Color(0xFF1A1A1A),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Divider(color: Color(0xFFE5E7EB), thickness: 1),
-            const SizedBox(height: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // قائمة الميزات الخاصة بالخطة المعروضة داخل الكرت
-            Column(
-              children: features.map((feature) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_rounded,
-                        size: 16,
-                        color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFF10B981),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        feature,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          color: Color(0xFF4B5563),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        validator: validator,
+        style: const TextStyle(
+          fontSize: 14.5,
+          color: Color(0xFF1A1A1A),
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: const TextStyle(color: Color(0xFFA0A5BA), fontSize: 14),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
+          ),
         ),
       ),
     );
