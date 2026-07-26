@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/widgets/choose_account.dart';
 
 import '../../core/navigation/bottom_navbar.dart';
+import '../../core/session/account_role_store.dart';
+import '../company/company_shell_screen.dart';
 
 // تأكد من عمل import لملف شاشة اختيار نوع الحساب إذا كانت في ملف منفصل
 // import 'choose_account_type_screen.dart';
@@ -19,10 +21,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
 
     final size = MediaQuery.of(context).size;
 
@@ -36,7 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
             top: 0,
             left: 0,
             right: 0,
-            height: size.height * 0.52, // تمتد لتظهر الجبال خلف انحناء الـ Bottom Sheet
+            height:
+                size.height *
+                0.52, // تمتد لتظهر الجبال خلف انحناء الـ Bottom Sheet
             child: Image.asset(
               'assets/images/drone_login.png', // صورة الخلفية الحاوية على الدرون والجبال
               fit: BoxFit.cover,
@@ -77,9 +83,11 @@ class _LoginScreenState extends State<LoginScreen> {
             bottom: size.height * 0.65, // نفس ارتفاع الـ Bottom Sheet بالضبط
             child: SafeArea(
               bottom: false,
-              child: Center( // <-- هاد اللي بيعمل التمركز التلقائي
+              child: Center(
+                // <-- هاد اللي بيعمل التمركز التلقائي
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, // يخلي الـ Column ياخد حجم محتواه فقط
+                  mainAxisSize:
+                      MainAxisSize.min, // يخلي الـ Column ياخد حجم محتواه فقط
                   children: [
                     Image.asset(
                       'assets/images/logo.png',
@@ -139,7 +147,9 @@ class _LoginScreenState extends State<LoginScreen> {
             left: 0,
             right: 0,
             bottom: 0,
-            height: size.height * 0.65, // تغطي 60% من الشاشة وتبدأ أسفل الدرون والجبال
+            height:
+                size.height *
+                0.65, // تغطي 60% من الشاشة وتبدأ أسفل الدرون والجبال
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -157,7 +167,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 32,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -203,20 +216,35 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Enter your email',
-                          hintStyle: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 13.5),
-                          prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF9E9E9E), size: 20),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFC0C0C0),
+                            fontSize: 13.5,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.email_outlined,
+                            color: Color(0xFF9E9E9E),
+                            size: 20,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 18,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE5E7EB),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE5E7EB),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: Color(0xFF3F6DFB)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF3F6DFB),
+                            ),
                           ),
                         ),
                       ),
@@ -240,11 +268,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Enter your password',
-                          hintStyle: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 13.5),
-                          prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF9E9E9E), size: 20),
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFC0C0C0),
+                            fontSize: 13.5,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: Color(0xFF9E9E9E),
+                            size: 20,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              _isPasswordVisible
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
                               color: const Color(0xFF9E9E9E),
                               size: 20,
                             ),
@@ -254,18 +291,26 @@ class _LoginScreenState extends State<LoginScreen> {
                               });
                             },
                           ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 18,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE5E7EB),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE5E7EB),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: Color(0xFF3F6DFB)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF3F6DFB),
+                            ),
                           ),
                         ),
                       ),
@@ -319,7 +364,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const MyScreen(),
+                              builder: (context) =>
+                                  AccountRoleStore.instance.role ==
+                                      AccountRole.company
+                                  ? const CompanyShellScreen()
+                                  : const MyScreen(),
                             ),
                           );
                         },
@@ -333,7 +382,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
-                            Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                            Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                             SizedBox(width: 10),
                             Text(
                               'Sign In',
@@ -352,15 +405,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     // فاصل or continue with
                     Row(
                       children: const [
-                        Expanded(child: Divider(color: Color(0xFFE5E7EB), thickness: 1)),
+                        Expanded(
+                          child: Divider(
+                            color: Color(0xFFE5E7EB),
+                            thickness: 1,
+                          ),
+                        ),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 14),
                           child: Text(
                             'OR',
-                            style: TextStyle(color: Color(0xFFA0A0A0), fontSize: 12.5),
+                            style: TextStyle(
+                              color: Color(0xFFA0A0A0),
+                              fontSize: 12.5,
+                            ),
                           ),
                         ),
-                        Expanded(child: Divider(color: Color(0xFFE5E7EB), thickness: 1)),
+                        Expanded(
+                          child: Divider(
+                            color: Color(0xFFE5E7EB),
+                            thickness: 1,
+                          ),
+                        ),
                       ],
                     ),
 
@@ -372,36 +438,47 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         const Text(
                           "Don't have an account? ",
-                          style: TextStyle(color: Color(0xFF757575), fontSize: 13.5),
+                          style: TextStyle(
+                            color: Color(0xFF757575),
+                            fontSize: 13.5,
+                          ),
                         ),
-              GestureDetector(
-                onTap: () {
-                  // الانتقال باستخدام شاشة شفافة لتظل شاشة اللوجن ظاهرة بالخلفية
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      opaque: false, // هاد السطر بخلي الشاشة اللي تحتها ما تختفي
-                      barrierDismissible: true,
-                      pageBuilder: (context, _, __) => const ChooseAccountTypeScreen(),
-                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                        // تأثير ظهور ناعم جداً للطبقة الشفافة
-                        return FadeTransition(
-                          opacity: animation,
-                          child: child,
-                        );
-                      },
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Create Account',
-                  style: TextStyle(
-                    color: Color(0xFF3F6DFB),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
-                  ),
-                ),
-              ),
+                        GestureDetector(
+                          onTap: () {
+                            // الانتقال باستخدام شاشة شفافة لتظل شاشة اللوجن ظاهرة بالخلفية
+                            Navigator.push(
+                              context,
+                              PageRouteBuilder(
+                                opaque:
+                                    false, // هاد السطر بخلي الشاشة اللي تحتها ما تختفي
+                                barrierDismissible: true,
+                                pageBuilder: (context, _, __) =>
+                                    const ChooseAccountTypeScreen(),
+                                transitionsBuilder:
+                                    (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
+                                    ) {
+                                      // تأثير ظهور ناعم جداً للطبقة الشفافة
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      );
+                                    },
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Create Account',
+                            style: TextStyle(
+                              color: Color(0xFF3F6DFB),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 14),

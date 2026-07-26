@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/session/account_role_store.dart';
+import '../../../company/company_shell_screen.dart';
+
 class CompanyRegisterStepFourScreen extends StatefulWidget {
   const CompanyRegisterStepFourScreen({super.key});
 
@@ -27,9 +30,12 @@ class _CompanyRegisterStepFourScreenState
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Go straight to the Home screen (no success dialog)
-    // Replace `/home` with your actual home route name/widget.
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+    await AccountRoleStore.instance.setRole(AccountRole.company);
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const CompanyShellScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -55,9 +61,7 @@ class _CompanyRegisterStepFourScreenState
                 children: [
                   _buildBackButton(),
                   Expanded(
-                    child: Center(
-                      child: _buildStepIndicator(currentStep: 4),
-                    ),
+                    child: Center(child: _buildStepIndicator(currentStep: 4)),
                   ),
                   const SizedBox(width: 38),
                 ],
@@ -143,10 +147,7 @@ class _CompanyRegisterStepFourScreenState
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF3F6DFB),
-                      Color(0xFF1E4CE7),
-                    ],
+                    colors: [Color(0xFF3F6DFB), Color(0xFF1E4CE7)],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -169,32 +170,32 @@ class _CompanyRegisterStepFourScreenState
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
                       : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Complete Registration',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Complete Registration',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(
+                              Icons.check_circle_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
                         ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(
-                        Icons.check_circle_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ],
-                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -254,14 +255,15 @@ class _CompanyRegisterStepFourScreenState
                 child: isPassed
                     ? const Icon(Icons.check, size: 12, color: Colors.white)
                     : Text(
-                  '$stepNumber',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color:
-                    isActive ? Colors.white : const Color(0xFF9CA3AF),
-                  ),
-                ),
+                        '$stepNumber',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isActive
+                              ? Colors.white
+                              : const Color(0xFF9CA3AF),
+                        ),
+                      ),
               ),
             ),
             if (index < 3)
@@ -325,7 +327,9 @@ class _CompanyRegisterStepFourScreenState
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: badgeColor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),

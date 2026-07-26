@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_one_screen.dart';
 
+import '../../../core/session/account_role_store.dart';
+
 import '../register/company/company_register_step_one_screen.dart';
 
 class ChooseAccountTypeScreen extends StatefulWidget {
   const ChooseAccountTypeScreen({super.key});
 
   @override
-  State<ChooseAccountTypeScreen> createState() => _ChooseAccountTypeScreenState();
+  State<ChooseAccountTypeScreen> createState() =>
+      _ChooseAccountTypeScreenState();
 }
 
 class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
@@ -58,12 +61,17 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
         curve: const Interval(0.4, 0.85, curve: Curves.easeOut),
       ),
     );
-    _card1SlideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.4, 0.85, curve: Curves.fastLinearToSlowEaseIn),
-      ),
-    );
+    _card1SlideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(
+              0.4,
+              0.85,
+              curve: Curves.fastLinearToSlowEaseIn,
+            ),
+          ),
+        );
 
     // 4. حركة الكرت الثاني
     _card2FadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -72,12 +80,17 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
         curve: const Interval(0.52, 0.97, curve: Curves.easeOut),
       ),
     );
-    _card2SlideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.52, 0.97, curve: Curves.fastLinearToSlowEaseIn),
-      ),
-    );
+    _card2SlideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(
+              0.52,
+              0.97,
+              curve: Curves.fastLinearToSlowEaseIn,
+            ),
+          ),
+        );
 
     _controller.forward();
   }
@@ -105,7 +118,8 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
-          double currentTranslation = (_sheetEntranceAnimation.value * sheetHeight) + _dragOffset;
+          double currentTranslation =
+              (_sheetEntranceAnimation.value * sheetHeight) + _dragOffset;
 
           return Stack(
             children: [
@@ -145,7 +159,8 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                       });
                     },
                     onVerticalDragEnd: (details) {
-                      if (_dragOffset > sheetHeight * 0.25 || details.primaryVelocity! > 500) {
+                      if (_dragOffset > sheetHeight * 0.25 ||
+                          details.primaryVelocity! > 500) {
                         _dismissScreen();
                       } else {
                         setState(() {
@@ -208,7 +223,9 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                           Expanded(
                             child: SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
                               child: Column(
                                 children: [
                                   // كرت Drone Pilot
@@ -218,15 +235,20 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                                       opacity: _card1FadeAnimation,
                                       child: _buildAccountCard(
                                         title: 'Drone Pilot',
-                                        subtitle: 'Upload your profile\nand apply for jobs',
+                                        subtitle:
+                                            'Upload your profile\nand apply for jobs',
                                         imageAsset: 'assets/images/drone.png',
                                         baseColor: const Color(0xFF183B70),
                                         arrowColor: const Color(0xFF28569E),
-                                        onTap: () {
+                                        onTap: () async {
+                                          await AccountRoleStore.instance
+                                              .setRole(AccountRole.pilot);
+                                          if (!context.mounted) return;
                                           Navigator.pushReplacement(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => const PilotRegisterStepOneScreen(),
+                                              builder: (context) =>
+                                                  const PilotRegisterStepOneScreen(),
                                             ),
                                           );
                                         },
@@ -243,15 +265,20 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                                       opacity: _card2FadeAnimation,
                                       child: _buildAccountCard(
                                         title: 'Company',
-                                        subtitle: 'Hire certified pilots\nand publish jobs',
+                                        subtitle:
+                                            'Hire certified pilots\nand publish jobs',
                                         imageAsset: 'assets/images/company.png',
                                         baseColor: const Color(0xFF381B60),
                                         arrowColor: const Color(0xFF552A90),
-                                        onTap: () {
+                                        onTap: () async {
+                                          await AccountRoleStore.instance
+                                              .setRole(AccountRole.company);
+                                          if (!context.mounted) return;
                                           Navigator.pushReplacement(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => const CompanyRegisterStepOneScreen(),
+                                              builder: (context) =>
+                                                  const CompanyRegisterStepOneScreen(),
                                             ),
                                           );
                                         },
@@ -344,7 +371,12 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
               // 3. النص والسهم بمسافة تبدأ من 125px لمنع أي تداخل
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 125, right: 18, top: 16, bottom: 16),
+                  padding: const EdgeInsets.only(
+                    left: 125,
+                    right: 18,
+                    top: 16,
+                    bottom: 16,
+                  ),
                   child: Row(
                     children: [
                       Expanded(

@@ -1,135 +1,164 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:tototl_app/features/pilot/home/widgets/app_card.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../jobs/job_details.dart';
+import '../../shared/pilot_data.dart';
+import 'app_card.dart';
 
 class JobCard extends StatelessWidget {
   const JobCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const JobDetailsScreen(job: solarFarmJob),
+          ),
+        ),
+        child: AppCard(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 44,
-                width: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF3FE),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.hub_outlined, color: Color(0xFF3B6BF5)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'GeoVision Solutions',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.orangeBg,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    Text(
-                      'Precision Mapping Project',
+                    child: const Icon(
+                      Icons.solar_power_rounded,
+                      color: AppColors.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SunTech Energy Ltd.',
+                          style: TextStyle(fontSize: 13, color: AppColors.grey),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Thermal Inspection - Solar Farm Array',
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            height: 1.2,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.navy,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.lightGrey,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 15,
+                    color: AppColors.grey,
+                  ),
+                  SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Mojave Desert, CA · 12 km',
+                      style: TextStyle(fontSize: 12.5, color: AppColors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 14,
+                    color: AppColors.grey,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    '2026-08-14',
+                    style: TextStyle(fontSize: 12, color: AppColors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  const Text(
+                    r'$850/day',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _Tag(label: 'Thermal'),
+                  const SizedBox(width: 7),
+                  _Tag(label: 'Imaging'),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.greenBg,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Full match',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1F36),
+                        color: AppColors.green,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.favorite_border, color: Colors.grey),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: const [
-              Icon(Icons.location_on_outlined, size: 15, color: Colors.grey),
-              SizedBox(width: 4),
-              Text('Dubai, UAE', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              SizedBox(width: 14),
-              Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey),
-              SizedBox(width: 4),
-              Text('May 28 – Jun 2, 2025',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            '\$850 / day',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1FBE6B),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _tag('DJI Mavic 3E'),
-              const SizedBox(width: 8),
-              _tag('LiDAR'),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6F8ED),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '96% Match',
-                  style: TextStyle(
-                    color: Color(0xFF1FBE6B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
                   ),
-                ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B6BF5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Apply',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
-Widget _tag(String label) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF3F6FC),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(
-      label,
-      style: const TextStyle(fontSize: 12, color: Color(0xFF1A1F36)),
-    ),
-  );
+
+class _Tag extends StatelessWidget {
+  const _Tag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.tagBg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 10.5,
+          color: AppColors.navy,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../shared/account_settings_screen.dart';
 // TODO: بدّل هاد الاستيراد بمسار شاشة الإعدادات الفعلي عندك
 // import 'settings_screen.dart';
 
@@ -101,13 +102,14 @@ class _ProfileHeader extends StatelessWidget {
         Positioned(
           top: 10,
           right: 12,
-          child: _circleIconButton(Icons.settings_outlined, () {
-            // ينتقل على شاشة الإعدادات
-            // Navigator.push(
-            //   context,
-            //   MaterialPageRoute(builder: (context) => const SettingsScreen()),
-            // );
-          }),
+          child: _circleIconButton(
+            Icons.settings_outlined,
+            () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const AccountSettingsScreen(isCompany: false),
+              ),
+            ),
+          ),
         ),
         Positioned(
           left: 20,
@@ -129,8 +131,11 @@ class _ProfileHeader extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: AppColors.tagBg,
-                      child: const Icon(Icons.person,
-                          color: AppColors.grey, size: 40),
+                      child: const Icon(
+                        Icons.person,
+                        color: AppColors.grey,
+                        size: 40,
+                      ),
                     ),
                   ),
                 ),
@@ -147,7 +152,11 @@ class _ProfileHeader extends StatelessWidget {
     );
   }
 
-  Widget _circleIconButton(IconData icon, VoidCallback onTap, {double size = 38}) {
+  Widget _circleIconButton(
+    IconData icon,
+    VoidCallback onTap, {
+    double size = 38,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(size / 2),
@@ -193,8 +202,11 @@ class _ProfileNameSection extends StatelessWidget {
                 color: AppColors.blueBg,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.autorenew_rounded,
-                  color: AppColors.blue, size: 17),
+              child: const Icon(
+                Icons.autorenew_rounded,
+                color: AppColors.blue,
+                size: 17,
+              ),
             ),
           ],
         ),
@@ -202,8 +214,7 @@ class _ProfileNameSection extends StatelessWidget {
         Row(
           children: [
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: AppColors.greenBg,
                 borderRadius: BorderRadius.circular(20),
@@ -231,10 +242,17 @@ class _ProfileNameSection extends StatelessWidget {
           children: [
             ...List.generate(
               4,
-                  (i) => const Icon(Icons.star_rounded,
-                  color: AppColors.gold, size: 18),
+              (i) => const Icon(
+                Icons.star_rounded,
+                color: AppColors.gold,
+                size: 18,
+              ),
             ),
-            const Icon(Icons.star_rounded, color: AppColors.lightGrey, size: 18),
+            const Icon(
+              Icons.star_rounded,
+              color: AppColors.lightGrey,
+              size: 18,
+            ),
             const SizedBox(width: 6),
             const Text(
               '4.9',
@@ -273,29 +291,33 @@ class _ProfileInfoList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: _rows
-          .map((r) => Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Row(
-          children: [
-            Icon(r.icon, size: 17, color: AppColors.grey),
-            const SizedBox(width: 10),
-            Text(
-              r.label,
-              style: const TextStyle(
-                  color: AppColors.grey, fontSize: 13.5),
-            ),
-            const Spacer(),
-            Text(
-              r.value,
-              style: const TextStyle(
-                color: AppColors.navy,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
+          .map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  Icon(r.icon, size: 17, color: AppColors.grey),
+                  const SizedBox(width: 10),
+                  Text(
+                    r.label,
+                    style: const TextStyle(
+                      color: AppColors.grey,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    r.value,
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ))
+          )
           .toList(),
     );
   }
@@ -316,11 +338,17 @@ class _ProfileStatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: const [
-        Expanded(child: _StatCard(value: '6+', label: 'Years Exp')),
+        Expanded(
+          child: _StatCard(value: '6+', label: 'Years Exp'),
+        ),
         SizedBox(width: 10),
-        Expanded(child: _StatCard(value: '248', label: 'Missions')),
+        Expanded(
+          child: _StatCard(value: '248', label: 'Missions'),
+        ),
         SizedBox(width: 10),
-        Expanded(child: _StatCard(value: '98%', label: 'Success Rate')),
+        Expanded(
+          child: _StatCard(value: '98%', label: 'Success Rate'),
+        ),
       ],
     );
   }
@@ -384,8 +412,11 @@ class _DroneCard extends StatelessWidget {
               color: AppColors.tagBg,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.airplanemode_active_rounded,
-                color: AppColors.navy, size: 18),
+            child: const Icon(
+              Icons.airplanemode_active_rounded,
+              color: AppColors.navy,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

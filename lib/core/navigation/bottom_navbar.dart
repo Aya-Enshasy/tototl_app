@@ -1,52 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_bottom_bar/liquid_glass_bottom_bar.dart';
-import 'package:tototl_app/features/pilot/message/messages_screen.dart';
 
+import '../../features/pilot/applications/applications_screen.dart';
 import '../../features/pilot/home/presentation/home_page.dart';
 import '../../features/pilot/jobs/find_job.dart';
-import '../../features/pilot/notification/NotificationsScreen.dart';
+import '../../features/pilot/message/messages_screen.dart';
 import '../../features/pilot/profile/profile_screen.dart';
 import '../theme/app_colors.dart';
 
 class MyScreen extends StatefulWidget {
-  const MyScreen({super.key});
+  const MyScreen({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<MyScreen> createState() => _MyScreenState();
 }
 
 class _MyScreenState extends State<MyScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
-  List<Widget> get _pages => [
-    const HomeScreen(),
-    const FindDroneJobsScreen(),
-    const MessagesScreen(),
-    const NotificationsScreen(),
-    const ProfileScreen(),
+  final List<Widget> _pages = const [
+    HomeScreen(),
+    FindDroneJobsScreen(),
+    MessagesScreen(),
+    ApplicationsScreen(),
+    ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, _pages.length - 1);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      // 1. إضافة خلفية بتدرج ألوان خفيف خلف الشاشة لإبراز انعكاس الزجاج
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Color(0xFFF4F7FC),
-            Color(0xFFE2ECFC), // لون سماوي خفيف جداً في الأسفل لإعطاء لمعة زجاجية
-          ],
+          colors: [Color(0xFFF7F9FC), Color(0xFFEAF0FC)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
       ),
       child: Scaffold(
-        backgroundColor: Colors.transparent, // 2. جعل خلفية الـ Scaffold شفافة لتظهر الخلفية الملهمة
-        extendBody: true, // ضروري ليمر المحتوى أسفل البوتوم بار
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _pages,
-        ),
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        body: IndexedStack(index: _currentIndex, children: _pages),
         bottomNavigationBar: LiquidGlassBottomBar(
           items: const [
             LiquidGlassBottomBarItem(
@@ -55,40 +56,34 @@ class _MyScreenState extends State<MyScreen> {
               label: 'Home',
             ),
             LiquidGlassBottomBarItem(
-              icon: Icons.wallet_giftcard,
+              icon: Icons.work_outline_rounded,
+              activeIcon: Icons.work_rounded,
               label: 'Jobs',
             ),
             LiquidGlassBottomBarItem(
               icon: Icons.messenger_outline,
-              activeIcon: Icons.messenger_outlined,
+              activeIcon: Icons.messenger_rounded,
               label: 'Messages',
               badge: 5,
-            ),   LiquidGlassBottomBarItem(
-              icon: Icons.notifications_none_sharp,
-              activeIcon: Icons.notifications_sharp,
-              label: 'Notifications',
-              badge: 5,
+            ),
+            LiquidGlassBottomBarItem(
+              icon: Icons.description_outlined,
+              activeIcon: Icons.description_rounded,
+              label: 'Applications',
             ),
             LiquidGlassBottomBarItem(
               icon: Icons.person_outline,
               activeIcon: Icons.person,
               label: 'Profile',
-              badge: 5,
             ),
           ],
           currentIndex: _currentIndex,
-          onTap: (i) {
-            setState(() {
-              _currentIndex = i;
-            });
-          },
-          // 3. تعديل خصائص الزجاج لإعطائه لمعة كريستالية الشفافية:
+          onTap: (index) => setState(() => _currentIndex = index),
           activeColor: AppColors.primary,
-           barBlurSigma: 8, // درجة تغبيش متوازنة تظهر المحتوى الخلفي
+          barBlurSigma: 8,
           activeBlurSigma: 16,
         ),
       ),
     );
   }
 }
-

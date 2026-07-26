@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "621532984434",
+    "project_id": "tototl-290a9",
+    "storage_bucket": "tototl-290a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:621532984434:android:fb4dacf30fae2c8e24beeb",
+        "android_client_info": {
+          "package_name": "com.ayahinshasi.tototl_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtVu4W1JK_0KgslPUObTB0VakS3gBOPG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

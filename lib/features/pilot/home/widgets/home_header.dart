@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
 class HomeHeader extends StatelessWidget {
   const HomeHeader({super.key});
 
@@ -8,60 +10,43 @@ class HomeHeader extends StatelessWidget {
     return Row(
       children: [
         const CircleAvatar(
-          radius: 32,
-          backgroundImage: NetworkImage(
-            'https://i.pravatar.cc/150?img=47',
-          ),
+          radius: 28,
+          backgroundColor: AppColors.blueBg,
+          backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=47'),
         ),
-
-        const SizedBox(width: 14),
-
-        Expanded(
+        const SizedBox(width: 13),
+        const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Good morning,',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 14, color: AppColors.grey),
               ),
-
-              const Text(
+              SizedBox(height: 2),
+              Text(
                 'Aya Inshasi',
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1F36),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.navy,
                 ),
               ),
-
-              const SizedBox(height: 4),
-
+              SizedBox(height: 5),
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1FBE6B),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      size: 10,
-                      color: Colors.white,
-                    ),
+                  Icon(
+                    Icons.verified_rounded,
+                    size: 15,
+                    color: AppColors.green,
                   ),
-
-                  const SizedBox(width: 6),
-
-                  const Text(
+                  SizedBox(width: 5),
+                  Text(
                     'Verified Pilot',
                     style: TextStyle(
-                      color: Color(0xFF1FBE6B),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      color: AppColors.green,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
                     ),
                   ),
                 ],
@@ -69,55 +54,18 @@ class HomeHeader extends StatelessWidget {
             ],
           ),
         ),
-        const _NotificationBell(count: 3),
-      ],
-    );
-  }
-}
-class _NotificationBell extends StatelessWidget {
-  final int count;
-  final bool small;
-  const _NotificationBell({required this.count, this.small = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final bell = Container(
-      height: small ? 24 : 46,
-      width: small ? 24 : 46,
-      decoration: small
-          ? null
-          : BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.greenBg,
+            borderRadius: BorderRadius.circular(20),
           ),
-        ],
-      ),
-      child: Icon(Icons.notifications_none, size: small ? 22 : 22, color: const Color(0xFF1A1F36)),
-    );
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        bell,
-        Positioned(
-          right: small ? -4 : 4,
-          top: small ? -4 : 4,
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: const BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-            ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            child: Text(
-              '$count',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+          child: const Text(
+            'Available',
+            style: TextStyle(
+              color: AppColors.green,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),

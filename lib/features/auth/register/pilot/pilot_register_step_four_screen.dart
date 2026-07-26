@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/navigation/bottom_navbar.dart';
+import '../../../../core/session/account_role_store.dart';
+
 enum _PilotDocumentType { license, permit }
 
 class PilotRegisterStepFourScreen extends StatefulWidget {
@@ -21,7 +24,7 @@ class _PilotRegisterStepFourScreenState
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _licenseNumberController =
-  TextEditingController();
+      TextEditingController();
   final TextEditingController _authorityController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
 
@@ -117,9 +120,9 @@ class _PilotRegisterStepFourScreenState
   }
 
   Future<void> _pickDocumentImage(
-      _PilotDocumentType document,
-      ImageSource source,
-      ) async {
+    _PilotDocumentType document,
+    ImageSource source,
+  ) async {
     if (_pickingDocument != null) return;
     setState(() => _pickingDocument = document);
 
@@ -465,6 +468,9 @@ class _PilotRegisterStepFourScreenState
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
+    await AccountRoleStore.instance.setRole(AccountRole.pilot);
+    if (!mounted) return;
+
     // Display Registration Completed Dialog
     _showCompletionSuccessDialog();
   }
@@ -475,7 +481,9 @@ class _PilotRegisterStepFourScreenState
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           contentPadding: const EdgeInsets.all(24),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -518,8 +526,13 @@ class _PilotRegisterStepFourScreenState
                 height: 48,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const MyScreen()),
+                      (route) => false,
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimary,
@@ -613,7 +626,8 @@ class _PilotRegisterStepFourScreenState
                   icon: Icons.card_membership_rounded,
                   value: _selectedLicenseType,
                   items: _licenseTypes,
-                  onChanged: (val) => setState(() => _selectedLicenseType = val),
+                  onChanged: (val) =>
+                      setState(() => _selectedLicenseType = val),
                 ),
                 const SizedBox(height: 16),
 
@@ -628,8 +642,9 @@ class _PilotRegisterStepFourScreenState
                     size: 18,
                     color: kHint,
                   ),
-                  validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'License number is required' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'License number is required'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -644,8 +659,9 @@ class _PilotRegisterStepFourScreenState
                     size: 18,
                     color: kHint,
                   ),
-                  validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Authority name is required' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Authority name is required'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -729,12 +745,12 @@ class _PilotRegisterStepFourScreenState
           color: const Color(0xFFFAFAFA),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -776,13 +792,13 @@ class _PilotRegisterStepFourScreenState
                 child: isPassed
                     ? const Icon(Icons.check, size: 11, color: Colors.white)
                     : Text(
-                  '$stepNumber',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.bold,
-                    color: isActive ? Colors.white : kHint,
-                  ),
-                ),
+                        '$stepNumber',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: isActive ? Colors.white : kHint,
+                        ),
+                      ),
               ),
             ),
             if (index < 3)
@@ -808,150 +824,161 @@ class _PilotRegisterStepFourScreenState
     final isPicking = _pickingDocument == documentType;
     final isUploading = _isUploading[documentType] ?? false;
     final progress = _uploadProgress[documentType] ?? 0;
-    final isImage = file != null &&
-        ['.jpg', '.jpeg', '.png']
-            .any((ext) => file.path.toLowerCase().endsWith(ext));
+    final isImage =
+        file != null &&
+        [
+          '.jpg',
+          '.jpeg',
+          '.png',
+        ].any((ext) => file.path.toLowerCase().endsWith(ext));
 
     return GestureDetector(
-      onTap: isUploading ? null : () => _showImageSourceActionSheet(documentType),
+      onTap: isUploading
+          ? null
+          : () => _showImageSourceActionSheet(documentType),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: file != null ? kPrimarySoft.withOpacity(0.25) : kSurfaceSoft,
+          color: file != null
+              ? kPrimarySoft.withValues(alpha: 0.25)
+              : kSurfaceSoft,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: showError
                 ? kDanger
-                : (file != null ? kPrimary.withOpacity(0.4) : kBorder),
+                : (file != null ? kPrimary.withValues(alpha: 0.4) : kBorder),
             width: showError ? 1.4 : 0.8,
           ),
         ),
         child: (file == null && !isPicking)
             ? Column(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: showError ? kDanger.withOpacity(0.1) : kPrimarySoft,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.cloud_upload_outlined,
-                size: 22,
-                color: showError ? kDanger : kPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Tap to upload document',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: showError ? kDanger : kTextDark,
-              ),
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              'JPG, PNG or PDF · Max 10MB',
-              style: TextStyle(fontSize: 11, color: kHint),
-            ),
-          ],
-        )
-            : Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kBorder, width: 0.8),
-              ),
-              child: isPicking
-                  ? const Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: kPrimary,
-                  ),
-                ),
-              )
-                  : (isImage
-                  ? Image.file(file!, fit: BoxFit.cover)
-                  : const Icon(
-                Icons.picture_as_pdf_rounded,
-                color: kPrimary,
-                size: 22,
-              )),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    isPicking
-                        ? 'Preparing file…'
-                        : file!.path.split('/').last,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: kTextDark,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: showError
+                          ? kDanger.withValues(alpha: 0.1)
+                          : kPrimarySoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.cloud_upload_outlined,
+                      size: 22,
+                      color: showError ? kDanger : kPrimary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  if (isUploading)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 5,
-                        backgroundColor: kBorder,
-                        valueColor:
-                        const AlwaysStoppedAnimation(kPrimary),
-                      ),
-                    )
-                  else if (!isPicking)
-                    Row(
-                      children: const [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          size: 14,
-                          color: kSuccess,
-                        ),
-                        SizedBox(width: 4),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Tap to upload document',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: showError ? kDanger : kTextDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'JPG, PNG or PDF · Max 10MB',
+                    style: TextStyle(fontSize: 11, color: kHint),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: kBorder, width: 0.8),
+                    ),
+                    child: isPicking
+                        ? const Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: kPrimary,
+                              ),
+                            ),
+                          )
+                        : (isImage
+                              ? Image.file(file, fit: BoxFit.cover)
+                              : const Icon(
+                                  Icons.picture_as_pdf_rounded,
+                                  color: kPrimary,
+                                  size: 22,
+                                )),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Uploaded',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: kSuccess,
+                          isPicking
+                              ? 'Preparing file…'
+                              : file!.path.split('/').last,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
+                            color: kTextDark,
                           ),
                         ),
+                        const SizedBox(height: 6),
+                        if (isUploading)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 5,
+                              backgroundColor: kBorder,
+                              valueColor: const AlwaysStoppedAnimation(
+                                kPrimary,
+                              ),
+                            ),
+                          )
+                        else if (!isPicking)
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 14,
+                                color: kSuccess,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Uploaded',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: kSuccess,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
+                    ),
+                  ),
+                  if (!isPicking && !isUploading)
+                    IconButton(
+                      onPressed: () =>
+                          _showImageSourceActionSheet(documentType),
+                      icon: const Icon(
+                        Icons.more_horiz_rounded,
+                        color: kTextMuted,
+                        size: 20,
+                      ),
                     ),
                 ],
               ),
-            ),
-            if (!isPicking && !isUploading)
-              IconButton(
-                onPressed: () =>
-                    _showImageSourceActionSheet(documentType),
-                icon: const Icon(
-                  Icons.more_horiz_rounded,
-                  color: kTextMuted,
-                  size: 20,
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
@@ -1103,7 +1130,7 @@ class _PilotRegisterStepFourScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withOpacity(0.28),
+              color: kPrimary.withValues(alpha: 0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -1120,32 +1147,32 @@ class _PilotRegisterStepFourScreenState
           ),
           child: isLoading
               ? const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: Colors.white,
-            ),
-          )
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: Colors.white,
+                  ),
+                )
               : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      text,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.check_circle_outline_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ],
-          ),
         ),
       ),
     );
