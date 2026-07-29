@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/navigation/bottom_navbar.dart';
 import '../../../../core/session/account_role_store.dart';
+import '../../../../core/theme/app_colors.dart';
 
 enum _PilotDocumentType { license, permit }
 
@@ -25,10 +26,10 @@ class _PilotRegisterStepFourScreenState
 
   final TextEditingController _licenseNumberController =
       TextEditingController();
-  final TextEditingController _authorityController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
 
   String? _selectedLicenseType;
+  String? _selectedIssuingAuthority;
   DateTime? _selectedExpiryDate;
   File? _licenseImage;
   File? _permitImage;
@@ -55,20 +56,29 @@ class _PilotRegisterStepFourScreenState
     'Aerial Photography Pilot',
   ];
 
-  static const Color kPrimary = Color(0xFF1E56F0);
-  static const Color kPrimarySoft = Color(0xFFEFF3FE);
-  static const Color kTextDark = Color(0xFF0F172A);
-  static const Color kTextMuted = Color(0xFF64748B);
-  static const Color kHint = Color(0xFF94A3B8);
-  static const Color kBorder = Color(0xFFE2E8F0);
-  static const Color kSurfaceSoft = Color(0xFFF8FAFC);
-  static const Color kDanger = Color(0xFFEF4444);
-  static const Color kSuccess = Color(0xFF16A34A);
+  final List<String> _issuingAuthorities = const [
+    'CAA (Civil Aviation Authority)',
+    'FAA',
+    'CASA',
+    'EASA',
+    'GCAA',
+    'Ministry of Transport',
+    'DJI Academy',
+  ];
+
+  static const Color kPrimary = AppColors.primary;
+  static const Color kPrimarySoft = AppColors.blueBg;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kHint = AppColors.lightGrey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
+  static const Color kDanger = AppColors.red;
+  static const Color kSuccess = AppColors.green;
 
   @override
   void dispose() {
     _licenseNumberController.dispose();
-    _authorityController.dispose();
     _expiryController.dispose();
     super.dispose();
   }
@@ -651,17 +661,13 @@ class _PilotRegisterStepFourScreenState
                 // Issuing Authority
                 _buildSectionLabel('Issuing Authority'),
                 const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _authorityController,
-                  hintText: 'e.g. GACA / FAA',
-                  suffixIcon: const Icon(
-                    Icons.account_balance_outlined,
-                    size: 18,
-                    color: kHint,
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Authority name is required'
-                      : null,
+                _buildSelectField(
+                  hintText: 'Select Issuing Authority',
+                  icon: Icons.account_balance_outlined,
+                  value: _selectedIssuingAuthority,
+                  items: _issuingAuthorities,
+                  onChanged: (val) =>
+                      setState(() => _selectedIssuingAuthority = val),
                 ),
                 const SizedBox(height: 16),
 

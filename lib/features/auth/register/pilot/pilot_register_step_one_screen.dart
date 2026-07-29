@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_tow_screen.dart';
 
+ 
 // ===========================================================================
 // SCREEN 1: Create Account + Basic Information
 // ===========================================================================
@@ -27,6 +29,7 @@ class _PilotRegisterStepOneScreenState
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _linkedinController = TextEditingController();
 
   // Selections & States
   String? _selectedNationality;
@@ -41,14 +44,14 @@ class _PilotRegisterStepOneScreenState
   final ImagePicker _picker = ImagePicker();
 
   // Application Theme Colors
-  static const Color kPrimary = Color(0xFF1E56F0);
-  static const Color kPrimarySoft = Color(0xFFEFF3FE);
-  static const Color kTextDark = Color(0xFF0F172A);
-  static const Color kTextMuted = Color(0xFF64748B);
-  static const Color kHint = Color(0xFF94A3B8);
-  static const Color kBorder = Color(0xFFE2E8F0);
-  static const Color kSurfaceSoft = Color(0xFFF8FAFC);
-  static const Color kDanger = Color(0xFFEF4444);
+  static const Color kPrimary = AppColors.primary;
+  static const Color kPrimarySoft = AppColors.blueBg;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kHint = AppColors.lightGrey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
+  static const Color kDanger = AppColors.red;
 
   final List<String> _countryCodes = ['+966', '+971', '+965', '+962', '+20', '+1'];
 
@@ -60,6 +63,7 @@ class _PilotRegisterStepOneScreenState
     _confirmPasswordController.dispose();
     _phoneController.dispose();
     _dobController.dispose();
+    _linkedinController.dispose();
     super.dispose();
   }
 
@@ -564,6 +568,14 @@ class _PilotRegisterStepOneScreenState
                   onChanged: (val) =>
                       setState(() => _selectedNationality = val),
                 ),
+                const SizedBox(height: 12),
+
+                // 9. LinkedIn Profile (Optional)
+                _buildTextField(
+                  controller: _linkedinController,
+                  hintText: 'LinkedIn Profile URL (optional)',
+                  prefixIcon: Icons.link_rounded,
+                ),
 
                 const SizedBox(height: 32),
 
@@ -941,7 +953,7 @@ class _PilotRegisterStepOneScreenState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), kPrimary],
+            colors: [Color(0xFF0D8AA5), kPrimary],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),

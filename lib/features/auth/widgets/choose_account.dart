@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_one_screen.dart';
 
 import '../../../core/session/account_role_store.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../register/company/company_register_step_one_screen.dart';
 
@@ -134,7 +135,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
                       child: Container(
-                        color: const Color(0xFF0B1731).withOpacity(0.55),
+                        color: AppColors.logoNavy.withOpacity(0.55),
                       ),
                     ),
                   ),
@@ -192,7 +193,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                             width: 45,
                             height: 5,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE5E7EB),
+                              color: AppColors.border,
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
@@ -204,7 +205,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1A1A1A),
+                              color: AppColors.text,
                               letterSpacing: -0.5,
                             ),
                           ),
@@ -213,7 +214,7 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                             'Choose your account type',
                             style: TextStyle(
                               fontSize: 14.5,
-                              color: Color(0xFF8F93A3),
+                              color: AppColors.grey,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
@@ -238,8 +239,8 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                                         subtitle:
                                             'Upload your profile\nand apply for jobs',
                                         imageAsset: 'assets/images/drone.png',
-                                        baseColor: const Color(0xFF183B70),
-                                        arrowColor: const Color(0xFF28569E),
+                                        baseColor: AppColors.logoTurquoiseDark,
+                                        arrowColor: AppColors.logoTurquoise,
                                         onTap: () async {
                                           await AccountRoleStore.instance
                                               .setRole(AccountRole.pilot);
@@ -268,8 +269,8 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                                         subtitle:
                                             'Hire certified pilots\nand publish jobs',
                                         imageAsset: 'assets/images/company.png',
-                                        baseColor: const Color(0xFF381B60),
-                                        arrowColor: const Color(0xFF552A90),
+                                        baseColor: AppColors.logoNavy,
+                                        arrowColor: AppColors.logoTurquoise,
                                         onTap: () async {
                                           await AccountRoleStore.instance
                                               .setRole(AccountRole.company);

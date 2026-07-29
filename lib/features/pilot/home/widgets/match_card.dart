@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'app_card.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class MatchCard extends StatelessWidget {
   const MatchCard({super.key});
@@ -18,7 +19,7 @@ class MatchCard extends StatelessWidget {
               Text('AI Job Match',
                   style: TextStyle(color: Colors.grey, fontSize: 13)),
               SizedBox(width: 4),
-              Icon(Icons.auto_awesome, size: 14, color: Color(0xFFFFB020)),
+              Icon(Icons.auto_awesome, size: 14, color: AppColors.gold),
             ],
           ),
           const SizedBox(height: 14),
@@ -36,7 +37,7 @@ class MatchCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A1F36),
+                        color: AppColors.text,
                       ),
                     ),
                     Text(
@@ -66,7 +67,7 @@ class _GradientRingPainter extends CustomPainter
     const strokeWidth = 8.0;
 
     final bgPaint = Paint()
-      ..color = const Color(0xFFEDEFF5)
+      ..color = AppColors.border
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
     canvas.drawCircle(center, radius, bgPaint);
@@ -77,7 +78,7 @@ class _GradientRingPainter extends CustomPainter
     final gradient = SweepGradient(
       startAngle: 0,
       endAngle: sweepAngle,
-      colors: const [Color(0xFF1FBE6B), Color(0xFF3B6BF5)],
+      colors: const [AppColors.green, AppColors.logoTurquoiseDark],
       transform: const _StartAngleRotation(-math.pi / 2),
     );
 

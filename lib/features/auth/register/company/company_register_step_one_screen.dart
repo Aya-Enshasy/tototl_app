@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'company_register_step_tow_screen.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
 
 class CompanyRegisterStepOneScreen extends StatefulWidget {
   const CompanyRegisterStepOneScreen({super.key});
@@ -55,7 +56,7 @@ class _CompanyRegisterStepOneScreenState
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: AppColors.text,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
@@ -269,9 +270,9 @@ class _CompanyRegisterStepOneScreenState
                 ),
                 const SizedBox(height: 14),
 
-                // Company Type Dropdown
+                // Industry Type Dropdown
                 _buildDropdownField(
-                  hintText: 'Company Type',
+                  hintText: 'Industry Type',
                   value: _selectedCompanyType,
                   items: _companyTypes,
                   onChanged: (val) => setState(() => _selectedCompanyType = val),
@@ -357,15 +358,15 @@ class _CompanyRegisterStepOneScreenState
                     borderRadius: BorderRadius.circular(28),
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF3F6DFB),
-                        Color(0xFF1E4CE7),
+                        Color(0xFF16C6C7),
+                        Color(0xFF0D8AA5),
                       ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF3F6DFB).withOpacity(0.35),
+                        color: const Color(0xFF16C6C7).withOpacity(0.35),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -454,11 +455,11 @@ class _CompanyRegisterStepOneScreenState
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isActive || isPassed
-                    ? const Color(0xFF3F6DFB)
+                    ? const Color(0xFF16C6C7)
                     : Colors.white,
                 border: Border.all(
                   color: isActive || isPassed
-                      ? const Color(0xFF3F6DFB)
+                      ? const Color(0xFF16C6C7)
                       : const Color(0xFFE5E7EB),
                   width: 2,
                 ),
@@ -480,7 +481,7 @@ class _CompanyRegisterStepOneScreenState
               Container(
                 width: 26,
                 height: 2,
-                color: isPassed ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                color: isPassed ? const Color(0xFF16C6C7) : const Color(0xFFE5E7EB),
               ),
           ],
         );
@@ -529,7 +530,7 @@ class _CompanyRegisterStepOneScreenState
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF16C6C7), width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -594,7 +595,7 @@ class _CompanyRegisterStepOneScreenState
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
+              borderSide: const BorderSide(color: Color(0xFF16C6C7), width: 1.5),
             ),
           ),
           items: items.map((String item) {

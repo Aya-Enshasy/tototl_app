@@ -6,6 +6,11 @@ class PilotJob {
     required this.title,
     required this.company,
     required this.location,
+    this.country = '',
+    this.city = '',
+    this.region = '',
+    this.address,
+    this.gpsCoordinates,
     required this.pay,
     required this.date,
     required this.distance,
@@ -18,12 +23,29 @@ class PilotJob {
     required this.pilotsHired,
     this.siteImagesProvided = true,
     this.pidIncluded = true,
+    this.jobTypes = const [],
+    this.droneSize,
+    this.safetyTrainingRequired = false,
+    this.specialCertificationsRequired = false,
+    // New fields
+    this.serviceCategory = '',
+    this.indoorOutdoor,
+    this.startTime,
+    this.flexibleSchedule = false,
+    this.paymentType = 'Fixed',
+    this.requiredSkills = const [],
+    this.attachments = const [],
   });
 
   final String id;
   final String title;
   final String company;
   final String location;
+  final String country;
+  final String city;
+  final String region;
+  final String? address;
+  final String? gpsCoordinates;
   final String pay;
   final String date;
   final String distance;
@@ -36,6 +58,18 @@ class PilotJob {
   final int pilotsHired;
   final bool siteImagesProvided;
   final bool pidIncluded;
+  final List<String> jobTypes;
+  final String? droneSize;
+  final bool safetyTrainingRequired;
+  final bool specialCertificationsRequired;
+  // New fields
+  final String serviceCategory;
+  final String? indoorOutdoor;
+  final String? startTime;
+  final bool flexibleSchedule;
+  final String paymentType;
+  final List<String> requiredSkills;
+  final List<String> attachments;
 }
 
 class PilotDrone {
@@ -68,6 +102,7 @@ class PilotProfile {
     required this.skills,
     required this.drones,
     this.verified = true,
+    this.linkedinUrl,
   });
 
   final String id;
@@ -82,6 +117,7 @@ class PilotProfile {
   final List<String> skills;
   final List<PilotDrone> drones;
   final bool verified;
+  final String? linkedinUrl;
 }
 
 enum PilotApplicationStatus { submitted, underReview, approved, declined }
@@ -111,6 +147,10 @@ class PilotApplication {
     required this.pilot,
     this.coverNote,
     this.proposedRate,
+    // New fields
+    this.estimatedCompletionTime,
+    this.availableStartDate,
+    this.additionalNotes,
   });
 
   final String id;
@@ -121,6 +161,10 @@ class PilotApplication {
   final PilotProfile pilot;
   final String? coverNote;
   final String? proposedRate;
+  // New fields
+  final String? estimatedCompletionTime;
+  final String? availableStartDate;
+  final String? additionalNotes;
 
   PilotApplication copyWith({PilotApplicationStatus? status}) =>
       PilotApplication(
@@ -132,6 +176,9 @@ class PilotApplication {
         pilot: pilot,
         coverNote: coverNote,
         proposedRate: proposedRate,
+        estimatedCompletionTime: estimatedCompletionTime,
+        availableStartDate: availableStartDate,
+        additionalNotes: additionalNotes,
       );
 }
 
@@ -140,6 +187,9 @@ const solarFarmJob = PilotJob(
   title: 'Thermal Inspection - Solar Farm Array',
   company: 'SunTech Energy Ltd.',
   location: 'Mojave Desert, CA',
+  country: 'United States',
+  city: 'Mojave',
+  region: 'California',
   pay: r'$850/day',
   date: '2026-08-14',
   distance: '12 km',
@@ -163,6 +213,10 @@ const solarFarmJob = PilotJob(
   ],
   jobsPosted: 47,
   pilotsHired: 4,
+  jobTypes: ['Inspection', 'Photography'],
+  droneSize: 'Medium',
+  safetyTrainingRequired: true,
+  specialCertificationsRequired: false,
 );
 
 const pilotJobs = <PilotJob>[
@@ -232,6 +286,7 @@ const pilotProfiles = <PilotProfile>[
         'FAA Part 107 certified pilot specializing in industrial inspection, thermal imaging, and precision mapping. Completed commercial missions across energy, construction, and infrastructure sectors.',
     skills: ['Thermal', 'Imaging', 'LiDAR', 'RTK'],
     drones: pilotDrones,
+    linkedinUrl: 'https://linkedin.com/in/aya-inshasi',
   ),
   PilotProfile(
     id: 'marcus-johansson',
@@ -246,6 +301,7 @@ const pilotProfiles = <PilotProfile>[
         'FAA Part 107 certified pilot with 6 years specializing in industrial inspection, thermal imaging, and precision mapping. Completed 200+ commercial missions across energy, construction, and infrastructure sectors.',
     skills: ['Thermal', 'LiDAR', 'Imaging'],
     drones: pilotDrones,
+    linkedinUrl: 'https://linkedin.com/in/marcus-johansson',
   ),
   PilotProfile(
     id: 'aisha-okonkwo',

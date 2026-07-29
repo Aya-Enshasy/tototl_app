@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_card.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class MyDroneCard extends StatelessWidget {
   const MyDroneCard({super.key});
@@ -24,17 +25,17 @@ class MyDroneCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1F36),
+                    color: AppColors.text,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: const [
-                    Icon(Icons.check_circle, size: 16, color: Color(0xFF1FBE6B)),
+                    Icon(Icons.check_circle, size: 16, color: AppColors.green),
                     SizedBox(width: 4),
                     Text(
                       'Verified',
-                      style: TextStyle(color: Color(0xFF1FBE6B), fontSize: 13),
+                      style: TextStyle(color: AppColors.green, fontSize: 13),
                     ),
                   ],
                 ),
@@ -47,7 +48,7 @@ class MyDroneCard extends StatelessWidget {
             width: 100,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) =>
-            const Icon(Icons.flight, size: 50, color: Color(0xFF3B6BF5)),
+            const Icon(Icons.flight, size: 50, color: AppColors.logoTurquoiseDark),
           ),
         ],
       ),

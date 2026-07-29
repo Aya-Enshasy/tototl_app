@@ -16,14 +16,11 @@ class MissionDetailsScreen extends StatefulWidget {
 }
 
 class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
-  final Map<String, bool> _checklist = {
-    'Pre-flight safety briefing': false,
-    'Site access confirmed': false,
-    'Emergency contact verified': false,
-    'Required PPE packed': false,
-  };
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final job = widget.mission.application.job;
+    final pilot = widget.mission.application.pilot;
+    return Scaffold(
     backgroundColor: AppColors.bg,
     body: SafeArea(
       child: ListView(
@@ -54,17 +51,17 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.mission.application.job.title,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                Text(job.title,
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                    )),
                 const SizedBox(height: 6),
                 Text(
-                  widget.mission.application.job.company,
+                  widget.isCompany
+                      ? 'Pilot: ${pilot.name}'
+                      : 'Company: ${job.company}',
                   style: const TextStyle(color: AppColors.grey, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
@@ -74,21 +71,21 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                       child: _Metric(
                         icon: Icons.calendar_today_outlined,
                         label: 'Date',
-                        value: widget.mission.date,
+                        value: job.date,
                       ),
                     ),
                     Expanded(
                       child: _Metric(
-                        icon: Icons.schedule_outlined,
-                        label: 'Window',
-                        value: '08:00 - ${8 + widget.mission.hours}:00',
+                        icon: Icons.payments_outlined,
+                        label: 'Rate',
+                        value: job.pay,
                       ),
                     ),
                     Expanded(
                       child: _Metric(
-                        icon: Icons.timer_outlined,
-                        label: 'Duration',
-                        value: '${widget.mission.hours} hours',
+                        icon: Icons.flight_rounded,
+                        label: 'Drone',
+                        value: widget.mission.application.drone.name,
                       ),
                     ),
                   ],
@@ -141,7 +138,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                             borderRadius: BorderRadius.circular(9),
                           ),
                           child: Text(
-                            widget.mission.application.job.location,
+                            job.location,
                             style: const TextStyle(
                               color: AppColors.navy,
                               fontSize: 11.5,
@@ -154,9 +151,77 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                Text(
+                  job.address == null || job.address!.isEmpty
+                      ? 'Exact address is shared after approval.'
+                      : job.address!,
+                  style: const TextStyle(color: AppColors.grey, fontSize: 11.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const Text(
-                  'Exact entry instructions are shared with the assigned pilot only.',
-                  style: TextStyle(color: AppColors.grey, fontSize: 11.5),
+                  'Job Description',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  job.description,
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontSize: 13.5,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Requirements',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...job.requirements.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline_rounded,
+                          color: AppColors.green,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            item,
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -176,53 +241,24 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 ),
                 const SizedBox(height: 12),
                 _FileRow(
+                  icon: Icons.description_outlined,
+                  title: widget.mission.contractFileName ?? 'Service contract',
+                  detail: widget.mission.contractFileName == null
+                      ? 'Not uploaded yet'
+                      : 'Available',
+                ),
+                _FileRow(
+                  icon: Icons.assignment_return_outlined,
+                  title: widget.mission.terminationFileName ??
+                      'Termination agreement',
+                  detail: widget.mission.terminationFileName == null
+                      ? 'Not uploaded yet'
+                      : 'Available',
+                ),
+                _FileRow(
                   icon: Icons.image_outlined,
                   title: 'Site reference images',
-                  detail: '6 photos available',
-                ),
-                _FileRow(
-                  icon: Icons.picture_as_pdf_outlined,
-                  title: 'P&ID drawings',
-                  detail: '1 PDF document',
-                ),
-                _FileRow(
-                  icon: Icons.description_outlined,
-                  title: 'Safety briefing',
-                  detail: 'Read before arrival',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Mission checklist',
-                  style: TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                ..._checklist.entries.map(
-                  (entry) => CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: entry.value,
-                    activeColor: AppColors.green,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(
-                      entry.key,
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    onChanged: (value) =>
-                        setState(() => _checklist[entry.key] = value ?? false),
-                  ),
+                  detail: 'Available after approval',
                 ),
               ],
             ),
@@ -234,14 +270,12 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             label: const Text('Request schedule or rate change'),
           ),
           TextButton.icon(
-            onPressed: () => _showActionDialog(
+            onPressed: () => _showCancelDialog(
               context,
-              'Cancel mission',
-              'This sends a cancellation request to the other party.',
             ),
             icon: const Icon(Icons.cancel_outlined, color: AppColors.red),
             label: const Text(
-              'Request cancellation',
+              'Cancel Job',
               style: TextStyle(color: AppColors.red),
             ),
           ),
@@ -261,6 +295,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
       ),
     ),
   );
+  }
   void _openRequestSheet(BuildContext context) => showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -336,6 +371,34 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 ).showSnackBar(SnackBar(content: Text('$title request sent.')));
               },
               child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+
+  void _showCancelDialog(BuildContext context) => showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cancel Job'),
+          content: const Text(
+            'This will cancel the job workflow for both sides.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            FilledButton(
+              onPressed: () {
+                OperationStore.instance.cancelMission(widget.mission);
+                Navigator.pop(context);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Job cancelled.')),
+                );
+              },
+              style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+              child: const Text('Cancel Job'),
             ),
           ],
         ),

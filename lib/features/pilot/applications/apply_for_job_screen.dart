@@ -17,6 +17,8 @@ class ApplyForJobScreen extends StatefulWidget {
 class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
   final _coverNoteController = TextEditingController();
   final _rateController = TextEditingController();
+  final _completionTimeController = TextEditingController();
+  final _startDateController = TextEditingController();
   int _step = 0;
   PilotDrone _selectedDrone = pilotDrones.first;
   bool _proposeDifferentRate = false;
@@ -26,16 +28,38 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
   void dispose() {
     _coverNoteController.dispose();
     _rateController.dispose();
+    _completionTimeController.dispose();
+    _startDateController.dispose();
     super.dispose();
   }
 
   Future<void> _continue() async {
+    if (_step == 0) {
+      // Step 0: Select Drone - always valid since drone is pre-selected
+    }
     if (_step == 1 &&
+        widget.job.paymentType != 'Fixed' &&
         _proposeDifferentRate &&
         _rateController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Add your proposed daily rate to continue.'),
+        ),
+      );
+      return;
+    }
+    if (_step == 1 && _completionTimeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please specify estimated completion time.'),
+        ),
+      );
+      return;
+    }
+    if (_step == 1 && _startDateController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please specify available start date.'),
         ),
       );
       return;
@@ -65,6 +89,8 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
       proposedRate: _proposeDifferentRate
           ? '\$${_rateController.text.trim()}/day'
           : null,
+      estimatedCompletionTime: _completionTimeController.text.trim(),
+      availableStartDate: _startDateController.text.trim(),
     );
     PilotApplicationsStore.instance.submit(application);
     Navigator.of(context).pushReplacement(
@@ -85,7 +111,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = ['Select Drone', 'Cover Note', 'Review & Submit'];
+    final titles = ['Select Drone', 'Proposal & Timing', 'Review & Submit'];
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -157,20 +183,23 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
   Widget _buildStep() {
     switch (_step) {
       case 0:
-        return _buildDroneStep();
+        return _buildSelectDroneStep();
       case 1:
-        return _buildCoverNoteStep();
+        return _buildProposalStep();
       default:
         return _buildReviewStep();
     }
   }
 
-  Widget _buildDroneStep() {
+  Widget _buildSelectDroneStep() {
+    final pilot = pilotProfiles.first;
+    final job = widget.job;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.job.title,
+          job.title,
           style: const TextStyle(
             color: AppColors.navy,
             fontSize: 23,
@@ -180,10 +209,19 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Choose which drone you will use for this job. Green indicates a capability match.',
+          'Your profile data (ID, rating, experience, certifications, drone fleet) will be sent automatically.',
           style: TextStyle(color: AppColors.grey, fontSize: 13.5, height: 1.45),
         ),
         const SizedBox(height: 22),
+        const Text(
+          'Select Drone',
+          style: TextStyle(
+            color: AppColors.navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
         ...pilotDrones.map(
           (drone) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -194,55 +232,35 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
             ),
           ),
         ),
-        TextButton.icon(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You can add another drone from your profile.'),
-            ),
-          ),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 19),
-          label: const Text('Add another drone'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.blue,
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildCoverNoteStep() {
+  Widget _buildProposalStep() {
+    final job = widget.job;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Cover Note',
+          'Proposal & Timing',
           style: TextStyle(
             color: AppColors.navy,
             fontSize: 24,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 7),
         const Text(
-          'Optional',
+          'Provide your proposal and availability details.',
           style: TextStyle(color: AppColors.grey, fontSize: 13.5),
         ),
-        const SizedBox(height: 25),
-        const Text(
-          'Message to Company (optional)',
-          style: TextStyle(
-            color: AppColors.navy,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 23),
+        _label('Proposal (optional)'),
         TextField(
           controller: _coverNoteController,
           maxLength: 500,
-          minLines: 6,
-          maxLines: 7,
+          minLines: 4,
+          maxLines: 5,
           style: const TextStyle(color: AppColors.navy, fontSize: 14),
           decoration: InputDecoration(
             hintText:
@@ -266,66 +284,89 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Propose a different rate',
-                      style: TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+        const SizedBox(height: 20),
+        if (job.paymentType != 'Fixed') ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Propose a different rate',
+                        style: TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _proposeDifferentRate,
+                      activeTrackColor: AppColors.blue,
+                      onChanged: (value) =>
+                          setState(() => _proposeDifferentRate = value),
+                    ),
+                  ],
+                ),
+                if (_proposeDifferentRate) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _rateController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                    ],
+                    decoration: InputDecoration(
+                      prefixText: r'$ ',
+                      suffixText: ' / day',
+                      hintText: 'Your proposed rate',
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.cardBorder),
                       ),
                     ),
                   ),
-                  Switch.adaptive(
-                    value: _proposeDifferentRate,
-                    activeTrackColor: AppColors.blue,
-                    onChanged: (value) =>
-                        setState(() => _proposeDifferentRate = value),
-                  ),
                 ],
-              ),
-              if (_proposeDifferentRate) ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _rateController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                  decoration: InputDecoration(
-                    prefixText: r'$ ',
-                    suffixText: ' / day',
-                    hintText: 'Your proposed rate',
-                    filled: true,
-                    fillColor: AppColors.bg,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.cardBorder),
-                    ),
-                  ),
-                ),
               ],
-            ],
+            ),
           ),
+          const SizedBox(height: 20),
+        ],
+        _label('Estimated Completion Time *'),
+        _select(
+          value: _completionTimeController.text,
+          items: const [
+            'Same Day',
+            '2 Days',
+            '3 Days',
+            '1 Week',
+            '2 Weeks',
+            'Custom',
+          ],
+          onChanged: (value) => setState(() => _completionTimeController.text = value!),
         ),
+        if (_completionTimeController.text == 'Custom') ...[
+          const SizedBox(height: 12),
+          _field(_completionTimeController, 'e.g. 5 days', type: TextInputType.text),
+        ],
+        const SizedBox(height: 20),
+        _label('Available Start Date *'),
+        _field(_startDateController, 'YYYY-MM-DD', type: TextInputType.datetime),
       ],
     );
   }
@@ -334,6 +375,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
     final rate = _proposeDifferentRate && _rateController.text.trim().isNotEmpty
         ? '\$${_rateController.text.trim()}/day'
         : widget.job.pay;
+    final job = widget.job;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,7 +408,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
               ),
               const SizedBox(height: 5),
               Text(
-                '${widget.job.company} · ${widget.job.location}',
+              '${widget.job.company} · ${widget.job.location}',
                 style: const TextStyle(color: AppColors.grey, fontSize: 12.5),
               ),
               const SizedBox(height: 16),
@@ -432,6 +474,85 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        _ReviewCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Timing',
+                style: TextStyle(color: AppColors.grey, fontSize: 12.5),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Text(
+                    'Completion Time:',
+                    style: TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _completionTimeController.text.trim(),
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text(
+                    'Start Date:',
+                    style: TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _startDateController.text.trim(),
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (_coverNoteController.text.trim().isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _ReviewCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Proposal',
+                  style: TextStyle(color: AppColors.grey, fontSize: 12.5),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _coverNoteController.text.trim(),
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 13.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 18),
         const Text(
           "By submitting this application you confirm the information is accurate and agree to TOTOTL INTGRX's Terms of Service.",
@@ -440,6 +561,86 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
       ],
     );
   }
+
+
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8, top: 17),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+
+  Widget _field(
+    TextEditingController controller,
+    String hint, {
+    int lines = 1,
+    TextInputType type = TextInputType.text,
+  }) => TextField(
+    controller: controller,
+    minLines: lines,
+    maxLines: lines,
+    keyboardType: type,
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: AppColors.lightGrey, fontSize: 13),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.all(14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.cardBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.cardBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.blue, width: 1.3),
+      ),
+    ),
+  );
+
+  Widget _select({
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.cardBorder),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: value.isEmpty ? null : value,
+        isExpanded: true,
+        hint: Text(
+          'Select an option',
+          style: TextStyle(color: AppColors.lightGrey, fontSize: 13.5),
+        ),
+        items: items
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(
+                  item,
+                  style: const TextStyle(color: AppColors.navy, fontSize: 13.5),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+      ),
+    ),
+  );
 
   Widget _buildBottomAction() {
     final label = _step == 2 ? 'Submit Application' : 'Continue';

@@ -39,7 +39,7 @@ class _MyScreenState extends State<MyScreen> {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFF7F9FC), Color(0xFFEAF0FC)],
+          colors: [AppColors.logoCameraEye, AppColors.blueBg],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),

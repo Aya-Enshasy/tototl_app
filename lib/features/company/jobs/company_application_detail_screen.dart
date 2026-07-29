@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../operations/company_offer_screen.dart';
 import '../../operations/conversation_screen.dart';
 import '../../operations/mission_tracking_screen.dart';
 import '../../operations/operation_store.dart';
@@ -170,6 +169,13 @@ class CompanyApplicationDetailScreen extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.chat_bubble_outline_rounded),
                   label: const Text('Message Pilot'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.navy,
+                    side: const BorderSide(color: AppColors.cardBorder),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -179,24 +185,51 @@ class CompanyApplicationDetailScreen extends StatelessWidget {
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => mission == null
-                          ? CompanyOfferScreen(application: application)
-                          : MissionTrackingScreen(
-                              mission: mission,
-                              isCompany: true,
-                            ),
+                      builder: (_) => MissionTrackingScreen(
+                        mission: mission ??
+                            OperationStore.instance
+                                .ensureApprovedMission(application),
+                        isCompany: true,
+                      ),
                     ),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.blue,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
                   ),
                   child: Text(
-                    mission == null ? 'Create Offer' : 'Open Mission',
+                    mission == null ? 'Open Workflow' : 'Open Mission',
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.blueBg,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: AppColors.blue, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        mission == null
+                            ? 'Open the workflow using the job details price already shown on this job.'
+                            : 'Mission is in progress. Track progress and communicate with the pilot.',
+                        style: const TextStyle(
+                          color: AppColors.blue,
+                          fontSize: 12.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

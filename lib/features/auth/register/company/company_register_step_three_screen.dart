@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'company_register_step_four_screen.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
 
 class CompanyRegisterStepThreeScreen extends StatefulWidget {
   const CompanyRegisterStepThreeScreen({super.key});
@@ -16,13 +17,13 @@ class _CompanyRegisterStepThreeScreenState
   final _formKey = GlobalKey<FormState>();
 
   // Theme colors (same palette used across the flow)
-  static const Color kPrimary = Color(0xFF3F6DFB);
-  static const Color kPrimarySoft = Color(0xFFEBF1FF);
-  static const Color kTextDark = Color(0xFF1A1A1A);
-  static const Color kTextMuted = Color(0xFF8F93A3);
-  static const Color kBorder = Color(0xFFE5E7EB);
-  static const Color kSurfaceSoft = Color(0xFFF9FAFB);
-  static const Color kDanger = Color(0xFFEF4444);
+  static const Color kPrimary = AppColors.primary;
+  static const Color kPrimarySoft = AppColors.blueBg;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
+  static const Color kDanger = AppColors.red;
 
   // 1. Job Types (multi-select)
   final List<String> _jobTypes = [
@@ -435,7 +436,7 @@ class _CompanyRegisterStepThreeScreenState
 
                 // Job Types (multi-select dropdown field)
                 const Text(
-                  'Job Types',
+                  'Job Types/Order Number',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -622,8 +623,8 @@ class _CompanyRegisterStepThreeScreenState
                     borderRadius: BorderRadius.circular(28),
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF3F6DFB),
-                        Color(0xFF1E4CE7),
+                        Color(0xFF16C6C7),
+                        Color(0xFF0D8AA5),
                       ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,

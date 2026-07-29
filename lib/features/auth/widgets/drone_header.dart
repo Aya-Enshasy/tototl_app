@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
 
 class DroneHeader extends StatelessWidget {
   const DroneHeader({super.key});
@@ -12,7 +13,7 @@ class DroneHeader extends StatelessWidget {
 
         /// Background
         Image.asset(
-          "assets/images/drone_login.png",
+          "assets/images/splash.png",
           fit: BoxFit.cover,
         ),
 
@@ -69,7 +70,7 @@ class DroneHeader extends StatelessWidget {
                 const Text(
                   "I N T G R X",
                   style: TextStyle(
-                    color: Color(0xff3568FF),
+                    color: AppColors.logoTurquoiseLight,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 5,

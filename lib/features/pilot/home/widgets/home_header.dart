@@ -24,13 +24,36 @@ class HomeHeader extends StatelessWidget {
                 style: TextStyle(fontSize: 14, color: AppColors.grey),
               ),
               SizedBox(height: 2),
-              Text(
-                'Aya Inshasi',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.navy,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Aya Inshasi',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.navy,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        color: AppColors.gold,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '4.9',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               SizedBox(height: 5),
               Row(

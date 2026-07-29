@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_three_screen.dart';
 
+import 'package:tototl_app/core/theme/app_colors.dart';
+
 // ===========================================================================
 // SCREEN 2: Pilot Experience & Work Details
 // ===========================================================================
@@ -23,6 +25,8 @@ class _PilotRegisterStepTwoScreenState
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _aboutController = TextEditingController();
   final TextEditingController _otherLanguageController =
+  TextEditingController();
+  final TextEditingController _previousCompanyController =
   TextEditingController();
 
   // Selection States
@@ -59,14 +63,14 @@ class _PilotRegisterStepTwoScreenState
   ];
 
   // Application Theme Colors
-  static const Color kPrimary = Color(0xFF1E56F0);
-  static const Color kPrimarySoft = Color(0xFFEFF3FE);
-  static const Color kTextDark = Color(0xFF0F172A);
-  static const Color kTextMuted = Color(0xFF64748B);
-  static const Color kHint = Color(0xFF94A3B8);
-  static const Color kBorder = Color(0xFFE2E8F0);
-  static const Color kSurfaceSoft = Color(0xFFF8FAFC);
-  static const Color kDanger = Color(0xFFEF4444);
+  static const Color kPrimary = AppColors.primary;
+  static const Color kPrimarySoft = AppColors.blueBg;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kHint = AppColors.lightGrey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
+  static const Color kDanger = AppColors.red;
 
   @override
   void dispose() {
@@ -75,6 +79,7 @@ class _PilotRegisterStepTwoScreenState
     _cityController.dispose();
     _aboutController.dispose();
     _otherLanguageController.dispose();
+    _previousCompanyController.dispose();
     super.dispose();
   }
 
@@ -414,7 +419,17 @@ class _PilotRegisterStepTwoScreenState
                 ),
                 const SizedBox(height: 20),
 
-                // 5. About Me / Professional Description
+                // 5. Previous Company
+                _buildSectionLabel('Previous Company'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _previousCompanyController,
+                  hintText: 'Enter previous company name',
+                  prefixIcon: Icons.business_rounded,
+                ),
+                const SizedBox(height: 20),
+
+                // 6. About Me / Professional Description
                 _buildSectionLabel('About Me / Professional Description'),
                 const SizedBox(height: 8),
                 _buildTextField(

@@ -39,6 +39,20 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                   const SizedBox(height: 14),
                   _JobSummary(job: job),
                   const SizedBox(height: 14),
+                  if (job.serviceCategory.isNotEmpty) ...[
+                    _SectionCard(
+                      title: 'Service Category',
+                      child: Text(
+                        job.serviceCategory,
+                        style: const TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _SectionCard(
                     title: 'Description',
                     child: Text(
@@ -51,6 +65,74 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  _SectionCard(
+                    title: 'Location',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _LocationRow('Country', job.country),
+                        _LocationRow('City', job.city),
+                        if (job.region.isNotEmpty) _LocationRow('Region', job.region),
+                        if (job.address != null) _LocationRow('Address', job.address!),
+                        if (job.indoorOutdoor != null) _LocationRow('Type', job.indoorOutdoor!),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: 'Schedule',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _LocationRow('Date', job.date),
+                        if (job.startTime != null) _LocationRow('Start Time', job.startTime!),
+                        if (job.flexibleSchedule) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.access_time, color: AppColors.green, size: 16),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Flexible schedule',
+                                style: TextStyle(
+                                  color: AppColors.green,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: 'Budget',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _LocationRow('Payment Type', job.paymentType),
+                        _LocationRow('Budget', job.pay),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (job.requiredSkills.isNotEmpty) ...[
+                    _SectionCard(
+                      title: 'Skills Required',
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: job.requiredSkills
+                            .map(
+                              (skill) => _CapabilityChip(label: skill),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _SectionCard(
                     title: 'Requirements',
                     child: _Checklist(
@@ -80,6 +162,21 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  if (job.attachments.isNotEmpty) ...[
+                    _SectionCard(
+                      title: 'Attachments',
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: job.attachments
+                            .map(
+                              (attachment) => _CapabilityChip(label: attachment),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _SectionCard(
                     title: 'About the Company',
                     child: InkWell(
@@ -108,13 +205,23 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  job.company,
-                                  style: const TextStyle(
-                                    color: AppColors.navy,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      job.company,
+                                      style: const TextStyle(
+                                        color: AppColors.navy,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: AppColors.logoTurquoiseLight,
+                                      size: 16,
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -227,14 +334,14 @@ class _JobHero extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.verified_rounded,
-                    color: Color(0xFF8FBBFF),
+                    color: AppColors.logoTurquoiseLight,
                     size: 16,
                   ),
                   SizedBox(width: 6),
                   Text(
                     'Verified company',
                     style: TextStyle(
-                      color: Color(0xFFD8E5FF),
+                      color: AppColors.lightGrey,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                     ),
@@ -255,7 +362,7 @@ class _JobHero extends StatelessWidget {
               Text(
                 job.company,
                 style: const TextStyle(
-                  color: Color(0xFFC3D3EE),
+                  color: AppColors.lightGrey,
                   fontSize: 13.5,
                 ),
               ),
@@ -298,7 +405,11 @@ class _JobSummary extends StatelessWidget {
               ),
               Container(width: 1, height: 38, color: AppColors.cardBorder),
               Expanded(
-                child: _Metric(label: 'Distance', value: job.distance),
+                child: _Metric(label: 'Time', value: '9:00 AM'),
+              ),
+              Container(width: 1, height: 38, color: AppColors.cardBorder),
+              Expanded(
+                child: _Metric(label: 'Day', value: 'Thursday'),
               ),
             ],
           ),
@@ -515,6 +626,32 @@ class _CapabilityChip extends StatelessWidget {
     );
   }
 }
+
+Widget _LocationRow(String label, String value) => Padding(
+  padding: const EdgeInsets.only(bottom: 8),
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 100,
+        child: Text(
+          label,
+          style: const TextStyle(color: AppColors.grey, fontSize: 13),
+        ),
+      ),
+      Expanded(
+        child: Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    ],
+  ),
+);
 
 class _ApplyBar extends StatelessWidget {
   const _ApplyBar({required this.pay, required this.onApply});

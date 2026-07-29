@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
 class DroneHero extends StatelessWidget {
   const DroneHero({super.key});
 
@@ -24,12 +26,12 @@ class DroneHero extends StatelessWidget {
                 return Container(
                   height: 150,
                   width: double.infinity,
-                  color: const Color(0xFFDCE8FB),
+                  color: AppColors.blueBg,
                   child: const Center(
                     child: Icon(
                       Icons.flight,
                       size: 60,
-                      color: Color(0xFF3B6BF5),
+                      color: AppColors.logoTurquoiseDark,
                     ),
                   ),
                 );

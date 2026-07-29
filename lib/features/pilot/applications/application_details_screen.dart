@@ -16,6 +16,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
     final statusColor = _statusColor(application.status);
     final statusBackground = _statusBackground(application.status);
     final mission = OperationStore.instance.missionFor(application.id);
+    final approved = application.status == PilotApplicationStatus.approved;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -200,7 +201,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                       label: const Text('Message Company'),
                     ),
                   ),
-                  if (mission != null) ...[
+                  if (approved) ...[
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
@@ -209,7 +210,9 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => MissionTrackingScreen(
-                              mission: mission,
+                              mission: mission ??
+                                  OperationStore.instance
+                                      .ensureApprovedMission(application),
                               isCompany: false,
                             ),
                           ),
@@ -217,10 +220,9 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.blue,
                         ),
-                        child: Text(
-                          mission.stage == MissionStage.offerSent
-                              ? 'Review Offer'
-                              : 'Open Mission',
+                        child: const Text(
+                          'Open Workflow',
+                          style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
                     ),

@@ -13,6 +13,13 @@ class AppTheme {
 
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primary,
+      primary: AppColors.primary,
+      secondary: AppColors.secondary,
+      surface: AppColors.white,
+      error: AppColors.red,
+      onPrimary: AppColors.white,
+      onSecondary: AppColors.navy,
+      onSurface: AppColors.text,
     ),
 
     textTheme: GoogleFonts.poppinsTextTheme(),

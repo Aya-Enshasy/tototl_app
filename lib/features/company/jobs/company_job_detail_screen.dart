@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../operations/mission_tracking_screen.dart';
+import '../../operations/operation_store.dart';
 import '../../pilot/shared/pilot_data.dart';
 import 'company_application_detail_screen.dart';
 
@@ -18,6 +20,13 @@ class CompanyJobDetailScreen extends StatelessWidget {
         final applicants = PilotApplicationsStore.instance.applications
             .where((application) => application.job.id == job.id)
             .toList();
+        final approvedApplication = applicants
+            .cast<PilotApplication?>()
+            .firstWhere(
+              (application) =>
+                  application!.status == PilotApplicationStatus.approved,
+              orElse: () => null,
+            );
         return Scaffold(
           backgroundColor: AppColors.bg,
           body: SafeArea(
@@ -98,7 +107,7 @@ class CompanyJobDetailScreen extends StatelessWidget {
                                     child: Text(
                                       'Urgent',
                                       style: TextStyle(
-                                        color: Color(0xFFFFD28A),
+                                        color: AppColors.gold,
                                         fontWeight: FontWeight.w800,
                                         fontSize: 11.5,
                                       ),
@@ -120,7 +129,7 @@ class CompanyJobDetailScreen extends StatelessWidget {
                             Text(
                               '${job.location} · ${job.date}',
                               style: const TextStyle(
-                                color: Color(0xFFC8D5EC),
+                                color: AppColors.lightGrey,
                                 fontSize: 13,
                               ),
                             ),
@@ -128,7 +137,7 @@ class CompanyJobDetailScreen extends StatelessWidget {
                             Text(
                               job.pay,
                               style: const TextStyle(
-                                color: Color(0xFF93E3B9),
+                                color: AppColors.green,
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -136,6 +145,12 @@ class CompanyJobDetailScreen extends StatelessWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      _LocationPriceSection(job: job),
+                      if (approvedApplication != null) ...[
+                        const SizedBox(height: 14),
+                        _WorkflowAccessCard(application: approvedApplication),
+                      ],
                       const SizedBox(height: 14),
                       _Section(
                         title: 'Description',
@@ -194,6 +209,116 @@ class CompanyJobDetailScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Prominent, unambiguous "Location & Price" card: country, city,
+/// region/area, address (if shared) and the daily rate, each on its
+/// own labeled row so nothing is buried inside a paragraph.
+class _LocationPriceSection extends StatelessWidget {
+  const _LocationPriceSection({required this.job});
+
+  final PilotJob job;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasStructuredLocation =
+        job.country.isNotEmpty || job.city.isNotEmpty || job.region.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.location_on_rounded, color: AppColors.blue, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Location & Price',
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _InfoRow(
+            label: 'Price / day',
+            value: job.pay,
+            valueColor: AppColors.green,
+          ),
+          _InfoRow(label: 'Mission Date', value: job.date),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(color: AppColors.cardBorder),
+          ),
+          if (hasStructuredLocation) ...[
+            if (job.country.isNotEmpty)
+              _InfoRow(label: 'Country', value: job.country),
+            if (job.city.isNotEmpty) _InfoRow(label: 'City', value: job.city),
+            if (job.region.isNotEmpty)
+              _InfoRow(label: 'Region / Area', value: job.region),
+          ] else
+            _InfoRow(label: 'Location', value: job.location),
+          _InfoRow(
+            label: 'Exact Address',
+            value: (job.address == null || job.address!.isEmpty)
+                ? 'Shared with the pilot after acceptance'
+                : job.address!,
+            valueColor: (job.address == null || job.address!.isEmpty)
+                ? AppColors.grey
+                : AppColors.navy,
+          ),
+          if (job.gpsCoordinates != null && job.gpsCoordinates!.isNotEmpty)
+            _InfoRow(label: 'GPS Coordinates', value: job.gpsCoordinates!),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value, this.valueColor});
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.grey, fontSize: 12.5),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: valueColor ?? AppColors.navy,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -277,6 +402,98 @@ class _ApplicantCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _WorkflowAccessCard extends StatelessWidget {
+  const _WorkflowAccessCard({required this.application});
+
+  final PilotApplication application;
+
+  @override
+  Widget build(BuildContext context) {
+    final mission = OperationStore.instance.missionFor(application.id);
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: AppColors.greenBg,
+                child: Text(
+                  application.pilot.name.substring(0, 1),
+                  style: const TextStyle(
+                    color: AppColors.green,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Assigned Pilot',
+                      style: TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      application.pilot.name,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MissionTrackingScreen(
+                    mission: mission ??
+                        OperationStore.instance
+                            .ensureApprovedMission(application),
+                    isCompany: true,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.timeline_rounded),
+              label: const Text(
+                'Open Job Workflow',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Section extends StatelessWidget {

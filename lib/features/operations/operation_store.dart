@@ -4,10 +4,14 @@ import '../pilot/shared/pilot_data.dart';
 
 enum MissionStage {
   offerSent,
-  awaitingFunding,
-  scheduled,
+  contractPending,
+  contractSigned,
+  readyToStart,
   inProgress,
-  submitted,
+  terminationPending,
+  terminationSigned,
+  paymentPending,
+  paymentSent,
   completed,
   rejected,
 }
@@ -15,10 +19,14 @@ enum MissionStage {
 extension MissionStageLabel on MissionStage {
   String get label => switch (this) {
     MissionStage.offerSent => 'Offer sent',
-    MissionStage.awaitingFunding => 'Ready for funding',
-    MissionStage.scheduled => 'Scheduled',
+    MissionStage.contractPending => 'Contract pending',
+    MissionStage.contractSigned => 'Contract signed',
+    MissionStage.readyToStart => 'Ready to start',
     MissionStage.inProgress => 'In progress',
-    MissionStage.submitted => 'Awaiting confirmation',
+    MissionStage.terminationPending => 'Ending contract',
+    MissionStage.terminationSigned => 'Termination signed',
+    MissionStage.paymentPending => 'Payment pending',
+    MissionStage.paymentSent => 'Payment sent',
     MissionStage.completed => 'Completed',
     MissionStage.rejected => 'Declined',
   };
@@ -32,6 +40,12 @@ class Mission {
     required this.hours,
     required this.amount,
     required this.stage,
+    this.contractFileName,
+    this.terminationFileName,
+    this.companyStarted = false,
+    this.pilotStarted = false,
+    this.companyEnded = false,
+    this.pilotEnded = false,
     this.pilotRating,
     this.companyRating,
   });
@@ -41,8 +55,18 @@ class Mission {
   final int hours;
   final double amount;
   MissionStage stage;
+  String? contractFileName;
+  String? terminationFileName;
+  bool companyStarted;
+  bool pilotStarted;
+  bool companyEnded;
+  bool pilotEnded;
   int? pilotRating;
   int? companyRating;
+
+  bool get bothStarted => companyStarted && pilotStarted;
+  bool get bothEnded => companyEnded && pilotEnded;
+  bool get bothRated => pilotRating != null && companyRating != null;
 }
 
 class ChatMessage {
@@ -72,6 +96,35 @@ class OperationStore extends ChangeNotifier {
         (mission) => mission!.application.id == applicationId,
         orElse: () => null,
       );
+
+  Mission ensureApprovedMission(PilotApplication application) {
+    final existing = missionFor(application.id);
+    if (existing != null) return existing;
+    final parsedAmount =
+        double.tryParse(application.job.pay.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+        850;
+    final mission = Mission(
+      id: 'mission-${DateTime.now().millisecondsSinceEpoch}',
+      application: application,
+      date: application.job.date,
+      hours: 8,
+      amount: parsedAmount,
+      stage: MissionStage.contractPending,
+    );
+    _missions.add(mission);
+    _messages.add(
+      ChatMessage(
+        id: 'message-${DateTime.now().millisecondsSinceEpoch}',
+        applicationId: application.id,
+        text:
+            'Application approved. The company can upload the contract, then both sides confirm start.',
+        isCompany: true,
+        time: 'Just now',
+      ),
+    );
+    notifyListeners();
+    return mission;
+  }
   List<ChatMessage> messagesFor(String applicationId) => _messages
       .where((message) => message.applicationId == applicationId)
       .toList();
@@ -135,7 +188,7 @@ class OperationStore extends ChangeNotifier {
   }
 
   void acceptOffer(Mission mission) {
-    mission.stage = MissionStage.awaitingFunding;
+    mission.stage = MissionStage.contractPending;
     notifyListeners();
   }
 
@@ -144,22 +197,77 @@ class OperationStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void cancelMission(Mission mission) {
+    mission.stage = MissionStage.rejected;
+    notifyListeners();
+  }
+
   void fundEscrow(Mission mission) {
-    mission.stage = MissionStage.scheduled;
+    mission.stage = MissionStage.readyToStart;
     notifyListeners();
   }
 
   void startMission(Mission mission) {
+    markStartReady(mission, byCompany: false);
+  }
+
+  void submitWork(Mission mission) {
+    markWorkEnded(mission, byCompany: false);
+  }
+
+  void confirmAndRelease(Mission mission) {
+    mission.stage = MissionStage.paymentSent;
+    notifyListeners();
+  }
+
+  void uploadContract(Mission mission) {
+    mission.contractFileName = 'service-contract-${mission.application.id}.pdf';
+    mission.stage = MissionStage.contractPending;
+    notifyListeners();
+  }
+
+  void signContract(Mission mission) {
+    mission.stage = MissionStage.contractSigned;
+    notifyListeners();
+  }
+
+  void markStartReady(Mission mission, {required bool byCompany}) {
+    mission.companyStarted = true;
+    mission.pilotStarted = true;
     mission.stage = MissionStage.inProgress;
     notifyListeners();
   }
 
-  void submitWork(Mission mission) {
-    mission.stage = MissionStage.submitted;
+  void uploadTermination(Mission mission) {
+    mission.terminationFileName =
+        'termination-agreement-${mission.application.id}.pdf';
+    mission.stage = MissionStage.terminationPending;
     notifyListeners();
   }
 
-  void confirmAndRelease(Mission mission) {
+  void markWorkEnded(Mission mission, {required bool byCompany}) {
+    mission.companyEnded = true;
+    mission.pilotEnded = true;
+    mission.stage = MissionStage.terminationPending;
+    notifyListeners();
+  }
+
+  void signTermination(Mission mission) {
+    mission.stage = MissionStage.terminationSigned;
+    notifyListeners();
+  }
+
+  void openSecurePayment(Mission mission) {
+    mission.stage = MissionStage.paymentPending;
+    notifyListeners();
+  }
+
+  void sendPilotPayment(Mission mission) {
+    mission.stage = MissionStage.paymentSent;
+    notifyListeners();
+  }
+
+  void confirmPaymentReceived(Mission mission) {
     mission.stage = MissionStage.completed;
     notifyListeners();
   }

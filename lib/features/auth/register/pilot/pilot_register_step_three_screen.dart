@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_four_screen.dart';
 
+import 'package:tototl_app/core/theme/app_colors.dart';
+
 class PilotRegisterStepThreeScreen extends StatefulWidget {
   const PilotRegisterStepThreeScreen({super.key});
 
@@ -20,6 +22,30 @@ class _PilotRegisterStepThreeScreenState
   final TextEditingController _makeController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
   final TextEditingController _serialController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
+
+  // Flight Information
+  final TextEditingController _flightTimeController =
+  TextEditingController();
+
+  final TextEditingController _totalBatteriesController =
+  TextEditingController();
+
+  final TextEditingController _batteryTypeController =
+  TextEditingController();
+
+  // Service Rates
+  final TextEditingController _batteryUsageController =
+  TextEditingController();
+
+  final TextEditingController _hourlyRateController =
+  TextEditingController();
+
+  final TextEditingController _dailyRateController =
+  TextEditingController();
+
+  final TextEditingController _emergencyFeeController =
+  TextEditingController();
 
   String? _selectedYear;
   File? _droneImage;
@@ -45,20 +71,30 @@ class _PilotRegisterStepThreeScreenState
         (index) => (DateTime.now().year - index).toString(),
   );
 
-  static const Color kPrimary = Color(0xFF1E56F0);
-  static const Color kPrimarySoft = Color(0xFFEFF3FE);
-  static const Color kTextDark = Color(0xFF0F172A);
-  static const Color kTextMuted = Color(0xFF64748B);
-  static const Color kHint = Color(0xFF94A3B8);
-  static const Color kBorder = Color(0xFFE2E8F0);
-  static const Color kSurfaceSoft = Color(0xFFF8FAFC);
-  static const Color kDanger = Color(0xFFEF4444);
+  static const Color kPrimary = AppColors.primary;
+  static const Color kPrimarySoft = AppColors.blueBg;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kHint = AppColors.lightGrey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
+  static const Color kDanger = AppColors.red;
 
   @override
   void dispose() {
     _makeController.dispose();
     _modelController.dispose();
     _serialController.dispose();
+    _weightController.dispose();
+
+    _flightTimeController.dispose();
+    _totalBatteriesController.dispose();
+    _batteryTypeController.dispose();
+
+    _batteryUsageController.dispose();
+    _hourlyRateController.dispose();
+    _dailyRateController.dispose();
+    _emergencyFeeController.dispose();
     super.dispose();
   }
 
@@ -660,8 +696,27 @@ class _PilotRegisterStepThreeScreenState
                 ),
                 const SizedBox(height: 16),
 
+                // Drone Weight
+                _buildSectionLabel('Drone Weight (kg)'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _weightController,
+                  hintText: 'e.g. 1.2',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.fitness_center_rounded,
+                    size: 18,
+                    color: kHint,
+                  ),
+                  validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Weight is required' : null,
+                ),
+                const SizedBox(height: 16),
+
                 // Accessories (Optional) — Multi-select dropdown
-                _buildSectionLabel('Accessories & Payload (Optional)'),
+                _buildSectionLabel('Accessories & Payload'),
                 const SizedBox(height: 8),
                 _buildMultiSelectField(
                   hintText: 'Select accessories',
@@ -671,6 +726,154 @@ class _PilotRegisterStepThreeScreenState
                   onChanged: (updated) =>
                       setState(() => _selectedAccessories = updated),
                 ),
+
+                // ---------------------------------------------------------
+                // Flight Information
+                // ---------------------------------------------------------
+                const SizedBox(height: 28),
+                _buildGroupHeader('✈️', 'Flight Information'),
+                const SizedBox(height: 14),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionLabel('Flight Time per Battery (hours)'),
+                          const SizedBox(height: 8),
+                          _buildTextField(
+                            controller: _flightTimeController,
+                            hintText: 'e.g. 3',
+                            keyboardType:
+                            const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            suffixIcon: const Icon(
+                              Icons.timer_outlined,
+                              size: 18,
+                              color: kHint,
+                            ),
+                            validator: (value) => value == null ||
+                                value.trim().isEmpty
+                                ? 'Required'
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionLabel('Total Batteries'),
+                          const SizedBox(height: 8),
+                          _buildTextField(
+                            controller: _totalBatteriesController,
+                            hintText: 'e.g. 4',
+                            keyboardType: TextInputType.number,
+                            suffixIcon: const Icon(
+                              Icons.battery_full_rounded,
+                              size: 18,
+                              color: kHint,
+                            ),
+                            validator: (value) => value == null ||
+                                value.trim().isEmpty
+                                ? 'Required'
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildSectionLabel('Battery Type'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _batteryTypeController,
+                  hintText: 'e.g. Lithium',
+                  suffixIcon: const Icon(
+                    Icons.battery_charging_full_rounded,
+                    size: 18,
+                    color: kHint,
+                  ),
+                ),
+
+                // ---------------------------------------------------------
+                // Service Rates
+                // ---------------------------------------------------------
+                const SizedBox(height: 26),
+                _buildGroupHeader('💰', 'Service Rates'),
+                const SizedBox(height: 14),
+                _buildSectionLabel('Battery Usage Fee'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _batteryUsageController,
+                  hintText: 'e.g. 50',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.battery_saver_rounded,
+                    size: 18,
+                    color: kHint,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSectionLabel('Hourly Rate'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _hourlyRateController,
+                  hintText: 'e.g. 50',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.attach_money_rounded,
+                    size: 18,
+                    color: kHint,
+                  ),
+                  validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                _buildSectionLabel('Daily Rate'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _dailyRateController,
+                  hintText: 'e.g. 350',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 18,
+                    color: kHint,
+                  ),
+                  validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                _buildSectionLabel('Emergency / Call-Out Fee'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _emergencyFeeController,
+                  hintText: 'e.g. 100',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.bolt_rounded,
+                    size: 18,
+                    color: kHint,
+                  ),
+                  validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
+                ),
+
                 const SizedBox(height: 32),
 
                 // Next Button
@@ -700,6 +903,33 @@ class _PilotRegisterStepThreeScreenState
         fontWeight: FontWeight.w700,
         color: kTextDark,
       ),
+    );
+  }
+
+  /// عنوان مجموعة حقول (زي "Flight Information" أو "Service Rates")
+  /// مع إيموجي صغير وخط فاصل بسيط قبله.
+  Widget _buildGroupHeader(String emoji, String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(height: 1, color: kBorder),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: kTextDark,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

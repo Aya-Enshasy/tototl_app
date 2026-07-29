@@ -118,6 +118,44 @@ class PilotPublicProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (pilot.linkedinUrl != null) ...[
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap: () {
+                        // Open LinkedIn URL
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.blueBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.link_rounded,
+                              color: AppColors.blue,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'LinkedIn',
+                              style: TextStyle(
+                                color: AppColors.blue,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,

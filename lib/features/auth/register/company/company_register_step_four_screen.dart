@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/session/account_role_store.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../company/company_shell_screen.dart';
 
 class CompanyRegisterStepFourScreen extends StatefulWidget {
@@ -18,11 +19,11 @@ class _CompanyRegisterStepFourScreenState
   String _selectedPlan = 'free';
   bool _isLoading = false;
 
-  static const Color kPrimary = Color(0xFF3F6DFB);
-  static const Color kTextDark = Color(0xFF1A1A1A);
-  static const Color kTextMuted = Color(0xFF8F93A3);
-  static const Color kBorder = Color(0xFFE5E7EB);
-  static const Color kSurfaceSoft = Color(0xFFF9FAFB);
+  static const Color kPrimary = AppColors.primary;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
 
   void _handleCompleteRegistration() async {
     setState(() => _isLoading = true);
@@ -147,7 +148,7 @@ class _CompanyRegisterStepFourScreenState
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF3F6DFB), Color(0xFF1E4CE7)],
+                    colors: [Color(0xFF16C6C7), Color(0xFF0D8AA5)],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),

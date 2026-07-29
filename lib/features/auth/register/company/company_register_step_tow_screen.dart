@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-// قم باستيراد الخطوة الثالثة هنا
+import 'package:tototl_app/features/auth/register/company/company_register_step_four_screen.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
 import 'company_register_step_three_screen.dart';
 
 class CompanyRegisterStepTwoScreen extends StatefulWidget {
@@ -53,7 +53,7 @@ class _CompanyRegisterStepTwoScreenState
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: AppColors.text,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
@@ -77,7 +77,7 @@ class _CompanyRegisterStepTwoScreenState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const CompanyRegisterStepThreeScreen(),
+        builder: (context) => const CompanyRegisterStepFourScreen(),
       ),
     );
   }
@@ -126,7 +126,7 @@ class _CompanyRegisterStepTwoScreenState
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
+                    color: AppColors.text,
                     height: 1.2,
                     letterSpacing: -0.5,
                   ),
@@ -136,7 +136,7 @@ class _CompanyRegisterStepTwoScreenState
                   'Collect company information and operating areas',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF8F93A3),
+                    color: AppColors.grey,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -150,7 +150,7 @@ class _CompanyRegisterStepTwoScreenState
                 _buildTextField(
                   controller: _countryController,
                   hintText: 'Country',
-                  prefixIcon: const Icon(Icons.public_rounded, size: 20, color: Color(0xFFA0A5BA)),
+                  prefixIcon: const Icon(Icons.public_rounded, size: 20, color: AppColors.lightGrey),
                   validator: (val) => val == null || val.trim().isEmpty ? 'Country is required' : null,
                 ),
                 const SizedBox(height: 14),
@@ -162,7 +162,7 @@ class _CompanyRegisterStepTwoScreenState
                       child: _buildTextField(
                         controller: _stateController,
                         hintText: 'State / Province',
-                        prefixIcon: const Icon(Icons.map_outlined, size: 20, color: Color(0xFFA0A5BA)),
+                        prefixIcon: const Icon(Icons.map_outlined, size: 20, color: AppColors.lightGrey),
                         validator: (val) => val == null || val.trim().isEmpty ? 'State is required' : null,
                       ),
                     ),
@@ -171,7 +171,7 @@ class _CompanyRegisterStepTwoScreenState
                       child: _buildTextField(
                         controller: _cityController,
                         hintText: 'City',
-                        prefixIcon: const Icon(Icons.location_city_rounded, size: 20, color: Color(0xFFA0A5BA)),
+                        prefixIcon: const Icon(Icons.location_city_rounded, size: 20, color: AppColors.lightGrey),
                         validator: (val) => val == null || val.trim().isEmpty ? 'City is required' : null,
                       ),
                     ),
@@ -183,7 +183,7 @@ class _CompanyRegisterStepTwoScreenState
                 _buildTextField(
                   controller: _addressController,
                   hintText: 'Company Address',
-                  prefixIcon: const Icon(Icons.home_work_outlined, size: 20, color: Color(0xFFA0A5BA)),
+                  prefixIcon: const Icon(Icons.home_work_outlined, size: 20, color: AppColors.lightGrey),
                   validator: (val) => val == null || val.trim().isEmpty ? 'Address is required' : null,
                 ),
                 const SizedBox(height: 24),
@@ -229,10 +229,10 @@ class _CompanyRegisterStepTwoScreenState
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFF9FAFB),
+                          color: isSelected ? const Color(0xFF16C6C7) : const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                            color: isSelected ? const Color(0xFF16C6C7) : const Color(0xFFE5E7EB),
                           ),
                         ),
                         child: Row(
@@ -289,7 +289,7 @@ class _CompanyRegisterStepTwoScreenState
                       height: 24,
                       child: Checkbox(
                         value: _isAgreed,
-                        activeColor: const Color(0xFF3F6DFB),
+                        activeColor: const Color(0xFF16C6C7),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         onChanged: (val) {
                           setState(() => _isAgreed = val ?? false);
@@ -310,7 +310,7 @@ class _CompanyRegisterStepTwoScreenState
                             TextSpan(
                               text: 'User Contract Agreement and Terms & Conditions',
                               style: const TextStyle(
-                                color: Color(0xFF3F6DFB),
+                                color: Color(0xFF16C6C7),
                                 fontWeight: FontWeight.w700,
                                 decoration: TextDecoration.underline,
                               ),
@@ -335,15 +335,15 @@ class _CompanyRegisterStepTwoScreenState
                     borderRadius: BorderRadius.circular(28),
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF3F6DFB),
-                        Color(0xFF1E4CE7),
+                        Color(0xFF16C6C7),
+                        Color(0xFF0D8AA5),
                       ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF3F6DFB).withOpacity(0.35),
+                        color: const Color(0xFF16C6C7).withOpacity(0.35),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -426,12 +426,12 @@ class _CompanyRegisterStepTwoScreenState
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isActive || isPassed
-                    ? const Color(0xFF3F6DFB)
+                    ? const Color(0xFF16C6C7)
                     : Colors.white,
                 border: Border.all(
                   color: isActive || isPassed
-                      ? const Color(0xFF3F6DFB)
-                      : const Color(0xFFE5E5E7EB),
+                      ? const Color(0xFF16C6C7)
+                      : const Color(0xFFE5E7EB),
                   width: 2,
                 ),
               ),
@@ -452,7 +452,7 @@ class _CompanyRegisterStepTwoScreenState
               Container(
                 width: 26,
                 height: 2,
-                color: isPassed ? const Color(0xFF3F6DFB) : const Color(0xFFE5E7EB),
+                color: isPassed ? const Color(0xFF16C6C7) : const Color(0xFFE5E7EB),
               ),
           ],
         );
@@ -499,7 +499,7 @@ class _CompanyRegisterStepTwoScreenState
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF3F6DFB), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF16C6C7), width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),

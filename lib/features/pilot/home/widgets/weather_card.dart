@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tototl_app/features/pilot/home/widgets/app_card.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
  class WeatherCard extends StatelessWidget {
   const WeatherCard({super.key});
 
@@ -15,14 +17,14 @@ import 'package:tototl_app/features/pilot/home/widgets/app_card.dart';
           const SizedBox(height: 10),
           Row(
             children: const [
-              Icon(Icons.wb_sunny, color: Color(0xFFFFB020), size: 34),
+              Icon(Icons.wb_sunny, color: AppColors.gold, size: 34),
               SizedBox(width: 8),
               Text(
                 '22°C',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1F36),
+                  color: AppColors.text,
                 ),
               ),
             ],
