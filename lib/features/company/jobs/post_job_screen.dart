@@ -35,6 +35,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
   String? _droneSize;
   final Set<String> _droneEquipment = {};
   final TextEditingController _otherDroneEquipment = TextEditingController();
+  // When user picks Custom drone size, collect length and width
+  final TextEditingController _customDroneLength = TextEditingController();
+  final TextEditingController _customDroneWidth = TextEditingController();
   String _experience = '2+ years';
   final Set<String> _licenseTypes = {};
   final Set<String> _certificationTypes = {};
@@ -71,6 +74,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       _budget,
       _otherDroneEquipment,
       _otherRequirements,
+      _customDroneLength,
+      _customDroneWidth,
     ]) {
       controller.dispose();
     }
@@ -92,7 +97,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return _date.text.trim().isNotEmpty && _duration.text.trim().isNotEmpty;
     }
     if (_step == 3) {
-      return _droneSize != null && _droneEquipment.isNotEmpty;
+      // require size and equipment; if Custom selected require length & width
+      if (_droneSize == null || _droneEquipment.isEmpty) return false;
+      if (_droneSize == 'Custom') {
+        return _customDroneLength.text.trim().isNotEmpty && _customDroneWidth.text.trim().isNotEmpty;
+      }
+      return true;
     }
     if (_step == 4) {
       return _budget.text.trim().isNotEmpty;
@@ -148,7 +158,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
     siteImagesProvided: _siteImages,
     pidIncluded: _pidIncluded,
     jobTypes: _requiredSkills.toList(),
-    droneSize: _droneSize,
+    // If Custom selected, include dimensions in the size string for clarity
+    droneSize: _droneSize == 'Custom'
+        ? 'Custom (${_customDroneLength.text.trim()} x ${_customDroneWidth.text.trim()} m)'
+        : _droneSize,
     safetyTrainingRequired: _safetyTrainingRequired,
     specialCertificationsRequired: _certificationTypes.isNotEmpty,
     // New fields
@@ -453,7 +466,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       const SizedBox(height: 23),
       _label('Drone Size *'),
       Row(
-        children: ['Small', 'Medium', 'Large'].map((size) {
+        children: ['Small', 'Medium', 'Large', 'Custom', 'Normal'].map((size) {
           final isSelected = _droneSize == size;
           return Expanded(
             child: Padding(
@@ -490,7 +503,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
           );
         }).toList(),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 12),
+      // When Custom is selected, show length & width inputs
+      if (_droneSize == 'Custom') ...[
+        _label('Custom Drone Dimensions (meters)'),
+        Row(
+          children: [
+            Expanded(child: _field(_customDroneLength, 'Length (m)', type: TextInputType.number)),
+            const SizedBox(width: 8),
+            Expanded(child: _field(_customDroneWidth, 'Width (m)', type: TextInputType.number)),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
+      const SizedBox(height: 12),
       _label('Camera / Sensor *'),
       const Text(
         'Select all required equipment',
@@ -777,6 +803,27 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            // Show drone size / custom dimensions in the summary
+            if (_droneSize != null) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Drone size: ${_droneSize!}',
+                      style: const TextStyle(color: AppColors.navy, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              if (_droneSize == 'Custom' && _customDroneLength.text.trim().isNotEmpty && _customDroneWidth.text.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Custom dimensions: ${_customDroneLength.text.trim()} x ${_customDroneWidth.text.trim()} m',
+                  style: const TextStyle(color: AppColors.grey),
+                ),
+              ],
+            ],
           ],
         ),
       ),
@@ -883,6 +930,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
+    String hint = 'Select...',
   }) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14),
     decoration: BoxDecoration(
@@ -897,6 +945,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
         // convert it to null so the dropdown shows the hint and doesn't throw.
         value: (value == null || value.isEmpty) ? null : value,
         isExpanded: true,
+        hint: Text(
+          hint,
+          style: TextStyle(color: AppColors.lightGrey, fontSize: 13.5),
+        ),
         items: items
             .map(
               (item) => DropdownMenuItem(
