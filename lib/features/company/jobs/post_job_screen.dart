@@ -89,8 +89,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           _region.text.trim().isNotEmpty;
     }
     if (_step == 2) {
-      return _date.text.trim().isNotEmpty &&
-          _duration.text.trim().isNotEmpty;
+      return _date.text.trim().isNotEmpty && _duration.text.trim().isNotEmpty;
     }
     if (_step == 3) {
       return _droneSize != null && _droneEquipment.isNotEmpty;
@@ -588,7 +587,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
           Switch.adaptive(
             value: _safetyTrainingRequired,
             activeTrackColor: AppColors.blue,
-            onChanged: (value) => setState(() => _safetyTrainingRequired = value),
+            onChanged: (value) =>
+                setState(() => _safetyTrainingRequired = value),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -709,12 +709,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ),
       const SizedBox(height: 8),
       _buildMultiSelectChips(
-        items: const [
-          'Images',
-          'PDF',
-          'Site Plan',
-          'Documents',
-        ],
+        items: const ['Images', 'PDF', 'Site Plan', 'Documents'],
         selectedItems: _attachments,
         onChanged: (items) {
           setState(() {
@@ -773,9 +768,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _previewMetric('Budget', '\$${_budget.text.trim()}')),
+                Expanded(
+                  child: _previewMetric('Budget', '\$${_budget.text.trim()}'),
+                ),
                 Expanded(child: _previewMetric('Date', _date.text.trim())),
-                Expanded(child: _previewMetric('Duration', _duration.text.trim())),
+                Expanded(
+                  child: _previewMetric('Duration', _duration.text.trim()),
+                ),
               ],
             ),
           ],
