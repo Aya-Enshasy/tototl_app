@@ -110,6 +110,25 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 14),
                         _DetailRow(
+                          icon: Icons.timer_outlined,
+                          label: 'Completion time',
+                          value:
+                              application.estimatedCompletionTime?.isNotEmpty ==
+                                  true
+                              ? application.estimatedCompletionTime!
+                              : '-',
+                        ),
+                        const SizedBox(height: 14),
+                        _DetailRow(
+                          icon: Icons.play_circle_outline,
+                          label: 'Start date',
+                          value:
+                              application.availableStartDate?.isNotEmpty == true
+                              ? application.availableStartDate!
+                              : application.job.startTime ?? '-',
+                        ),
+                        const SizedBox(height: 14),
+                        _DetailRow(
                           icon: Icons.payments_outlined,
                           label: 'Rate',
                           value:
@@ -169,6 +188,20 @@ class ApplicationDetailsScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Requested skills shown for clarity in the application
+                  if (application.job.requiredSkills.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _SectionCard(
+                      title: 'Requested Skills',
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: application.job.requiredSkills
+                            .map((skill) => _CapabilityChip(label: skill))
+                            .toList(),
+                      ),
+                    ),
+                  ],
                   if (application.coverNote != null &&
                       application.coverNote!.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -176,6 +209,21 @@ class ApplicationDetailsScreen extends StatelessWidget {
                       title: 'Cover note',
                       child: Text(
                         application.coverNote!,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 13.5,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (application.additionalNotes != null &&
+                      application.additionalNotes!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _SectionCard(
+                      title: 'Additional information',
+                      child: Text(
+                        application.additionalNotes!,
                         style: const TextStyle(
                           color: AppColors.text,
                           fontSize: 13.5,
@@ -210,9 +258,11 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => MissionTrackingScreen(
-                              mission: mission ??
-                                  OperationStore.instance
-                                      .ensureApprovedMission(application),
+                              mission:
+                                  mission ??
+                                  OperationStore.instance.ensureApprovedMission(
+                                    application,
+                                  ),
                               isCompany: false,
                             ),
                           ),
@@ -266,6 +316,32 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 14),
           child,
         ],
+      ),
+    );
+  }
+}
+
+class _CapabilityChip extends StatelessWidget {
+  const _CapabilityChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.blueBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.blue),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.blue,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

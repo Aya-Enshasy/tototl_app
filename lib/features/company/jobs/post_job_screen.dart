@@ -880,7 +880,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     ),
   );
   Widget _select({
-    required String value,
+    required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) => Container(
@@ -892,7 +892,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
     ),
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
-        value: value,
+        // DropdownButton requires the value to be either null or one of the items.
+        // If an empty string is passed (e.g. initial TextEditingController.text),
+        // convert it to null so the dropdown shows the hint and doesn't throw.
+        value: (value == null || value.isEmpty) ? null : value,
         isExpanded: true,
         items: items
             .map(

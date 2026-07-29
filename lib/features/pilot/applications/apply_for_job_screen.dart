@@ -19,6 +19,8 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
   final _rateController = TextEditingController();
   final _completionTimeController = TextEditingController();
   final _startDateController = TextEditingController();
+  // Additional notes / answers requested by the company when posting the job
+  final _additionalNotesController = TextEditingController();
   int _step = 0;
   PilotDrone _selectedDrone = pilotDrones.first;
   bool _proposeDifferentRate = false;
@@ -30,6 +32,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
     _rateController.dispose();
     _completionTimeController.dispose();
     _startDateController.dispose();
+    _additionalNotesController.dispose();
     super.dispose();
   }
 
@@ -91,6 +94,9 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
           : null,
       estimatedCompletionTime: _completionTimeController.text.trim(),
       availableStartDate: _startDateController.text.trim(),
+      additionalNotes: _additionalNotesController.text.trim().isEmpty
+          ? null
+          : _additionalNotesController.text.trim(),
     );
     PilotApplicationsStore.instance.submit(application);
     Navigator.of(context).pushReplacement(
@@ -367,6 +373,36 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         const SizedBox(height: 20),
         _label('Available Start Date *'),
         _field(_startDateController, 'YYYY-MM-DD', type: TextInputType.datetime),
+        // Allow pilot to provide any additional notes or answers the company requested
+        const SizedBox(height: 14),
+        _label('Additional information (optional)'),
+        TextField(
+          controller: _additionalNotesController,
+          maxLength: 500,
+          minLines: 3,
+          maxLines: 5,
+          style: const TextStyle(color: AppColors.navy, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Answer any company questions or provide extra details...',
+            hintStyle: const TextStyle(color: AppColors.lightGrey, height: 1.4),
+            counterStyle: const TextStyle(color: AppColors.grey),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.all(16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppColors.cardBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppColors.cardBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppColors.blue, width: 1.4),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -543,6 +579,29 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
                 const SizedBox(height: 6),
                 Text(
                   _coverNoteController.text.trim(),
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 13.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (_additionalNotesController.text.trim().isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _ReviewCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Additional information',
+                  style: TextStyle(color: AppColors.grey, fontSize: 12.5),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _additionalNotesController.text.trim(),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 13.5,
