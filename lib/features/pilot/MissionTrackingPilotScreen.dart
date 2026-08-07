@@ -46,7 +46,7 @@ class _MissionTrackingPilotScreenState
               Row(
                 children: [
                   IconButton(
-                    tooltip: 'رجوع',
+                    tooltip: 'Back',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
@@ -55,16 +55,17 @@ class _MissionTrackingPilotScreenState
                   ),
                   const Expanded(
                     child: Text(
-                      'مسار المهمة',
+                      'Mission Progress',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.navy,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 48),
+                  const SizedBox(width: 40),
                 ],
               ),
               const SizedBox(height: 18),
@@ -99,8 +100,17 @@ class _MissionTrackingPilotScreenState
                           ),
                         ),
                       ),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded),
-                      label: const Text('مراسلة الشركة'),
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Message Company',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -114,8 +124,14 @@ class _MissionTrackingPilotScreenState
                           ),
                         ),
                       ),
-                      icon: const Icon(Icons.assignment_outlined),
-                      label: const Text('التفاصيل'),
+                      icon: const Icon(Icons.assignment_outlined, size: 18),
+                      label: const Text(
+                        'Details',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                 ],
@@ -127,7 +143,7 @@ class _MissionTrackingPilotScreenState
               ),
               const SizedBox(height: 16),
               const Text(
-                'خطواتك',
+                'Your Steps',
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 17,
@@ -136,7 +152,7 @@ class _MissionTrackingPilotScreenState
               ),
               const SizedBox(height: 10),
               ...steps.asMap().entries.map(
-                (entry) => WorkflowStepTimelineTile(
+                    (entry) => WorkflowStepTimelineTile(
                   step: entry.value,
                   isLast: entry.key == steps.length - 1,
                 ),
@@ -171,24 +187,24 @@ class _MissionTrackingPilotScreenState
     final signStep = WorkflowStep(
       kind: StepKind.signature,
       icon: Icons.edit_document,
-      title: 'تنزيل وتوقيع العقد',
+      title: 'Download & Sign Contract',
       description: contractUploaded
-          ? 'الشركة رفعت عقد الخدمة. نزّله ووقّعه، ثم اضغط "ابدأ العمل" لإرفاقه تلقائيًا.'
-          : 'بانتظار الشركة لرفع عقد الخدمة الخاص بهذه المهمة.',
+          ? 'The company uploaded the service contract. Download and sign it, then tap "Start Job" to attach it automatically.'
+          : 'Waiting for the company to upload the service contract for this mission.',
       attachmentName: current >= 2 ? mission.contractFileName : null,
       state: current >= 2
           ? StepState.done
           : contractUploaded
           ? StepState.current
           : StepState.waitingOnOther,
-      actionLabel: contractUploaded && current < 2 ? 'تنزيل وتوقيع' : null,
+      actionLabel: contractUploaded && current < 2 ? 'Download & Sign' : null,
       action: contractUploaded && current < 2
           ? () => OperationStore.instance.signContract(mission)
           : null,
       helper: current >= 2
           ? null
           : contractUploaded
-          ? 'التوقيع يُرفق تلقائيًا مع بدء العمل.'
+          ? 'Your signature is attached automatically when the job starts.'
           : null,
     );
 
@@ -196,24 +212,24 @@ class _MissionTrackingPilotScreenState
     final startStep = WorkflowStep(
       kind: StepKind.confirm,
       icon: Icons.play_circle_outline_rounded,
-      title: 'بدء العمل',
+      title: 'Start Job',
       description: mission.companyStarted
-          ? 'الشركة جاهزة لبدء العمل. أكّد من جانبك لتنطلق المهمة.'
-          : 'تأكيدك يُحفظ أولًا، ثم تنتظر تأكيد الشركة أيضًا.',
+          ? 'The company is ready to start the job. Confirm on your end to kick off the mission.'
+          : 'Your confirmation is saved first, then you wait on the company to confirm too.',
       state: mission.pilotStarted
           ? (current >= 4 ? StepState.done : StepState.waitingOnOther)
           : (current == 2 || current == 3)
           ? StepState.current
           : StepState.upcoming,
-      actionLabel: mission.pilotStarted ? null : 'ابدأ العمل',
+      actionLabel: mission.pilotStarted ? null : 'Start Job',
       action: mission.pilotStarted
           ? null
           : () => OperationStore.instance.markStartReady(
-              mission,
-              byCompany: false,
-            ),
+        mission,
+        byCompany: false,
+      ),
       helper: mission.pilotStarted && current < 4
-          ? 'بانتظار تأكيد الشركة لبدء العمل فعليًا.'
+          ? 'Waiting for the company to confirm the job has actually started.'
           : null,
     );
 
@@ -221,24 +237,24 @@ class _MissionTrackingPilotScreenState
     final endStep = WorkflowStep(
       kind: StepKind.confirm,
       icon: Icons.stop_circle_outlined,
-      title: 'إنهاء العمل',
+      title: 'End Job',
       description: mission.companyEnded
-          ? 'الشركة أكّدت انتهاء العمل من جانبها.'
-          : 'أكّد عند الانتهاء الفعلي من تنفيذ المهمة.',
+          ? 'The company confirmed the work is finished on their end.'
+          : 'Confirm once you have actually finished carrying out the mission.',
       state: mission.pilotEnded
           ? (terminationUploaded ? StepState.done : StepState.waitingOnOther)
           : current == 4
           ? StepState.current
           : StepState.upcoming,
-      actionLabel: mission.pilotEnded ? null : 'إنهاء العمل',
+      actionLabel: mission.pilotEnded ? null : 'End Job',
       action: mission.pilotEnded
           ? null
           : () => OperationStore.instance.markWorkEnded(
-              mission,
-              byCompany: false,
-            ),
+        mission,
+        byCompany: false,
+      ),
       helper: mission.pilotEnded && !terminationUploaded
-          ? 'بانتظار تأكيد الشركة وإصدار ملف إنهاء العقد.'
+          ? 'Waiting for the company to confirm and issue the termination file.'
           : null,
     );
 
@@ -246,17 +262,17 @@ class _MissionTrackingPilotScreenState
     final terminationStep = WorkflowStep(
       kind: StepKind.signature,
       icon: Icons.draw_outlined,
-      title: 'توقيع ملف إنهاء العقد',
+      title: 'Sign Termination File',
       description: terminationUploaded
-          ? 'الشركة رفعت ملف إنهاء العقد. راجعه ووقّعه لإغلاق المهمة رسميًا.'
-          : 'بانتظار الشركة لرفع ملف إنهاء العقد بعد إنهاء الطرفين للعمل.',
+          ? 'The company uploaded the contract termination file. Review and sign it to officially close the mission.'
+          : 'Waiting for the company to upload the contract termination file after both sides end the job.',
       attachmentName: current >= 5 ? mission.terminationFileName : null,
       state: current >= 5
           ? StepState.done
           : terminationUploaded
           ? StepState.current
           : StepState.waitingOnOther,
-      actionLabel: terminationUploaded && current < 5 ? 'تنزيل وتوقيع' : null,
+      actionLabel: terminationUploaded && current < 5 ? 'Download & Sign' : null,
       action: terminationUploaded && current < 5
           ? () => OperationStore.instance.signTermination(mission)
           : null,
@@ -266,21 +282,21 @@ class _MissionTrackingPilotScreenState
     final paymentStep = WorkflowStep(
       kind: StepKind.confirm,
       icon: Icons.account_balance_wallet_outlined,
-      title: 'تأكيد استلام الدفعة',
+      title: 'Confirm Payment Received',
       description: current == 7
-          ? 'الشركة أرسلت الدفعة وأرفقت إثبات التحويل. تحقق من وصول المبلغ ثم أكّد الاستلام.'
-          : 'بانتظار الشركة لإتمام الدفع وإرفاق إثبات التحويل.',
+          ? 'The company sent the payment and attached transfer proof. Verify the amount arrived, then confirm receipt.'
+          : 'Waiting for the company to complete payment and attach transfer proof.',
       state: current >= 8
           ? StepState.done
           : current == 7
           ? StepState.current
           : StepState.waitingOnOther,
-      actionLabel: current == 7 ? 'تأكيد الاستلام' : null,
+      actionLabel: current == 7 ? 'Confirm Receipt' : null,
       action: current == 7
           ? () => OperationStore.instance.confirmPaymentReceived(mission)
           : null,
       helper: current == 7
-          ? 'أكّد فقط بعد التحقق الفعلي من وصول المبلغ لحسابك.'
+          ? 'Only confirm after actually verifying the amount has reached your account.'
           : null,
     );
 
@@ -288,16 +304,16 @@ class _MissionTrackingPilotScreenState
     final ratingStep = WorkflowStep(
       kind: StepKind.rating,
       icon: Icons.star_outline_rounded,
-      title: 'تقييم الشركة',
+      title: 'Rate Company',
       description: mission.companyRating == null
-          ? 'شارك تقييمك النهائي لتجربتك مع هذه الشركة.'
-          : 'تم إرسال تقييمك: ${mission.companyRating}/5.',
+          ? 'Share your final rating of your experience with this company.'
+          : 'Your rating was submitted: ${mission.companyRating}/5.',
       state: mission.companyRating != null
           ? StepState.done
           : current == 8
           ? StepState.current
           : StepState.upcoming,
-      actionLabel: mission.companyRating == null ? 'تقييم الشركة' : null,
+      actionLabel: mission.companyRating == null ? 'Rate Company' : null,
       action: mission.companyRating == null ? () => _rate(context) : null,
     );
 
@@ -323,7 +339,7 @@ class _MissionTrackingPilotScreenState
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'تقييم الشركة',
+                'Rate Company',
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 18,
@@ -335,7 +351,7 @@ class _MissionTrackingPilotScreenState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   5,
-                  (index) => IconButton(
+                      (index) => IconButton(
                     onPressed: () => setSheet(() => selected = index + 1),
                     icon: Icon(
                       index < selected
@@ -356,7 +372,7 @@ class _MissionTrackingPilotScreenState
                     OperationStore.instance.rateCompany(mission, selected);
                     Navigator.pop(sheetContext);
                   },
-                  child: const Text('إرسال التقييم'),
+                  child: const Text('Submit Rating'),
                 ),
               ),
             ],

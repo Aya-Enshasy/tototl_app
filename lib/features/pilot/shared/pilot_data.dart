@@ -151,6 +151,10 @@ class PilotApplication {
     this.estimatedCompletionTime,
     this.availableStartDate,
     this.additionalNotes,
+    this.droneSize,
+    this.droneDimensions,
+    this.skillsConfirmed = const [],
+    this.equipmentConfirmed = const [],
   });
 
   final String id;
@@ -165,6 +169,11 @@ class PilotApplication {
   final String? estimatedCompletionTime;
   final String? availableStartDate;
   final String? additionalNotes;
+  // Pilot-specified drone size and optional custom dimensions
+  final String? droneSize;
+  final String? droneDimensions;
+  final List<String> skillsConfirmed;
+  final List<String> equipmentConfirmed;
 
   PilotApplication copyWith({PilotApplicationStatus? status}) =>
       PilotApplication(
@@ -179,6 +188,10 @@ class PilotApplication {
         estimatedCompletionTime: estimatedCompletionTime,
         availableStartDate: availableStartDate,
         additionalNotes: additionalNotes,
+        droneSize: droneSize,
+        droneDimensions: droneDimensions,
+        skillsConfirmed: skillsConfirmed,
+        equipmentConfirmed: equipmentConfirmed,
       );
 }
 
@@ -504,12 +517,21 @@ class PilotApplicationsStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void decline(PilotApplication application) {
+  void updateStatus(PilotApplication application, PilotApplicationStatus status) {
     final index = _applications.indexWhere((item) => item.id == application.id);
     if (index == -1) return;
-    _applications[index] = application.copyWith(
-      status: PilotApplicationStatus.declined,
-    );
+    _applications[index] = application.copyWith(status: status);
     notifyListeners();
+  }
+
+  void updateStatusById(String applicationId, PilotApplicationStatus status) {
+    final index = _applications.indexWhere((item) => item.id == applicationId);
+    if (index == -1) return;
+    _applications[index] = _applications[index].copyWith(status: status);
+    notifyListeners();
+  }
+
+  void decline(PilotApplication application) {
+    updateStatus(application, PilotApplicationStatus.declined);
   }
 }

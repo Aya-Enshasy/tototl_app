@@ -54,15 +54,7 @@ class CompanyHomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 11),
-                    const Expanded(
-                      child: _StatCard(
-                        value: r'$4.2k',
-                        label: 'Spent this month',
-                        icon: Icons.payments_outlined,
-                        color: AppColors.orange,
-                        background: AppColors.orangeBg,
-                      ),
-                    ),
+                   
                   ],
                 ),
                 const SizedBox(height: 22),

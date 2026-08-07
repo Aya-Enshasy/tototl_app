@@ -100,7 +100,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       // require size and equipment; if Custom selected require length & width
       if (_droneSize == null || _droneEquipment.isEmpty) return false;
       if (_droneSize == 'Custom') {
-        return _customDroneLength.text.trim().isNotEmpty && _customDroneWidth.text.trim().isNotEmpty;
+        return _customDroneLength.text.trim().isNotEmpty &&
+            _customDroneWidth.text.trim().isNotEmpty;
       }
       return true;
     }
@@ -466,7 +467,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
       const SizedBox(height: 23),
       _label('Drone Size *'),
       Row(
-        children: ['Small', 'Medium', 'Large', 'Custom', 'Normal'].map((size) {
+        children: ['Small', 'Medium', 'Large', 'Custom', 'Specific'].map((
+          size,
+        ) {
           final isSelected = _droneSize == size;
           return Expanded(
             child: Padding(
@@ -509,9 +512,21 @@ class _PostJobScreenState extends State<PostJobScreen> {
         _label('Custom Drone Dimensions (meters)'),
         Row(
           children: [
-            Expanded(child: _field(_customDroneLength, 'Length (m)', type: TextInputType.number)),
+            Expanded(
+              child: _field(
+                _customDroneLength,
+                'Length (m)',
+                type: TextInputType.number,
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: _field(_customDroneWidth, 'Width (m)', type: TextInputType.number)),
+            Expanded(
+              child: _field(
+                _customDroneWidth,
+                'Width (m)',
+                type: TextInputType.number,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -811,12 +826,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   Expanded(
                     child: Text(
                       'Drone size: ${_droneSize!}',
-                      style: const TextStyle(color: AppColors.navy, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
-              if (_droneSize == 'Custom' && _customDroneLength.text.trim().isNotEmpty && _customDroneWidth.text.trim().isNotEmpty) ...[
+              if (_droneSize == 'Custom' &&
+                  _customDroneLength.text.trim().isNotEmpty &&
+                  _customDroneWidth.text.trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
                   'Custom dimensions: ${_customDroneLength.text.trim()} x ${_customDroneWidth.text.trim()} m',

@@ -6,17 +6,30 @@ import '../../operations/conversation_screen.dart';
 import '../../operations/mission_tracking_screen.dart';
 import '../../operations/operation_store.dart';
 
-class ApplicationDetailsScreen extends StatelessWidget {
+class ApplicationDetailsScreen extends StatefulWidget {
   const ApplicationDetailsScreen({super.key, required this.application});
 
   final PilotApplication application;
 
   @override
+  State<ApplicationDetailsScreen> createState() => _ApplicationDetailsScreenState();
+}
+
+class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
+  late PilotApplication _application;
+
+  @override
+  void initState() {
+    super.initState();
+    _application = widget.application;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(application.status);
-    final statusBackground = _statusBackground(application.status);
-    final mission = OperationStore.instance.missionFor(application.id);
-    final approved = application.status == PilotApplicationStatus.approved;
+    final statusColor = _statusColor(_application.status);
+    final statusBackground = _statusBackground(_application.status);
+    final mission = OperationStore.instance.missionFor(_application.id);
+    final approved = _application.status == PilotApplicationStatus.approved;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -74,7 +87,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            application.status.label,
+                            _application.status.label,
                             style: TextStyle(
                               color: statusColor,
                               fontSize: 12,
@@ -84,7 +97,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          application.job.title,
+                          _application.job.title,
                           style: const TextStyle(
                             color: AppColors.navy,
                             fontSize: 21,
@@ -94,7 +107,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          '${application.job.company} · ${application.job.location}',
+                          '${_application.job.company} · ${_application.job.location}',
                           style: const TextStyle(
                             color: AppColors.grey,
                             fontSize: 13.5,
@@ -106,39 +119,38 @@ class ApplicationDetailsScreen extends StatelessWidget {
                         _DetailRow(
                           icon: Icons.calendar_today_outlined,
                           label: 'Mission date',
-                          value: application.job.date,
+                          value: _application.job.date,
                         ),
                         const SizedBox(height: 14),
                         _DetailRow(
                           icon: Icons.timer_outlined,
                           label: 'Completion time',
                           value:
-                              application.estimatedCompletionTime?.isNotEmpty ==
-                                  true
-                              ? application.estimatedCompletionTime!
-                              : '-',
+                              _application.estimatedCompletionTime?.isNotEmpty == true
+                                                            ? _application.estimatedCompletionTime!
+                                                            : '-',
                         ),
                         const SizedBox(height: 14),
                         _DetailRow(
                           icon: Icons.play_circle_outline,
                           label: 'Start date',
                           value:
-                              application.availableStartDate?.isNotEmpty == true
-                              ? application.availableStartDate!
-                              : application.job.startTime ?? '-',
+                              _application.availableStartDate?.isNotEmpty == true
+                                                            ? _application.availableStartDate!
+                                                            : _application.job.startTime ?? '-',
                         ),
                         const SizedBox(height: 14),
                         _DetailRow(
                           icon: Icons.payments_outlined,
                           label: 'Rate',
                           value:
-                              application.proposedRate ?? application.job.pay,
+                              _application.proposedRate ?? _application.job.pay,
                         ),
                         const SizedBox(height: 14),
                         _DetailRow(
                           icon: Icons.schedule_outlined,
                           label: 'Application',
-                          value: application.submittedAt,
+                          value: _application.submittedAt,
                         ),
                       ],
                     ),
@@ -166,7 +178,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                application.drone.name,
+                                _application.drone.name,
                                 style: const TextStyle(
                                   color: AppColors.navy,
                                   fontWeight: FontWeight.w700,
@@ -174,7 +186,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                application.drone.isFullMatch
+                                _application.drone.isFullMatch
                                     ? 'Full capability match'
                                     : 'Partial capability match',
                                 style: const TextStyle(
@@ -182,6 +194,27 @@ class ApplicationDetailsScreen extends StatelessWidget {
                                   fontSize: 12.5,
                                 ),
                               ),
+                              if (_application.droneSize != null && _application.droneSize!.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                                                'Size: ${_application.droneSize!}',
+                                  style: const TextStyle(
+                                    color: AppColors.navy,
+                                    fontSize: 12,
+                                                                  fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                                                            if (_application.droneDimensions != null && _application.droneDimensions!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                                                'Dimensions: ${_application.droneDimensions!}',
+                                  style: const TextStyle(
+                                    color: AppColors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -189,66 +222,146 @@ class ApplicationDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   // Requested skills shown for clarity in the application
-                  if (application.job.requiredSkills.isNotEmpty) ...[
+                  if (_application.job.requiredSkills.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _SectionCard(
                       title: 'Requested Skills',
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: application.job.requiredSkills
-                            .map((skill) => _CapabilityChip(label: skill))
-                            .toList(),
-                      ),
-                    ),
-                  ],
-                  if (application.coverNote != null &&
-                      application.coverNote!.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Cover note',
-                      child: Text(
-                        application.coverNote!,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 13.5,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (application.additionalNotes != null &&
-                      application.additionalNotes!.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Additional information',
-                      child: Text(
-                        application.additionalNotes!,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 13.5,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ConversationScreen(
-                            application: application,
-                            isCompany: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _application.job.requiredSkills
+                                .map((skill) => _CapabilityChip(label: skill))
+                                .toList(),
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          if (_application.skillsConfirmed.isNotEmpty) ...[
+                            const Text('Pilot confirmed skills:', style: TextStyle(color: AppColors.grey, fontSize: 12.5)),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _application.skillsConfirmed
+                                  .map((skill) => _CapabilityChip(label: skill))
+                                  .toList(),
+                            ),
+                          ],
+                        ],
                       ),
-                      icon: const Icon(Icons.chat_bubble_outline_rounded),
-                      label: const Text('Message Company'),
                     ),
-                  ),
+                  ],
+                  // Show equipment confirmed by the pilot if provided
+                  if (_application.equipmentConfirmed.isNotEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      _SectionCard(
+                                        title: 'Equipment confirmed by pilot',
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: _application.equipmentConfirmed
+                                              .map((e) => _CapabilityChip(label: e))
+                                              .toList(),
+                                        ),
+                                      ),
+                  ],
+                  if (_application.coverNote != null && _application.coverNote!.isNotEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      _SectionCard(
+                                        title: 'Cover note',
+                                        child: Text(
+                                          _application.coverNote!,
+                                          style: const TextStyle(
+                                            color: AppColors.text,
+                                            fontSize: 13.5,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                  if (_application.additionalNotes != null && _application.additionalNotes!.isNotEmpty) ...[
+                                      const SizedBox(height: 14),
+                                      _SectionCard(
+                                        title: 'Additional information',
+                                        child: Text(
+                                          _application.additionalNotes!,
+                                          style: const TextStyle(
+                                            color: AppColors.text,
+                                            fontSize: 13.5,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                  const SizedBox(height: 16),
+                                    // Company action buttons (visible to company users)
+                                    if (_application.status == PilotApplicationStatus.submitted || _application.status == PilotApplicationStatus.underReview) ...[
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: FilledButton(
+                                              onPressed: () {
+                                                PilotApplicationsStore.instance.updateStatusById(_application.id, PilotApplicationStatus.approved);
+                                                setState(() => _application = _application.copyWith(status: PilotApplicationStatus.approved));
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application accepted')));
+                                              },
+                                              style: FilledButton.styleFrom(backgroundColor: AppColors.green),
+                                              child: const Text('Accept', style: TextStyle(fontWeight: FontWeight.w800)),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: () {
+                                                PilotApplicationsStore.instance.updateStatusById(_application.id, PilotApplicationStatus.declined);
+                                                setState(() => _application = _application.copyWith(status: PilotApplicationStatus.declined));
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application rejected')));
+                                              },
+                                              style: OutlinedButton.styleFrom(foregroundColor: AppColors.red, side: const BorderSide(color: AppColors.red)),
+                                              child: const Text('Reject'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 48,
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => ConversationScreen(
+                                              application: _application,
+                                              isCompany: false,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(Icons.chat_bubble_outline_rounded),
+                                        label: const Text('Message Company'),
+                                      ),
+                                    ),
+
+                                    // Contact as company (opens conversation as company)
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 48,
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => ConversationScreen(
+                                              application: _application,
+                                              isCompany: true,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(Icons.forum_outlined),
+                                        label: const Text('Contact Pilot'),
+                                      ),
+                                    ),
                   if (approved) ...[
                     const SizedBox(height: 10),
                     SizedBox(
@@ -261,7 +374,7 @@ class ApplicationDetailsScreen extends StatelessWidget {
                               mission:
                                   mission ??
                                   OperationStore.instance.ensureApprovedMission(
-                                    application,
+                                                                      _application,
                                   ),
                               isCompany: false,
                             ),

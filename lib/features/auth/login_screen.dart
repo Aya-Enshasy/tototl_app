@@ -45,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 size.height *
                 0.52, // تمتد لتظهر الجبال خلف انحناء الـ Bottom Sheet
             child: Image.asset(
-              'assets/images/login_background.png', // صورة الخلفية الحاوية على الدرون والجبال
+              'assets/images/login_background.jpeg', // صورة الخلفية الحاوية على الدرون والجبال
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
             ),
@@ -354,7 +354,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.logoTurquoiseDark.withOpacity(0.35),
+                            color: AppColors.logoTurquoiseDark.withOpacity(
+                              0.35,
+                            ),
                             blurRadius: 18,
                             offset: const Offset(0, 6),
                           ),
@@ -407,10 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       children: const [
                         Expanded(
-                          child: Divider(
-                            color: AppColors.border,
-                            thickness: 1,
-                          ),
+                          child: Divider(color: AppColors.border, thickness: 1),
                         ),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 14),
@@ -423,10 +422,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         Expanded(
-                          child: Divider(
-                            color: AppColors.border,
-                            thickness: 1,
-                          ),
+                          child: Divider(color: AppColors.border, thickness: 1),
                         ),
                       ],
                     ),
