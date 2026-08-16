@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tototl_app/features/auth/register/company/company_register_step_four_screen.dart';
-import 'package:tototl_app/core/theme/app_colors.dart';
+ import 'package:tototl_app/core/theme/app_colors.dart';
+import 'company_register_step_four_screen.dart';
 import 'company_register_step_three_screen.dart';
 
 class CompanyRegisterStepTwoScreen extends StatefulWidget {

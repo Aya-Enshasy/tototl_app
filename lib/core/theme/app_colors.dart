@@ -46,4 +46,13 @@ class AppColors {
   /// Bottom navigation active pill colors.
   static const navActive = Color(0xFF4F46E5);
   static const navActiveBg = Color(0xFFEEF2FF);
+  // Application Theme Colors
+  static const Color kPrimary = AppColors.primary;
+  static const Color kPrimarySoft = AppColors.blueBg;
+  static const Color kTextDark = AppColors.text;
+  static const Color kTextMuted = AppColors.grey;
+  static const Color kHint = AppColors.lightGrey;
+  static const Color kBorder = AppColors.border;
+  static const Color kSurfaceSoft = AppColors.bg;
+  static const Color kDanger = AppColors.red;
 }

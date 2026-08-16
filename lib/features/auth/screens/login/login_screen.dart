@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tototl_app/features/auth/widgets/choose_account.dart';
+import '../../../../core/navigation/bottom_navbar.dart';
+import '../../../../core/session/account_role_store.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../company/company_shell_screen.dart';
+import '../chooseAccount/choose_account.dart';
 
-import '../../core/navigation/bottom_navbar.dart';
-import '../../core/session/account_role_store.dart';
-import '../../core/theme/app_colors.dart';
-import '../company/company_shell_screen.dart';
-
-// تأكد من عمل import لملف شاشة اختيار نوع الحساب إذا كانت في ملف منفصل
-// import 'choose_account_type_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

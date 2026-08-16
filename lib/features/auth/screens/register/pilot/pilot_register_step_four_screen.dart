@@ -6,9 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/navigation/bottom_navbar.dart';
-import '../../../../core/session/account_role_store.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../../core/navigation/bottom_navbar.dart';
+import '../../../../../core/session/account_role_store.dart';
+import '../../../../../core/theme/app_colors.dart';
 
 enum _PilotDocumentType { license, permit }
 

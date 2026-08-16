@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_three_screen.dart';
 
 import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_three_screen.dart';
+
+import '../../../models/country_model.dart';
+import '../../../services/location_service.dart';
 
 // ===========================================================================
 // SCREEN 2: Pilot Experience & Work Details
@@ -32,8 +35,18 @@ class _PilotRegisterStepTwoScreenState
   // Selection States
   String? _yearsOfExperience;
   final Set<String> _selectedLanguages = {'English', 'Arabic'};
-  final Set<String> _selectedWillingRegions = {'Riyadh', 'Jeddah'};
 
+  final LocationService _locationService =
+  LocationService();
+
+  List<CountryModel> _countries = [];
+
+  CountryModel? _selectedCountry;
+
+  Set<String> _selectedWillingRegions = {};
+  List<String> get _availableWillingRegions {
+    return _selectedCountry?.cities ?? [];
+  }
   bool _isSubmitting = false;
 
   // Options Lists
@@ -52,15 +65,6 @@ class _PilotRegisterStepTwoScreenState
     'Other',
   ];
 
-  final List<String> _availableWillingRegions = const [
-    'Riyadh',
-    'Jeddah',
-    'Dammam',
-    'NEOM',
-    'Dubai',
-    'Abu Dhabi',
-    'All Regions',
-  ];
 
   // Application Theme Colors
   static const Color kPrimary = AppColors.primary;
@@ -71,6 +75,14 @@ class _PilotRegisterStepTwoScreenState
   static const Color kBorder = AppColors.border;
   static const Color kSurfaceSoft = AppColors.bg;
   static const Color kDanger = AppColors.red;
+
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadCountries();
+  }
 
   @override
   void dispose() {
@@ -404,19 +416,8 @@ class _PilotRegisterStepTwoScreenState
                 // 4. Regions Willing To Work (Multi-select)
                 _buildSectionLabel('Regions Willing To Work'),
                 const SizedBox(height: 8),
-                _buildMultiSelectChips(
-                  options: _availableWillingRegions,
-                  selectedItems: _selectedWillingRegions,
-                  onToggle: (region) {
-                    setState(() {
-                      if (_selectedWillingRegions.contains(region)) {
-                        _selectedWillingRegions.remove(region);
-                      } else {
-                        _selectedWillingRegions.add(region);
-                      }
-                    });
-                  },
-                ),
+
+                _buildRegionSelector(),
                 const SizedBox(height: 20),
 
                 // 5. Previous Company
@@ -746,13 +747,13 @@ class _PilotRegisterStepTwoScreenState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), kPrimary],
+            colors: [Color(0xFF0D8AA5), AppColors.kPrimary],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withOpacity(0.28),
+              color: AppColors.kPrimary.withOpacity(0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -764,39 +765,524 @@ class _PilotRegisterStepTwoScreenState
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+                borderRadius: BorderRadius.circular(14)),
           ),
           child: isLoading
               ? const SizedBox(
             width: 22,
             height: 22,
             child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: Colors.white,
-            ),
+                strokeWidth: 2.4, color: Colors.white),
           )
               : Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(text,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
+              const Icon(Icons.arrow_forward_rounded,
+                  color: Colors.white, size: 16),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildRegionSelector() {
+    final availableRegions =
+        _availableWillingRegions;
+
+    return InkWell(
+      onTap: availableRegions.isEmpty
+          ? null
+          : _showRegionsPicker,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(
+          minHeight: 52,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.kBorder,
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _selectedWillingRegions.isEmpty
+                  ? Text(
+                _selectedCountry == null
+                    ? 'Select a country first'
+                    : 'Select regions',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.kHint,
+                ),
+              )
+                  : Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ..._selectedWillingRegions
+                      .take(2)
+                      .map(
+                        (region) =>
+                        _buildRegionChip(region),
+                  ),
+
+                  if (_selectedWillingRegions.length > 2)
+                    Container(
+                      padding:
+                      const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.kPrimary
+                            .withOpacity(0.1),
+                        borderRadius:
+                        BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '+${_selectedWillingRegions.length - 2}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.kPrimary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.kHint,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegionChip(String region) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.kPrimary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        region,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.kPrimary,
+        ),
+      ),
+    );
+  }
+
+  void _showRegionsPicker() {
+    final country = _selectedCountry;
+
+    if (country == null) {
+      return;
+    }
+
+    final List<String> allCities = country.cities;
+
+    // Temporary selection داخل الـ Bottom Sheet
+    final Set<String> tempSelected =
+    Set<String>.from(_selectedWillingRegions);
+
+    String searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            // ==========================================
+            // Search داخل جميع مدن الدولة
+            // ==========================================
+            final List<String> filteredCities =
+            allCities.where((city) {
+              final query =
+              searchQuery.trim().toLowerCase();
+
+              if (query.isEmpty) {
+                return true;
+              }
+
+              return city.toLowerCase().contains(query);
+            }).toList();
+
+            return SafeArea(
+              child: Container(
+                height:
+                MediaQuery.of(context).size.height * 0.78,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // ==========================================
+                    // Top Handle
+                    // ==========================================
+                    const SizedBox(height: 10),
+
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.kBorder,
+                        borderRadius:
+                        BorderRadius.circular(10),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ==========================================
+                    // Header
+                    // ==========================================
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Select Regions',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.kTextDark,
+                              ),
+                            ),
+                          ),
+
+                          if (tempSelected.isNotEmpty)
+                            Text(
+                              '${tempSelected.length} selected',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.kHint,
+                              ),
+                            ),
+
+                          const SizedBox(width: 4),
+
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.kHint,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==========================================
+                    // Country Label
+                    // ==========================================
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        12,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding:
+                          const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius:
+                            BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            country.name,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // ==========================================
+                    // Search
+                    // ==========================================
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                      ),
+                      child: TextField(
+                        onChanged: (value) {
+                          setSheetState(() {
+                            searchQuery = value;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Search city...',
+                          hintStyle: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.kHint,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            size: 20,
+                            color: AppColors.kHint,
+                          ),
+                          filled: true,
+                          fillColor:
+                          const Color(0xFFF7F7F7),
+                          contentPadding:
+                          const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ==========================================
+                    // Cities List
+                    // ==========================================
+                    Expanded(
+                      child: filteredCities.isEmpty
+                          ? const Center(
+                        child: Text(
+                          'No cities found',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.kHint,
+                          ),
+                        ),
+                      )
+                          : ListView.separated(
+                        padding:
+                        const EdgeInsets.only(
+                          bottom: 10,
+                        ),
+                        itemCount:
+                        filteredCities.length,
+                        separatorBuilder:
+                            (context, index) {
+                          return const Divider(
+                            height: 1,
+                            indent: 20,
+                            endIndent: 20,
+                            color:
+                            AppColors.kBorder,
+                          );
+                        },
+                        itemBuilder:
+                            (context, index) {
+                          final String city =
+                          filteredCities[index];
+
+                          final bool isSelected =
+                          tempSelected.contains(city);
+
+                          return InkWell(
+                            onTap: () {
+                              setSheetState(() {
+                                if (isSelected) {
+                                  tempSelected
+                                      .remove(city);
+                                } else {
+                                  tempSelected
+                                      .add(city);
+                                }
+                              });
+                            },
+                            child: Padding(
+                              padding:
+                              const EdgeInsets
+                                  .symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  // City name
+                                  Expanded(
+                                    child: Text(
+                                      city,
+                                      overflow:
+                                      TextOverflow
+                                          .ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight:
+                                        isSelected
+                                            ? FontWeight
+                                            .w700
+                                            : FontWeight
+                                            .w500,
+                                        color: AppColors
+                                            .kTextDark,
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(
+                                    width: 10,
+                                  ),
+
+                                  // Checkbox
+                                  Checkbox(
+                                    value: isSelected,
+                                    activeColor:
+                                    AppColors.kPrimary,
+                                    shape:
+                                    RoundedRectangleBorder(
+                                      borderRadius:
+                                      BorderRadius
+                                          .circular(5),
+                                    ),
+                                    onChanged: (value) {
+                                      setSheetState(() {
+                                        if (value ==
+                                            true) {
+                                          tempSelected
+                                              .add(city);
+                                        } else {
+                                          tempSelected
+                                              .remove(city);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    // ==========================================
+                    // Done Button
+                    // ==========================================
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        20,
+                        20,
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedWillingRegions =
+                                  tempSelected;
+                            });
+
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                            AppColors.kPrimary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape:
+                            RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _loadCountries() async {
+    try {
+      final countries =
+      await _locationService.getCountries();
+
+      setState(() {
+        _countries = countries;
+
+        if (_countries.isNotEmpty) {
+          _selectedCountry = _countries.first;
+        }
+      });
+
+      debugPrint(
+        'Countries loaded: ${_countries.length}',
+      );
+    } catch (e) {
+      debugPrint(
+        'Failed to load countries: $e',
+      );
+    }
+  }
+
 }

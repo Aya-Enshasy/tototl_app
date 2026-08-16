@@ -1,12 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_one_screen.dart';
 
-import '../../../core/session/account_role_store.dart';
-import '../../../core/theme/app_colors.dart';
 
+import '../../../../core/session/account_role_store.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../register/company/company_register_step_one_screen.dart';
+import '../register/pilot/pilot_register_step_one_screen.dart';
 
 class ChooseAccountTypeScreen extends StatefulWidget {
   const ChooseAccountTypeScreen({super.key});

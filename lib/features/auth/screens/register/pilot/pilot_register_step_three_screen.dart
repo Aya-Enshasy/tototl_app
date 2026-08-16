@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_four_screen.dart';
 
 import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_four_screen.dart';
 
 class PilotRegisterStepThreeScreen extends StatefulWidget {
   const PilotRegisterStepThreeScreen({super.key});

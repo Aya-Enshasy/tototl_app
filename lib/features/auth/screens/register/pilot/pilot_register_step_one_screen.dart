@@ -4,9 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
-import 'package:tototl_app/features/auth/register/pilot/pilot_register_step_tow_screen.dart';
+ import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_tow_screen.dart';
+import '../../../../../model/Country.dart';
 
- 
+
 // ===========================================================================
 // SCREEN 1: Create Account + Basic Information
 // ===========================================================================
@@ -33,7 +36,6 @@ class _PilotRegisterStepOneScreenState
 
   // Selections & States
   String? _selectedNationality;
-  String _selectedCountryCode = '+966';
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -43,17 +45,15 @@ class _PilotRegisterStepOneScreenState
 
   final ImagePicker _picker = ImagePicker();
 
-  // Application Theme Colors
-  static const Color kPrimary = AppColors.primary;
-  static const Color kPrimarySoft = AppColors.blueBg;
-  static const Color kTextDark = AppColors.text;
-  static const Color kTextMuted = AppColors.grey;
-  static const Color kHint = AppColors.lightGrey;
-  static const Color kBorder = AppColors.border;
-  static const Color kSurfaceSoft = AppColors.bg;
-  static const Color kDanger = AppColors.red;
+  List<Country> _countries = [];
+  Country? _selectedCountry;
 
-  final List<String> _countryCodes = ['+966', '+971', '+965', '+962', '+20', '+1'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCountries();
+  }
 
   @override
   void dispose() {
@@ -99,7 +99,7 @@ class _PilotRegisterStepOneScreenState
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: kTextDark,
+        backgroundColor: AppColors.kTextDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
@@ -128,7 +128,7 @@ class _PilotRegisterStepOneScreenState
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
-                      color: kBorder,
+                      color: AppColors.kBorder,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -139,13 +139,13 @@ class _PilotRegisterStepOneScreenState
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: kTextDark,
+                        color: AppColors.kTextDark,
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   _buildSheetOption(
-                    icon: Icons.camera_alt_rounded,
+                    icon: Icons.camera_alt,
                     label: 'Take a Photo',
                     onTap: () {
                       Navigator.pop(context);
@@ -154,7 +154,7 @@ class _PilotRegisterStepOneScreenState
                   ),
                   const SizedBox(height: 10),
                   _buildSheetOption(
-                    icon: Icons.photo_library_rounded,
+                    icon: Icons.photo,
                     label: 'Choose from Gallery',
                     onTap: () {
                       Navigator.pop(context);
@@ -164,7 +164,7 @@ class _PilotRegisterStepOneScreenState
                   if (_avatarImage != null) ...[
                     const SizedBox(height: 10),
                     _buildSheetOption(
-                      icon: Icons.delete_outline_rounded,
+                      icon: Icons.delete_rounded,
                       label: 'Remove Photo',
                       isDestructive: true,
                       onTap: () {
@@ -188,9 +188,9 @@ class _PilotRegisterStepOneScreenState
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {
-    final color = isDestructive ? kDanger : kPrimary;
+    final color = isDestructive ? AppColors.kDanger : AppColors.kPrimary;
     return Material(
-      color: kSurfaceSoft,
+      color: AppColors.kSurfaceSoft,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -206,7 +206,7 @@ class _PilotRegisterStepOneScreenState
                 style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w600,
-                  color: isDestructive ? color : kTextDark,
+                  color: isDestructive ? color : AppColors.kTextDark,
                 ),
               ),
             ],
@@ -231,9 +231,9 @@ class _PilotRegisterStepOneScreenState
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: kPrimary,
+              primary: AppColors.kPrimary,
               onPrimary: Colors.white,
-              onSurface: kTextDark,
+              onSurface: AppColors.kTextDark,
             ),
           ),
           child: child!,
@@ -276,7 +276,7 @@ class _PilotRegisterStepOneScreenState
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 18),
                     decoration: BoxDecoration(
-                      color: kBorder,
+                      color: AppColors.kBorder,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -287,7 +287,7 @@ class _PilotRegisterStepOneScreenState
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: kTextDark,
+                        color: AppColors.kTextDark,
                       ),
                     ),
                   ),
@@ -297,7 +297,7 @@ class _PilotRegisterStepOneScreenState
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Material(
-                        color: isSelected ? kPrimarySoft : kSurfaceSoft,
+                        color: isSelected ? AppColors.kPrimarySoft : AppColors.kSurfaceSoft,
                         borderRadius: BorderRadius.circular(14),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(14),
@@ -312,7 +312,7 @@ class _PilotRegisterStepOneScreenState
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: isSelected ? kPrimary : Colors.transparent,
+                                color: isSelected ? AppColors.kPrimary : Colors.transparent,
                                 width: 1.2,
                               ),
                             ),
@@ -326,13 +326,13 @@ class _PilotRegisterStepOneScreenState
                                       fontWeight: isSelected
                                           ? FontWeight.w700
                                           : FontWeight.w500,
-                                      color: isSelected ? kPrimary : kTextDark,
+                                      color: isSelected ? AppColors.kPrimary : AppColors.kTextDark,
                                     ),
                                   ),
                                 ),
                                 if (isSelected)
                                   const Icon(Icons.check_circle_rounded,
-                                      size: 20, color: kPrimary),
+                                      size: 20, color: AppColors.kPrimary),
                               ],
                             ),
                           ),
@@ -353,20 +353,20 @@ class _PilotRegisterStepOneScreenState
   // Navigation & Validation
   // ---------------------------------------------------------------------
   Future<void> _handleNext() async {
-    if (!_formKey.currentState!.validate()) {
-      HapticFeedback.heavyImpact();
-      return;
-    }
+    // if (!_formKey.currentState!.validate()) {
+    //   HapticFeedback.heavyImpact();
+    //   return;
+    // }
 
-    if (_selectedNationality == null) {
-      _showSnack('Please select your nationality');
-      return;
-    }
+    // if (_selectedNationality == null) {
+    //   _showSnack('Please select your nationality');
+    //   return;
+    // }
 
-    setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(milliseconds: 250));
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
+    // setState(() => _isSubmitting = true);
+    // await Future.delayed(const Duration(milliseconds: 250));
+    // if (!mounted) return;
+    // setState(() => _isSubmitting = false);
 
     Navigator.push(
       context,
@@ -428,7 +428,7 @@ class _PilotRegisterStepOneScreenState
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
-                    color: kTextDark,
+                    color: AppColors.kTextDark,
                     letterSpacing: -0.5,
                     height: 1.15,
                   ),
@@ -438,7 +438,7 @@ class _PilotRegisterStepOneScreenState
                   "Create your account and enter your basic personal details.",
                   style: TextStyle(
                     fontSize: 14,
-                    color: kTextMuted,
+                    color: AppColors.kTextMuted,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -487,7 +487,7 @@ class _PilotRegisterStepOneScreenState
                       _obscurePassword
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: kHint,
+                      color: AppColors.kHint,
                       size: 18,
                     ),
                     onPressed: () =>
@@ -512,7 +512,7 @@ class _PilotRegisterStepOneScreenState
                       _obscureConfirmPassword
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: kHint,
+                      color: AppColors.kHint,
                       size: 18,
                     ),
                     onPressed: () => setState(() =>
@@ -542,7 +542,7 @@ class _PilotRegisterStepOneScreenState
                   onTap: _pickDate,
                   prefixIcon: Icons.calendar_today_rounded,
                   suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded,
-                      size: 20, color: kHint),
+                      size: 20, color: AppColors.kHint),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'Date of Birth is required'
                       : null,
@@ -617,7 +617,7 @@ class _PilotRegisterStepOneScreenState
           ],
         ),
         child: const Icon(Icons.arrow_back_ios_new_rounded,
-            size: 13, color: kTextDark),
+            size: 13, color: AppColors.kTextDark),
       ),
     );
   }
@@ -632,7 +632,7 @@ class _PilotRegisterStepOneScreenState
             height: 110,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: kSurfaceSoft,
+              color: AppColors.kSurfaceSoft,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -649,7 +649,7 @@ class _PilotRegisterStepOneScreenState
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.4,
-                    color: kPrimary,
+                    color: AppColors.kPrimary,
                   ),
                 ),
               )
@@ -661,7 +661,7 @@ class _PilotRegisterStepOneScreenState
                 height: 110,
                 fit: BoxFit.cover,
               )
-                  : const Icon(Icons.person_pin_rounded,
+                  : const Icon(Icons.person,
                   size: 70, color: Color(0xFFCBD5E1))),
             ),
           ),
@@ -671,7 +671,7 @@ class _PilotRegisterStepOneScreenState
             child: Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: kPrimary,
+                color: AppColors.kPrimary,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
@@ -708,9 +708,9 @@ class _PilotRegisterStepOneScreenState
               height: isActive ? 22 : 18,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isActive || isPassed ? kPrimary : Colors.white,
+                color: isActive || isPassed ? AppColors.kPrimary : Colors.white,
                 border: Border.all(
-                  color: isActive || isPassed ? kPrimary : kBorder,
+                  color: isActive || isPassed ? AppColors.kPrimary : AppColors.kBorder,
                   width: isActive ? 0 : 1.2,
                 ),
               ),
@@ -722,7 +722,7 @@ class _PilotRegisterStepOneScreenState
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
-                    color: isActive ? Colors.white : kHint,
+                    color: isActive ? Colors.white : AppColors.kHint,
                   ),
                 ),
               ),
@@ -731,7 +731,7 @@ class _PilotRegisterStepOneScreenState
               Container(
                 width: 26,
                 height: 1.5,
-                color: stepNumber < currentStep ? kPrimary : kBorder,
+                color: stepNumber < currentStep ? AppColors.kPrimary : AppColors.kBorder,
               ),
           ],
         );
@@ -759,114 +759,354 @@ class _PilotRegisterStepOneScreenState
       validator: validator,
       style: const TextStyle(
         fontSize: 13.5,
-        color: kTextDark,
+        color: AppColors.kTextDark,
         fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(
-            color: kHint, fontSize: 13, fontWeight: FontWeight.w400),
+            color: AppColors.kHint, fontSize: 13, fontWeight: FontWeight.w400),
         prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, size: 18, color: kHint)
+            ? Icon(prefixIcon, size: 18, color: AppColors.kHint)
             : null,
         suffixIcon: suffixIcon,
-        errorStyle: const TextStyle(fontSize: 11, color: kDanger),
+        errorStyle: const TextStyle(fontSize: 11, color: AppColors.kDanger),
         fillColor: Colors.white,
         filled: true,
         contentPadding:
         const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kBorder, width: 0.8)),
+            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kBorder, width: 0.8)),
+            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kPrimary, width: 1.2)),
+            borderSide: const BorderSide(color: AppColors.kPrimary, width: 1.2)),
         errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kDanger, width: 1)),
+            borderSide: const BorderSide(color: AppColors.kDanger, width: 1)),
       ),
     );
   }
 
   Widget _buildPhoneField() {
+    debugPrint('Countries loaded: ${_countries.length}');
+
     return TextFormField(
       controller: _phoneController,
       keyboardType: TextInputType.phone,
+
       validator: (v) {
-        if (v == null || v.trim().isEmpty) return 'Phone number is required';
-        if (v.trim().length < 7) return 'Enter a valid phone number';
+        if (v == null || v.trim().isEmpty) {
+          return 'Phone number is required';
+        }
+
+        if (v.trim().length < 7) {
+          return 'Enter a valid phone number';
+        }
+
         return null;
       },
+
       style: const TextStyle(
         fontSize: 13.5,
-        color: kTextDark,
+        color: AppColors.kTextDark,
         fontWeight: FontWeight.w500,
       ),
+
       decoration: InputDecoration(
         hintText: 'Phone Number',
+
         hintStyle: const TextStyle(
-            color: kHint, fontSize: 13, fontWeight: FontWeight.w400),
-        prefixIcon: Container(
-          padding: const EdgeInsets.only(left: 12, right: 8),
+          color: AppColors.kHint,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+        ),
+
+        // =========================
+        // Country Code
+        // =========================
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(
+            left: 12,
+            right: 8,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedCountryCode,
-                  icon: const Icon(Icons.arrow_drop_down, color: kHint, size: 18),
-                  items: _countryCodes.map((code) {
-                    return DropdownMenuItem<String>(
-                      value: code,
-                      child: Text(
-                        code,
+              // Country selector
+              InkWell(
+                onTap: _countries.isEmpty
+                    ? null
+                    : _showCountryPicker,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 2,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedCountry?.dialCode ?? '+970',
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: kTextDark,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.kTextDark,
                         ),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _selectedCountryCode = val);
-                    }
-                  },
+
+                      const SizedBox(width: 2),
+
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.kHint,
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
               ),
+
+              // Divider
               Container(
                 width: 1,
                 height: 20,
-                color: kBorder,
-                margin: const EdgeInsets.symmetric(horizontal: 6),
+                color: AppColors.kBorder,
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                ),
               ),
             ],
           ),
         ),
-        errorStyle: const TextStyle(fontSize: 11, color: kDanger),
+
+        errorStyle: const TextStyle(
+          fontSize: 11,
+          color: AppColors.kDanger,
+        ),
+
         fillColor: Colors.white,
         filled: true,
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kBorder, width: 0.8)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kBorder,
+            width: 0.8,
+          ),
+        ),
+
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kBorder, width: 0.8)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kBorder,
+            width: 0.8,
+          ),
+        ),
+
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kPrimary, width: 1.2)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kPrimary,
+            width: 1.2,
+          ),
+        ),
+
         errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: kDanger, width: 1)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kDanger,
+            width: 1,
+          ),
+        ),
       ),
     );
   }
+
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight:
+              MediaQuery.of(context).size.height * 0.75,
+            ),
+
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // =========================
+                // Handle
+                // =========================
+                const SizedBox(height: 10),
+
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.kBorder,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // =========================
+                // Header
+                // =========================
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Select Country',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.kTextDark,
+                          ),
+                        ),
+                      ),
+
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.kHint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(
+                  height: 1,
+                  color: AppColors.kBorder,
+                ),
+
+                // =========================
+                // Countries
+                // =========================
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                    ),
+                    itemCount: _countries.length,
+                    separatorBuilder: (_, __) {
+                      return const Divider(
+                        height: 1,
+                        indent: 20,
+                        endIndent: 20,
+                        color: AppColors.kBorder,
+                      );
+                    },
+                    itemBuilder: (context, index) {
+                      final country = _countries[index];
+
+                      final isSelected =
+                          _selectedCountry?.dialCode ==
+                              country.dialCode &&
+                              _selectedCountry?.name ==
+                                  country.name;
+
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCountry = country;
+                          });
+
+                          Navigator.pop(context);
+                        },
+
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+
+                          child: Row(
+                            children: [
+                              // Country name
+                              Expanded(
+                                child: Text(
+                                  country.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: AppColors.kTextDark,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 16),
+
+                              // Dial code
+                              Text(
+                                country.dialCode,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSelected
+                                      ? AppColors.kPrimary
+                                      : AppColors.kTextDark,
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              // Selected icon
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_rounded,
+                                  size: 20,
+                                  color: AppColors.kPrimary,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
 
   Widget _buildSelectField({
     required String hintText,
@@ -896,7 +1136,7 @@ class _PilotRegisterStepOneScreenState
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: state.hasError ? kDanger : kBorder,
+                color: state.hasError ? AppColors.kDanger : AppColors.kBorder,
                 width: state.hasError ? 1 : 0.8,
               ),
             ),
@@ -905,7 +1145,7 @@ class _PilotRegisterStepOneScreenState
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 18, color: kHint),
+                    Icon(icon, size: 18, color: AppColors.kHint),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -915,12 +1155,12 @@ class _PilotRegisterStepOneScreenState
                           fontWeight: value == null
                               ? FontWeight.w400
                               : FontWeight.w600,
-                          color: value == null ? kHint : kTextDark,
+                          color: value == null ? AppColors.kHint : AppColors.kTextDark,
                         ),
                       ),
                     ),
                     const Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 20, color: kHint),
+                        size: 20, color: AppColors.kHint),
                   ],
                 ),
                 if (state.hasError)
@@ -928,7 +1168,7 @@ class _PilotRegisterStepOneScreenState
                     padding: const EdgeInsets.only(top: 6, left: 28),
                     child: Text(
                       state.errorText!,
-                      style: const TextStyle(fontSize: 11, color: kDanger),
+                      style: const TextStyle(fontSize: 11, color: AppColors.kDanger),
                     ),
                   ),
               ],
@@ -953,13 +1193,13 @@ class _PilotRegisterStepOneScreenState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFF0D8AA5), kPrimary],
+            colors: [Color(0xFF0D8AA5), AppColors.kPrimary],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withOpacity(0.28),
+              color: AppColors.kPrimary.withOpacity(0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -996,5 +1236,33 @@ class _PilotRegisterStepOneScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _loadCountries() async {
+    try {
+      final jsonString = await rootBundle.loadString(
+        'assets/data/countries.json',
+      );
+
+      final List<dynamic> jsonData = json.decode(jsonString);
+
+      final countries = jsonData
+          .map((item) => Country.fromJson(item))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _countries = countries;
+
+        if (_countries.isNotEmpty) {
+          _selectedCountry = _countries.first;
+        }
+      });
+
+      debugPrint('Countries loaded: ${_countries.length}');
+    } catch (e) {
+      debugPrint('ERROR loading countries: $e');
+    }
   }
 }

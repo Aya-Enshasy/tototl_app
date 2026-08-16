@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/session/account_role_store.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../company/company_shell_screen.dart';
+import '../../../../../core/session/account_role_store.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../../company/company_shell_screen.dart';
 
 class CompanyRegisterStepFourScreen extends StatefulWidget {
   const CompanyRegisterStepFourScreen({super.key});
