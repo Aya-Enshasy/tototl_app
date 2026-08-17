@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../shared/account_settings_screen.dart';
+import '../../shared/settings_detail_screens.dart';
 // TODO: بدّل هاد الاستيراد بمسار شاشة الإعدادات الفعلي عندك
 // import 'settings_screen.dart';
 
@@ -143,7 +144,13 @@ class _ProfileHeader extends StatelessWidget {
               Positioned(
                 right: -2,
                 bottom: -2,
-                child: _circleIconButton(Icons.edit_outlined, () {}, size: 30),
+                child: _circleIconButton(
+                  Icons.edit_outlined,
+                  () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const UpdateProfileScreen(isCompany: false),
+                  )),
+                  size: 30,
+                ),
               ),
             ],
           ),

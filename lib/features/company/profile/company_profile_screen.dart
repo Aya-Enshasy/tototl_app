@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../shared/account_settings_screen.dart';
+import '../../shared/settings_detail_screens.dart';
 
 class CompanyProfileScreen extends StatelessWidget {
   const CompanyProfileScreen({super.key});
@@ -140,24 +141,40 @@ class CompanyProfileScreen extends StatelessWidget {
                     icon: Icons.business_outlined,
                     title: 'Company details',
                     subtitle: 'Industry, address, and operating regions',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const UpdateProfileScreen(isCompany: true),
+                      ),
+                    ),
                   ),
                   const Divider(color: AppColors.cardBorder),
                   _Tile(
                     icon: Icons.credit_card_outlined,
                     title: 'Subscription plan',
                     subtitle: 'Monthly plan · Active',
+                    onTap: () {},
                   ),
                   const Divider(color: AppColors.cardBorder),
                   _Tile(
                     icon: Icons.notifications_none_rounded,
                     title: 'Notifications',
                     subtitle: 'Job and application activity',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AccountSettingsScreen(isCompany: true),
+                      ),
+                    ),
                   ),
                   const Divider(color: AppColors.cardBorder),
                   _Tile(
                     icon: Icons.security_outlined,
                     title: 'Security & privacy',
                     subtitle: 'Account access and data controls',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ChangePasswordScreen(),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -228,12 +245,17 @@ class _Tile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.onTap,
   });
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: Row(
       children: [
@@ -261,5 +283,5 @@ class _Tile extends StatelessWidget {
         const Icon(Icons.chevron_right_rounded, color: AppColors.lightGrey),
       ],
     ),
-  );
+  ));
 }

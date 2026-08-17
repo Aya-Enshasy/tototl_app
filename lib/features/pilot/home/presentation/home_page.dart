@@ -17,17 +17,7 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/home_bac.png',
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          ),
-          Positioned.fill(
-            child: ColoredBox(color: Colors.white.withValues(alpha: 0.84)),
-          ),
+
           SafeArea(
             child: AnimatedBuilder(
               animation: PilotApplicationsStore.instance,
