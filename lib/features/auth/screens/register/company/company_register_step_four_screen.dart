@@ -62,7 +62,7 @@ class _CompanyRegisterStepFourScreenState
                 children: [
                   _buildBackButton(),
                   Expanded(
-                    child: Center(child: _buildStepIndicator(currentStep: 4)),
+                    child: Center(child: _buildStepIndicator(currentStep: 3)),
                   ),
                   const SizedBox(width: 38),
                 ],
@@ -234,7 +234,7 @@ class _CompanyRegisterStepFourScreenState
   Widget _buildStepIndicator({required int currentStep}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (index) {
+      children: List.generate(3, (index) {
         final stepNumber = index + 1;
         final isActive = stepNumber == currentStep;
         final isPassed = stepNumber < currentStep;

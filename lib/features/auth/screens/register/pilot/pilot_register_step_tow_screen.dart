@@ -46,19 +46,7 @@ class _PilotRegisterStepTwoScreenState
 
   bool _isSubmitting = false;
 
-// =========================
-// Available Cities
-// =========================
 
-  List<String> get _availableWillingRegions {
-    if (_selectedCountry == null) {
-      return [];
-    }
-
-    return List<String>.from(
-      _selectedCountry!.cities,
-    );
-  }
   // Options Lists
   final List<String> _experienceYears = const [
     'Less than 1 year',
@@ -755,7 +743,7 @@ class _PilotRegisterStepTwoScreenState
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(28),
           gradient: const LinearGradient(
             colors: [Color(0xFF0D8AA5), AppColors.kPrimary],
             begin: Alignment.centerLeft,
@@ -891,6 +879,7 @@ class _PilotRegisterStepTwoScreenState
       ),
     );
   }
+
   Widget _buildRegionChip(String region) {
     return Container(
       padding: const EdgeInsets.symmetric(

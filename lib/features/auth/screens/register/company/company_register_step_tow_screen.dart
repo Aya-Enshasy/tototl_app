@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
  import 'package:tototl_app/core/theme/app_colors.dart';
+import '../../../models/country_model.dart';
+import '../../../services/location_service.dart';
 import 'company_register_step_four_screen.dart';
 import 'company_register_step_three_screen.dart';
 
@@ -23,20 +25,25 @@ class _CompanyRegisterStepTwoScreenState
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final LocationService _locationService = LocationService();
 
+  List<CountryModel> _countries = [];
+
+  CountryModel? _selectedCountry;
+
+  final Set<String> _selectedWillingRegions = {};
+
+  bool _isSubmitting = false;
   // حالة الموافقة على الشروط
   bool _isAgreed = false;
 
-  // مناطق العمل والمشروعات (Operating Regions)
-  final List<String> _availableRegions = [
-    'Saudi Arabia',
-    'United Arab Emirates',
-    'GCC Region',
-    'Middle East',
-    'North America',
-    'Europe',
-  ];
-  final List<String> _selectedRegions = [];
+  @override
+  void initState() {
+    super.initState();
+    _loadCountries();
+  }
+
+
 
   @override
   void dispose() {
@@ -64,10 +71,10 @@ class _CompanyRegisterStepTwoScreenState
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    if (_selectedRegions.isEmpty) {
-      _showSnack('Please select at least one operating region');
-      return;
-    }
+    // if (_selectedRegions.isEmpty) {
+    //   _showSnack('Please select at least one operating region');
+    //   return;
+    // }
     if (!_isAgreed) {
       _showSnack('Please agree to the User Contract Agreement & Terms');
       return;
@@ -150,7 +157,7 @@ class _CompanyRegisterStepTwoScreenState
                 _buildTextField(
                   controller: _countryController,
                   hintText: 'Country',
-                  prefixIcon: const Icon(Icons.public_rounded, size: 20, color: AppColors.lightGrey),
+                  prefixIcon: Icons.public_rounded,
                   validator: (val) => val == null || val.trim().isEmpty ? 'Country is required' : null,
                 ),
                 const SizedBox(height: 14),
@@ -162,7 +169,7 @@ class _CompanyRegisterStepTwoScreenState
                       child: _buildTextField(
                         controller: _stateController,
                         hintText: 'State / Province',
-                        prefixIcon: const Icon(Icons.map_outlined, size: 20, color: AppColors.lightGrey),
+                        prefixIcon: Icons.map_outlined,
                         validator: (val) => val == null || val.trim().isEmpty ? 'State is required' : null,
                       ),
                     ),
@@ -171,7 +178,7 @@ class _CompanyRegisterStepTwoScreenState
                       child: _buildTextField(
                         controller: _cityController,
                         hintText: 'City',
-                        prefixIcon: const Icon(Icons.location_city_rounded, size: 20, color: AppColors.lightGrey),
+                        prefixIcon: Icons.location_city_rounded,
                         validator: (val) => val == null || val.trim().isEmpty ? 'City is required' : null,
                       ),
                     ),
@@ -183,7 +190,7 @@ class _CompanyRegisterStepTwoScreenState
                 _buildTextField(
                   controller: _addressController,
                   hintText: 'Company Address',
-                  prefixIcon: const Icon(Icons.home_work_outlined, size: 20, color: AppColors.lightGrey),
+                  prefixIcon: Icons.home_work_outlined,
                   validator: (val) => val == null || val.trim().isEmpty ? 'Address is required' : null,
                 ),
                 const SizedBox(height: 24),
@@ -209,53 +216,7 @@ class _CompanyRegisterStepTwoScreenState
                 ),
                 const SizedBox(height: 12),
 
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 10,
-                  children: _availableRegions.map((region) {
-                    final isSelected = _selectedRegions.contains(region);
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedRegions.remove(region);
-                          } else {
-                            _selectedRegions.add(region);
-                          }
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF16C6C7) : const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected ? const Color(0xFF16C6C7) : const Color(0xFFE5E7EB),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              region,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                color: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-                              ),
-                            ),
-                            if (isSelected) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.check, size: 14, color: Colors.white),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                _buildRegionSelector(),
                 const SizedBox(height: 24),
 
                 // ==========================================
@@ -413,7 +374,7 @@ class _CompanyRegisterStepTwoScreenState
   Widget _buildStepIndicator({required int currentStep}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (index) {
+      children: List.generate(3, (index) {
         final stepNumber = index + 1;
         final isActive = stepNumber == currentStep;
         final isPassed = stepNumber < currentStep;
@@ -464,55 +425,56 @@ class _CompanyRegisterStepTwoScreenState
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
+    IconData? prefixIcon,
+    Widget? suffixIcon,
+    bool readOnly = false,
+    bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-    Widget? prefixIcon,
-    String? Function(String?)? validator,
+    VoidCallback? onTap,
+    String? Function(String?)? validator,  int? maxLines,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      onTap: onTap,
+      validator: validator,
+      style: const TextStyle(
+        fontSize: 13.5,
+        color: AppColors.kTextDark,
+        fontWeight: FontWeight.w500,
       ),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        maxLines: maxLines,
-        validator: validator,
-        style: const TextStyle(
-          fontSize: 14.5,
-          color: Color(0xFF1A1A1A),
-          fontWeight: FontWeight.w500,
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Color(0xFFA0A5BA), fontSize: 14),
-          prefixIcon: prefixIcon,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF16C6C7), width: 1.5),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-          ),
-        ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(
+            color: AppColors.kHint, fontSize: 13, fontWeight: FontWeight.w400),
+        prefixIcon: prefixIcon != null
+            ? Icon(prefixIcon, size: 18, color: AppColors.kHint)
+            : null,
+        suffixIcon: suffixIcon,
+        errorStyle: const TextStyle(fontSize: 11, color: AppColors.kDanger),
+        fillColor: Colors.white,
+        filled: true,
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kPrimary, width: 1.2)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kDanger, width: 1)),
       ),
     );
   }
+
+
   Future<void> _showTermsAndConditionsSheet() async {
     await showModalBottomSheet(
       context: context,
@@ -615,4 +577,502 @@ class _CompanyRegisterStepTwoScreenState
       },
     );
   }
+
+  Widget _buildRegionSelector() {
+    return InkWell(
+      onTap: _countries.isEmpty
+          ? null
+          : _showCountryAndRegionsPicker,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(
+          minHeight: 52,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.kBorder,
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _selectedCountry == null
+                  ? const Text(
+                'Select country and regions',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.kHint,
+                ),
+              )
+                  : _selectedWillingRegions.isEmpty
+                  ? Text(
+                _selectedCountry!.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.kTextDark,
+                ),
+              )
+                  : Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ..._selectedWillingRegions
+                      .take(2)
+                      .map(
+                        (region) =>
+                        _buildRegionChip(region),
+                  ),
+                  if (_selectedWillingRegions.length > 2)
+                    Container(
+                      padding:
+                      const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.kPrimary
+                            .withOpacity(0.1),
+                        borderRadius:
+                        BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '+${_selectedWillingRegions.length - 2}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.kPrimary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.kHint,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegionChip(String region) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.kPrimary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        region,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.kPrimary,
+        ),
+      ),
+    );
+  }
+
+  void _showCountryAndRegionsPicker() {
+    CountryModel? tempCountry = _selectedCountry;
+
+    final Set<String> tempSelectedCities =
+    Set<String>.from(_selectedWillingRegions);
+
+    String searchQuery = '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final List<String> allCities =
+                tempCountry?.cities ?? [];
+
+            final List<String> filteredCities =
+            allCities.where((city) {
+              final query =
+              searchQuery.trim().toLowerCase();
+
+              if (query.isEmpty) {
+                return true;
+              }
+
+              return city.toLowerCase().contains(query);
+            }).toList();
+
+            return SafeArea(
+              child: Container(
+                height:
+                MediaQuery.of(context).size.height * 0.85,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 10),
+
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.kBorder,
+                        borderRadius:
+                        BorderRadius.circular(10),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ==============================
+                    // Header
+                    // ==============================
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Select Regions',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.kTextDark,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.kHint,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==============================
+                    // COUNTRY DROPDOWN
+                    // ==============================
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        20,
+                        4,
+                        20,
+                        12,
+                      ),
+                      child: DropdownButtonFormField<CountryModel>(
+                        value: tempCountry,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Country',
+                          hintText: 'Select Country',
+                          prefixIcon: const Icon(
+                            Icons.public_rounded,
+                            color: AppColors.kHint,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                          ),
+                          enabledBorder:
+                          OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.kBorder,
+                            ),
+                          ),
+                          focusedBorder:
+                          OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.kPrimary,
+                              width: 1.2,
+                            ),
+                          ),
+                        ),
+                        hint: const Text(
+                          'Select Country',
+                        ),
+                        items: _countries.map((country) {
+                          return DropdownMenuItem<CountryModel>(
+                            value: country,
+                            child: Text(
+                              country.name,
+                              overflow:
+                              TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (country) {
+                          setSheetState(() {
+                            tempCountry = country;
+
+                            // مهم:
+                            // عند تغيير الدولة نمسح المدن
+                            tempSelectedCities.clear();
+
+                            searchQuery = '';
+                          });
+                        },
+                      ),
+                    ),
+
+                    // ==============================
+                    // Cities
+                    // ==============================
+
+                    Expanded(
+                      child: tempCountry == null
+                          ? const Center(
+                        child: Text(
+                          'Select a country to see its cities',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.kHint,
+                          ),
+                        ),
+                      )
+                          : allCities.isEmpty
+                          ? const Center(
+                        child: Text(
+                          'No cities available',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.kHint,
+                          ),
+                        ),
+                      )
+                          : Column(
+                        children: [
+                          Padding(
+                            padding:
+                            const EdgeInsets
+                                .symmetric(
+                              horizontal: 20,
+                            ),
+                            child: TextField(
+                              onChanged: (value) {
+                                setSheetState(() {
+                                  searchQuery =
+                                      value;
+                                });
+                              },
+                              decoration:
+                              InputDecoration(
+                                hintText:
+                                'Search city...',
+                                prefixIcon:
+                                const Icon(
+                                  Icons
+                                      .search_rounded,
+                                  size: 20,
+                                  color:
+                                  AppColors.kHint,
+                                ),
+                                filled: true,
+                                fillColor:
+                                const Color(
+                                  0xFFF7F7F7,
+                                ),
+                                border:
+                                OutlineInputBorder(
+                                  borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                    12,
+                                  ),
+                                  borderSide:
+                                  BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Expanded(
+                            child:
+                            ListView.separated(
+                              itemCount:
+                              filteredCities
+                                  .length,
+                              separatorBuilder:
+                                  (context, index) {
+                                return const Divider(
+                                  height: 1,
+                                  indent: 20,
+                                  endIndent: 20,
+                                  color:
+                                  AppColors
+                                      .kBorder,
+                                );
+                              },
+                              itemBuilder:
+                                  (context, index) {
+                                final city =
+                                filteredCities[
+                                index];
+
+                                final isSelected =
+                                tempSelectedCities
+                                    .contains(
+                                    city);
+
+                                return CheckboxListTile(
+                                  value:
+                                  isSelected,
+                                  title: Text(city),
+                                  activeColor:
+                                  AppColors
+                                      .kPrimary,
+                                  onChanged:
+                                      (value) {
+                                    setSheetState(() {
+                                      if (value ==
+                                          true) {
+                                        tempSelectedCities
+                                            .add(
+                                            city);
+                                      } else {
+                                        tempSelectedCities
+                                            .remove(
+                                            city);
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==============================
+                    // DONE
+                    // ==============================
+
+                    Padding(
+                      padding:
+                      const EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        20,
+                        20,
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed:
+                          tempCountry == null
+                              ? null
+                              : () {
+                            setState(() {
+                              _selectedCountry =
+                                  tempCountry;
+
+                              _selectedWillingRegions
+                                ..clear()
+                                ..addAll(
+                                  tempSelectedCities,
+                                );
+                            });
+
+                            Navigator.pop(context);
+                          },
+                          style:
+                          ElevatedButton.styleFrom(
+                            backgroundColor:
+                            AppColors.kPrimary,
+                            foregroundColor:
+                            Colors.white,
+                            elevation: 0,
+                            shape:
+                            RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius.circular(
+                                12,
+                              ),
+                            ),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight:
+                              FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _loadCountries() async {
+    try {
+      final countries =
+      await _locationService.getCountries();
+
+      if (!mounted) return;
+
+      setState(() {
+        _countries = countries;
+
+        // لا تختار Afghanistan تلقائيًا
+        _selectedCountry = null;
+
+        _selectedWillingRegions.clear();
+      });
+
+      debugPrint(
+        'Countries loaded: ${_countries.length}',
+      );
+    } catch (e) {
+      debugPrint(
+        'Failed to load countries: $e',
+      );
+    }
+  }
+
 }

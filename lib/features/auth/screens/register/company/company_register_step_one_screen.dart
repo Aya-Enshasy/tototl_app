@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../../model/Country.dart';
+import '../../../models/country_model.dart';
+import '../../../services/location_service.dart';
 import 'company_register_step_tow_screen.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 
@@ -24,6 +29,10 @@ class _CompanyRegisterStepOneScreenState
   final TextEditingController _confirmPasswordController =
   TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  List<CountryModel> _countries = [];
+  CountryModel? _selectedCountry;
+
+
 
   // الحالة
   String? _selectedCompanyType;
@@ -205,26 +214,20 @@ class _CompanyRegisterStepOneScreenState
                 _buildTextField(
                   controller: _companyNameController,
                   hintText: 'Company Name',
-                  prefixIcon: const Icon(
-                    Icons.business_outlined,
-                    size: 20,
-                    color: Color(0xFFA0A5BA),
-                  ),
+                  prefixIcon:  Icons.business_outlined,
                   validator: (val) => val == null || val.trim().isEmpty
                       ? 'Company name is required'
                       : null,
                 ),
+
+
                 const SizedBox(height: 14),
 
                 // User ID
                 _buildTextField(
                   controller: _userIdController,
                   hintText: 'User ID / Username',
-                  prefixIcon: const Icon(
-                    Icons.alternate_email_rounded,
-                    size: 20,
-                    color: Color(0xFFA0A5BA),
-                  ),
+                  prefixIcon: Icons.alternate_email_rounded,
                   validator: (val) => val == null || val.trim().isEmpty
                       ? 'User ID is required'
                       : null,
@@ -236,11 +239,7 @@ class _CompanyRegisterStepOneScreenState
                   controller: _emailController,
                   hintText: 'Email Address',
                   keyboardType: TextInputType.emailAddress,
-                  prefixIcon: const Icon(
-                    Icons.email_outlined,
-                    size: 20,
-                    color: Color(0xFFA0A5BA),
-                  ),
+                  prefixIcon: Icons.email_outlined,
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
                       return 'Email address is required';
@@ -255,19 +254,8 @@ class _CompanyRegisterStepOneScreenState
                 const SizedBox(height: 14),
 
                 // Phone Number
-                _buildTextField(
-                  controller: _phoneController,
-                  hintText: 'Phone Number (with Country Code)',
-                  keyboardType: TextInputType.phone,
-                  prefixIcon: const Icon(
-                    Icons.phone_outlined,
-                    size: 20,
-                    color: Color(0xFFA0A5BA),
-                  ),
-                  validator: (val) => val == null || val.trim().isEmpty
-                      ? 'Phone number is required'
-                      : null,
-                ),
+                _buildPhoneField(),
+
                 const SizedBox(height: 14),
 
                 // Industry Type Dropdown
@@ -284,11 +272,8 @@ class _CompanyRegisterStepOneScreenState
                   controller: _passwordController,
                   hintText: 'Password',
                   obscureText: _obscurePassword,
-                  prefixIcon: const Icon(
+                  prefixIcon:
                     Icons.lock_outline_rounded,
-                    size: 20,
-                    color: Color(0xFFA0A5BA),
-                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword
@@ -318,11 +303,8 @@ class _CompanyRegisterStepOneScreenState
                   controller: _confirmPasswordController,
                   hintText: 'Confirm Password',
                   obscureText: _obscureConfirmPassword,
-                  prefixIcon: const Icon(
+                  prefixIcon:
                     Icons.lock_reset_rounded,
-                    size: 20,
-                    color: Color(0xFFA0A5BA),
-                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureConfirmPassword
@@ -442,7 +424,7 @@ class _CompanyRegisterStepOneScreenState
   Widget _buildStepIndicator({required int currentStep}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (index) {
+      children: List.generate(3, (index) {
         final stepNumber = index + 1;
         final isActive = stepNumber == currentStep;
         final isPassed = stepNumber < currentStep;
@@ -492,55 +474,51 @@ class _CompanyRegisterStepOneScreenState
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
-    TextInputType keyboardType = TextInputType.text,
-    bool obscureText = false,
-    Widget? prefixIcon,
+    IconData? prefixIcon,
     Widget? suffixIcon,
+    bool readOnly = false,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+    VoidCallback? onTap,
     String? Function(String?)? validator,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      onTap: onTap,
+      validator: validator,
+      style: const TextStyle(
+        fontSize: 13.5,
+        color: AppColors.kTextDark,
+        fontWeight: FontWeight.w500,
       ),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        obscureText: obscureText,
-        validator: validator,
-        style: const TextStyle(
-          fontSize: 14.5,
-          color: Color(0xFF1A1A1A),
-          fontWeight: FontWeight.w500,
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Color(0xFFA0A5BA), fontSize: 14),
-          prefixIcon: prefixIcon,
-          suffixIcon: suffixIcon,
-          contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF16C6C7), width: 1.5),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-          ),
-        ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(
+            color: AppColors.kHint, fontSize: 13, fontWeight: FontWeight.w400),
+        prefixIcon: prefixIcon != null
+            ? Icon(prefixIcon, size: 18, color: AppColors.kHint)
+            : null,
+        suffixIcon: suffixIcon,
+        errorStyle: const TextStyle(fontSize: 11, color: AppColors.kDanger),
+        fillColor: Colors.white,
+        filled: true,
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kPrimary, width: 1.2)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.kDanger, width: 1)),
       ),
     );
   }
@@ -609,4 +587,323 @@ class _CompanyRegisterStepOneScreenState
       ),
     );
   }
+
+  Widget _buildPhoneField() {
+    debugPrint('Countries loaded: ${_countries.length}');
+
+    return TextFormField(
+      controller: _phoneController,
+      keyboardType: TextInputType.phone,
+
+      validator: (v) {
+        if (v == null || v.trim().isEmpty) {
+          return 'Phone number is required';
+        }
+
+        if (v.trim().length < 7) {
+          return 'Enter a valid phone number';
+        }
+
+        return null;
+      },
+
+      style: const TextStyle(
+        fontSize: 13.5,
+        color: AppColors.kTextDark,
+        fontWeight: FontWeight.w500,
+      ),
+
+      decoration: InputDecoration(
+        hintText: 'Phone Number',
+
+        hintStyle: const TextStyle(
+          color: AppColors.kHint,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+        ),
+
+        // =========================
+        // Country Code
+        // =========================
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(
+            left: 12,
+            right: 8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Country selector
+              InkWell(
+                onTap: _countries.isEmpty
+                    ? null
+                    : _showCountryPicker,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 2,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedCountry?.dialCode ?? '+970',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.kTextDark,
+                        ),
+                      ),
+
+                      const SizedBox(width: 2),
+
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.kHint,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Divider
+              Container(
+                width: 1,
+                height: 20,
+                color: AppColors.kBorder,
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        errorStyle: const TextStyle(
+          fontSize: 11,
+          color: AppColors.kDanger,
+        ),
+
+        fillColor: Colors.white,
+        filled: true,
+
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kBorder,
+            width: 0.8,
+          ),
+        ),
+
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kBorder,
+            width: 0.8,
+          ),
+        ),
+
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kPrimary,
+            width: 1.2,
+          ),
+        ),
+
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.kDanger,
+            width: 1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight:
+              MediaQuery.of(context).size.height * 0.75,
+            ),
+
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+            ),
+
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // =========================
+                // Handle
+                // =========================
+                const SizedBox(height: 10),
+
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.kBorder,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // =========================
+                // Header
+                // =========================
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Select Country',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.kTextDark,
+                          ),
+                        ),
+                      ),
+
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.kHint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(
+                  height: 1,
+                  color: AppColors.kBorder,
+                ),
+
+                // =========================
+                // Countries
+                // =========================
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                    ),
+                    itemCount: _countries.length,
+                    separatorBuilder: (_, __) {
+                      return const Divider(
+                        height: 1,
+                        indent: 20,
+                        endIndent: 20,
+                        color: AppColors.kBorder,
+                      );
+                    },
+                    itemBuilder: (context, index) {
+                      final country = _countries[index];
+
+                      final isSelected =
+                          _selectedCountry?.dialCode ==
+                              country.dialCode &&
+                              _selectedCountry?.name ==
+                                  country.name;
+
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCountry = country;
+                          });
+
+                          Navigator.pop(context);
+                        },
+
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+
+                          child: Row(
+                            children: [
+                              // Country name
+                              Expanded(
+                                child: Text(
+                                  country.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: AppColors.kTextDark,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 16),
+
+                              // Dial code
+                              Text(
+                                country.dialCode,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSelected
+                                      ? AppColors.kPrimary
+                                      : AppColors.kTextDark,
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              // Selected icon
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_rounded,
+                                  size: 20,
+                                  color: AppColors.kPrimary,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+
 }
