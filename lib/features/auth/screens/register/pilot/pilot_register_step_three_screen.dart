@@ -1341,13 +1341,13 @@ class _PilotRegisterStepThreeScreenState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), kPrimary],
+            colors: [Color(0xFF0D8AA5), AppColors.kPrimary],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: kPrimary.withOpacity(0.28),
+              color: AppColors.kPrimary.withOpacity(0.28),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -1359,35 +1359,26 @@ class _PilotRegisterStepThreeScreenState
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+                borderRadius: BorderRadius.circular(14)),
           ),
           child: isLoading
               ? const SizedBox(
             width: 22,
             height: 22,
             child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: Colors.white,
-            ),
+                strokeWidth: 2.4, color: Colors.white),
           )
               : Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(text,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
+              const Icon(Icons.arrow_forward_rounded,
+                  color: Colors.white, size: 16),
             ],
           ),
         ),

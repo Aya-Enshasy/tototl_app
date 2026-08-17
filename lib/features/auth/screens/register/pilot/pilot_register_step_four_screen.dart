@@ -1130,7 +1130,7 @@ class _PilotRegisterStepFourScreenState
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), kPrimary],
+            colors: [Color(0xFF0D8AA5), AppColors.kPrimary],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
