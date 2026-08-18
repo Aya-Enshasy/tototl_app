@@ -41,7 +41,7 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     const JobCard(),
                     const SizedBox(height: 26),
-                    _SectionHeader(title: 'My Availability', onSeeAll: () {}),
+                    _SectionHeader(title: 'My Availability'),
                     const SizedBox(height: 12),
                     _AvailabilityLauncher(
                       onTap: () => showDialog<List<AvailabilitySlot>>(
@@ -73,42 +73,37 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.onSeeAll});
+  const _SectionHeader({
+    required this.title,
+    this.onSeeAll,
+  });
 
   final String title;
-  final VoidCallback onSeeAll;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: AppColors.navy,
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
-        const Spacer(),
-        TextButton(
-          onPressed: onSeeAll,
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.blue,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
+        if (onSeeAll != null)
+          TextButton(
+            onPressed: onSeeAll,
+            child: const Text('See all'),
           ),
-          child: const Text(
-            'See all',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
       ],
     );
   }
 }
-
 /// Distinctive tile that lives on the Home page and opens the
 /// availability date/time picker popup when tapped.
 class _AvailabilityLauncher extends StatelessWidget {

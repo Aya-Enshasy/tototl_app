@@ -2,11 +2,11 @@ class ApiEndpoints {
   ApiEndpoints._();
 
   // Base URL
-  static const String baseUrl = 'https://your-api.com/api';
+  static const String baseUrl = 'https://tototl.abdullahdheir.dev/api/v1';
 
   // Auth
   static const String login = '/auth/login';
-  static const String register = '/auth/register';
+  static const String pilotRegister = '/auth/register/pilot';
   static const String logout = '/auth/logout';
   static const String refreshToken = '/auth/refresh';
   static const String me = '/auth/me';

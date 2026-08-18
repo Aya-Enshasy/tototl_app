@@ -23,22 +23,22 @@ class MyDroneCard extends StatelessWidget {
                 const Text(
                   'DJI Mavic 3 Pro',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppColors.text,
                   ),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  children: const [
-                    Icon(Icons.check_circle, size: 16, color: AppColors.green),
-                    SizedBox(width: 4),
-                    Text(
-                      'Verified',
-                      style: TextStyle(color: AppColors.green, fontSize: 13),
-                    ),
-                  ],
-                ),
+                // Row(
+                //   children: const [
+                //     Icon(Icons.check_circle, size: 16, color: AppColors.green),
+                //     SizedBox(width: 4),
+                //     Text(
+                //       'Verified',
+                //       style: TextStyle(color: AppColors.green, fontSize: 13),
+                //     ),
+                //   ],
+                // ),
               ],
             ),
           ),

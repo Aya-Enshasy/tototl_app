@@ -354,7 +354,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         ),
         const SizedBox(height: 12),
         // Drone type dropdown
-        _label('Drone type *'),
+        _label('Drone type'),
         _select(
           value: _droneType ?? '',
           items: const [
@@ -366,11 +366,11 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
           ],
           onChanged: (v) => setState(() => _droneType = v),
         ),
-        _label('Drone model *'),
+        _label('Drone model'),
         _field(_droneModelController, 'e.g. DJI Mavic 3 Enterprise'),
-        _label('Drone size *'),
+        _label('Drone size'),
         Row(
-          children: ['Small', 'Medium', 'Large', 'Custom', 'Normal'].map((size) {
+          children: ['Small', 'Medium', 'Large', 'Custom', 'Specific'].map((size) {
             final isSelected = _droneSize == size;
             return Expanded(
               child: Padding(
@@ -1102,6 +1102,8 @@ const SizedBox(height: 12),
         child: FilledButton(
           onPressed: _isSubmitting ? null : _continue,
           style: FilledButton.styleFrom(
+
+
             backgroundColor: AppColors.blue,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(

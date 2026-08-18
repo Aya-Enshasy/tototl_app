@@ -51,7 +51,7 @@ class JobCard extends StatelessWidget {
                         Text(
                           'Thermal Inspection - Solar Farm Array',
                           style: TextStyle(
-                            fontSize: 15.5,
+                            fontSize: 14,
                             height: 1.2,
                             fontWeight: FontWeight.w800,
                             color: AppColors.navy,

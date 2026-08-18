@@ -65,7 +65,7 @@ class AppBottomNavBar extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.navActiveBg
+                          ? AppColors.iconCircleBg
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(22),
                     ),
@@ -79,7 +79,7 @@ class AppBottomNavBar extends StatelessWidget {
                               selected ? item.activeIcon : item.icon,
                               size: 22,
                               color: selected
-                                  ? AppColors.navActive
+                                  ? AppColors.logoTurquoiseDark
                                   : AppColors.lightGrey,
                             ),
                             if (item.badge != null && item.badge! > 0)
@@ -116,7 +116,7 @@ class AppBottomNavBar extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.navActive,
+                              color: AppColors.logoTurquoiseDark,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),

@@ -1,33 +1,45 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 
-
+import '../../../../core/network/api_client.dart';
 import '../../../../core/session/account_role_store.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../services/auth_service.dart';
 import '../register/company/company_register_step_one_screen.dart';
 import '../register/pilot/pilot_register_step_one_screen.dart';
 
+
+
 class ChooseAccountTypeScreen extends StatefulWidget {
-  const ChooseAccountTypeScreen({super.key});
+  final AuthController authController;
+
+  const ChooseAccountTypeScreen({
+    super.key,
+    required this.authController,
+  });
 
   @override
   State<ChooseAccountTypeScreen> createState() =>
       _ChooseAccountTypeScreenState();
 }
 
-class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
+class _ChooseAccountTypeScreenState
+    extends State<ChooseAccountTypeScreen>
     with SingleTickerProviderStateMixin {
+
   late AnimationController _controller;
 
   late Animation<double> _bgFadeAnimation;
   late Animation<double> _sheetEntranceAnimation;
+
   late Animation<double> _card1FadeAnimation;
   late Animation<Offset> _card1SlideAnimation;
+
   late Animation<double> _card2FadeAnimation;
   late Animation<Offset> _card2SlideAnimation;
 
-  // متغير للتحكم في مسافة سحب الشاشة باليد لأسفل
   double _dragOffset = 0.0;
 
   @override
@@ -249,7 +261,10 @@ class _ChooseAccountTypeScreenState extends State<ChooseAccountTypeScreen>
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) =>
-                                                  const PilotRegisterStepOneScreen(),
+                                                   PilotRegisterStepOneScreen(
+                                                      authController: widget.authController,
+
+                                                  ),
                                             ),
                                           );
                                         },
