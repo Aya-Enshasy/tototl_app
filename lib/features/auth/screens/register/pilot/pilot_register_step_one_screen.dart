@@ -1,16 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_tow_screen.dart';
 
 import '../../../../../model/Country.dart';
+import '../../../models/PilotRegisterRequestModel.dart';
 
 class PilotRegisterStepOneScreen extends StatefulWidget {
   final AuthController authController;
@@ -560,18 +559,18 @@ class _PilotRegisterStepOneScreenState
                           const ValueKey(
                             'placeholder',
                           ),
-                          color:
-                          const Color(
-                            0xFFF1F6F8,
-                          ),
+                          // color:
+                          // const Color(
+                          //   0xFFF1F6F8,
+                          // ),
                           child:
                           const Icon(
                             Icons
                                 .person_rounded,
                             size: 58,
-                            color: Color(
-                              0xFFB8C6CE,
-                            ),
+                            // color: Color(
+                            //   0xFFB8C6CE,
+                            // ),
                           ),
                         ),
                       ),
@@ -1476,7 +1475,6 @@ class _PilotRegisterStepOneScreenState
       return;
     }
 
-    // Profile photo is required
     if (_avatarImage == null) {
       HapticFeedback.heavyImpact();
 
@@ -1489,9 +1487,7 @@ class _PilotRegisterStepOneScreenState
     }
 
     if (_selectedNationality == null ||
-        _selectedNationality!
-            .trim()
-            .isEmpty) {
+        _selectedNationality!.trim().isEmpty) {
       HapticFeedback.heavyImpact();
 
       _showSnack(
@@ -1543,39 +1539,31 @@ class _PilotRegisterStepOneScreenState
           '$dialCode$phone';
 
       // ===============================================================
-      // API
+      // BUILD STEP-1 DATA ONLY
+      // NO API REQUEST HERE
       // ===============================================================
 
-      final response =
-      await widget.authController
-          .pilotRegister(
+      final draft =
+      PilotRegisterRequestModel(
         name:
         _fullNameController.text.trim(),
-
         username:
         _usernameController.text.trim(),
-
         email:
         _emailController.text.trim(),
-
         password:
         _passwordController.text,
-
         passwordConfirmation:
         _confirmPasswordController.text,
-
-        phone: fullPhone,
-
-        dateOfBirth: DateFormat(
-          'yyyy-MM-dd',
-        ).format(
-          _selectedDateOfBirth!,
-        ),
-
+        phone:
+        fullPhone,
+        profilePhotoPath:
+        _avatarImage!.path,
+        dateOfBirth:
+        _selectedDateOfBirth!
+            .toIso8601String(),
         nationality:
         _selectedNationality!,
-
-        // Only LinkedIn is optional
         linkedinUrl:
         _linkedinController.text
             .trim()
@@ -1583,43 +1571,17 @@ class _PilotRegisterStepOneScreenState
             ? null
             : _linkedinController.text
             .trim(),
-
-        imagePath:
-        _avatarImage!.path,
       );
 
       if (!mounted) return;
 
-      if (response == null) {
-        HapticFeedback.heavyImpact();
-
-        _showSnack(
-          widget.authController
-              .errorMessage ??
-              'Registration failed. Please try again.',
-          isError: true,
-        );
-
-        return;
-      }
-
       setState(() {
-        _registrationSuccess = true;
+        _isSubmitting = false;
       });
 
       HapticFeedback.mediumImpact();
 
-      _showSnack(
-        'Pilot account created successfully!',
-      );
-
-      await Future.delayed(
-        const Duration(milliseconds: 650),
-      );
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         PageRouteBuilder(
           transitionDuration:
@@ -1635,7 +1597,12 @@ class _PilotRegisterStepOneScreenState
               animation,
               secondaryAnimation,
               ) {
-            return const PilotRegisterStepTwoScreen();
+            return PilotRegisterStepTwoScreen(
+              authController:
+              widget.authController,
+              draft:
+              draft,
+            );
           },
           transitionsBuilder: (
               context,
@@ -1677,13 +1644,12 @@ class _PilotRegisterStepOneScreenState
       HapticFeedback.heavyImpact();
 
       _showSnack(
-        widget.authController
-            .errorMessage ??
-            'Something went wrong. Please try again.',
+        'Something went wrong. Please try again.',
         isError: true,
       );
     } finally {
-      if (mounted) {
+      if (mounted &&
+          _isSubmitting) {
         setState(() {
           _isSubmitting = false;
         });

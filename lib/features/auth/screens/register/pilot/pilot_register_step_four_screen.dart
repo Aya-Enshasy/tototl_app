@@ -1,14 +1,15 @@
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-
 import '../../../../../core/navigation/bottom_navbar.dart';
 import '../../../../../core/session/account_role_store.dart';
 import '../../../../../core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+
+import '../../../models/PilotRegisterRequestModel.dart';
 
 // ============================================================================
 // DOCUMENT TYPES
@@ -26,7 +27,12 @@ enum _PilotDocumentType {
 class PilotRegisterStepFourScreen extends StatefulWidget {
   const PilotRegisterStepFourScreen({
     super.key,
+    required this.authController,
+    required this.draft,
   });
+
+  final AuthController authController;
+  final PilotRegisterRequestModel draft;
 
   @override
   State<PilotRegisterStepFourScreen> createState() =>
@@ -1412,6 +1418,49 @@ class _PilotRegisterStepFourScreenState
   // SUBMIT
   // ==========================================================================
 
+  String _licenseTypeToApiValue(
+      String label,
+      ) {
+    // `recreational` is confirmed by the existing API examples.
+    // Confirm the other enum cases with the backend if it uses a strict enum.
+    const values = {
+      'Commercial UAS Pilot':
+      'commercial',
+      'Recreational Drone Pilot':
+      'recreational',
+      'Inspection Pilot':
+      'inspection',
+      'Aerial Photography Pilot':
+      'aerial_photography',
+    };
+
+    return values[label] ?? label;
+  }
+
+  String _issuingAuthorityToApiValue(
+      String label,
+      ) {
+    // `civil_aviation_authority` is confirmed by the existing API examples.
+    const values = {
+      'CAA (Civil Aviation Authority)':
+      'civil_aviation_authority',
+      'FAA':
+      'faa',
+      'CASA':
+      'casa',
+      'EASA':
+      'easa',
+      'GCAA':
+      'gcaa',
+      'Ministry of Transport':
+      'ministry_of_transport',
+      'DJI Academy':
+      'dji_academy',
+    };
+
+    return values[label] ?? label;
+  }
+
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
 
@@ -1422,6 +1471,7 @@ class _PilotRegisterStepFourScreenState
             ?.validate() ??
             false;
 
+    // License document is required.
     if (_licenseImage == null) {
       setState(() {
         _showLicenseUploadError =
@@ -1431,37 +1481,21 @@ class _PilotRegisterStepFourScreenState
       isValid = false;
     }
 
-    // Permit is also required now
-    if (_permitImage == null) {
+    // Permit / insurance is optional according to the API shape.
+    // Keep the UI upload field, but do not block registration when empty.
+    if (_showPermitUploadError) {
       setState(() {
         _showPermitUploadError =
-        true;
+        false;
       });
-
-      isValid = false;
     }
 
     if (!isValid) {
       HapticFeedback.heavyImpact();
 
-      if (_licenseImage ==
-          null &&
-          _permitImage ==
-              null) {
-        _showSnack(
-          'Please upload both required documents.',
-          isError: true,
-        );
-      } else if (_licenseImage ==
-          null) {
+      if (_licenseImage == null) {
         _showSnack(
           'Please upload your pilot license document.',
-          isError: true,
-        );
-      } else if (_permitImage ==
-          null) {
-        _showSnack(
-          'Please upload your permit or insurance document.',
           isError: true,
         );
       } else {
@@ -1474,33 +1508,125 @@ class _PilotRegisterStepFourScreenState
       return;
     }
 
+    if (_selectedLicenseType == null ||
+        _selectedIssuingAuthority == null ||
+        _selectedExpiryDate == null) {
+      HapticFeedback.heavyImpact();
+
+      _showSnack(
+        'Please complete your certification details.',
+        isError: true,
+      );
+
+      return;
+    }
+
+    final license =
+    PilotLicenseRequest(
+      licenseType:
+      _licenseTypeToApiValue(
+        _selectedLicenseType!,
+      ),
+      licenseNumber:
+      _licenseNumberController.text
+          .trim(),
+      issuingAuthority:
+      _issuingAuthorityToApiValue(
+        _selectedIssuingAuthority!,
+      ),
+      expiresAt:
+      _selectedExpiryDate!
+          .toIso8601String(),
+      licenseDocumentPath:
+      _licenseImage!.path,
+      permitOrInsuranceDocumentPath:
+      _permitImage?.path,
+    );
+
+    final finalRequest =
+    widget.draft.copyWith(
+      pilotLicense:
+      license,
+    );
+
     setState(() {
       _isSubmitting = true;
     });
 
-    // UI loading only - NO API
-    await Future.delayed(
-      const Duration(
-        milliseconds: 850,
-      ),
-    );
+    try {
+      // ===============================================================
+      // THE ONLY REGISTRATION API REQUEST IN THE 4-STEP FLOW
+      // ===============================================================
 
-    if (!mounted) return;
+      final response =
+      await widget.authController
+          .pilotRegister(
+        request:
+        finalRequest,
+      );
 
-    await AccountRoleStore.instance
-        .setRole(
-      AccountRole.pilot,
-    );
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (response == null) {
+        HapticFeedback.heavyImpact();
 
-    setState(() {
-      _isSubmitting = false;
-    });
+        _showSnack(
+          widget.authController
+              .errorMessage ??
+              'Registration failed. Please try again.',
+          isError: true,
+        );
 
-    HapticFeedback.mediumImpact();
+        return;
+      }
 
-    _showCompletionSuccessDialog();
+      final responseData =
+          response.data;
+
+      if (responseData
+      is Map<String, dynamic> &&
+          responseData['success'] ==
+              false) {
+        HapticFeedback.heavyImpact();
+
+        _showSnack(
+          responseData['message']
+              ?.toString() ??
+              'Registration failed. Please try again.',
+          isError: true,
+        );
+
+        return;
+      }
+
+      await AccountRoleStore.instance
+          .setRole(
+        AccountRole.pilot,
+      );
+
+      if (!mounted) return;
+
+      HapticFeedback.mediumImpact();
+
+      _showCompletionSuccessDialog();
+    } catch (_) {
+      if (!mounted) return;
+
+      HapticFeedback.heavyImpact();
+
+      _showSnack(
+        widget.authController
+            .errorMessage ??
+            'Something went wrong. Please try again.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   // ==========================================================================

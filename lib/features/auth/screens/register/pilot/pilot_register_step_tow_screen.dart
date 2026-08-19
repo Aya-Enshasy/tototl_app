@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_three_screen.dart';
-
+import '../../../models/PilotRegisterRequestModel.dart';
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
 
@@ -12,7 +12,14 @@ import '../../../services/location_service.dart';
 // ============================================================================
 
 class PilotRegisterStepTwoScreen extends StatefulWidget {
-  const PilotRegisterStepTwoScreen({super.key});
+  const PilotRegisterStepTwoScreen({
+    super.key,
+    required this.authController,
+    required this.draft,
+  });
+
+  final AuthController authController;
+  final PilotRegisterRequestModel draft;
 
   @override
   State<PilotRegisterStepTwoScreen> createState() =>
@@ -77,11 +84,15 @@ class _PilotRegisterStepTwoScreenState
   // OPTIONS
   // ==========================================================================
 
-  final List<String> _experienceYears = const [
+  final List<String> _experienceYears = [
     'Less than 1 year',
-    '1-3 years',
-    '3-5 years',
-    'More than 5 years',
+    ...List.generate(
+      40,
+          (index) {
+        final years = index + 1;
+        return '$years ${years == 1 ? 'year' : 'years'}';
+      },
+    ),
   ];
 
   final List<String> _availableLanguages = const [
@@ -215,6 +226,20 @@ class _PilotRegisterStepTwoScreenState
   // VALIDATION + NEXT
   // ==========================================================================
 
+  int _experienceYearsForApi() {
+    final value = _yearsOfExperience;
+
+    if (value == null ||
+        value == 'Less than 1 year') {
+      return 0;
+    }
+
+    return int.tryParse(
+      value.split(' ').first,
+    ) ??
+        0;
+  }
+
   Future<void> _handleNext() async {
     if (_isSubmitting) return;
 
@@ -282,13 +307,76 @@ class _PilotRegisterStepTwoScreenState
       return;
     }
 
+    if (_selectedCountry == null) {
+      HapticFeedback.heavyImpact();
+
+      _showSnack(
+        'Please select a work-region country.',
+        isError: true,
+      );
+
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
 
-    // UI loading only - NO API
-    await Future.delayed(
-      const Duration(milliseconds: 400),
+    final languages =
+    _selectedLanguages
+        .where(
+          (language) =>
+      language != 'Other',
+    )
+        .toList();
+
+    if (_selectedLanguages.contains(
+      'Other',
+    )) {
+      languages.add(
+        _otherLanguageController.text
+            .trim(),
+      );
+    }
+
+    final workRegions =
+    _selectedWillingRegions
+        .map(
+          (city) =>
+          PilotWorkRegion(
+            country:
+            _selectedCountry!.name,
+            // The current UI chooses country + city for willing regions.
+            // It does not collect a separate state for each region.
+            state: null,
+            city: city,
+          ),
+    )
+        .toList();
+
+    final updatedDraft =
+    widget.draft.copyWith(
+      experienceYears:
+      _experienceYearsForApi(),
+      languages:
+      languages,
+      currentCountry:
+      _countryController.text.trim(),
+      currentState:
+      _stateController.text.trim(),
+      currentCity:
+      _cityController.text.trim(),
+      workRegions:
+      workRegions,
+      previousCompany:
+      _previousCompanyController.text
+          .trim()
+          .isEmpty
+          ? null
+          : _previousCompanyController.text
+          .trim(),
+      bio:
+      _aboutController.text.trim(),
     );
 
     if (!mounted) return;
@@ -303,18 +391,25 @@ class _PilotRegisterStepTwoScreenState
       context,
       PageRouteBuilder(
         transitionDuration:
-        const Duration(milliseconds: 450),
+        const Duration(
+          milliseconds: 450,
+        ),
         reverseTransitionDuration:
-        const Duration(milliseconds: 300),
-
+        const Duration(
+          milliseconds: 300,
+        ),
         pageBuilder: (
             context,
             animation,
             secondaryAnimation,
             ) {
-          return const PilotRegisterStepThreeScreen();
+          return PilotRegisterStepThreeScreen(
+            authController:
+            widget.authController,
+            draft:
+            updatedDraft,
+          );
         },
-
         transitionsBuilder: (
             context,
             animation,
@@ -324,7 +419,8 @@ class _PilotRegisterStepTwoScreenState
           final curved =
           CurvedAnimation(
             parent: animation,
-            curve: Curves.easeOutCubic,
+            curve:
+            Curves.easeOutCubic,
           );
 
           return FadeTransition(
@@ -333,9 +429,15 @@ class _PilotRegisterStepTwoScreenState
               position:
               Tween<Offset>(
                 begin:
-                const Offset(0.08, 0),
-                end: Offset.zero,
-              ).animate(curved),
+                const Offset(
+                  0.08,
+                  0,
+                ),
+                end:
+                Offset.zero,
+              ).animate(
+                curved,
+              ),
               child: child,
             ),
           );

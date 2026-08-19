@@ -1,11 +1,12 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_four_screen.dart';
+
+import '../../../models/PilotRegisterRequestModel.dart';
 
 // ============================================================================
 // SCREEN 3: Pilot Drone Information
@@ -14,7 +15,12 @@ import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_s
 class PilotRegisterStepThreeScreen extends StatefulWidget {
   const PilotRegisterStepThreeScreen({
     super.key,
+    required this.authController,
+    required this.draft,
   });
+
+  final AuthController authController;
+  final PilotRegisterRequestModel draft;
 
   @override
   State<PilotRegisterStepThreeScreen> createState() =>
@@ -695,20 +701,41 @@ class _PilotRegisterStepThreeScreenState
   // VALIDATION + NEXT
   // ==========================================================================
 
+  String _capabilityToApiValue(
+      String label,
+      ) {
+    // `thermal` is confirmed by the existing API examples.
+    // The remaining slugs follow the UI labels and should be checked
+    // against the backend enum if the backend restricts capabilities.
+    const values = {
+      'Thermal Camera': 'thermal',
+      'RTK Module': 'rtk',
+      'Spotlight': 'spotlight',
+      'Parachute Safety System':
+      'parachute',
+      'Zoom Camera': 'zoom',
+      'Multispectral Sensor':
+      'multispectral',
+      'Speaker / Loudspeaker':
+      'speaker',
+      'Winch / Release Mechanism':
+      'winch',
+    };
+
+    return values[label] ?? label;
+  }
+
   Future<void> _handleNext() async {
     if (_isSubmitting) return;
 
-    FocusScope.of(context)
-        .unfocus();
+    FocusScope.of(context).unfocus();
 
     final valid =
-        _formKey.currentState
-            ?.validate() ??
+        _formKey.currentState?.validate() ??
             false;
 
     if (!valid) {
-      HapticFeedback
-          .heavyImpact();
+      HapticFeedback.heavyImpact();
 
       _showSnack(
         'Please complete all required fields.',
@@ -719,11 +746,58 @@ class _PilotRegisterStepThreeScreenState
     }
 
     if (_selectedYear == null) {
-      HapticFeedback
-          .heavyImpact();
+      HapticFeedback.heavyImpact();
 
       _showSnack(
         'Please select manufacturing year.',
+        isError: true,
+      );
+
+      return;
+    }
+
+    final weight =
+    double.tryParse(
+      _weightController.text.trim(),
+    );
+
+    final flightTime =
+    int.tryParse(
+      _flightTimeController.text.trim(),
+    );
+
+    final totalBatteries =
+    int.tryParse(
+      _totalBatteriesController.text
+          .trim(),
+    );
+
+    final hourlyRate =
+    double.tryParse(
+      _hourlyRateController.text.trim(),
+    );
+
+    final dailyRate =
+    double.tryParse(
+      _dailyRateController.text.trim(),
+    );
+
+    final emergencyFee =
+    double.tryParse(
+      _emergencyFeeController.text
+          .trim(),
+    );
+
+    if (weight == null ||
+        flightTime == null ||
+        totalBatteries == null ||
+        hourlyRate == null ||
+        dailyRate == null ||
+        emergencyFee == null) {
+      HapticFeedback.heavyImpact();
+
+      _showSnack(
+        'Please enter valid numeric drone values.',
         isError: true,
       );
 
@@ -734,11 +808,54 @@ class _PilotRegisterStepThreeScreenState
       _isSubmitting = true;
     });
 
-    // UI loading only - NO API
-    await Future.delayed(
-      const Duration(
-        milliseconds: 400,
+    final drone =
+    PilotDroneRequest(
+      imagePath:
+      _droneImage?.path,
+      make:
+      _makeController.text.trim(),
+      model:
+      _modelController.text.trim(),
+      manufactureYear:
+      int.parse(_selectedYear!),
+      serialNumber:
+      _serialController.text.trim(),
+      weightKg:
+      weight,
+      capabilities:
+      _selectedAccessories
+          .map(
+        _capabilityToApiValue,
+      )
+          .toList(),
+      flightTimePerBatteryMinutes:
+      flightTime,
+      totalBatteries:
+      totalBatteries,
+      batteryType:
+      _batteryTypeController.text
+          .trim()
+          .isEmpty
+          ? null
+          : _batteryTypeController.text
+          .trim(),
+      batteryUsageFee:
+      double.tryParse(
+        _batteryUsageController.text
+            .trim(),
       ),
+      hourlyRate:
+      hourlyRate,
+      dailyRate:
+      dailyRate,
+      emergencyCalloutFee:
+      emergencyFee,
+    );
+
+    final updatedDraft =
+    widget.draft.copyWith(
+      drone:
+      drone,
     );
 
     if (!mounted) return;
@@ -747,31 +864,31 @@ class _PilotRegisterStepThreeScreenState
       _isSubmitting = false;
     });
 
-    HapticFeedback
-        .mediumImpact();
+    HapticFeedback.mediumImpact();
 
     Navigator.push(
       context,
-
       PageRouteBuilder(
         transitionDuration:
         const Duration(
           milliseconds: 450,
         ),
-
         reverseTransitionDuration:
         const Duration(
           milliseconds: 300,
         ),
-
         pageBuilder: (
             context,
             animation,
             secondaryAnimation,
             ) {
-          return const PilotRegisterStepFourScreen();
+          return PilotRegisterStepFourScreen(
+            authController:
+            widget.authController,
+            draft:
+            updatedDraft,
+          );
         },
-
         transitionsBuilder: (
             context,
             animation,
@@ -787,7 +904,6 @@ class _PilotRegisterStepThreeScreenState
 
           return FadeTransition(
             opacity: curved,
-
             child: SlideTransition(
               position:
               Tween<Offset>(
@@ -796,9 +912,11 @@ class _PilotRegisterStepThreeScreenState
                   0.08,
                   0,
                 ),
-                end: Offset.zero,
-              ).animate(curved),
-
+                end:
+                Offset.zero,
+              ).animate(
+                curved,
+              ),
               child: child,
             ),
           );
