@@ -1,16 +1,23 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
-import '../../../../../model/Country.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
+
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
 import 'company_register_step_tow_screen.dart';
-import 'package:tototl_app/core/theme/app_colors.dart';
+
+// ============================================================================
+// COMPANY REGISTRATION - STEP 1
+// ============================================================================
 
 class CompanyRegisterStepOneScreen extends StatefulWidget {
-  const CompanyRegisterStepOneScreen({super.key});
+  const CompanyRegisterStepOneScreen({
+    super.key,
+  });
 
   @override
   State<CompanyRegisterStepOneScreen> createState() =>
@@ -18,29 +25,71 @@ class CompanyRegisterStepOneScreen extends StatefulWidget {
 }
 
 class _CompanyRegisterStepOneScreenState
-    extends State<CompanyRegisterStepOneScreen> {
-  final _formKey = GlobalKey<FormState>();
+    extends State<CompanyRegisterStepOneScreen>
+    with TickerProviderStateMixin {
+  // ==========================================================================
+  // FORM
+  // ==========================================================================
 
-  // متحكمات النصوص (Controllers)
-  final TextEditingController _companyNameController = TextEditingController();
-  final TextEditingController _userIdController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final GlobalKey<FormState> _formKey =
+  GlobalKey<FormState>();
+
+  final TextEditingController _companyNameController =
+  TextEditingController();
+
+  final TextEditingController _userIdController =
+  TextEditingController();
+
+  final TextEditingController _emailController =
+  TextEditingController();
+
+  final TextEditingController _passwordController =
+  TextEditingController();
+
   final TextEditingController _confirmPasswordController =
   TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  List<CountryModel> _countries = [];
-  CountryModel? _selectedCountry;
 
+  final TextEditingController _phoneController =
+  TextEditingController();
 
+  // ==========================================================================
+  // STATE
+  // ==========================================================================
 
-  // الحالة
   String? _selectedCompanyType;
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  // قائمة أنواع الشركات (Company Type Dropdown)
-  final List<String> _companyTypes = [
+  bool _isSubmitting = false;
+  bool _buttonPressed = false;
+  bool _isPickingLogo = false;
+
+  File? _companyLogo;
+
+  // ==========================================================================
+  // COUNTRY
+  // ==========================================================================
+
+  final LocationService _locationService =
+  LocationService();
+
+  List<CountryModel> _countries = [];
+
+  CountryModel? _selectedCountry;
+
+  // ==========================================================================
+  // IMAGE PICKER
+  // ==========================================================================
+
+  final ImagePicker _imagePicker =
+  ImagePicker();
+
+  // ==========================================================================
+  // COMPANY TYPES
+  // ==========================================================================
+
+  final List<String> _companyTypes = const [
     'Construction',
     'Energy',
     'Real Estate',
@@ -48,6 +97,107 @@ class _CompanyRegisterStepOneScreenState
     'Agriculture',
     'Other',
   ];
+
+  // ==========================================================================
+  // COLORS
+  // ==========================================================================
+
+  static const Color kPrimary =
+      AppColors.primary;
+
+  static const Color kTextDark =
+      AppColors.text;
+
+  static const Color kTextMuted =
+      AppColors.grey;
+
+  static const Color kHint =
+      AppColors.lightGrey;
+
+  static const Color kBorder =
+      AppColors.border;
+
+  static const Color kSurfaceSoft =
+      AppColors.bg;
+
+  static const Color kDanger =
+      AppColors.red;
+
+  // ==========================================================================
+  // ANIMATIONS
+  // ==========================================================================
+
+  late final AnimationController
+  _pageAnimationController;
+
+  late final AnimationController
+  _logoFloatController;
+
+  late final Animation<double>
+  _logoFloatAnimation;
+
+  // ==========================================================================
+  // INIT
+  // ==========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor:
+        Colors.transparent,
+        statusBarIconBrightness:
+        Brightness.dark,
+        statusBarBrightness:
+        Brightness.light,
+      ),
+    );
+
+    _pageAnimationController =
+        AnimationController(
+          vsync: this,
+          duration:
+          const Duration(
+            milliseconds: 1050,
+          ),
+        );
+
+    _logoFloatController =
+        AnimationController(
+          vsync: this,
+          duration:
+          const Duration(
+            milliseconds: 2200,
+          ),
+        );
+
+    _logoFloatAnimation =
+        Tween<double>(
+          begin: -2.5,
+          end: 2.5,
+        ).animate(
+          CurvedAnimation(
+            parent:
+            _logoFloatController,
+            curve:
+            Curves.easeInOut,
+          ),
+        );
+
+    _pageAnimationController.forward();
+
+    _logoFloatController.repeat(
+      reverse: true,
+    );
+
+    _loadCountries();
+  }
+
+  // ==========================================================================
+  // DISPOSE
+  // ==========================================================================
 
   @override
   void dispose() {
@@ -57,844 +207,3136 @@ class _CompanyRegisterStepOneScreenState
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _phoneController.dispose();
+
+    _pageAnimationController.dispose();
+    _logoFloatController.dispose();
+
     super.dispose();
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.text,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+  // ==========================================================================
+  // ENTRANCE ANIMATION
+  // ==========================================================================
+
+  Widget _animatedEntry({
+    required int index,
+    required Widget child,
+  }) {
+    final start =
+    (index * 0.065)
+        .clamp(
+      0.0,
+      0.68,
+    )
+        .toDouble();
+
+    final end =
+    (start + 0.32)
+        .clamp(
+      0.0,
+      1.0,
+    )
+        .toDouble();
+
+    final animation =
+    CurvedAnimation(
+      parent:
+      _pageAnimationController,
+      curve: Interval(
+        start,
+        end,
+        curve:
+        Curves.easeOutCubic,
+      ),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position:
+        Tween<Offset>(
+          begin:
+          const Offset(
+            0,
+            0.06,
+          ),
+          end:
+          Offset.zero,
+        ).animate(
+          animation,
+        ),
+        child:
+        child,
       ),
     );
   }
 
-  void _handleNext() {
-    if (!_formKey.currentState!.validate()) {
-      return;
+  // ==========================================================================
+  // LOAD COUNTRIES
+  // ==========================================================================
+
+  Future<void> _loadCountries() async {
+    try {
+      final countries =
+      await _locationService
+          .getCountries();
+
+      if (!mounted) return;
+
+      CountryModel? defaultCountry;
+
+      for (final country
+      in countries) {
+        final name =
+        country.name
+            .toLowerCase();
+
+        if (country.dialCode ==
+            '+970' ||
+            name.contains(
+              'palestin',
+            )) {
+          defaultCountry =
+              country;
+
+          break;
+        }
+      }
+
+      setState(() {
+        _countries =
+            countries;
+
+        if (countries.isNotEmpty) {
+          _selectedCountry =
+              defaultCountry ??
+                  countries.first;
+        }
+      });
+    } catch (e) {
+      debugPrint(
+        'Countries loading error: $e',
+      );
     }
-    if (_selectedCompanyType == null) {
-      _showSnack('Please select a company type');
+  }
+
+  // ==========================================================================
+  // COMPANY LOGO
+  // ==========================================================================
+
+  Future<void> _pickCompanyLogo(
+      ImageSource source,
+      ) async {
+    if (_isPickingLogo ||
+        _isSubmitting) {
       return;
     }
 
-    // الانتقال للخطوة الثانية
-    Navigator.push(
+    HapticFeedback
+        .selectionClick();
+
+    setState(() {
+      _isPickingLogo =
+      true;
+    });
+
+    try {
+      final picked =
+      await _imagePicker
+          .pickImage(
+        source:
+        source,
+        imageQuality:
+        85,
+        maxWidth:
+        1200,
+      );
+
+      if (picked ==
+          null) {
+        return;
+      }
+
+      final file =
+      File(
+        picked.path,
+      );
+
+      if (!await file
+          .exists()) {
+        if (mounted) {
+          _showSnack(
+            'The selected image could not be found.',
+            isError:
+            true,
+          );
+        }
+
+        return;
+      }
+
+      final size =
+      await file.length();
+
+      if (size >
+          10 *
+              1024 *
+              1024) {
+        if (mounted) {
+          _showSnack(
+            'Company logo must be smaller than 10 MB.',
+            isError:
+            true,
+          );
+        }
+
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _companyLogo =
+            file;
+      });
+
+      HapticFeedback
+          .lightImpact();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnack(
+        'Unable to open image. Please check app permissions.',
+        isError:
+        true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingLogo =
+          false;
+        });
+      }
+    }
+  }
+
+  // ==========================================================================
+  // LOGO SOURCE SHEET
+  // ==========================================================================
+
+  void _showLogoSourceSheet() {
+    if (_isSubmitting) {
+      return;
+    }
+
+    HapticFeedback
+        .lightImpact();
+
+    showModalBottomSheet(
+      context:
       context,
-      MaterialPageRoute(
-        builder: (context) => const CompanyRegisterStepTwoScreen(),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-      ),
-    );
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor:
+      Colors.transparent,
+      isScrollControlled:
+      true,
+      builder:
+          (context) {
+        return SafeArea(
+          child:
+          Container(
+            padding:
+            const EdgeInsets
+                .fromLTRB(
+              18,
+              10,
+              18,
+              24,
+            ),
+            decoration:
+            const BoxDecoration(
+              color:
+              Colors.white,
+              borderRadius:
+              BorderRadius
+                  .vertical(
+                top:
+                Radius.circular(
+                  28,
+                ),
+              ),
+            ),
+            child:
+            Column(
+              mainAxisSize:
+              MainAxisSize.min,
               children: [
-                // ==========================================
-                // 1. الشريط العلوي (زر الرجوع + مؤشر الـ 4 خطوات)
-                // ==========================================
-                Row(
-                  children: [
-                    _buildBackButton(),
-                    Expanded(
-                      child: Center(
-                        child: _buildStepIndicator(currentStep: 1),
-                      ),
-                    ),
-                    const SizedBox(width: 38), // لموازنة زر الرجوع
-                  ],
-                ),
-                const SizedBox(height: 30),
-
-                // ==========================================
-                // 2. العنوان الرئيسي والفرعي
-                // ==========================================
-                const Text(
-                  'Create Company\nAccount',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
-                    height: 1.2,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Basic information required to setup your account',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF8F93A3),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 28),
-
-                // ==========================================
-                // 3. اختيار شعار الشركة (Company Logo)
-                // ==========================================
-                Center(
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFFF9FAFB),
-                          border: Border.all(
-                            color: const Color(0xFFE5E7EB),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.business_rounded,
-                          size: 42,
-                          color: Color(0xFFA0A5BA),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 2,
-                        right: 2,
-                        child: GestureDetector(
-                          onTap: () {
-                            // اختيار صوة اللوجو
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.12),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.add_a_photo_outlined,
-                              size: 15,
-                              color: Color(0xFF1A1A1A),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
-
-                // ==========================================
-                // 4. حقول الإدخال (Fields)
-                // ==========================================
-
-                // Company Name
-                _buildTextField(
-                  controller: _companyNameController,
-                  hintText: 'Company Name',
-                  prefixIcon:  Icons.business_outlined,
-                  validator: (val) => val == null || val.trim().isEmpty
-                      ? 'Company name is required'
-                      : null,
-                ),
-
-
-                const SizedBox(height: 14),
-
-                // User ID
-                _buildTextField(
-                  controller: _userIdController,
-                  hintText: 'User ID / Username',
-                  prefixIcon: Icons.alternate_email_rounded,
-                  validator: (val) => val == null || val.trim().isEmpty
-                      ? 'User ID is required'
-                      : null,
-                ),
-                const SizedBox(height: 14),
-
-                // Email Address
-                _buildTextField(
-                  controller: _emailController,
-                  hintText: 'Email Address',
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: Icons.email_outlined,
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) {
-                      return 'Email address is required';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(val.trim())) {
-                      return 'Please enter a valid email address';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                // Phone Number
-                _buildPhoneField(),
-
-                const SizedBox(height: 14),
-
-                // Industry Type Dropdown
-                _buildDropdownField(
-                  hintText: 'Industry Type',
-                  value: _selectedCompanyType,
-                  items: _companyTypes,
-                  onChanged: (val) => setState(() => _selectedCompanyType = val),
-                ),
-                const SizedBox(height: 14),
-
-                // Password
-                _buildTextField(
-                  controller: _passwordController,
-                  hintText: 'Password',
-                  obscureText: _obscurePassword,
-                  prefixIcon:
-                    Icons.lock_outline_rounded,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: const Color(0xFFA0A5BA),
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      setState(() => _obscurePassword = !_obscurePassword);
-                    },
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Password is required';
-                    }
-                    if (val.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                // Confirm Password
-                _buildTextField(
-                  controller: _confirmPasswordController,
-                  hintText: 'Confirm Password',
-                  obscureText: _obscureConfirmPassword,
-                  prefixIcon:
-                    Icons.lock_reset_rounded,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: const Color(0xFFA0A5BA),
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      setState(() =>
-                      _obscureConfirmPassword = !_obscureConfirmPassword);
-                    },
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Confirm password is required';
-                    }
-                    if (val != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 32),
-
-                // ==========================================
-                // 5. زر الانتقال للخطوة التالية (Next Button)
-                // ==========================================
                 Container(
-                  width: double.infinity,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF16C6C7),
-                        Color(0xFF0D8AA5),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF16C6C7).withOpacity(0.35),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _handleNext,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Text(
-                          'Next',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ],
+                  width:
+                  42,
+                  height:
+                  4,
+                  decoration:
+                  BoxDecoration(
+                    color:
+                    kBorder,
+                    borderRadius:
+                    BorderRadius
+                        .circular(
+                      20,
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(
+                  height:
+                  20,
+                ),
+
+                const Align(
+                  alignment:
+                  Alignment.centerLeft,
+                  child:
+                  Text(
+                    'Company Logo',
+                    style:
+                    TextStyle(
+                      fontSize:
+                      18,
+                      fontWeight:
+                      FontWeight.w800,
+                      color:
+                      kTextDark,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                  4,
+                ),
+
+                const Align(
+                  alignment:
+                  Alignment.centerLeft,
+                  child:
+                  Text(
+                    'Add your official company logo.',
+                    style:
+                    TextStyle(
+                      fontSize:
+                      11.5,
+                      color:
+                      kTextMuted,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(
+                  height:
+                  18,
+                ),
+
+                _buildLogoSheetOption(
+                  icon:
+                  Icons.camera_alt_rounded,
+                  title:
+                  'Take a Photo',
+                  subtitle:
+                  'Use your device camera',
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      context,
+                    );
+
+                    _pickCompanyLogo(
+                      ImageSource.camera,
+                    );
+                  },
+                ),
+
+                const SizedBox(
+                  height:
+                  10,
+                ),
+
+                _buildLogoSheetOption(
+                  icon:
+                  Icons.photo_library_rounded,
+                  title:
+                  'Choose from Gallery',
+                  subtitle:
+                  'Select your company logo',
+                  onTap:
+                      () {
+                    Navigator.pop(
+                      context,
+                    );
+
+                    _pickCompanyLogo(
+                      ImageSource.gallery,
+                    );
+                  },
+                ),
+
+                if (_companyLogo !=
+                    null) ...[
+                  const SizedBox(
+                    height:
+                    10,
+                  ),
+
+                  _buildLogoSheetOption(
+                    icon:
+                    Icons.delete_outline_rounded,
+                    title:
+                    'Remove Logo',
+                    subtitle:
+                    'Remove the selected image',
+                    destructive:
+                    true,
+                    onTap:
+                        () {
+                      Navigator.pop(
+                        context,
+                      );
+
+                      setState(() {
+                        _companyLogo =
+                        null;
+                      });
+                    },
+                  ),
+                ],
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLogoSheetOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool destructive =
+    false,
+  }) {
+    final color =
+    destructive
+        ? kDanger
+        : kPrimary;
+
+    return Material(
+      color: destructive
+          ? kDanger
+          .withOpacity(
+        0.05,
+      )
+          : kSurfaceSoft,
+      borderRadius:
+      BorderRadius.circular(
+        16,
+      ),
+      child:
+      InkWell(
+        borderRadius:
+        BorderRadius.circular(
+          16,
+        ),
+        onTap:
+        onTap,
+        child:
+        Padding(
+          padding:
+          const EdgeInsets
+              .symmetric(
+            horizontal:
+            14,
+            vertical:
+            13,
+          ),
+          child:
+          Row(
+            children: [
+              Container(
+                width:
+                40,
+                height:
+                40,
+                decoration:
+                BoxDecoration(
+                  color:
+                  color.withOpacity(
+                    0.10,
+                  ),
+                  borderRadius:
+                  BorderRadius.circular(
+                    12,
+                  ),
+                ),
+                child:
+                Icon(
+                  icon,
+                  color:
+                  color,
+                  size:
+                  19,
+                ),
+              ),
+
+              const SizedBox(
+                width:
+                12,
+              ),
+
+              Expanded(
+                child:
+                Column(
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style:
+                      TextStyle(
+                        fontSize:
+                        13.5,
+                        fontWeight:
+                        FontWeight.w700,
+                        color:
+                        destructive
+                            ? color
+                            : kTextDark,
+                      ),
+                    ),
+                    const SizedBox(
+                      height:
+                      2,
+                    ),
+                    Text(
+                      subtitle,
+                      style:
+                      const TextStyle(
+                        color:
+                        kTextMuted,
+                        fontSize:
+                        10.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Icon(
+                Icons.chevron_right_rounded,
+                color:
+                color,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // ===========================================================================
-  // WIDGETS المخصصة الموحدة مع قسم الدرون
-  // ===========================================================================
+  // ==========================================================================
+  // COMPANY LOGO UI
+  // ==========================================================================
 
-  Widget _buildBackButton() {
-    return GestureDetector(
-      onTap: () {
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
+  Widget _buildCompanyLogo() {
+    return AnimatedBuilder(
+      animation:
+      _logoFloatAnimation,
+      builder:
+          (
+          context,
+          child,
+          ) {
+        return Transform.translate(
+          offset:
+          Offset(
+            0,
+            _logoFloatAnimation.value,
+          ),
+          child:
+          child,
+        );
       },
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-        ),
-        child: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          size: 15,
-          color: Color(0xFF1A1A1A),
+      child:
+      GestureDetector(
+        onTap:
+        _showLogoSourceSheet,
+        child:
+        Column(
+          children: [
+            Stack(
+              clipBehavior:
+              Clip.none,
+              children: [
+                Container(
+                  width:
+                  112,
+                  height:
+                  112,
+                  padding:
+                  const EdgeInsets.all(
+                    4,
+                  ),
+                  decoration:
+                  BoxDecoration(
+                    shape:
+                    BoxShape.circle,
+                    gradient:
+                    LinearGradient(
+                      begin:
+                      Alignment.topLeft,
+                      end:
+                      Alignment.bottomRight,
+                      colors: [
+                        kPrimary
+                            .withOpacity(
+                          0.22,
+                        ),
+                        kPrimary
+                            .withOpacity(
+                          0.035,
+                        ),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                        kPrimary.withOpacity(
+                          0.12,
+                        ),
+                        blurRadius:
+                        24,
+                        offset:
+                        const Offset(
+                          0,
+                          8,
+                        ),
+                      ),
+                    ],
+                  ),
+                  child:
+                  Container(
+                    padding:
+                    const EdgeInsets.all(
+                      3,
+                    ),
+                    decoration:
+                    const BoxDecoration(
+                      shape:
+                      BoxShape.circle,
+                      color:
+                      Colors.white,
+                    ),
+                    child:
+                    ClipOval(
+                      child:
+                      AnimatedSwitcher(
+                        duration:
+                        const Duration(
+                          milliseconds:
+                          300,
+                        ),
+                        child:
+                        _isPickingLogo
+                            ? const Center(
+                          key:
+                          ValueKey(
+                            'loading',
+                          ),
+                          child:
+                          SizedBox(
+                            width:
+                            25,
+                            height:
+                            25,
+                            child:
+                            CircularProgressIndicator(
+                              strokeWidth:
+                              2.3,
+                              color:
+                              kPrimary,
+                            ),
+                          ),
+                        )
+                            : _companyLogo !=
+                            null
+                            ? Image.file(
+                          _companyLogo!,
+                          key:
+                          ValueKey(
+                            _companyLogo!.path,
+                          ),
+                          fit:
+                          BoxFit.cover,
+                          width:
+                          102,
+                          height:
+                          102,
+                        )
+                            : Container(
+                          key:
+                          const ValueKey(
+                            'placeholder',
+                          ),
+                          color:
+                          const Color(
+                            0xFFF1F6F8,
+                          ),
+                          child:
+                          const Icon(
+                            Icons.business_rounded,
+                            size:
+                            53,
+                            color:
+                            Color(
+                              0xFFB8C6CE,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  right:
+                  -1,
+                  bottom:
+                  3,
+                  child:
+                  Container(
+                    width:
+                    35,
+                    height:
+                    35,
+                    decoration:
+                    BoxDecoration(
+                      shape:
+                      BoxShape.circle,
+                      gradient:
+                      const LinearGradient(
+                        colors: [
+                          Color(
+                            0xFF0D8AA5,
+                          ),
+                          kPrimary,
+                        ],
+                      ),
+                      border:
+                      Border.all(
+                        color:
+                        Colors.white,
+                        width:
+                        3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                          kPrimary.withOpacity(
+                            0.25,
+                          ),
+                          blurRadius:
+                          11,
+                          offset:
+                          const Offset(
+                            0,
+                            4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    child:
+                    Icon(
+                      _companyLogo ==
+                          null
+                          ? Icons.add_a_photo_rounded
+                          : Icons.edit_rounded,
+                      color:
+                      Colors.white,
+                      size:
+                      15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(
+              height:
+              12,
+            ),
+
+            Text(
+              _companyLogo ==
+                  null
+                  ? 'Add company logo'
+                  : 'Change company logo',
+              style:
+              const TextStyle(
+                fontSize:
+                12.5,
+                fontWeight:
+                FontWeight.w700,
+                color:
+                kPrimary,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStepIndicator({required int currentStep}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (index) {
-        final stepNumber = index + 1;
-        final isActive = stepNumber == currentStep;
-        final isPassed = stepNumber < currentStep;
+  // ==========================================================================
+  // NEXT
+  // ==========================================================================
 
-        return Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isActive || isPassed
-                    ? const Color(0xFF16C6C7)
-                    : Colors.white,
-                border: Border.all(
-                  color: isActive || isPassed
-                      ? const Color(0xFF16C6C7)
-                      : const Color(0xFFE5E7EB),
-                  width: 2,
+  Future<void> _handleNext() async {
+    if (_isSubmitting) {
+      return;
+    }
+
+    FocusScope.of(context)
+        .unfocus();
+
+    final valid =
+        _formKey.currentState
+            ?.validate() ??
+            false;
+
+    if (!valid) {
+      HapticFeedback
+          .heavyImpact();
+
+      _showSnack(
+        'Please complete all required fields.',
+        isError:
+        true,
+      );
+
+      return;
+    }
+
+    if (_selectedCompanyType ==
+        null) {
+      HapticFeedback
+          .heavyImpact();
+
+      _showSnack(
+        'Please select a company type.',
+        isError:
+        true,
+      );
+
+      return;
+    }
+
+    setState(() {
+      _isSubmitting =
+      true;
+    });
+
+    // DESIGN ONLY - NO API
+    await Future.delayed(
+      const Duration(
+        milliseconds:
+        400,
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting =
+      false;
+    });
+
+    HapticFeedback
+        .mediumImpact();
+
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration:
+        const Duration(
+          milliseconds:
+          450,
+        ),
+        reverseTransitionDuration:
+        const Duration(
+          milliseconds:
+          300,
+        ),
+        pageBuilder:
+            (
+            context,
+            animation,
+            secondaryAnimation,
+            ) {
+          return const CompanyRegisterStepTwoScreen();
+        },
+        transitionsBuilder:
+            (
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+            ) {
+          final curved =
+          CurvedAnimation(
+            parent:
+            animation,
+            curve:
+            Curves.easeOutCubic,
+          );
+
+          return FadeTransition(
+            opacity:
+            curved,
+            child:
+            SlideTransition(
+              position:
+              Tween<Offset>(
+                begin:
+                const Offset(
+                  0.08,
+                  0,
+                ),
+                end:
+                Offset.zero,
+              ).animate(
+                curved,
+              ),
+              child:
+              child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // SNACK
+  // ==========================================================================
+
+  void _showSnack(
+      String message, {
+        bool isError =
+        false,
+      }) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior:
+          SnackBarBehavior.floating,
+          elevation:
+          8,
+          margin:
+          const EdgeInsets.all(
+            18,
+          ),
+          backgroundColor:
+          isError
+              ? const Color(
+            0xFFE95C67,
+          )
+              : const Color(
+            0xFF168F8A,
+          ),
+          shape:
+          RoundedRectangleBorder(
+            borderRadius:
+            BorderRadius.circular(
+              16,
+            ),
+          ),
+          content:
+          Row(
+            children: [
+              Container(
+                width:
+                34,
+                height:
+                34,
+                decoration:
+                BoxDecoration(
+                  color:
+                  Colors.white.withOpacity(
+                    0.15,
+                  ),
+                  shape:
+                  BoxShape.circle,
+                ),
+                child:
+                Icon(
+                  isError
+                      ? Icons.error_outline_rounded
+                      : Icons.check_rounded,
+                  color:
+                  Colors.white,
+                  size:
+                  20,
                 ),
               ),
-              child: Center(
-                child: isPassed
-                    ? const Icon(Icons.check, size: 12, color: Colors.white)
-                    : Text(
-                  '$stepNumber',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isActive ? Colors.white : const Color(0xFF9CA3AF),
+
+              const SizedBox(
+                width:
+                11,
+              ),
+
+              Expanded(
+                child:
+                Text(
+                  message,
+                  style:
+                  const TextStyle(
+                    color:
+                    Colors.white,
+                    fontSize:
+                    12.5,
+                    fontWeight:
+                    FontWeight.w600,
+                    height:
+                    1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
+  // ==========================================================================
+  // BUILD
+  // ==========================================================================
+
+  @override
+  Widget build(
+      BuildContext context,
+      ) {
+    return Scaffold(
+      backgroundColor:
+      const Color(
+        0xFFF8FAFB,
+      ),
+      body:
+      Stack(
+        children: [
+          // ==================================================================
+          // BACKGROUND GLOW
+          // ==================================================================
+
+          Positioned(
+            top:
+            -120,
+            right:
+            -100,
+            child:
+            IgnorePointer(
+              child:
+              Container(
+                width:
+                280,
+                height:
+                280,
+                decoration:
+                BoxDecoration(
+                  shape:
+                  BoxShape.circle,
+                  gradient:
+                  RadialGradient(
+                    colors: [
+                      kPrimary
+                          .withOpacity(
+                        0.12,
+                      ),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
               ),
             ),
-            if (index < 3)
+          ),
+
+          Positioned(
+            top:
+            500,
+            left:
+            -150,
+            child:
+            IgnorePointer(
+              child:
               Container(
-                width: 26,
-                height: 2,
-                color: isPassed ? const Color(0xFF16C6C7) : const Color(0xFFE5E7EB),
+                width:
+                280,
+                height:
+                280,
+                decoration:
+                BoxDecoration(
+                  shape:
+                  BoxShape.circle,
+                  gradient:
+                  RadialGradient(
+                    colors: [
+                      const Color(
+                        0xFF0D8AA5,
+                      ).withOpacity(
+                        0.045,
+                      ),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
-          ],
-        );
-      }),
+            ),
+          ),
+
+          // ==================================================================
+          // CONTENT
+          // ==================================================================
+
+          SafeArea(
+            child:
+            LayoutBuilder(
+              builder:
+                  (
+                  context,
+                  constraints,
+                  ) {
+                return SingleChildScrollView(
+                  physics:
+                  const BouncingScrollPhysics(),
+                  keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding:
+                  const EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    34,
+                  ),
+                  child:
+                  Center(
+                    child:
+                    ConstrainedBox(
+                      constraints:
+                      const BoxConstraints(
+                        maxWidth:
+                        560,
+                      ),
+                      child:
+                      Form(
+                        key:
+                        _formKey,
+                        child:
+                        Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: [
+                            // ================================================
+                            // HEADER
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              0,
+                              child:
+                              _buildHeader(),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              26,
+                            ),
+
+                            // ================================================
+                            // BADGE
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              1,
+                              child:
+                              _buildCompanyBadge(),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              12,
+                            ),
+
+                            // ================================================
+                            // TITLE
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              2,
+                              child:
+                              const Text(
+                                'Create Company Account',
+                                style:
+                                TextStyle(
+                                  fontSize:
+                                  27,
+                                  fontWeight:
+                                  FontWeight.w800,
+                                  color:
+                                  kTextDark,
+                                  letterSpacing:
+                                  -0.6,
+                                  height:
+                                  1.15,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              7,
+                            ),
+
+                            _animatedEntry(
+                              index:
+                              3,
+                              child:
+                              const Text(
+                                'Complete your company information to start connecting with professional drone pilots.',
+                                style:
+                                TextStyle(
+                                  fontSize:
+                                  13.5,
+                                  height:
+                                  1.5,
+                                  color:
+                                  kTextMuted,
+                                  fontWeight:
+                                  FontWeight.w400,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              27,
+                            ),
+
+                            // ================================================
+                            // LOGO
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              4,
+                              child:
+                              Center(
+                                child:
+                                _buildCompanyLogo(),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              32,
+                            ),
+
+                            // ================================================
+                            // SECTION
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              5,
+                              child:
+                              _buildSectionHeader(),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              17,
+                            ),
+
+                            // ================================================
+                            // FIELDS - NO BIG WHITE CARD
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              6,
+                              child:
+                              Column(
+                                children: [
+                                  // Company Name
+                                  _buildTextField(
+                                    controller:
+                                    _companyNameController,
+                                    hintText:
+                                    'Company Name',
+                                    prefixIcon:
+                                    Icons.business_outlined,
+                                    textInputAction:
+                                    TextInputAction.next,
+                                    validator:
+                                        (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Company name is required';
+                                      }
+
+                                      if (value.trim().length < 2) {
+                                        return 'Enter a valid company name';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
+                                  // Username
+                                  _buildTextField(
+                                    controller:
+                                    _userIdController,
+                                    hintText:
+                                    'User ID / Username',
+                                    prefixIcon:
+                                    Icons.alternate_email_rounded,
+                                    textInputAction:
+                                    TextInputAction.next,
+                                    validator:
+                                        (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'User ID is required';
+                                      }
+
+                                      if (value.trim().length < 3) {
+                                        return 'Username must be at least 3 characters';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
+                                  // Email
+                                  _buildTextField(
+                                    controller:
+                                    _emailController,
+                                    hintText:
+                                    'Email Address',
+                                    prefixIcon:
+                                    Icons.email_outlined,
+                                    keyboardType:
+                                    TextInputType.emailAddress,
+                                    textInputAction:
+                                    TextInputAction.next,
+                                    validator:
+                                        (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Email address is required';
+                                      }
+
+                                      final emailRegex =
+                                      RegExp(
+                                        r'^[\w\-.]+@([\w-]+\.)+[\w-]{2,}$',
+                                      );
+
+                                      if (!emailRegex.hasMatch(
+                                        value.trim(),
+                                      )) {
+                                        return 'Enter a valid email address';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
+                                  // Phone
+                                  _buildPhoneField(),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
+                                  // Industry
+                                  _buildCompanyTypeField(),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
+                                  // Password
+                                  _buildTextField(
+                                    controller:
+                                    _passwordController,
+                                    hintText:
+                                    'Password',
+                                    prefixIcon:
+                                    Icons.lock_outline_rounded,
+                                    obscureText:
+                                    _obscurePassword,
+                                    textInputAction:
+                                    TextInputAction.next,
+                                    suffixIcon:
+                                    IconButton(
+                                      onPressed:
+                                      _isSubmitting
+                                          ? null
+                                          : () {
+                                        HapticFeedback.selectionClick();
+
+                                        setState(() {
+                                          _obscurePassword =
+                                          !_obscurePassword;
+                                        });
+                                      },
+                                      icon:
+                                      AnimatedSwitcher(
+                                        duration:
+                                        const Duration(
+                                          milliseconds:
+                                          180,
+                                        ),
+                                        child:
+                                        Icon(
+                                          _obscurePassword
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          key:
+                                          ValueKey(
+                                            _obscurePassword,
+                                          ),
+                                          size:
+                                          18,
+                                          color:
+                                          kHint,
+                                        ),
+                                      ),
+                                    ),
+                                    validator:
+                                        (value) {
+                                      if (value == null ||
+                                          value.isEmpty) {
+                                        return 'Password is required';
+                                      }
+
+                                      if (value.length < 6) {
+                                        return 'Password must be at least 6 characters';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
+                                  // Confirm Password
+                                  _buildTextField(
+                                    controller:
+                                    _confirmPasswordController,
+                                    hintText:
+                                    'Confirm Password',
+                                    prefixIcon:
+                                    Icons.lock_reset_rounded,
+                                    obscureText:
+                                    _obscureConfirmPassword,
+                                    textInputAction:
+                                    TextInputAction.done,
+                                    suffixIcon:
+                                    IconButton(
+                                      onPressed:
+                                      _isSubmitting
+                                          ? null
+                                          : () {
+                                        HapticFeedback.selectionClick();
+
+                                        setState(() {
+                                          _obscureConfirmPassword =
+                                          !_obscureConfirmPassword;
+                                        });
+                                      },
+                                      icon:
+                                      AnimatedSwitcher(
+                                        duration:
+                                        const Duration(
+                                          milliseconds:
+                                          180,
+                                        ),
+                                        child:
+                                        Icon(
+                                          _obscureConfirmPassword
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          key:
+                                          ValueKey(
+                                            _obscureConfirmPassword,
+                                          ),
+                                          size:
+                                          18,
+                                          color:
+                                          kHint,
+                                        ),
+                                      ),
+                                    ),
+                                    validator:
+                                        (value) {
+                                      if (value == null ||
+                                          value.isEmpty) {
+                                        return 'Confirm password is required';
+                                      }
+
+                                      if (value !=
+                                          _passwordController.text) {
+                                        return 'Passwords do not match';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              29,
+                            ),
+
+                            // ================================================
+                            // BUTTON
+                            // ================================================
+
+                            _animatedEntry(
+                              index:
+                              7,
+                              child:
+                              _buildPrimaryButton(
+                                text:
+                                'Continue',
+                                isLoading:
+                                _isSubmitting,
+                                onPressed:
+                                _isSubmitting
+                                    ? null
+                                    : _handleNext,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              14,
+                            ),
+
+                            _animatedEntry(
+                              index:
+                              8,
+                              child:
+                              _buildBottomNote(),
+                            ),
+
+                            const SizedBox(
+                              height:
+                              8,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  // ==========================================================================
+  // HEADER
+  // ==========================================================================
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            _buildBackButton(),
+
+            const Spacer(),
+
+            Container(
+              padding:
+              const EdgeInsets.symmetric(
+                horizontal:
+                11,
+                vertical:
+                6,
+              ),
+              decoration:
+              BoxDecoration(
+                color:
+                Colors.white,
+                borderRadius:
+                BorderRadius.circular(
+                  20,
+                ),
+                border:
+                Border.all(
+                  color:
+                  kBorder,
+                ),
+              ),
+              child:
+              const Text(
+                'STEP 1 OF 3',
+                style:
+                TextStyle(
+                  fontSize:
+                  10,
+                  letterSpacing:
+                  0.5,
+                  fontWeight:
+                  FontWeight.w700,
+                  color:
+                  kTextMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(
+          height:
+          15,
+        ),
+
+        Row(
+          children:
+          List.generate(
+            3,
+                (index) {
+              final active =
+                  index == 0;
+
+              return Expanded(
+                child:
+                Padding(
+                  padding:
+                  EdgeInsets.only(
+                    right:
+                    index == 2
+                        ? 0
+                        : 6,
+                  ),
+                  child:
+                  AnimatedContainer(
+                    duration:
+                    const Duration(
+                      milliseconds:
+                      450,
+                    ),
+                    height:
+                    4,
+                    decoration:
+                    BoxDecoration(
+                      color:
+                      active
+                          ? kPrimary
+                          : kBorder,
+                      borderRadius:
+                      BorderRadius.circular(
+                        20,
+                      ),
+                      boxShadow:
+                      active
+                          ? [
+                        BoxShadow(
+                          color:
+                          kPrimary.withOpacity(
+                            0.18,
+                          ),
+                          blurRadius:
+                          7,
+                        ),
+                      ]
+                          : [],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================================
+  // BADGE
+  // ==========================================================================
+
+  Widget _buildCompanyBadge() {
+    return Container(
+      padding:
+      const EdgeInsets.symmetric(
+        horizontal:
+        11,
+        vertical:
+        6,
+      ),
+      decoration:
+      BoxDecoration(
+        color:
+        kPrimary.withOpacity(
+          0.085,
+        ),
+        borderRadius:
+        BorderRadius.circular(
+          20,
+        ),
+      ),
+      child:
+      const Row(
+        mainAxisSize:
+        MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.apartment_rounded,
+            color:
+            kPrimary,
+            size:
+            14,
+          ),
+
+          SizedBox(
+            width:
+            6,
+          ),
+
+          Text(
+            'COMPANY ONBOARDING',
+            style:
+            TextStyle(
+              color:
+              kPrimary,
+              fontSize:
+              10,
+              fontWeight:
+              FontWeight.w700,
+              letterSpacing:
+              0.65,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // SECTION
+  // ==========================================================================
+
+  Widget _buildSectionHeader() {
+    return Row(
+      children: [
+        Container(
+          width:
+          35,
+          height:
+          35,
+          decoration:
+          BoxDecoration(
+            color:
+            kPrimary.withOpacity(
+              0.09,
+            ),
+            borderRadius:
+            BorderRadius.circular(
+              11,
+            ),
+          ),
+          child:
+          const Icon(
+            Icons.business_center_outlined,
+            color:
+            kPrimary,
+            size:
+            18,
+          ),
+        ),
+
+        const SizedBox(
+          width:
+          10,
+        ),
+
+        const Expanded(
+          child:
+          Column(
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Company Details',
+                style:
+                TextStyle(
+                  fontSize:
+                  15,
+                  fontWeight:
+                  FontWeight.w700,
+                  color:
+                  kTextDark,
+                ),
+              ),
+
+              SizedBox(
+                height:
+                2,
+              ),
+
+              Text(
+                'Complete your company account information',
+                style:
+                TextStyle(
+                  fontSize:
+                  10.5,
+                  color:
+                  kTextMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================================
+  // BACK
+  // ==========================================================================
+
+  Widget _buildBackButton() {
+    return Material(
+      color:
+      Colors.transparent,
+      child:
+      InkWell(
+        borderRadius:
+        BorderRadius.circular(
+          50,
+        ),
+        onTap:
+        _isSubmitting
+            ? null
+            : () {
+          HapticFeedback.selectionClick();
+
+          Navigator.pop(
+            context,
+          );
+        },
+        child:
+        Container(
+          width:
+          38,
+          height:
+          38,
+          decoration:
+          BoxDecoration(
+            color:
+            Colors.white,
+            shape:
+            BoxShape.circle,
+            border:
+            Border.all(
+              color:
+              Colors.black.withOpacity(
+                0.045,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color:
+                Colors.black.withOpacity(
+                  0.035,
+                ),
+                blurRadius:
+                9,
+                offset:
+                const Offset(
+                  0,
+                  3,
+                ),
+              ),
+            ],
+          ),
+          child:
+          const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size:
+            13,
+            color:
+            kTextDark,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // TEXT FIELD
+  // ==========================================================================
 
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
     IconData? prefixIcon,
     Widget? suffixIcon,
-    bool readOnly = false,
-    bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
+    bool obscureText =
+    false,
+    bool readOnly =
+    false,
+    TextInputType keyboardType =
+        TextInputType.text,
+    TextInputAction? textInputAction,
     VoidCallback? onTap,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
-      controller: controller,
-      readOnly: readOnly,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      onTap: onTap,
-      validator: validator,
-      style: const TextStyle(
-        fontSize: 13.5,
-        color: AppColors.kTextDark,
-        fontWeight: FontWeight.w500,
+      controller:
+      controller,
+      enabled:
+      !_isSubmitting ||
+          readOnly,
+      obscureText:
+      obscureText,
+      readOnly:
+      readOnly,
+      keyboardType:
+      keyboardType,
+      textInputAction:
+      textInputAction,
+      onTap:
+      onTap,
+      validator:
+      validator,
+      autovalidateMode:
+      AutovalidateMode.onUserInteraction,
+      style:
+      const TextStyle(
+        fontSize:
+        13.5,
+        color:
+        kTextDark,
+        fontWeight:
+        FontWeight.w500,
       ),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: const TextStyle(
-            color: AppColors.kHint, fontSize: 13, fontWeight: FontWeight.w400),
-        prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, size: 18, color: AppColors.kHint)
-            : null,
-        suffixIcon: suffixIcon,
-        errorStyle: const TextStyle(fontSize: 11, color: AppColors.kDanger),
-        fillColor: Colors.white,
-        filled: true,
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.kBorder, width: 0.8)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.kPrimary, width: 1.2)),
-        errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.kDanger, width: 1)),
-      ),
-    );
-  }
+      decoration:
+      InputDecoration(
+        hintText:
+        hintText,
 
-  Widget _buildDropdownField({
-    required String hintText,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ButtonTheme(
-        alignedDropdown: true,
-        child: DropdownButtonFormField<String>(
-          value: value,
-          hint: Text(
-            hintText,
-            style: const TextStyle(
-              color: Color(0xFFA0A5BA),
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
+        hintStyle:
+        const TextStyle(
+          color:
+          kHint,
+          fontSize:
+          13,
+          fontWeight:
+          FontWeight.w400,
+        ),
+
+        prefixIcon:
+        prefixIcon ==
+            null
+            ? null
+            : Icon(
+          prefixIcon,
+          size:
+          18,
+          color:
+          kHint,
+        ),
+
+        suffixIcon:
+        suffixIcon,
+
+        filled:
+        true,
+        fillColor:
+        Colors.white,
+
+        errorStyle:
+        const TextStyle(
+          color:
+          kDanger,
+          fontSize:
+          10.5,
+          height:
+          1.2,
+        ),
+
+        contentPadding:
+        const EdgeInsets.symmetric(
+          horizontal:
+          14,
+          vertical:
+          15,
+        ),
+
+        border:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
           ),
-          icon: const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: Color(0xFF9E9E9E),
+          borderSide:
+          const BorderSide(
+            color:
+            kBorder,
+            width:
+            0.8,
           ),
-          style: const TextStyle(
-            fontSize: 14.5,
-            color: Color(0xFF1A1A1A),
-            fontWeight: FontWeight.w500,
+        ),
+
+        enabledBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
           ),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(
-              Icons.category_outlined,
-              size: 20,
-              color: Color(0xFFA0A5BA),
-            ),
-            contentPadding:
-            const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF16C6C7), width: 1.5),
-            ),
+          borderSide:
+          const BorderSide(
+            color:
+            kBorder,
+            width:
+            0.8,
           ),
-          items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
-          }).toList(),
-          onChanged: onChanged,
+        ),
+
+        focusedBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kPrimary,
+            width:
+            1.4,
+          ),
+        ),
+
+        errorBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kDanger,
+            width:
+            1,
+          ),
+        ),
+
+        focusedErrorBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kDanger,
+            width:
+            1.3,
+          ),
         ),
       ),
     );
   }
 
+  // ==========================================================================
+  // PHONE
+  // ==========================================================================
+
   Widget _buildPhoneField() {
-    debugPrint('Countries loaded: ${_countries.length}');
-
     return TextFormField(
-      controller: _phoneController,
-      keyboardType: TextInputType.phone,
+      controller:
+      _phoneController,
+      enabled:
+      !_isSubmitting,
+      keyboardType:
+      TextInputType.phone,
+      textInputAction:
+      TextInputAction.next,
+      autovalidateMode:
+      AutovalidateMode.onUserInteraction,
 
-      validator: (v) {
-        if (v == null || v.trim().isEmpty) {
+      validator:
+          (value) {
+        if (value ==
+            null ||
+            value
+                .trim()
+                .isEmpty) {
           return 'Phone number is required';
         }
 
-        if (v.trim().length < 7) {
+        final numbers =
+        value.replaceAll(
+          RegExp(
+            r'[^0-9]',
+          ),
+          '',
+        );
+
+        if (numbers.length <
+            7) {
           return 'Enter a valid phone number';
         }
 
         return null;
       },
 
-      style: const TextStyle(
-        fontSize: 13.5,
-        color: AppColors.kTextDark,
-        fontWeight: FontWeight.w500,
+      style:
+      const TextStyle(
+        fontSize:
+        13.5,
+        color:
+        kTextDark,
+        fontWeight:
+        FontWeight.w500,
       ),
 
-      decoration: InputDecoration(
-        hintText: 'Phone Number',
+      decoration:
+      InputDecoration(
+        hintText:
+        'Phone Number',
 
-        hintStyle: const TextStyle(
-          color: AppColors.kHint,
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
+        hintStyle:
+        const TextStyle(
+          color:
+          kHint,
+          fontSize:
+          13,
         ),
 
-        // =========================
-        // Country Code
-        // =========================
-        prefixIcon: Padding(
-          padding: const EdgeInsets.only(
-            left: 12,
-            right: 8,
+        prefixIconConstraints:
+        const BoxConstraints(
+          minWidth:
+          0,
+          minHeight:
+          0,
+        ),
+
+        prefixIcon:
+        Padding(
+          padding:
+          const EdgeInsets.only(
+            left:
+            10,
+            right:
+            5,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          child:
+          Row(
+            mainAxisSize:
+            MainAxisSize.min,
             children: [
-              // Country selector
               InkWell(
-                onTap: _countries.isEmpty
+                borderRadius:
+                BorderRadius.circular(
+                  8,
+                ),
+                onTap:
+                _countries.isEmpty
                     ? null
                     : _showCountryPicker,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 2,
-                    vertical: 6,
+                child:
+                Padding(
+                  padding:
+                  const EdgeInsets.symmetric(
+                    horizontal:
+                    3,
+                    vertical:
+                    7,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child:
+                  Row(
+                    mainAxisSize:
+                    MainAxisSize.min,
                     children: [
                       Text(
-                        _selectedCountry?.dialCode ?? '+970',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.kTextDark,
+                        _selectedCountry?.dialCode ??
+                            '+970',
+                        style:
+                        const TextStyle(
+                          color:
+                          kTextDark,
+                          fontSize:
+                          12.5,
+                          fontWeight:
+                          FontWeight.w700,
                         ),
                       ),
 
-                      const SizedBox(width: 2),
+                      const SizedBox(
+                        width:
+                        2,
+                      ),
 
                       const Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.kHint,
-                        size: 18,
+                        color:
+                        kHint,
+                        size:
+                        16,
                       ),
                     ],
                   ),
                 ),
               ),
 
-              // Divider
               Container(
-                width: 1,
-                height: 20,
-                color: AppColors.kBorder,
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 8,
+                width:
+                1,
+                height:
+                20,
+                margin:
+                const EdgeInsets.symmetric(
+                  horizontal:
+                  6,
                 ),
+                color:
+                kBorder,
               ),
             ],
           ),
         ),
 
-        errorStyle: const TextStyle(
-          fontSize: 11,
-          color: AppColors.kDanger,
+        filled:
+        true,
+        fillColor:
+        Colors.white,
+
+        errorStyle:
+        const TextStyle(
+          color:
+          kDanger,
+          fontSize:
+          10.5,
         ),
 
-        fillColor: Colors.white,
-        filled: true,
-
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
+        contentPadding:
+        const EdgeInsets.symmetric(
+          horizontal:
+          12,
+          vertical:
+          15,
         ),
 
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: AppColors.kBorder,
-            width: 0.8,
+        border:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kBorder,
           ),
         ),
 
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: AppColors.kBorder,
-            width: 0.8,
+        enabledBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kBorder,
           ),
         ),
 
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: AppColors.kPrimary,
-            width: 1.2,
+        focusedBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kPrimary,
+            width:
+            1.4,
           ),
         ),
 
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: AppColors.kDanger,
-            width: 1,
+        errorBorder:
+        OutlineInputBorder(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          borderSide:
+          const BorderSide(
+            color:
+            kDanger,
           ),
         ),
       ),
     );
   }
 
-  void _showCountryPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+  // ==========================================================================
+  // COUNTRY PICKER
+  // ==========================================================================
 
-      builder: (context) {
-        return SafeArea(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight:
-              MediaQuery.of(context).size.height * 0.75,
-            ),
+  Future<void> _showCountryPicker() async {
+    if (_countries.isEmpty ||
+        _isSubmitting) {
+      return;
+    }
 
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
+    HapticFeedback
+        .lightImpact();
 
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // =========================
-                // Handle
-                // =========================
-                const SizedBox(height: 10),
+    String search =
+        '';
 
+    await showModalBottomSheet(
+      context:
+      context,
+      isScrollControlled:
+      true,
+      backgroundColor:
+      Colors.transparent,
+      builder:
+          (context) {
+        return StatefulBuilder(
+          builder:
+              (
+              context,
+              setSheetState,
+              ) {
+            final filtered =
+            _countries.where(
+                  (
+                  country,
+                  ) {
+                final query =
+                search
+                    .trim()
+                    .toLowerCase();
+
+                if (query.isEmpty) {
+                  return true;
+                }
+
+                return country.name
+                    .toLowerCase()
+                    .contains(
+                  query,
+                ) ||
+                    country.dialCode
+                        .toLowerCase()
+                        .contains(
+                      query,
+                    );
+              },
+            ).toList();
+
+            return SafeArea(
+              child:
+              FractionallySizedBox(
+                heightFactor:
+                0.78,
+                child:
                 Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.kBorder,
-                    borderRadius: BorderRadius.circular(10),
+                  decoration:
+                  const BoxDecoration(
+                    color:
+                    Colors.white,
+                    borderRadius:
+                    BorderRadius.vertical(
+                      top:
+                      Radius.circular(
+                        28,
+                      ),
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 18),
-
-                // =========================
-                // Header
-                // =========================
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                  ),
-                  child: Row(
+                  child:
+                  Column(
                     children: [
-                      const Expanded(
-                        child: Text(
-                          'Select Country',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.kTextDark,
+                      const SizedBox(
+                        height:
+                        10,
+                      ),
+
+                      Container(
+                        width:
+                        42,
+                        height:
+                        4,
+                        decoration:
+                        BoxDecoration(
+                          color:
+                          kBorder,
+                          borderRadius:
+                          BorderRadius.circular(
+                            20,
                           ),
                         ),
                       ),
 
-                      IconButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: AppColors.kHint,
+                      const SizedBox(
+                        height:
+                        18,
+                      ),
+
+                      Padding(
+                        padding:
+                        const EdgeInsets.symmetric(
+                          horizontal:
+                          18,
+                        ),
+                        child:
+                        Row(
+                          children: [
+                            const Expanded(
+                              child:
+                              Column(
+                                crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Country Code',
+                                    style:
+                                    TextStyle(
+                                      fontSize:
+                                      18,
+                                      fontWeight:
+                                      FontWeight.w800,
+                                      color:
+                                      kTextDark,
+                                    ),
+                                  ),
+
+                                  SizedBox(
+                                    height:
+                                    2,
+                                  ),
+
+                                  Text(
+                                    'Select your company calling code',
+                                    style:
+                                    TextStyle(
+                                      fontSize:
+                                      11.5,
+                                      color:
+                                      kTextMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            IconButton(
+                              onPressed:
+                                  () {
+                                Navigator.pop(
+                                  context,
+                                );
+                              },
+                              icon:
+                              const Icon(
+                                Icons.close_rounded,
+                                color:
+                                kHint,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        12,
+                      ),
+
+                      Padding(
+                        padding:
+                        const EdgeInsets.symmetric(
+                          horizontal:
+                          18,
+                        ),
+                        child:
+                        TextField(
+                          onChanged:
+                              (value) {
+                            setSheetState(
+                                  () {
+                                search =
+                                    value;
+                              },
+                            );
+                          },
+                          decoration:
+                          InputDecoration(
+                            hintText:
+                            'Search country or code',
+                            hintStyle:
+                            const TextStyle(
+                              color:
+                              kHint,
+                              fontSize:
+                              13,
+                            ),
+                            prefixIcon:
+                            const Icon(
+                              Icons.search_rounded,
+                              color:
+                              kHint,
+                              size:
+                              20,
+                            ),
+                            filled:
+                            true,
+                            fillColor:
+                            kSurfaceSoft,
+                            border:
+                            OutlineInputBorder(
+                              borderRadius:
+                              BorderRadius.circular(
+                                15,
+                              ),
+                              borderSide:
+                              BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        12,
+                      ),
+
+                      const Divider(
+                        height:
+                        1,
+                        color:
+                        kBorder,
+                      ),
+
+                      Expanded(
+                        child:
+                        ListView.separated(
+                          keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                          itemCount:
+                          filtered.length,
+                          separatorBuilder:
+                              (
+                              _,
+                              __,
+                              ) =>
+                          const Divider(
+                            height:
+                            1,
+                            indent:
+                            18,
+                            endIndent:
+                            18,
+                            color:
+                            kBorder,
+                          ),
+                          itemBuilder:
+                              (
+                              context,
+                              index,
+                              ) {
+                            final country =
+                            filtered[index];
+
+                            final selected =
+                                _selectedCountry?.name ==
+                                    country.name &&
+                                    _selectedCountry?.dialCode ==
+                                        country.dialCode;
+
+                            return InkWell(
+                              onTap:
+                                  () {
+                                HapticFeedback.selectionClick();
+
+                                setState(() {
+                                  _selectedCountry =
+                                      country;
+                                });
+
+                                Navigator.pop(
+                                  context,
+                                );
+                              },
+                              child:
+                              Padding(
+                                padding:
+                                const EdgeInsets.symmetric(
+                                  horizontal:
+                                  18,
+                                  vertical:
+                                  14,
+                                ),
+                                child:
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child:
+                                      Text(
+                                        country.name,
+                                        overflow:
+                                        TextOverflow.ellipsis,
+                                        style:
+                                        TextStyle(
+                                          fontSize:
+                                          13.5,
+                                          fontWeight:
+                                          selected
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          color:
+                                          selected
+                                              ? kPrimary
+                                              : kTextDark,
+                                        ),
+                                      ),
+                                    ),
+
+                                    const SizedBox(
+                                      width:
+                                      10,
+                                    ),
+
+                                    Text(
+                                      country.dialCode,
+                                      style:
+                                      TextStyle(
+                                        fontSize:
+                                        13,
+                                        fontWeight:
+                                        FontWeight.w700,
+                                        color:
+                                        selected
+                                            ? kPrimary
+                                            : kTextMuted,
+                                      ),
+                                    ),
+
+                                    const SizedBox(
+                                      width:
+                                      9,
+                                    ),
+
+                                    SizedBox(
+                                      width:
+                                      20,
+                                      child:
+                                      selected
+                                          ? const Icon(
+                                        Icons.check_circle_rounded,
+                                        color:
+                                        kPrimary,
+                                        size:
+                                        19,
+                                      )
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
-                const Divider(
-                  height: 1,
-                  color: AppColors.kBorder,
+  // ==========================================================================
+  // COMPANY TYPE FIELD
+  // ==========================================================================
+
+  Widget _buildCompanyTypeField() {
+    return FormField<String>(
+      validator:
+          (_) {
+        if (_selectedCompanyType ==
+            null ||
+            _selectedCompanyType!
+                .isEmpty) {
+          return 'Industry type is required';
+        }
+
+        return null;
+      },
+      builder:
+          (state) {
+        final selected =
+            _selectedCompanyType !=
+                null;
+
+        return InkWell(
+          borderRadius:
+          BorderRadius.circular(
+            15,
+          ),
+          onTap:
+          _isSubmitting
+              ? null
+              : () {
+            _showCompanyTypeSheet(
+              onSelected:
+                  (value) {
+                setState(() {
+                  _selectedCompanyType =
+                      value;
+                });
+
+                state.didChange(
+                  value,
+                );
+              },
+            );
+          },
+          child:
+          Container(
+            width:
+            double.infinity,
+            padding:
+            const EdgeInsets.symmetric(
+              horizontal:
+              14,
+              vertical:
+              14,
+            ),
+            decoration:
+            BoxDecoration(
+              color:
+              Colors.white,
+              borderRadius:
+              BorderRadius.circular(
+                15,
+              ),
+              border:
+              Border.all(
+                color:
+                state.hasError
+                    ? kDanger
+                    : kBorder,
+                width:
+                state.hasError
+                    ? 1
+                    : 0.8,
+              ),
+            ),
+            child:
+            Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.category_outlined,
+                      size:
+                      18,
+                      color:
+                      selected
+                          ? kPrimary
+                          : kHint,
+                    ),
+
+                    const SizedBox(
+                      width:
+                      10,
+                    ),
+
+                    Expanded(
+                      child:
+                      Text(
+                        _selectedCompanyType ??
+                            'Industry Type',
+                        style:
+                        TextStyle(
+                          fontSize:
+                          13.5,
+                          fontWeight:
+                          selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color:
+                          selected
+                              ? kTextDark
+                              : kHint,
+                        ),
+                      ),
+                    ),
+
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color:
+                      kHint,
+                      size:
+                      20,
+                    ),
+                  ],
                 ),
 
-                // =========================
-                // Countries
-                // =========================
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8,
+                if (state.hasError)
+                  Padding(
+                    padding:
+                    const EdgeInsets.only(
+                      top:
+                      7,
+                      left:
+                      28,
                     ),
-                    itemCount: _countries.length,
-                    separatorBuilder: (_, __) {
-                      return const Divider(
-                        height: 1,
-                        indent: 20,
-                        endIndent: 20,
-                        color: AppColors.kBorder,
-                      );
-                    },
-                    itemBuilder: (context, index) {
-                      final country = _countries[index];
+                    child:
+                    Text(
+                      state.errorText!,
+                      style:
+                      const TextStyle(
+                        color:
+                        kDanger,
+                        fontSize:
+                        10.5,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-                      final isSelected =
-                          _selectedCountry?.dialCode ==
-                              country.dialCode &&
-                              _selectedCountry?.name ==
-                                  country.name;
+  // ==========================================================================
+  // COMPANY TYPE SHEET
+  // ==========================================================================
 
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedCountry = country;
-                          });
+  Future<void> _showCompanyTypeSheet({
+    required ValueChanged<String> onSelected,
+  }) async {
+    HapticFeedback
+        .lightImpact();
 
-                          Navigator.pop(context);
-                        },
+    await showModalBottomSheet(
+      context:
+      context,
+      backgroundColor:
+      Colors.transparent,
+      isScrollControlled:
+      true,
+      builder:
+          (context) {
+        return SafeArea(
+          child:
+          Container(
+            padding:
+            const EdgeInsets.fromLTRB(
+              18,
+              10,
+              18,
+              24,
+            ),
+            decoration:
+            const BoxDecoration(
+              color:
+              Colors.white,
+              borderRadius:
+              BorderRadius.vertical(
+                top:
+                Radius.circular(
+                  28,
+                ),
+              ),
+            ),
+            child:
+            Column(
+              mainAxisSize:
+              MainAxisSize.min,
+              children: [
+                Container(
+                  width:
+                  42,
+                  height:
+                  4,
+                  decoration:
+                  BoxDecoration(
+                    color:
+                    kBorder,
+                    borderRadius:
+                    BorderRadius.circular(
+                      20,
+                    ),
+                  ),
+                ),
 
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
+                const SizedBox(
+                  height:
+                  20,
+                ),
+
+                const Row(
+                  children: [
+                    Expanded(
+                      child:
+                      Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Industry Type',
+                            style:
+                            TextStyle(
+                              color:
+                              kTextDark,
+                              fontSize:
+                              18,
+                              fontWeight:
+                              FontWeight.w800,
+                            ),
                           ),
 
-                          child: Row(
-                            children: [
-                              // Country name
-                              Expanded(
-                                child: Text(
-                                  country.name,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                    color: AppColors.kTextDark,
+                          SizedBox(
+                            height:
+                            2,
+                          ),
+
+                          Text(
+                            'Choose the category that best describes your company',
+                            style:
+                            TextStyle(
+                              color:
+                              kTextMuted,
+                              fontSize:
+                              11.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height:
+                  16,
+                ),
+
+                ..._companyTypes.map(
+                      (
+                      item,
+                      ) {
+                    final selected =
+                        _selectedCompanyType ==
+                            item;
+
+                    return Padding(
+                      padding:
+                      const EdgeInsets.only(
+                        bottom:
+                        8,
+                      ),
+                      child:
+                      Material(
+                        color:
+                        selected
+                            ? kPrimary.withOpacity(
+                          0.075,
+                        )
+                            : kSurfaceSoft,
+                        borderRadius:
+                        BorderRadius.circular(
+                          15,
+                        ),
+                        child:
+                        InkWell(
+                          borderRadius:
+                          BorderRadius.circular(
+                            15,
+                          ),
+                          onTap:
+                              () {
+                            HapticFeedback.selectionClick();
+
+                            onSelected(
+                              item,
+                            );
+
+                            Navigator.pop(
+                              context,
+                            );
+                          },
+                          child:
+                          Container(
+                            padding:
+                            const EdgeInsets.symmetric(
+                              horizontal:
+                              14,
+                              vertical:
+                              13,
+                            ),
+                            decoration:
+                            BoxDecoration(
+                              borderRadius:
+                              BorderRadius.circular(
+                                15,
+                              ),
+                              border:
+                              Border.all(
+                                color:
+                                selected
+                                    ? kPrimary
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child:
+                            Row(
+                              children: [
+                                Container(
+                                  width:
+                                  34,
+                                  height:
+                                  34,
+                                  decoration:
+                                  BoxDecoration(
+                                    color:
+                                    selected
+                                        ? kPrimary.withOpacity(
+                                      0.10,
+                                    )
+                                        : Colors.white,
+                                    borderRadius:
+                                    BorderRadius.circular(
+                                      10,
+                                    ),
+                                  ),
+                                  child:
+                                  Icon(
+                                    _industryIcon(
+                                      item,
+                                    ),
+                                    color:
+                                    selected
+                                        ? kPrimary
+                                        : kHint,
+                                    size:
+                                    17,
                                   ),
                                 ),
-                              ),
 
-                              const SizedBox(width: 16),
-
-                              // Dial code
-                              Text(
-                                country.dialCode,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected
-                                      ? AppColors.kPrimary
-                                      : AppColors.kTextDark,
+                                const SizedBox(
+                                  width:
+                                  12,
                                 ),
-                              ),
 
-                              const SizedBox(width: 10),
-
-                              // Selected icon
-                              if (isSelected)
-                                const Icon(
-                                  Icons.check_rounded,
-                                  size: 20,
-                                  color: AppColors.kPrimary,
+                                Expanded(
+                                  child:
+                                  Text(
+                                    item,
+                                    style:
+                                    TextStyle(
+                                      color:
+                                      selected
+                                          ? kPrimary
+                                          : kTextDark,
+                                      fontSize:
+                                      13.5,
+                                      fontWeight:
+                                      selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
                                 ),
-                            ],
+
+                                if (selected)
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color:
+                                    kPrimary,
+                                    size:
+                                    20,
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -904,6 +3346,251 @@ class _CompanyRegisterStepOneScreenState
     );
   }
 
+  IconData _industryIcon(
+      String type,
+      ) {
+    switch (type) {
+      case 'Construction':
+        return Icons.construction_rounded;
 
+      case 'Energy':
+        return Icons.bolt_rounded;
 
+      case 'Real Estate':
+        return Icons.apartment_rounded;
+
+      case 'Inspection':
+        return Icons.manage_search_rounded;
+
+      case 'Agriculture':
+        return Icons.eco_rounded;
+
+      default:
+        return Icons.business_center_outlined;
+    }
+  }
+
+  // ==========================================================================
+  // BUTTON
+  // ==========================================================================
+
+  Widget _buildPrimaryButton({
+    required String text,
+    required VoidCallback? onPressed,
+    bool isLoading =
+    false,
+  }) {
+    return Listener(
+      onPointerDown:
+          (_) {
+        if (onPressed !=
+            null &&
+            !isLoading) {
+          setState(() {
+            _buttonPressed =
+            true;
+          });
+        }
+      },
+      onPointerUp:
+          (_) {
+        if (mounted) {
+          setState(() {
+            _buttonPressed =
+            false;
+          });
+        }
+      },
+      onPointerCancel:
+          (_) {
+        if (mounted) {
+          setState(() {
+            _buttonPressed =
+            false;
+          });
+        }
+      },
+      child:
+      AnimatedScale(
+        duration:
+        const Duration(
+          milliseconds:
+          120,
+        ),
+        scale:
+        _buttonPressed
+            ? 0.975
+            : 1,
+        child:
+        Container(
+          width:
+          double.infinity,
+          height:
+          54,
+          decoration:
+          BoxDecoration(
+            borderRadius:
+            BorderRadius.circular(
+              28,
+            ),
+            gradient:
+            const LinearGradient(
+              begin:
+              Alignment.centerLeft,
+              end:
+              Alignment.centerRight,
+              colors: [
+                Color(
+                  0xFF0D8AA5,
+                ),
+                kPrimary,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color:
+                kPrimary.withOpacity(
+                  0.27,
+                ),
+                blurRadius:
+                20,
+                offset:
+                const Offset(
+                  0,
+                  7,
+                ),
+              ),
+            ],
+          ),
+          child:
+          ElevatedButton(
+            onPressed:
+            onPressed,
+            style:
+            ElevatedButton.styleFrom(
+              backgroundColor:
+              Colors.transparent,
+              disabledBackgroundColor:
+              Colors.transparent,
+              shadowColor:
+              Colors.transparent,
+              shape:
+              RoundedRectangleBorder(
+                borderRadius:
+                BorderRadius.circular(
+                  28,
+                ),
+              ),
+            ),
+            child:
+            AnimatedSwitcher(
+              duration:
+              const Duration(
+                milliseconds:
+                220,
+              ),
+              child:
+              isLoading
+                  ? const SizedBox(
+                key:
+                ValueKey(
+                  'loading',
+                ),
+                width:
+                23,
+                height:
+                23,
+                child:
+                CircularProgressIndicator(
+                  color:
+                  Colors.white,
+                  strokeWidth:
+                  2.4,
+                ),
+              )
+                  : Row(
+                key:
+                const ValueKey(
+                  'normal',
+                ),
+                mainAxisAlignment:
+                MainAxisAlignment.center,
+                children: [
+                  Text(
+                    text,
+                    style:
+                    const TextStyle(
+                      color:
+                      Colors.white,
+                      fontSize:
+                      15,
+                      fontWeight:
+                      FontWeight.w700,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    width:
+                    7,
+                  ),
+
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color:
+                    Colors.white,
+                    size:
+                    17,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // NOTE
+  // ==========================================================================
+
+  Widget _buildBottomNote() {
+    return const Center(
+      child:
+      Row(
+        mainAxisSize:
+        MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.lock_outline_rounded,
+            size:
+            12,
+            color:
+            kTextMuted,
+          ),
+
+          SizedBox(
+            width:
+            5,
+          ),
+
+          Flexible(
+            child:
+            Text(
+              'Your company information is securely protected',
+              textAlign:
+              TextAlign.center,
+              style:
+              TextStyle(
+                fontSize:
+                10.5,
+                color:
+                kTextMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
