@@ -102,12 +102,12 @@ class _CompanyRegisterStepThreeScreenState
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CompanyRegisterStepFourScreen(),
-      ),
-    );
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     // builder: (context) => const CompanyRegisterStepFourScreen(),
+    //   ),
+    // );
   }
 
   // ---------------------------------------------------------------------

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
+
 import '../../../../../core/session/account_role_store.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../company/company_shell_screen.dart';
@@ -13,7 +16,12 @@ import '../../../../company/company_shell_screen.dart';
 class CompanyRegisterStepFourScreen extends StatefulWidget {
   const CompanyRegisterStepFourScreen({
     super.key,
+    required this.authController,
+    required this.draft,
   });
+
+  final AuthController authController;
+  final CompanyRegisterRequestModel draft;
 
   @override
   State<CompanyRegisterStepFourScreen> createState() =>
@@ -160,20 +168,12 @@ class _CompanyRegisterStepFourScreenState
       _isLoading = true;
     });
 
-    // ==========================================================
-    // UI LOADING ONLY - NO API
-    // ==========================================================
-
-    await Future.delayed(
-      const Duration(
-        milliseconds: 700,
-      ),
-    );
-
-    if (!mounted) return;
-
-    await AccountRoleStore.instance.setRole(
-      AccountRole.company,
+    // NOTE:
+    // The current company registration API does NOT contain a subscription_plan
+    // field, so _selectedPlan stays UI-only for now. Registration itself is sent
+    // here once, using all account/profile/operating-region data collected before.
+    final response = await widget.authController.companyRegister(
+      request: widget.draft,
     );
 
     if (!mounted) return;
@@ -182,9 +182,57 @@ class _CompanyRegisterStepFourScreenState
       _isLoading = false;
     });
 
-    HapticFeedback.mediumImpact();
+    if (response == null) {
+      HapticFeedback.heavyImpact();
+      _showSnack(
+        widget.authController.errorMessage ??
+            'Registration failed. Please try again.',
+        isError: true,
+      );
+      return;
+    }
 
+    await AccountRoleStore.instance.setRole(
+      AccountRole.company,
+    );
+
+    if (!mounted) return;
+
+    HapticFeedback.mediumImpact();
     _showSuccessDialog();
+  }
+
+  // ==========================================================================
+  // SNACKBAR
+  // ==========================================================================
+
+  void _showSnack(
+      String message, {
+        bool isError = false,
+      }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(18),
+          backgroundColor: isError
+              ? const Color(0xFFE95C67)
+              : const Color(0xFF168F8A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
   }
 
   // ==========================================================================

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
 
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
@@ -14,7 +16,12 @@ import 'company_register_step_four_screen.dart';
 class CompanyRegisterStepTwoScreen extends StatefulWidget {
   const CompanyRegisterStepTwoScreen({
     super.key,
+    required this.authController,
+    required this.draft,
   });
+
+  final AuthController authController;
+  final CompanyRegisterRequestModel draft;
 
   @override
   State<CompanyRegisterStepTwoScreen> createState() =>
@@ -41,6 +48,9 @@ class _CompanyRegisterStepTwoScreenState
   TextEditingController();
 
   final TextEditingController _addressController =
+  TextEditingController();
+
+  final TextEditingController _websiteController =
   TextEditingController();
 
   final TextEditingController _descriptionController =
@@ -142,6 +152,7 @@ class _CompanyRegisterStepTwoScreenState
     _stateController.dispose();
     _cityController.dispose();
     _addressController.dispose();
+    _websiteController.dispose();
     _descriptionController.dispose();
 
     _pageAnimationController.dispose();
@@ -205,47 +216,37 @@ class _CompanyRegisterStepTwoScreenState
   // ==========================================================================
 
   Future<void> _handleNext() async {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
     FocusScope.of(context).unfocus();
 
-    final valid =
-        _formKey.currentState?.validate() ??
-            false;
+    final valid = _formKey.currentState?.validate() ?? false;
 
     if (!valid) {
       HapticFeedback.heavyImpact();
-
       _showSnack(
         'Please complete all required fields.',
         isError: true,
       );
-
       return;
     }
 
     if (_selectedCountry == null ||
         _selectedWillingRegions.isEmpty) {
       HapticFeedback.heavyImpact();
-
       _showSnack(
         'Please select at least one operating region.',
         isError: true,
       );
-
       return;
     }
 
     if (!_isAgreed) {
       HapticFeedback.heavyImpact();
-
       _showSnack(
         'Please agree to the User Contract Agreement & Terms.',
         isError: true,
       );
-
       return;
     }
 
@@ -253,14 +254,28 @@ class _CompanyRegisterStepTwoScreenState
       _isSubmitting = true;
     });
 
-    // ==========================================================
-    // DESIGN ONLY - NO API
-    // ==========================================================
+    final regions = _selectedWillingRegions
+        .map(
+          (city) => CompanyWorkRegion(
+        country: _selectedCountry!.name,
+        state: null,
+        city: city,
+      ),
+    )
+        .toList();
+
+    final updatedDraft = widget.draft.copyWith(
+      description: _descriptionController.text.trim(),
+      country: _countryController.text.trim(),
+      state: _stateController.text.trim(),
+      city: _cityController.text.trim(),
+      address: _addressController.text.trim(),
+      website: _websiteController.text.trim(),
+      workRegions: regions,
+    );
 
     await Future.delayed(
-      const Duration(
-        milliseconds: 400,
-      ),
+      const Duration(milliseconds: 250),
     );
 
     if (!mounted) return;
@@ -271,24 +286,20 @@ class _CompanyRegisterStepTwoScreenState
 
     HapticFeedback.mediumImpact();
 
-    // نفس الانتقال الموجود عندك سابقاً
     Navigator.push(
       context,
       PageRouteBuilder(
-        transitionDuration:
-        const Duration(
-          milliseconds: 450,
-        ),
-        reverseTransitionDuration:
-        const Duration(
-          milliseconds: 300,
-        ),
+        transitionDuration: const Duration(milliseconds: 450),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
         pageBuilder: (
             context,
             animation,
             secondaryAnimation,
             ) {
-          return const CompanyRegisterStepFourScreen();
+          return CompanyRegisterStepFourScreen(
+            authController: widget.authController,
+            draft: updatedDraft,
+          );
         },
         transitionsBuilder: (
             context,
@@ -296,8 +307,7 @@ class _CompanyRegisterStepTwoScreenState
             secondaryAnimation,
             child,
             ) {
-          final curved =
-          CurvedAnimation(
+          final curved = CurvedAnimation(
             parent: animation,
             curve: Curves.easeOutCubic,
           );
@@ -306,14 +316,9 @@ class _CompanyRegisterStepTwoScreenState
             opacity: curved,
             child: SlideTransition(
               position: Tween<Offset>(
-                begin: const Offset(
-                  0.08,
-                  0,
-                ),
+                begin: const Offset(0.08, 0),
                 end: Offset.zero,
-              ).animate(
-                curved,
-              ),
+              ).animate(curved),
               child: child,
             ),
           );
@@ -730,6 +735,48 @@ class _CompanyRegisterStepTwoScreenState
                             ),
 
                             const SizedBox(
+                              height: 13,
+                            ),
+
+                            _animatedEntry(
+                              index: 6,
+                              child:
+                              _buildTextField(
+                                controller:
+                                _websiteController,
+                                hintText:
+                                'Website (optional)',
+                                prefixIcon:
+                                Icons.language_rounded,
+                                keyboardType:
+                                TextInputType.url,
+                                textInputAction:
+                                TextInputAction.next,
+                                validator:
+                                    (value) {
+                                  if (value == null ||
+                                      value.trim().isEmpty) {
+                                    return null;
+                                  }
+
+                                  final uri = Uri.tryParse(
+                                    value.trim(),
+                                  );
+
+                                  if (uri == null ||
+                                      !uri.hasScheme ||
+                                      uri.host.isEmpty ||
+                                      (uri.scheme != 'http' &&
+                                          uri.scheme != 'https')) {
+                                    return 'Enter a valid URL including https://';
+                                  }
+
+                                  return null;
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(
                               height: 32,
                             ),
 
@@ -794,26 +841,23 @@ class _CompanyRegisterStepTwoScreenState
                                 hintText:
                                 'Company background, services provided, industry experience...',
                                 prefixIcon:
-                                Icons
-                                    .notes_rounded,
-                                maxLines: 5,
+                                Icons.notes_rounded,
+
+                                keyboardType:
+                                TextInputType.multiline,
+
                                 textInputAction:
-                                TextInputAction
-                                    .newline,
-                                validator:
-                                    (value) {
-                                  if (value ==
-                                      null ||
-                                      value
-                                          .trim()
-                                          .isEmpty) {
+                                TextInputAction.newline,
+
+                                maxLines: 5,
+
+                                validator: (value) {
+                                  if (value == null ||
+                                      value.trim().isEmpty) {
                                     return 'Please describe your company';
                                   }
 
-                                  if (value
-                                      .trim()
-                                      .length <
-                                      20) {
+                                  if (value.trim().length < 20) {
                                     return 'Please add a little more detail';
                                   }
 

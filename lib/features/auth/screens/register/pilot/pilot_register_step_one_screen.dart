@@ -559,18 +559,14 @@ class _PilotRegisterStepOneScreenState
                           const ValueKey(
                             'placeholder',
                           ),
-                          // color:
-                          // const Color(
-                          //   0xFFF1F6F8,
-                          // ),
                           child:
                           const Icon(
                             Icons
                                 .person_rounded,
                             size: 58,
-                            // color: Color(
-                            //   0xFFB8C6CE,
-                            // ),
+                            color: Color(
+                              0xFFB8C6CE,
+                            ),
                           ),
                         ),
                       ),
@@ -632,15 +628,6 @@ class _PilotRegisterStepOneScreenState
 
             const SizedBox(height: 3),
 
-            const Text(
-              'Required',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w500,
-                color: AppColors.kTextMuted,
-              ),
-            ),
           ],
         ),
       ),
@@ -1992,21 +1979,24 @@ class _PilotRegisterStepOneScreenState
                                     textInputAction:
                                     TextInputAction
                                         .next,
-                                    validator:
-                                        (value) {
-                                      if (value ==
-                                          null ||
-                                          value
-                                              .trim()
-                                              .isEmpty) {
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
                                         return 'Username is required';
                                       }
 
-                                      if (value
-                                          .trim()
-                                          .length <
-                                          3) {
+                                      final username =
+                                      value.trim();
+
+                                      if (username.length < 3) {
                                         return 'Username must be at least 3 characters';
+                                      }
+
+                                      final usernameRegex =
+                                      RegExp(r'^[a-zA-Z0-9_-]+$');
+
+                                      if (!usernameRegex.hasMatch(username)) {
+                                        return 'Use only letters, numbers, - and _';
                                       }
 
                                       return null;
@@ -2116,23 +2106,30 @@ class _PilotRegisterStepOneScreenState
                                         ),
                                       ),
                                     ),
-                                    validator:
-                                        (value) {
-                                      if (value ==
-                                          null ||
-                                          value
-                                              .isEmpty) {
-                                        return 'Password is required';
-                                      }
+                                    validator: (value) {
+                            if (value == null ||
+                            value.isEmpty) {
+                            return 'Password is required';
+                            }
 
-                                      if (value
-                                          .length <
-                                          6) {
-                                        return 'Password must be at least 6 characters';
-                                      }
+                            if (value.length < 8) {
+                            return 'Password must be at least 8 characters';
+                            }
 
-                                      return null;
-                                    },
+                            if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                            return 'Password must contain an uppercase letter';
+                            }
+
+                            if (!RegExp(r'[a-z]').hasMatch(value)) {
+                            return 'Password must contain a lowercase letter';
+                            }
+
+                            if (!RegExp(r'[0-9]').hasMatch(value)) {
+                            return 'Password must contain a number';
+                            }
+
+                            return null;
+                            },
                                   ),
 
                                   const SizedBox(
@@ -2350,11 +2347,7 @@ class _PilotRegisterStepOneScreenState
                               height: 14,
                             ),
 
-                            _animatedEntry(
-                              index: 8,
-                              child:
-                              _buildSecurityNote(),
-                            ),
+
 
                             const SizedBox(
                               height: 8,
@@ -3300,36 +3293,5 @@ class _PilotRegisterStepOneScreenState
     );
   }
 
-  // ===========================================================================
-  // SECURITY NOTE
-  // ===========================================================================
 
-  Widget _buildSecurityNote() {
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.lock_outline_rounded,
-            size: 12,
-            color: AppColors.kTextMuted,
-          ),
-
-          const SizedBox(width: 5),
-
-          Flexible(
-            child: Text(
-              'Your information is securely protected',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10.5,
-                color:
-                AppColors.kTextMuted,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+ }

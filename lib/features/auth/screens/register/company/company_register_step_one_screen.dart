@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
 
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
@@ -17,7 +19,10 @@ import 'company_register_step_tow_screen.dart';
 class CompanyRegisterStepOneScreen extends StatefulWidget {
   const CompanyRegisterStepOneScreen({
     super.key,
+    required this.authController,
   });
+
+  final AuthController authController;
 
   @override
   State<CompanyRegisterStepOneScreen> createState() =>
@@ -33,6 +38,9 @@ class _CompanyRegisterStepOneScreenState
 
   final GlobalKey<FormState> _formKey =
   GlobalKey<FormState>();
+
+  final TextEditingController _accountNameController =
+  TextEditingController();
 
   final TextEditingController _companyNameController =
   TextEditingController();
@@ -201,6 +209,7 @@ class _CompanyRegisterStepOneScreenState
 
   @override
   void dispose() {
+    _accountNameController.dispose();
     _companyNameController.dispose();
     _userIdController.dispose();
     _emailController.dispose();
@@ -1004,125 +1013,100 @@ class _CompanyRegisterStepOneScreenState
   // ==========================================================================
 
   Future<void> _handleNext() async {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
-    FocusScope.of(context)
-        .unfocus();
+    FocusScope.of(context).unfocus();
 
-    final valid =
-        _formKey.currentState
-            ?.validate() ??
-            false;
+    final valid = _formKey.currentState?.validate() ?? false;
 
     if (!valid) {
-      HapticFeedback
-          .heavyImpact();
-
+      HapticFeedback.heavyImpact();
       _showSnack(
         'Please complete all required fields.',
-        isError:
-        true,
+        isError: true,
       );
-
       return;
     }
 
-    if (_selectedCompanyType ==
-        null) {
-      HapticFeedback
-          .heavyImpact();
-
+    if (_selectedCompanyType == null) {
+      HapticFeedback.heavyImpact();
       _showSnack(
         'Please select a company type.',
-        isError:
-        true,
+        isError: true,
       );
-
       return;
     }
 
     setState(() {
-      _isSubmitting =
-      true;
+      _isSubmitting = true;
     });
 
-    // DESIGN ONLY - NO API
-    await Future.delayed(
-      const Duration(
-        milliseconds:
-        400,
-      ),
+    final rawPhone = _phoneController.text.trim();
+    final dialCode = _selectedCountry?.dialCode ?? '';
+    final normalizedLocal = rawPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    final normalizedPhone = rawPhone.startsWith('+')
+        ? '+${rawPhone.replaceAll(RegExp(r'[^0-9]'), '')}'
+        : '$dialCode${normalizedLocal.replaceFirst(RegExp(r'^0+'), '')}';
+
+    final draft = CompanyRegisterRequestModel(
+      name: _accountNameController.text.trim(),
+      username: _userIdController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      passwordConfirmation: _confirmPasswordController.text,
+      companyName: _companyNameController.text.trim(),
+      phone: normalizedPhone,
+      industryType: _selectedCompanyType!.trim(),
+      logoPath: _companyLogo?.path,
+      deviceType: 'android',
     );
 
-    if (!mounted) {
-      return;
-    }
+    await Future.delayed(
+      const Duration(milliseconds: 250),
+    );
+
+    if (!mounted) return;
 
     setState(() {
-      _isSubmitting =
-      false;
+      _isSubmitting = false;
     });
 
-    HapticFeedback
-        .mediumImpact();
+    HapticFeedback.mediumImpact();
 
     Navigator.push(
       context,
       PageRouteBuilder(
-        transitionDuration:
-        const Duration(
-          milliseconds:
-          450,
-        ),
-        reverseTransitionDuration:
-        const Duration(
-          milliseconds:
-          300,
-        ),
-        pageBuilder:
-            (
+        transitionDuration: const Duration(milliseconds: 450),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (
             context,
             animation,
             secondaryAnimation,
             ) {
-          return const CompanyRegisterStepTwoScreen();
+          return CompanyRegisterStepTwoScreen(
+            authController: widget.authController,
+            draft: draft,
+          );
         },
-        transitionsBuilder:
-            (
+        transitionsBuilder: (
             context,
             animation,
             secondaryAnimation,
             child,
             ) {
-          final curved =
-          CurvedAnimation(
-            parent:
-            animation,
-            curve:
-            Curves.easeOutCubic,
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
           );
 
           return FadeTransition(
-            opacity:
-            curved,
-            child:
-            SlideTransition(
-              position:
-              Tween<Offset>(
-                begin:
-                const Offset(
-                  0.08,
-                  0,
-                ),
-                end:
-                Offset.zero,
-              ).animate(
-                curved,
-              ),
-              child:
-              child,
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.08, 0),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
             ),
           );
         },
@@ -1487,6 +1471,36 @@ class _CompanyRegisterStepOneScreenState
                               child:
                               Column(
                                 children: [
+                                  // Representative / Account Name
+                                  _buildTextField(
+                                    controller:
+                                    _accountNameController,
+                                    hintText:
+                                    'Representative / Account Name',
+                                    prefixIcon:
+                                    Icons.person_outline_rounded,
+                                    textInputAction:
+                                    TextInputAction.next,
+                                    validator:
+                                        (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Representative name is required';
+                                      }
+
+                                      if (value.trim().length < 2) {
+                                        return 'Enter a valid representative name';
+                                      }
+
+                                      return null;
+                                    },
+                                  ),
+
+                                  const SizedBox(
+                                    height:
+                                    13,
+                                  ),
+
                                   // Company Name
                                   _buildTextField(
                                     controller:

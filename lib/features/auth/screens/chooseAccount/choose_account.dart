@@ -42,6 +42,7 @@ class _ChooseAccountTypeScreenState
 
   double _dragOffset = 0.0;
 
+
   @override
   void initState() {
     super.initState();
@@ -294,7 +295,9 @@ class _ChooseAccountTypeScreenState
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) =>
-                                                  const CompanyRegisterStepOneScreen(),
+                                                  CompanyRegisterStepOneScreen(
+                                                    authController: widget.authController,
+                                                                                                    )
                                             ),
                                           );
                                         },

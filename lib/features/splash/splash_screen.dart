@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/features/company/home/company_home_screen.dart';
+import 'package:tototl_app/features/pilot/home/presentation/home_page.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';
 
 import '../auth/controllers/auth_controller.dart';
+import '../auth/controllers/user_session_storage.dart';
 import '../auth/screens/login/login_screen.dart';
 import '../auth/services/auth_service.dart';
 
@@ -382,68 +386,196 @@ class _SplashScreenState
   void _startSplash() {
     _splashTimer = Timer(
       const Duration(seconds: 4),
-      _goToLogin,
+          () {
+        _checkSessionAndNavigate();
+      },
     );
   }
+// ============================================================
+// CHECK LOCAL SESSION
+// ============================================================
 
-  // ============================================================
-  // NAVIGATION
-  // ============================================================
+  Future<void> _checkSessionAndNavigate() async {
+    if (!mounted) return;
 
-  void _goToLogin() {
+    try {
+      // ==========================================================
+      // TOKEN
+      // ==========================================================
+
+      final hasToken =
+      await TokenStorage.hasToken();
+
+      if (!hasToken) {
+        debugPrint(
+          'SPLASH: NO TOKEN -> LOGIN',
+        );
+
+        _navigateToLogin();
+        return;
+      }
+
+      // ==========================================================
+      // ROLE
+      // ==========================================================
+
+      final role =
+      await UserSessionStorage.getRole();
+
+      debugPrint(
+        'SPLASH TOKEN EXISTS: $hasToken',
+      );
+
+      debugPrint(
+        'SPLASH SAVED ROLE: $role',
+      );
+
+      if (!mounted) return;
+
+      // ==========================================================
+      // COMPANY
+      // ==========================================================
+
+      if (role != null &&
+          role.toLowerCase() == 'company') {
+        debugPrint(
+          'SPLASH -> COMPANY',
+        );
+
+        _navigateToPage(
+          const CompanyHomeScreen(),
+        );
+
+        return;
+      }
+
+      // ==========================================================
+      // PILOT
+      // ==========================================================
+
+      if (role != null &&
+          role.toLowerCase() == 'pilot') {
+        debugPrint(
+          'SPLASH -> PILOT',
+        );
+
+        _navigateToPage(
+          const HomeScreen(),
+        );
+
+        return;
+      }
+
+      // ==========================================================
+      // TOKEN EXISTS BUT ROLE IS MISSING / UNKNOWN
+      // ==========================================================
+
+      debugPrint(
+        'SPLASH: TOKEN EXISTS BUT ROLE UNKNOWN -> LOGIN',
+      );
+
+      _navigateToLogin();
+    } catch (e) {
+      debugPrint(
+        'SPLASH SESSION ERROR: $e',
+      );
+
+      if (!mounted) return;
+
+      _navigateToLogin();
+    }
+  }
+
+// ============================================================
+// LOGIN NAVIGATION
+// ============================================================
+
+  void _navigateToLogin() {
     if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
-      PageRouteBuilder(
-        transitionDuration:
-        const Duration(
-          milliseconds: 700,
+      _buildRoute(
+        LoginScreen(
+          authController:
+          _authController,
         ),
-        reverseTransitionDuration:
-        const Duration(
-          milliseconds: 400,
-        ),
-        pageBuilder: (
-            context,
-            animation,
-            secondaryAnimation,
-            ) {
-          return LoginScreen(
-            authController:
-            _authController,
-          );
-        },
-        transitionsBuilder: (
-            context,
-            animation,
-            secondaryAnimation,
-            child,
-            ) {
-          final curved =
-          CurvedAnimation(
-            parent: animation,
-            curve:
-            Curves.easeOutCubic,
-          );
-
-          return FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position:
-              Tween<Offset>(
-                begin:
-                const Offset(
-                  0,
-                  0.025,
-                ),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            ),
-          );
-        },
       ),
+    );
+  }
+
+// ============================================================
+// AUTHENTICATED NAVIGATION
+// ============================================================
+
+  void _navigateToPage(
+      Widget page,
+      ) {
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      _buildRoute(
+        page,
+      ),
+    );
+  }
+
+// ============================================================
+// TRANSITION
+// ============================================================
+
+  PageRouteBuilder _buildRoute(
+      Widget page,
+      ) {
+    return PageRouteBuilder(
+      transitionDuration:
+      const Duration(
+        milliseconds: 700,
+      ),
+      reverseTransitionDuration:
+      const Duration(
+        milliseconds: 400,
+      ),
+      pageBuilder: (
+          context,
+          animation,
+          secondaryAnimation,
+          ) {
+        return page;
+      },
+      transitionsBuilder: (
+          context,
+          animation,
+          secondaryAnimation,
+          child,
+          ) {
+        final curved =
+        CurvedAnimation(
+          parent: animation,
+          curve:
+          Curves.easeOutCubic,
+        );
+
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position:
+            Tween<Offset>(
+              begin:
+              const Offset(
+                0,
+                0.025,
+              ),
+              end:
+              Offset.zero,
+            ).animate(
+              curved,
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 

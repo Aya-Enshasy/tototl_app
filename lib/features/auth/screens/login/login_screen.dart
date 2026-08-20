@@ -567,7 +567,7 @@ class _LoginScreenState extends State<LoginScreen>
                         'TOTOTL',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 42,
+                          fontSize: 36,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1,
                           height: 1.1,
