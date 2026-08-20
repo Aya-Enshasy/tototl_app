@@ -1853,265 +1853,208 @@ class _PilotRegisterStepTwoScreenState
     required String title,
     required List<String> items,
     required String? selected,
-    required ValueChanged<String?>
-    onSelected,
+    required ValueChanged<String?> onSelected,
   }) async {
     HapticFeedback.lightImpact();
 
     await showModalBottomSheet(
       context: context,
-
-      backgroundColor:
-      Colors.transparent,
-
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-
       builder: (context) {
         return SafeArea(
-          child: Container(
-            decoration:
-            const BoxDecoration(
-              color: Colors.white,
-
-              borderRadius:
-              BorderRadius.vertical(
-                top:
-                Radius.circular(28),
+          child: FractionallySizedBox(
+            heightFactor: 0.78,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
-            ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
 
-            padding:
-            const EdgeInsets.fromLTRB(
-              18,
-              10,
-              18,
-              24,
-            ),
-
-            child: Column(
-              mainAxisSize:
-              MainAxisSize.min,
-
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-
-                  decoration: BoxDecoration(
-                    color: kBorder,
-
-                    borderRadius:
-                    BorderRadius.circular(
-                      20,
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: kBorder,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                ),
 
-                const SizedBox(
-                  height: 20,
-                ),
+                  const SizedBox(height: 18),
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-
-                        style:
-                        const TextStyle(
-                          fontSize: 18,
-                          fontWeight:
-                          FontWeight
-                              .w800,
-                          color: kTextDark,
-                        ),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
                     ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: kTextDark,
+                            ),
+                          ),
+                        ),
 
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pop(
-                          context,
+                        IconButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: kHint,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const Divider(
+                    height: 1,
+                    color: kBorder,
+                  ),
+
+                  // ============================================================
+                  // SCROLLABLE YEARS LIST
+                  // ============================================================
+
+                  Expanded(
+                    child: ListView.separated(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        18,
+                        14,
+                        18,
+                        20,
+                      ),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) {
+                        return const SizedBox(
+                          height: 9,
                         );
                       },
+                      itemBuilder: (context, index) {
+                        final item = items[index];
 
-                      icon:
-                      const Icon(
-                        Icons.close_rounded,
-                        color: kHint,
-                      ),
-                    ),
-                  ],
-                ),
+                        final isSelected =
+                            item == selected;
 
-                const SizedBox(
-                  height: 8,
-                ),
-
-                ...items.map(
-                      (item) {
-                    final isSelected =
-                        item == selected;
-
-                    return Padding(
-                      padding:
-                      const EdgeInsets.only(
-                        bottom: 9,
-                      ),
-
-                      child: Material(
-                        color: isSelected
-                            ? kPrimary
-                            .withOpacity(
-                          0.075,
-                        )
-                            : kSurfaceSoft,
-
-                        borderRadius:
-                        BorderRadius
-                            .circular(
-                          15,
-                        ),
-
-                        child: InkWell(
+                        return Material(
+                          color: isSelected
+                              ? kPrimary.withOpacity(0.075)
+                              : kSurfaceSoft,
                           borderRadius:
-                          BorderRadius
-                              .circular(
-                            15,
-                          ),
+                          BorderRadius.circular(15),
+                          child: InkWell(
+                            borderRadius:
+                            BorderRadius.circular(15),
 
-                          onTap: () {
-                            HapticFeedback
-                                .selectionClick();
+                            onTap: () {
+                              HapticFeedback.selectionClick();
 
-                            onSelected(
-                              item,
-                            );
+                              onSelected(item);
 
-                            Navigator.pop(
-                              context,
-                            );
-                          },
+                              Navigator.pop(context);
+                            },
 
-                          child: Container(
-                            padding:
-                            const EdgeInsets
-                                .symmetric(
-                              horizontal:
-                              15,
-                              vertical: 14,
-                            ),
-
-                            decoration:
-                            BoxDecoration(
-                              borderRadius:
-                              BorderRadius
-                                  .circular(
-                                15,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                                vertical: 14,
                               ),
 
-                              border:
-                              Border.all(
-                                color: isSelected
-                                    ? kPrimary
-                                    : Colors
-                                    .transparent,
+                              decoration: BoxDecoration(
+                                borderRadius:
+                                BorderRadius.circular(15),
 
-                                width: 1,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? kPrimary
+                                      : Colors.transparent,
+                                  width: 1,
+                                ),
                               ),
-                            ),
 
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 34,
-                                  height: 34,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 34,
+                                    height: 34,
 
-                                  decoration:
-                                  BoxDecoration(
-                                    color: isSelected
-                                        ? kPrimary.withOpacity(
-                                      0.12,
-                                    )
-                                        : Colors.white,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? kPrimary.withOpacity(0.12)
+                                          : Colors.white,
 
-                                    borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                      10,
+                                      borderRadius:
+                                      BorderRadius.circular(10),
                                     ),
-                                  ),
 
-                                  child:
-                                  Icon(
-                                    Icons
-                                        .workspace_premium_outlined,
-
-                                    size: 17,
-
-                                    color: isSelected
-                                        ? kPrimary
-                                        : kHint,
-                                  ),
-                                ),
-
-                                const SizedBox(
-                                  width: 12,
-                                ),
-
-                                Expanded(
-                                  child:
-                                  Text(
-                                    item,
-
-                                    style:
-                                    TextStyle(
-                                      fontSize:
-                                      13.5,
-
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-
+                                    child: Icon(
+                                      Icons.workspace_premium_outlined,
+                                      size: 17,
                                       color: isSelected
                                           ? kPrimary
-                                          : kTextDark,
+                                          : kHint,
                                     ),
-                                  ),
-                                ),
-
-                                AnimatedSwitcher(
-                                  duration:
-                                  const Duration(
-                                    milliseconds:
-                                    180,
                                   ),
 
-                                  child: isSelected
-                                      ? const Icon(
-                                    Icons.check_circle_rounded,
-                                    key: ValueKey(
-                                      'yes',
+                                  const SizedBox(width: 12),
+
+                                  Expanded(
+                                    child: Text(
+                                      item,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight:
+                                        isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color:
+                                        isSelected
+                                            ? kPrimary
+                                            : kTextDark,
+                                      ),
                                     ),
-                                    size: 20,
-                                    color: kPrimary,
-                                  )
-                                      : const SizedBox(
-                                    key: ValueKey(
-                                      'no',
-                                    ),
-                                    width: 20,
                                   ),
-                                ),
-                              ],
+
+                                  AnimatedSwitcher(
+                                    duration:
+                                    const Duration(
+                                      milliseconds: 180,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                      Icons.check_circle_rounded,
+                                      key: ValueKey('yes'),
+                                      size: 20,
+                                      color: kPrimary,
+                                    )
+                                        : const SizedBox(
+                                      key: ValueKey('no'),
+                                      width: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
