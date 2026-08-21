@@ -8,7 +8,8 @@ class UserSessionStorage {
   static const FlutterSecureStorage _storage =
   FlutterSecureStorage();
 
-  static const String _sessionKey = 'user_session';
+  static const String _sessionKey =
+      'user_session';
 
   // ============================================================
   // SAVE
@@ -17,7 +18,8 @@ class UserSessionStorage {
   static Future<void> saveSession(
       Map<String, dynamic> data,
       ) async {
-    final session = Map<String, dynamic>.from(data);
+    final session =
+    Map<String, dynamic>.from(data);
 
     // التوكن عندنا إله TokenStorage لحاله
     session.remove('token');
@@ -32,20 +34,26 @@ class UserSessionStorage {
   // GET FULL SESSION
   // ============================================================
 
-  static Future<Map<String, dynamic>?> getSession() async {
-    final value = await _storage.read(
+  static Future<Map<String, dynamic>?>
+  getSession() async {
+    final value =
+    await _storage.read(
       key: _sessionKey,
     );
 
-    if (value == null || value.isEmpty) {
+    if (value == null ||
+        value.isEmpty) {
       return null;
     }
 
     try {
-      final decoded = jsonDecode(value);
+      final decoded =
+      jsonDecode(value);
 
       if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
+        return Map<String, dynamic>.from(
+          decoded,
+        );
       }
     } catch (_) {
       return null;
@@ -58,13 +66,18 @@ class UserSessionStorage {
   // USER
   // ============================================================
 
-  static Future<Map<String, dynamic>?> getUser() async {
-    final session = await getSession();
+  static Future<Map<String, dynamic>?>
+  getUser() async {
+    final session =
+    await getSession();
 
-    final user = session?['user'];
+    final user =
+    session?['user'];
 
     if (user is Map) {
-      return Map<String, dynamic>.from(user);
+      return Map<String, dynamic>.from(
+        user,
+      );
     }
 
     return null;
@@ -74,16 +87,65 @@ class UserSessionStorage {
   // PROFILE
   // ============================================================
 
-  static Future<Map<String, dynamic>?> getProfile() async {
-    final session = await getSession();
+  static Future<Map<String, dynamic>?>
+  getProfile() async {
+    final session =
+    await getSession();
 
-    final profile = session?['profile'];
+    final profile =
+    session?['profile'];
 
     if (profile is Map) {
-      return Map<String, dynamic>.from(profile);
+      return Map<String, dynamic>.from(
+        profile,
+      );
     }
 
     return null;
+  }
+
+  // ============================================================
+  // UPDATE USER ONLY
+  // ============================================================
+
+  static Future<void> updateUser(
+      Map<String, dynamic> user,
+      ) async {
+    final session =
+        await getSession() ??
+            <String, dynamic>{};
+
+    session['user'] =
+    Map<String, dynamic>.from(
+      user,
+    );
+
+    await _storage.write(
+      key: _sessionKey,
+      value: jsonEncode(session),
+    );
+  }
+
+  // ============================================================
+  // UPDATE PROFILE ONLY
+  // ============================================================
+
+  static Future<void> updateProfile(
+      Map<String, dynamic> profile,
+      ) async {
+    final session =
+        await getSession() ??
+            <String, dynamic>{};
+
+    session['profile'] =
+    Map<String, dynamic>.from(
+      profile,
+    );
+
+    await _storage.write(
+      key: _sessionKey,
+      value: jsonEncode(session),
+    );
   }
 
   // ============================================================
@@ -91,9 +153,11 @@ class UserSessionStorage {
   // ============================================================
 
   static Future<String?> getRole() async {
-    final session = await getSession();
+    final session =
+    await getSession();
 
-    return session?['role']?.toString();
+    return session?['role']
+        ?.toString();
   }
 
   // ============================================================
@@ -101,9 +165,11 @@ class UserSessionStorage {
   // ============================================================
 
   static Future<String?> getStatus() async {
-    final user = await getUser();
+    final user =
+    await getUser();
 
-    return user?['status']?.toString();
+    return user?['status']
+        ?.toString();
   }
 
   // ============================================================
@@ -111,9 +177,11 @@ class UserSessionStorage {
   // ============================================================
 
   static Future<int?> getUserId() async {
-    final user = await getUser();
+    final user =
+    await getUser();
 
-    final value = user?['id'];
+    final value =
+    user?['id'];
 
     if (value is int) {
       return value;
@@ -129,9 +197,11 @@ class UserSessionStorage {
   // ============================================================
 
   static Future<String?> getName() async {
-    final user = await getUser();
+    final user =
+    await getUser();
 
-    return user?['name']?.toString();
+    return user?['name']
+        ?.toString();
   }
 
   // ============================================================
@@ -139,9 +209,11 @@ class UserSessionStorage {
   // ============================================================
 
   static Future<String?> getEmail() async {
-    final user = await getUser();
+    final user =
+    await getUser();
 
-    return user?['email']?.toString();
+    return user?['email']
+        ?.toString();
   }
 
   // ============================================================

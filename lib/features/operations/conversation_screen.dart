@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../pilot/shared/pilot_data.dart';
+ import '../pilot/screens/shared/pilot_data.dart';
 import 'operation_store.dart';
 
 class ConversationScreen extends StatefulWidget {

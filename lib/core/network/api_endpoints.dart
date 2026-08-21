@@ -10,12 +10,10 @@ class ApiEndpoints {
   static const String companyRegister = '/auth/register/company';
   static const String logout = '/auth/logout';
   static const String me = '/auth/me';
+  static const String pilotProfile = '/pilot/profile';
 
   // Password
-  static const String forgotPassword = '/auth/forgot-password';
-  static const String verifyOtp = '/auth/verify-otp';
-  static const String resetPassword = '/auth/reset-password';
-  static const String changePassword = '/auth/change-password';
+  static const String forgotPassword = '/auth/password/forgot';
 
 // مثال:
 // static const String profile = '/profile';

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
+
 import 'api_endpoints.dart';
-import '../storage/token_storage.dart';
 
 class ApiClient {
   late final Dio _dio;
@@ -9,84 +9,99 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+        connectTimeout: const Duration(
+          seconds: 30,
+        ),
+        receiveTimeout: const Duration(
+          seconds: 30,
+        ),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
       ),
     );
-
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          final token = await TokenStorage.getAccessToken();
-
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
-          }
-
-          handler.next(options);
-        },
-      ),
-    );
   }
 
+  // ============================================================
   // GET
-  Future<Response> get(
-      String endpoint, {
+  // ============================================================
+
+  Future<Response<dynamic>> get(
+      String path, {
         Map<String, dynamic>? queryParameters,
+        Options? options,
       }) async {
-    return await _dio.get(
-      endpoint,
+    return await _dio.get<dynamic>(
+      path,
       queryParameters: queryParameters,
+      options: options,
     );
   }
 
+  // ============================================================
   // POST
-  Future<Response> post(
+  // ============================================================
+
+  Future<Response<dynamic>> post(
       String endpoint, {
         dynamic data,
         Map<String, dynamic>? queryParameters,
+        Options? options,
       }) async {
-    return await _dio.post(
+    return await _dio.post<dynamic>(
       endpoint,
       data: data,
       queryParameters: queryParameters,
+      options: options,
     );
   }
 
+  // ============================================================
   // PUT
-  Future<Response> put(
+  // ============================================================
+
+  Future<Response<dynamic>> put(
       String endpoint, {
         dynamic data,
+        Options? options,
       }) async {
-    return await _dio.put(
+    return await _dio.put<dynamic>(
       endpoint,
       data: data,
+      options: options,
     );
   }
 
+  // ============================================================
   // PATCH
-  Future<Response> patch(
+  // ============================================================
+
+  Future<Response<dynamic>> patch(
       String endpoint, {
         dynamic data,
+        Options? options,
       }) async {
-    return await _dio.patch(
+    return await _dio.patch<dynamic>(
       endpoint,
       data: data,
+      options: options,
     );
   }
 
+  // ============================================================
   // DELETE
-  Future<Response> delete(
+  // ============================================================
+
+  Future<Response<dynamic>> delete(
       String endpoint, {
         dynamic data,
+        Options? options,
       }) async {
-    return await _dio.delete(
+    return await _dio.delete<dynamic>(
       endpoint,
       data: data,
+      options: options,
     );
   }
 }

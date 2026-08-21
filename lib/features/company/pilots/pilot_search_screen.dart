@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../pilot/shared/pilot_data.dart';
-import '../../pilot/shared/pilot_public_profile_screen.dart';
+import '../../pilot/screens/shared/pilot_data.dart';
+import '../../pilot/screens/shared/pilot_public_profile_screen.dart';
 
 class PilotSearchScreen extends StatefulWidget {
   const PilotSearchScreen({super.key});

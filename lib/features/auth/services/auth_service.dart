@@ -278,4 +278,21 @@ class AuthService {
 
     print('========================================================');
   }
+
+
+  Future<Response<dynamic>> forgotPassword({
+
+    required String email,
+  }) async {print('FORGOT PASSWORD ENDPOINT: ${ApiEndpoints.forgotPassword}');
+    return await apiClient.post(
+      ApiEndpoints.forgotPassword,
+      data: {
+        'email': email.trim(),
+      },
+
+    );
+
+  }
+
+
 }

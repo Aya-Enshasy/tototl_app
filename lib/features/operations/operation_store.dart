@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import '../pilot/shared/pilot_data.dart';
+import '../pilot/screens/shared/pilot_data.dart';
+
+
 
 enum MissionStage {
   offerSent,

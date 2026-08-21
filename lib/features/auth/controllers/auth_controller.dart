@@ -310,4 +310,53 @@ class AuthController {
 
     return fallback;
   }
+
+
+  Future<bool> forgotPassword({
+    required String email,
+  }) async {
+    try {
+      isLoading = true;
+      errorMessage = null;
+
+      final response =
+      await authService.forgotPassword(
+        email: email,
+      );
+
+      final data = response.data;
+
+      if (data is Map) {
+        if (data['success'] == true) {
+          return true;
+        }
+
+        errorMessage =
+            data['message']?.toString() ??
+                'Unable to send reset email.';
+      }
+
+      return false;
+    } on DioException catch (e) {
+      print('======================================');
+      print('FORGOT PASSWORD ERROR');
+      print('STATUS CODE: ${e.response?.statusCode}');
+      print('REQUEST URL: ${e.requestOptions.uri}');
+      print('RESPONSE DATA: ${e.response?.data}');
+      print('======================================');
+
+      errorMessage = _extractErrorMessage(
+        e.response?.data,
+        fallback: 'Unable to send reset email.',
+      );
+
+      return false;
+    } catch (e) {
+      errorMessage =
+      'Something went wrong. Please try again.';
+      return false;
+    } finally {
+      isLoading = false;
+    }
+  }
 }

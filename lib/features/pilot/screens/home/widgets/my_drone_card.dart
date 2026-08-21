@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_card.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_colors.dart';
 
 class MyDroneCard extends StatelessWidget {
   const MyDroneCard({super.key});

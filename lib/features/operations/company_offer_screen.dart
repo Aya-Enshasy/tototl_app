@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../pilot/shared/pilot_data.dart';
+ import '../pilot/screens/shared/pilot_data.dart';
 import 'mission_tracking_screen.dart';
 import 'operation_store.dart';
 

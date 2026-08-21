@@ -1,14 +1,11 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tototl_app/features/company/home/company_home_screen.dart';
-import 'package:tototl_app/features/pilot/home/presentation/home_page.dart';
-
+import 'package:tototl_app/core/navigation/bottom_navbar.dart';
+import 'package:tototl_app/features/company/company_shell_screen.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';
-
 import '../auth/controllers/auth_controller.dart';
 import '../auth/controllers/user_session_storage.dart';
 import '../auth/screens/login/login_screen.dart';
@@ -443,7 +440,7 @@ class _SplashScreenState
         );
 
         _navigateToPage(
-          const CompanyHomeScreen(),
+          const CompanyShellScreen(),
         );
 
         return;
@@ -460,7 +457,7 @@ class _SplashScreenState
         );
 
         _navigateToPage(
-          const HomeScreen(),
+          const MyScreen(),
         );
 
         return;

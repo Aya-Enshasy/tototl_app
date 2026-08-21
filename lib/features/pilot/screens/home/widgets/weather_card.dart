@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tototl_app/features/pilot/home/widgets/app_card.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_colors.dart';
+import 'app_card.dart';
 
  class WeatherCard extends StatelessWidget {
   const WeatherCard({super.key});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../pilot/shared/pilot_data.dart';
+import '../../pilot/screens/shared/pilot_data.dart';
 import 'company_job_detail_screen.dart';
 import 'post_job_screen.dart';
 

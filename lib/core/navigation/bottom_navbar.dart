@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../features/pilot/applications/applications_screen.dart';
-import '../../features/pilot/home/presentation/home_page.dart';
-import '../../features/pilot/jobs/find_job.dart';
-import '../../features/pilot/message/messages_screen.dart';
-import '../../features/pilot/profile/profile_screen.dart';
+import '../../features/pilot/screens/applications/applications_screen.dart';
+import '../../features/pilot/screens/home/presentation/home_page.dart';
+import '../../features/pilot/screens/jobs/find_job.dart';
+import '../../features/pilot/screens/message/messages_screen.dart';
+import '../../features/pilot/screens/profile/profile_screen.dart';
 import '../navigation/app_bottom_nav_bar.dart';
 import '../theme/app_colors.dart';
 

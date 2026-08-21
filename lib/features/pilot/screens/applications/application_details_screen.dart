@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-
-import '../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../operations/conversation_screen.dart';
+import '../../../operations/mission_tracking_screen.dart';
+import '../../../operations/operation_store.dart';
 import '../shared/pilot_data.dart';
-import '../../operations/conversation_screen.dart';
-import '../../operations/mission_tracking_screen.dart';
-import '../../operations/operation_store.dart';
+
 
 class ApplicationDetailsScreen extends StatefulWidget {
   const ApplicationDetailsScreen({super.key, required this.application});
