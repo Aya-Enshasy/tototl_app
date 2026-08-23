@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:tototl_app/features/pilot/screens/profile/pilot_edit_profile_screen.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -64,6 +66,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _readingLocal = true;
 
   bool _backgroundRefreshFinished = false;
+
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _uploadingPhoto = false;
 
   // ==========================================================================
   // API / CONTROLLER
@@ -200,15 +206,204 @@ class _ProfileScreenState extends State<ProfileScreen>
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
-        const UpdateProfileScreen(
-          isCompany: false,
-        ),
+        const PilotEditProfileScreen(),
       ),
     );
 
     if (!mounted) return;
 
     await _refreshSilently();
+  }
+
+  // ==========================================================================
+  // CHANGE PROFILE PHOTO
+  // ==========================================================================
+
+  Future<void> _changeProfilePhoto() async {
+    if (_uploadingPhoto) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              10,
+              20,
+              20,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Change Profile Photo',
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Choose a new professional photo',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PhotoSourceButton(
+                        icon: Icons.camera_alt_outlined,
+                        title: 'Camera',
+                        onTap: () {
+                          Navigator.pop(
+                            sheetContext,
+                            ImageSource.camera,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _PhotoSourceButton(
+                        icon: Icons.photo_library_outlined,
+                        title: 'Gallery',
+                        onTap: () {
+                          Navigator.pop(
+                            sheetContext,
+                            ImageSource.gallery,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    final selected = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 88,
+      maxWidth: 1800,
+      maxHeight: 1800,
+    );
+
+    if (selected == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _uploadingPhoto = true;
+    });
+
+    final uploaded = await _profileController.uploadProfilePhoto(
+      filePath: selected.path,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _uploadingPhoto = false;
+
+      if (uploaded != null && _data != null) {
+        _data = _data!.copyWith(
+          profilePhotoUrl: uploaded.url,
+        );
+      }
+    });
+
+    if (uploaded == null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: _danger,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          margin: const EdgeInsets.all(16),
+          content: Text(
+            _profileController.errorMessage ??
+                'Unable to upload profile photo.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _deepNavy,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        margin: const EdgeInsets.all(16),
+        content: const Row(
+          children: [
+            Icon(
+              Icons.check_circle_outline_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Profile photo updated.',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ==========================================================================
@@ -353,8 +548,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                           data:
                           data,
 
-                          onEdit:
+                          onEditProfile:
                           _openEditProfile,
+
+                          onEditPhoto:
+                          _changeProfilePhoto,
+
+                          uploadingPhoto:
+                          _uploadingPhoto,
                         ),
                       ),
 
@@ -659,825 +860,496 @@ class _ProfileTopBar extends StatelessWidget {
 class _PremiumPilotHero extends StatelessWidget {
   const _PremiumPilotHero({
     required this.data,
-    required this.onEdit,
+    required this.onEditProfile,
+    required this.onEditPhoto,
+    required this.uploadingPhoto,
   });
 
   final PilotProfileViewData data;
+  final VoidCallback onEditProfile;
+  final VoidCallback onEditPhoto;
+  final bool uploadingPhoto;
 
-  final VoidCallback onEdit;
+  static const String _coverAsset =
+      'assets/images/pilot_background.png';
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    final account =
-        data.account;
-
-    final profile =
-        data.profile;
-
-    final name =
-        account.displayName;
-
-    final username =
-        account.displayUsername;
-
-    final location =
-    profile.currentLocationLabel.trim();
-
+  Widget build(BuildContext context) {
+    final account = data.account;
+    final profile = data.profile;
+    final name = account.displayName;
+    final username = account.displayUsername;
+    final location = profile.currentLocationLabel.trim();
     final hasLocation =
-        location.isNotEmpty &&
-            location !=
-                'Not specified';
+        location.isNotEmpty && location != 'Not specified';
+    final verified = _isVerified(account.status);
 
-    return Container(
-      width:
-      double.infinity,
-
-      decoration:
-      BoxDecoration(
-        color:
-        Colors.white,
-
-        borderRadius:
-        BorderRadius.circular(
-          30,
-        ),
-
-        border:
-        Border.all(
-          color:
-          _border,
-        ),
-
-        boxShadow: [
-          BoxShadow(
-            color:
-            const Color(
-              0xFF0B5365,
-            ).withOpacity(
-              0.08,
-            ),
-
-            blurRadius:
-            34,
-
-            offset:
-            const Offset(
-              0,
-              14,
-            ),
-          ),
-
-          BoxShadow(
-            color:
-            Colors.black
-                .withOpacity(
-              0.025,
-            ),
-
-            blurRadius:
-            8,
-
-            offset:
-            const Offset(
-              0,
-              2,
-            ),
-          ),
-        ],
-      ),
-
-      child:
-      ClipRRect(
-        borderRadius:
-        BorderRadius.circular(
-          29,
-        ),
-
-        child: Column(
-          children: [
-            // ================================================================
-            // IDENTITY PANEL
-            // ================================================================
-
-            Container(
-              width:
-              double.infinity,
-
-              constraints:
-              const BoxConstraints(
-                minHeight:
-                222,
-              ),
-
-              decoration:
-              const BoxDecoration(
-                gradient:
-                LinearGradient(
-                  begin:
-                  Alignment
-                      .topLeft,
-
-                  end:
-                  Alignment
-                      .bottomRight,
-
-                  stops: [
-                    0.00,
-                    0.48,
-                    1.00,
-                  ],
-
-                  colors: [
-                    _deepNavy,
-                    _navy,
-                    _turquoiseDark,
-                  ],
-                ),
-              ),
-
-              child: Stack(
-                children: [
-                  // ==========================================================
-                  // LARGE GLOW
-                  // ==========================================================
-
-                  Positioned(
-                    right:
-                    -65,
-
-                    top:
-                    -75,
-
-                    child:
-                    Container(
-                      width:
-                      195,
-
-                      height:
-                      195,
-
-                      decoration:
-                      BoxDecoration(
-                        shape:
-                        BoxShape.circle,
-
-                        color:
-                        _turquoise
-                            .withOpacity(
-                          0.22,
-                        ),
-
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                            _turquoise
-                                .withOpacity(
-                              0.18,
-                            ),
-
-                            blurRadius:
-                            60,
-
-                            spreadRadius:
-                            8,
-                          ),
-                        ],
+    return Column(
+      children: [
+        // Keep the avatar INSIDE the Stack hit-test bounds.
+        // Previously it was painted with bottom: -50, so the camera button
+        // was visible but the overflowing area could not receive taps.
+        SizedBox(
+          height: 274,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: double.infinity,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _deepNavy.withOpacity(0.24),
+                        blurRadius: 32,
+                        offset: const Offset(0, 16),
                       ),
-                    ),
+                    ],
                   ),
-
-                  // ==========================================================
-                  // SECOND GLOW
-                  // ==========================================================
-
-                  Positioned(
-                    left:
-                    -75,
-
-                    bottom:
-                    -90,
-
-                    child:
-                    Container(
-                      width:
-                      190,
-
-                      height:
-                      190,
-
-                      decoration:
-                      BoxDecoration(
-                        shape:
-                        BoxShape.circle,
-
-                        color:
-                        Colors.white
-                            .withOpacity(
-                          0.045,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // ==========================================================
-                  // RINGS
-                  // ==========================================================
-
-                  Positioned(
-                    right:
-                    18,
-
-                    bottom:
-                    12,
-
-                    child:
-                    Container(
-                      width:
-                      105,
-
-                      height:
-                      105,
-
-                      decoration:
-                      BoxDecoration(
-                        shape:
-                        BoxShape.circle,
-
-                        border:
-                        Border.all(
-                          color:
-                          Colors.white
-                              .withOpacity(
-                            0.05,
-                          ),
-                        ),
-                      ),
-
-                      child:
-                      Center(
-                        child:
-                        Container(
-                          width:
-                          65,
-
-                          height:
-                          65,
-
-                          decoration:
-                          BoxDecoration(
-                            shape:
-                            BoxShape.circle,
-
-                            border:
-                            Border.all(
-                              color:
-                              Colors.white
-                                  .withOpacity(
-                                0.055,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // ==========================================================
-                  // DRONE WATERMARK
-                  // ==========================================================
-
-                  Positioned(
-                    right:
-                    19,
-
-                    bottom:
-                    31,
-
-                    child:
-                    Transform.rotate(
-                      angle:
-                      -0.14,
-
-                      child:
-                      Icon(
-                        Icons
-                            .flight_rounded,
-
-                        size:
-                        65,
-
-                        color:
-                        Colors.white
-                            .withOpacity(
-                          0.055,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // ==========================================================
-                  // MAIN CONTENT
-                  // ==========================================================
-
-                  Padding(
-                    padding:
-                    const EdgeInsets
-                        .fromLTRB(
-                      18,
-                      17,
-                      18,
-                      21,
-                    ),
-
-                    child:
-                    Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        // ====================================================
-                        // PILOT LABEL + STATUS
-                        // ====================================================
-
-                        Row(
-                          children: [
-                            Container(
-                              padding:
-                              const EdgeInsets
-                                  .symmetric(
-                                horizontal:
-                                10,
-
-                                vertical:
-                                6,
-                              ),
-
-                              decoration:
-                              BoxDecoration(
-                                color:
-                                Colors.white
-                                    .withOpacity(
-                                  0.09,
-                                ),
-
-                                borderRadius:
-                                BorderRadius.circular(
-                                  50,
-                                ),
-
-                                border:
-                                Border.all(
-                                  color:
-                                  Colors.white
-                                      .withOpacity(
-                                    0.09,
-                                  ),
-                                ),
-                              ),
-
-                              child:
-                              const Row(
-                                mainAxisSize:
-                                MainAxisSize.min,
-
+                        Image.asset(
+                          _coverAsset,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const _CoverImageFallback();
+                          },
+                        ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              stops: const [0.00, 0.50, 1.00],
+                              colors: [
+                                const Color(0xFF031525)
+                                    .withOpacity(0.88),
+                                const Color(0xFF071C2F)
+                                    .withOpacity(0.30),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              stops: const [0.45, 1.00],
+                              colors: [
+                                Colors.transparent,
+                                const Color(0xFF03111D)
+                                    .withOpacity(0.72),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding:
+                          const EdgeInsets.fromLTRB(18, 17, 18, 22),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Icon(
-                                    Icons
-                                        .flight_takeoff_rounded,
-
-                                    size:
-                                    12.5,
-
-                                    color:
-                                    Colors.white,
-                                  ),
-
-                                  SizedBox(
-                                    width:
-                                    6,
-                                  ),
-
-                                  Text(
-                                    'PILOT PROFILE',
-
-                                    style:
-                                    TextStyle(
-                                      color:
-                                      Colors.white,
-
-                                      fontSize:
-                                      8.7,
-
-                                      fontWeight:
-                                      FontWeight.w800,
-
-                                      letterSpacing:
-                                      1.15,
-                                    ),
+                                  const _PilotCoverLabel(),
+                                  const Spacer(),
+                                  _HeroStatusBadge(
+                                    status: account.status,
                                   ),
                                 ],
                               ),
-                            ),
-
-                            const Spacer(),
-
-                            _HeroStatusBadge(
-                              status:
-                              account.status,
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(
-                          height:
-                          20,
-                        ),
-
-                        // ====================================================
-                        // IDENTITY
-                        // ====================================================
-
-                        Row(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.center,
-
-                          children: [
-                            // ==================================================
-                            // AVATAR
-                            // ==================================================
-
-                            _PremiumAvatar(
-                              name:
-                              name,
-
-                              onEdit:
-                              onEdit,
-                            ),
-
-                            const SizedBox(
-                              width:
-                              15,
-                            ),
-
-                            // ==================================================
-                            // TEXT
-                            // ==================================================
-
-                            Expanded(
-                              child:
-                              Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment.start,
-
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.center,
-
-                                    children: [
-                                      Flexible(
-                                        child:
-                                        Text(
-                                          name,
-
-                                          maxLines:
-                                          1,
-
-                                          overflow:
-                                          TextOverflow.ellipsis,
-
-                                          style:
-                                          const TextStyle(
-                                            color:
-                                            Colors.white,
-
-                                            fontSize:
-                                            24,
-
-                                            height:
-                                            1.08,
-
-                                            fontWeight:
-                                            FontWeight.w900,
-
-                                            letterSpacing:
-                                            -0.65,
-                                          ),
-                                        ),
-                                      ),
-
-                                      if (_isVerified(
-                                        account.status,
-                                      )) ...[
-                                        const SizedBox(
-                                          width:
-                                          6,
-                                        ),
-
-                                        const Icon(
-                                          Icons
-                                              .verified_rounded,
-
-                                          size:
-                                          19,
-
-                                          color:
-                                          Color(
-                                            0xFF7AF3D3,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                              const Spacer(),
+                              const Text(
+                                'AERIAL OPERATIONS',
+                                style: TextStyle(
+                                  color: Color(0xFF8EF2E2),
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.75,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const SizedBox(
+                                width: 220,
+                                child: Text(
+                                  'Precision beyond every horizon.',
+                                  maxLines: 2,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 21,
+                                    height: 1.08,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.45,
                                   ),
-
-                                  if (username
-                                      .isNotEmpty) ...[
-                                    const SizedBox(
-                                      height:
-                                      5,
-                                    ),
-
-                                    Text(
-                                      username,
-
-                                      maxLines:
-                                      1,
-
-                                      overflow:
-                                      TextOverflow.ellipsis,
-
-                                      style:
-                                      TextStyle(
-                                        color:
-                                        Colors.white
-                                            .withOpacity(
-                                          0.62,
-                                        ),
-
-                                        fontSize:
-                                        12,
-
-                                        fontWeight:
-                                        FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-
-                                  if (hasLocation) ...[
-                                    const SizedBox(
-                                      height:
-                                      11,
-                                    ),
-
-                                    Container(
-                                      constraints:
-                                      const BoxConstraints(
-                                        maxWidth:
-                                        220,
-                                      ),
-
-                                      child:
-                                      Row(
-                                        mainAxisSize:
-                                        MainAxisSize.min,
-
-                                        children: [
-                                          Icon(
-                                            Icons
-                                                .location_on_rounded,
-
-                                            size:
-                                            14,
-
-                                            color:
-                                            Colors.white
-                                                .withOpacity(
-                                              0.77,
-                                            ),
-                                          ),
-
-                                          const SizedBox(
-                                            width:
-                                            4,
-                                          ),
-
-                                          Flexible(
-                                            child:
-                                            Text(
-                                              location,
-
-                                              maxLines:
-                                              1,
-
-                                              overflow:
-                                              TextOverflow.ellipsis,
-
-                                              style:
-                                              TextStyle(
-                                                color:
-                                                Colors.white
-                                                    .withOpacity(
-                                                  0.78,
-                                                ),
-
-                                                fontSize:
-                                                11.2,
-
-                                                fontWeight:
-                                                FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(
-                          height:
-                          20,
-                        ),
-
-                        // ====================================================
-                        // EDIT PROFILE CTA
-                        // ====================================================
-
-                        Align(
-                          alignment:
-                          Alignment.centerRight,
-
-                          child:
-                          Material(
-                            color:
-                            Colors.white,
-
-                            borderRadius:
-                            BorderRadius.circular(
-                              50,
-                            ),
-
-                            child:
-                            InkWell(
-                              onTap:
-                              onEdit,
-
-                              borderRadius:
-                              BorderRadius.circular(
-                                50,
-                              ),
-
-                              child:
-                              const Padding(
-                                padding:
-                                EdgeInsets.symmetric(
-                                  horizontal:
-                                  14,
-
-                                  vertical:
-                                  9,
-                                ),
-
-                                child:
-                                Row(
-                                  mainAxisSize:
-                                  MainAxisSize.min,
-
-                                  children: [
-                                    Icon(
-                                      Icons
-                                          .edit_outlined,
-
-                                      size:
-                                      14,
-
-                                      color:
-                                      _turquoiseDark,
-                                    ),
-
-                                    SizedBox(
-                                      width:
-                                      6,
-                                    ),
-
-                                    Text(
-                                      'Edit Profile',
-
-                                      style:
-                                      TextStyle(
-                                        color:
-                                        _textPrimary,
-
-                                        fontSize:
-                                        10.8,
-
-                                        fontWeight:
-                                        FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 23),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 170,
+                child: Center(
+                  child: _PremiumAvatar(
+                    name: name,
+                    photoUrl: data.profilePhotoUrl,
+                    uploading: uploadingPhoto,
+                    onEdit: onEditPhoto,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _textPrimary,
+                  fontSize: 25,
+                  height: 1.05,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.75,
+                ),
               ),
             ),
-
-            // ================================================================
-            // METRICS
-            // ================================================================
-
-            Container(
-              width:
-              double.infinity,
-
-              padding:
-              const EdgeInsets
-                  .fromLTRB(
-                12,
-                17,
-                12,
-                18,
+            if (verified) ...[
+              const SizedBox(width: 7),
+              const Icon(
+                Icons.verified_rounded,
+                size: 20,
+                color: _turquoiseDark,
               ),
-
-              decoration:
-              const BoxDecoration(
-                color:
-                Colors.white,
-              ),
-
-              child:
-              Row(
-                children: [
-                  Expanded(
-                    child:
-                    _HeroMetric(
-                      value:
-                      '${profile.experienceYears}',
-
-                      label:
-                      'Experience',
-
-                      suffix:
-                      'yrs',
-
-                      icon:
-                      Icons
-                          .workspace_premium_outlined,
-                    ),
-                  ),
-
-                  const _HeroMetricDivider(),
-
-                  Expanded(
-                    child:
-                    _HeroMetric(
-                      value:
-                      '${profile.languages.length}',
-
-                      label:
-                      'Languages',
-
-                      icon:
-                      Icons
-                          .translate_rounded,
-                    ),
-                  ),
-
-                  const _HeroMetricDivider(),
-
-                  Expanded(
-                    child:
-                    _HeroMetric(
-                      value:
-                      '${profile.workRegions.length}',
-
-                      label:
-                      'Work Regions',
-
-                      icon:
-                      Icons
-                          .public_rounded,
-                    ),
-                  ),
-                ],
-              ),
+            ],
+          ],
+        ),
+        if (username.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            username,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _textLight,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
+          ),
+        ],
+        if (hasLocation) ...[
+          const SizedBox(height: 11),
+          _ProfileLocationPill(
+            location: location,
+          ),
+        ],
+        const SizedBox(height: 15),
+        _ProfileEditButton(
+          onTap: onEditProfile,
+        ),
+        const SizedBox(height: 22),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: _ProfileStatTile(
+                  value: '${profile.experienceYears}',
+                  suffix: ' yrs',
+                  label: 'Experience',
+                  icon: Icons.workspace_premium_outlined,
+                ),
+              ),
+              const _ProfileStatDivider(),
+              Expanded(
+                child: _ProfileStatTile(
+                  value: '${profile.languages.length}',
+                  label: 'Languages',
+                  icon: Icons.translate_rounded,
+                ),
+              ),
+              const _ProfileStatDivider(),
+              Expanded(
+                child: _ProfileStatTile(
+                  value: '${profile.workRegions.length}',
+                  label: 'Work regions',
+                  icon: Icons.public_rounded,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CoverImageFallback extends StatelessWidget {
+  const _CoverImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _deepNavy,
+            _navy,
+            _turquoiseDark,
           ],
         ),
       ),
+      child: Align(
+        alignment: Alignment(0.68, -0.10),
+        child: Icon(
+          Icons.flight_takeoff_rounded,
+          size: 72,
+          color: Color(0x26FFFFFF),
+        ),
+      ),
+    );
+  }
+}
+
+class _PilotCoverLabel extends StatelessWidget {
+  const _PilotCoverLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF031525).withOpacity(0.34),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: Colors.white.withOpacity(0.17)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.radar_rounded,
+            size: 13,
+            color: Color(0xFF8EF2E2),
+          ),
+          SizedBox(width: 6),
+          Text(
+            'TOTOTL PILOT',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 8.7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileLocationPill extends StatelessWidget {
+  const _ProfileLocationPill({
+    required this.location,
+  });
+
+  final String location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _softTurquoise2,
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: _turquoise.withOpacity(0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.location_on_rounded,
+            size: 14,
+            color: _turquoiseDark,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              location,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _textSecondary,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileEditButton extends StatelessWidget {
+  const _ProfileEditButton({
+    required this.onTap,
+  });
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(50),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(50),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(50),
+            border: Border.all(color: _border),
+            boxShadow: [
+              BoxShadow(
+                color: _deepNavy.withOpacity(0.055),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.edit_outlined,
+                size: 14,
+                color: _turquoiseDark,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Edit Profile',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileStatTile extends StatelessWidget {
+  const _ProfileStatTile({
+    required this.value,
+    required this.label,
+    required this.icon,
+    this.suffix = '',
+  });
+
+  final String value;
+  final String suffix;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: _turquoiseDark,
+          ),
+          const SizedBox(height: 7),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text.rich(
+              TextSpan(
+                text: value,
+                children: [
+                  if (suffix.isNotEmpty)
+                    TextSpan(
+                      text: suffix,
+                      style: const TextStyle(
+                        color: _textLight,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+              maxLines: 1,
+              style: const TextStyle(
+                color: _textPrimary,
+                fontSize: 17,
+                height: 1,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _textSecondary,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileStatDivider extends StatelessWidget {
+  const _ProfileStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 48,
+      color: _border,
     );
   }
 }
@@ -1489,175 +1361,149 @@ class _PremiumPilotHero extends StatelessWidget {
 class _PremiumAvatar extends StatelessWidget {
   const _PremiumAvatar({
     required this.name,
+    required this.photoUrl,
+    required this.uploading,
     required this.onEdit,
   });
 
   final String name;
-
+  final String photoUrl;
+  final bool uploading;
   final VoidCallback onEdit;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return Stack(
-      clipBehavior:
-      Clip.none,
+  Widget build(BuildContext context) {
+    final hasPhoto = photoUrl.trim().isNotEmpty;
 
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
         const Positioned.fill(
-          child:
-          _BreathingAvatarGlow(),
+          child: _BreathingAvatarGlow(),
         ),
-
-        Container(
-          width:
-          90,
-
-          height:
-          90,
-
-          padding:
-          const EdgeInsets.all(
-            3,
-          ),
-
-          decoration:
-          BoxDecoration(
-            shape:
-            BoxShape.circle,
-
-            color:
-            Colors.white,
-
-            boxShadow: [
-              BoxShadow(
-                color:
-                Colors.black
-                    .withOpacity(
-                  0.20,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: uploading ? null : onEdit,
+          child: Container(
+            width: 104,
+            height: 104,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.20),
+                  blurRadius: 25,
+                  offset: const Offset(0, 10),
                 ),
+              ],
+            ),
+            child: ClipOval(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (hasPhoto)
+                    Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _AvatarInitials(
+                          name: name,
+                        );
+                      },
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) {
+                          return child;
+                        }
 
-                blurRadius:
-                25,
-
-                offset:
-                const Offset(
-                  0,
-                  10,
-                ),
-              ),
-            ],
-          ),
-
-          child:
-          Container(
-            alignment:
-            Alignment.center,
-
-            decoration:
-            const BoxDecoration(
-              shape:
-              BoxShape.circle,
-
-              gradient:
-              LinearGradient(
-                begin:
-                Alignment.topLeft,
-
-                end:
-                Alignment.bottomRight,
-
-                colors: [
-                  Color(
-                    0xFFF3FFFF,
-                  ),
-
-                  Color(
-                    0xFFD7F7F7,
-                  ),
-
-                  Color(
-                    0xFFBCEAEC,
-                  ),
+                        return _AvatarInitials(
+                          name: name,
+                        );
+                      },
+                    )
+                  else
+                    _AvatarInitials(
+                      name: name,
+                    ),
+                  if (uploading)
+                    Container(
+                      color: _deepNavy.withOpacity(0.58),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 25,
+                        height: 25,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-
-            child:
-            Text(
-              _initials(
-                name,
-              ),
-
-              style:
-              const TextStyle(
-                color:
-                _deepNavy,
-
-                fontSize:
-                26,
-
-                fontWeight:
-                FontWeight.w900,
-
-                letterSpacing:
-                -0.7,
-              ),
-            ),
           ),
         ),
-
         Positioned(
-          right:
-          -1,
-
-          bottom:
-          -1,
-
-          child:
-          Material(
-            color:
-            _turquoiseDark,
-
-            shape:
-            const CircleBorder(),
-
-            elevation:
-            3,
-
-            child:
-            InkWell(
-              onTap:
-              onEdit,
-
-              customBorder:
-              const CircleBorder(),
-
-              child:
-              const SizedBox(
-                width:
-                30,
-
-                height:
-                30,
-
-                child:
-                Icon(
-                  Icons
-                      .edit_rounded,
-
-                  size:
-                  13.5,
-
-                  color:
-                  Colors.white,
+          right: -1,
+          bottom: -1,
+          child: Material(
+            color: uploading ? _textLight : _turquoiseDark,
+            shape: const CircleBorder(),
+            elevation: 3,
+            child: InkWell(
+              onTap: uploading ? null : onEdit,
+              customBorder: const CircleBorder(),
+              child: const SizedBox(
+                width: 33,
+                height: 33,
+                child: Icon(
+                  Icons.camera_alt_rounded,
+                  size: 14.5,
+                  color: Colors.white,
                 ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AvatarInitials extends StatelessWidget {
+  const _AvatarInitials({
+    required this.name,
+  });
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF3FFFF),
+            Color(0xFFD7F7F7),
+            Color(0xFFBCEAEC),
+          ],
+        ),
+      ),
+      child: Text(
+        _initials(name),
+        style: const TextStyle(
+          color: _deepNavy,
+          fontSize: 27,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.7,
+        ),
+      ),
     );
   }
 }
@@ -3160,6 +3006,71 @@ class _CompleteProfileCard
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// PHOTO SOURCE BUTTON
+// ============================================================================
+
+class _PhotoSourceButton extends StatelessWidget {
+  const _PhotoSourceButton({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _surfaceSoft,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: 18,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: _border,
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 43,
+                height: 43,
+                decoration: const BoxDecoration(
+                  color: _softTurquoise,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: _turquoiseDark,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _textPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

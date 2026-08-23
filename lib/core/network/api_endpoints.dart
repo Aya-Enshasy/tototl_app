@@ -11,6 +11,8 @@ class ApiEndpoints {
   static const String logout = '/auth/logout';
   static const String me = '/auth/me';
   static const String pilotProfile = '/pilot/profile';
+  static const String  editPilotProfile = '/pilot/profile';
+  static const String profileDocuments = '/profile/documents';
 
   // Password
   static const String forgotPassword = '/auth/password/forgot';
