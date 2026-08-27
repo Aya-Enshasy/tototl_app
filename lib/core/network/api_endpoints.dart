@@ -13,6 +13,7 @@ class ApiEndpoints {
   static const String pilotProfile = '/pilot/profile';
   static const String  editPilotProfile = '/pilot/profile';
   static const String profileDocuments = '/profile/documents';
+  static const String companyProfile = '/company/profile';
 
   // Password
   static const String forgotPassword = '/auth/password/forgot';

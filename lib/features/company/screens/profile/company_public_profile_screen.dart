@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class CompanyPublicProfileScreen extends StatelessWidget {
   const CompanyPublicProfileScreen({super.key});

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../operations/mission_tracking_screen.dart';
-import '../../operations/operation_store.dart';
-import '../../pilot/screens/shared/pilot_data.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../operations/mission_tracking_screen.dart';
+import '../../../operations/operation_store.dart';
+import '../../../pilot/screens/shared/pilot_data.dart';
 import 'company_application_detail_screen.dart';
 
 class CompanyJobDetailScreen extends StatelessWidget {

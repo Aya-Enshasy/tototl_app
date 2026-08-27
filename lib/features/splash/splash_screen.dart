@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/navigation/bottom_navbar.dart';
-import 'package:tototl_app/features/company/company_shell_screen.dart';
+import 'package:tototl_app/core/navigation/company_shell_screen.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';

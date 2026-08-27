@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../pilot/screens/shared/pilot_data.dart';
-import '../company_shell_screen.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../pilot/screens/shared/pilot_data.dart';
+import '../../../../core/navigation/company_shell_screen.dart';
 
 class PostJobScreen extends StatefulWidget {
   const PostJobScreen({super.key});

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,8 +9,7 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
 
-import '../../../models/country_model.dart';
-import '../../../services/location_service.dart';
+import '../../../../../model/Country.dart';
 import 'company_register_step_tow_screen.dart';
 
 // ============================================================================
@@ -79,12 +79,9 @@ class _CompanyRegisterStepOneScreenState
   // COUNTRY
   // ==========================================================================
 
-  final LocationService _locationService =
-  LocationService();
+  List<Country> _countries = [];
 
-  List<CountryModel> _countries = [];
-
-  CountryModel? _selectedCountry;
+  Country? _selectedCountry;
 
   // ==========================================================================
   // IMAGE PICKER
@@ -286,45 +283,58 @@ class _CompanyRegisterStepOneScreenState
 
   Future<void> _loadCountries() async {
     try {
-      final countries =
-      await _locationService
-          .getCountries();
+      // Same source used by Pilot Step 1.
+      final jsonString =
+      await rootBundle.loadString(
+        'assets/data/countries.json',
+      );
+
+      final List<dynamic> data =
+      json.decode(jsonString);
+
+      final countries = data
+          .map(
+            (item) =>
+            Country.fromJson(item),
+      )
+          .toList();
 
       if (!mounted) return;
 
-      CountryModel? defaultCountry;
+      Country? defaultCountry;
 
-      for (final country
-      in countries) {
+      for (final country in countries) {
         final name =
-        country.name
-            .toLowerCase();
+        country.name.toLowerCase();
 
-        if (country.dialCode ==
-            '+970' ||
-            name.contains(
-              'palestin',
-            )) {
-          defaultCountry =
-              country;
-
+        if (country.dialCode == '+970' ||
+            name.contains('palestin')) {
+          defaultCountry = country;
           break;
         }
       }
 
       setState(() {
-        _countries =
-            countries;
+        _countries = countries;
 
-        if (countries.isNotEmpty) {
+        if (_countries.isNotEmpty) {
           _selectedCountry =
               defaultCountry ??
-                  countries.first;
+                  _countries.first;
         }
       });
+
+      debugPrint(
+        'Company countries loaded: ${_countries.length}',
+      );
+
+      debugPrint(
+        'Default company phone country: ${_selectedCountry?.name} '
+            '${_selectedCountry?.dialCode}',
+      );
     } catch (e) {
       debugPrint(
-        'Countries loading error: $e',
+        'Company countries loading error: $e',
       );
     }
   }

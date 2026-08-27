@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/features/company/screens/home/company_home_screen.dart';
+import 'package:tototl_app/features/company/screens/jobs/company_jobs_screen.dart';
+import 'package:tototl_app/features/company/screens/messages/company_messages_screen.dart';
+import 'package:tototl_app/features/company/screens/operations/company_operations_screen.dart';
+import 'package:tototl_app/features/company/screens/pilots/pilot_search_screen.dart';
+import 'package:tototl_app/features/company/screens/profile/company_profile_screen.dart';
 
-import '../../core/navigation/app_bottom_nav_bar.dart';
-import '../../core/theme/app_colors.dart';
-import 'home/company_home_screen.dart';
-import 'jobs/company_jobs_screen.dart';
-import 'messages/company_messages_screen.dart';
-import 'operations/company_operations_screen.dart';
-import 'pilots/pilot_search_screen.dart';
-import 'profile/company_profile_screen.dart';
+import 'app_bottom_nav_bar.dart';
+import '../theme/app_colors.dart';
 
 class CompanyShellScreen extends StatefulWidget {
   const CompanyShellScreen({super.key, this.initialIndex = 0});

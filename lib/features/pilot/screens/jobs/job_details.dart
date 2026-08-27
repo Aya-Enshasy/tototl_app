@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../../core/theme/app_colors.dart';
-import '../../../company/profile/company_public_profile_screen.dart';
+ import '../../../company/screens/profile/company_public_profile_screen.dart';
 import '../applications/apply_for_job_screen.dart';
 import '../shared/pilot_data.dart';
 

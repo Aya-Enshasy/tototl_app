@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/navigation/bottom_navbar.dart';
 import '../../../../core/theme/app_colors.dart';
 
-import '../../../company/company_shell_screen.dart';
+import '../../../../core/navigation/company_shell_screen.dart';
 
 import '../../controllers/auth_controller.dart';
 

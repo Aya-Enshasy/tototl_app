@@ -2,127 +2,399 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+// ============================================================================
+// USER SESSION STORAGE
+// ============================================================================
+
 class UserSessionStorage {
   UserSessionStorage._();
 
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _sessionKey = 'user_session';
+  static const FlutterSecureStorage
+  _storage =
+  FlutterSecureStorage();
 
-  static Future<void> saveSession(Map<String, dynamic> data) async {
-    final session = Map<String, dynamic>.from(data);
-    session.remove('token');
-    await _writeSession(session);
+  static const String _sessionKey =
+      'user_session';
+
+  // ==========================================================================
+  // SAVE SESSION
+  // ==========================================================================
+
+  static Future<void> saveSession(
+      Map<String, dynamic> data,
+      ) async {
+    final session =
+    Map<String, dynamic>.from(
+      data,
+    );
+
+    // Token is stored separately
+    // inside TokenStorage.
+    session.remove(
+      'token',
+    );
+
+    await _writeSession(
+      session,
+    );
   }
 
-  static Future<Map<String, dynamic>?> getSession() async {
-    try {
-      final raw = await _storage.read(key: _sessionKey);
+  // ==========================================================================
+  // GET SESSION
+  // ==========================================================================
 
-      if (raw == null || raw.trim().isEmpty) {
+  static Future<Map<String, dynamic>?>
+  getSession() async {
+    try {
+      final raw =
+      await _storage.read(
+        key:
+        _sessionKey,
+      );
+
+      if (raw == null ||
+          raw.trim().isEmpty) {
         return null;
       }
 
-      final decoded = jsonDecode(raw);
+      final decoded =
+      jsonDecode(
+        raw,
+      );
+
       if (decoded is! Map) {
         return null;
       }
 
-      return Map<String, dynamic>.from(decoded);
+      return Map<String, dynamic>.from(
+        decoded,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  static Future<Map<String, dynamic>?> getUser() async {
-    final session = await getSession();
-    final raw = session?['user'];
+  // ==========================================================================
+  // USER
+  // ==========================================================================
 
-    if (raw is! Map) return null;
-    return Map<String, dynamic>.from(raw);
+  static Future<Map<String, dynamic>?>
+  getUser() async {
+    final session =
+    await getSession();
+
+    final raw =
+    session?['user'];
+
+    if (raw is! Map) {
+      return null;
+    }
+
+    return Map<String, dynamic>.from(
+      raw,
+    );
   }
 
-  static Future<Map<String, dynamic>?> getProfile() async {
-    final session = await getSession();
-    final raw = session?['profile'];
+  // ==========================================================================
+  // PROFILE
+  // ==========================================================================
 
-    if (raw is! Map) return null;
-    return Map<String, dynamic>.from(raw);
+  static Future<Map<String, dynamic>?>
+  getProfile() async {
+    final session =
+    await getSession();
+
+    final raw =
+    session?['profile'];
+
+    if (raw is! Map) {
+      return null;
+    }
+
+    return Map<String, dynamic>.from(
+      raw,
+    );
   }
 
-  static Future<void> updateUser(Map<String, dynamic> user) async {
-    final session = await getSession() ?? <String, dynamic>{};
-    session['user'] = Map<String, dynamic>.from(user);
-    await _writeSession(session);
+  // ==========================================================================
+  // UPDATE USER
+  // ==========================================================================
+
+  static Future<void> updateUser(
+      Map<String, dynamic> user,
+      ) async {
+    final session =
+        await getSession() ??
+            <String, dynamic>{};
+
+    session['user'] =
+    Map<String, dynamic>.from(
+      user,
+    );
+
+    await _writeSession(
+      session,
+    );
   }
 
-  static Future<void> updateProfile(Map<String, dynamic> profile) async {
-    final session = await getSession() ?? <String, dynamic>{};
-    session['profile'] = Map<String, dynamic>.from(profile);
-    await _writeSession(session);
+  // ==========================================================================
+  // UPDATE PROFILE
+  // ==========================================================================
+
+  static Future<void> updateProfile(
+      Map<String, dynamic> profile,
+      ) async {
+    final session =
+        await getSession() ??
+            <String, dynamic>{};
+
+    session['profile'] =
+    Map<String, dynamic>.from(
+      profile,
+    );
+
+    await _writeSession(
+      session,
+    );
   }
 
-  static Future<void> updateProfilePhotoUrl(String url) async {
-    final session = await getSession() ?? <String, dynamic>{};
-    session['profile_photo_url'] = url.trim();
-    await _writeSession(session);
+  // ==========================================================================
+  // MERGE PROFILE
+  //
+  // Important:
+  // GET /company/profile might not return profile_photo.
+  // So we merge the fresh response with the cached profile instead
+  // of deleting fields that already exist locally.
+  // ==========================================================================
+
+  static Future<void> mergeProfile(
+      Map<String, dynamic> freshProfile,
+      ) async {
+    final session =
+        await getSession() ??
+            <String, dynamic>{};
+
+    final oldRaw =
+    session['profile'];
+
+    final oldProfile =
+    oldRaw is Map
+        ? Map<String, dynamic>.from(
+      oldRaw,
+    )
+        : <String, dynamic>{};
+
+    final merged =
+    <String, dynamic>{
+      ...oldProfile,
+      ...freshProfile,
+    };
+
+    session['profile'] =
+        merged;
+
+    await _writeSession(
+      session,
+    );
   }
 
-  static Future<String?> getProfilePhotoUrl() async {
-    final session = await getSession();
-    final value = session?['profile_photo_url']?.toString().trim();
+  // ==========================================================================
+  // PROFILE PHOTO URL
+  // ==========================================================================
 
-    if (value == null || value.isEmpty) return null;
+  static Future<void>
+  updateProfilePhotoUrl(
+      String url,
+      ) async {
+    final clean =
+    url.trim();
+
+    final session =
+        await getSession() ??
+            <String, dynamic>{};
+
+    session['profile_photo_url'] =
+        clean;
+
+    await _writeSession(
+      session,
+    );
+  }
+
+  static Future<String?>
+  getProfilePhotoUrl() async {
+    final session =
+    await getSession();
+
+    // First:
+    // explicit locally stored photo.
+    final direct =
+    session?['profile_photo_url']
+        ?.toString()
+        .trim();
+
+    if (direct != null &&
+        direct.isNotEmpty) {
+      return direct;
+    }
+
+    // Second:
+    // photo returned inside profile during registration/login.
+    final rawProfile =
+    session?['profile'];
+
+    if (rawProfile is Map) {
+      final value =
+      rawProfile['profile_photo']
+          ?.toString()
+          .trim();
+
+      if (value != null &&
+          value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  // ==========================================================================
+  // ROLE
+  // ==========================================================================
+
+  static Future<String?>
+  getRole() async {
+    final session =
+    await getSession();
+
+    final value =
+    session?['role']
+        ?.toString()
+        .trim();
+
+    if (value == null ||
+        value.isEmpty) {
+      return null;
+    }
+
     return value;
   }
 
-  static Future<String?> getRole() async {
-    final session = await getSession();
-    final value = session?['role']?.toString().trim();
+  // ==========================================================================
+  // STATUS
+  // ==========================================================================
 
-    if (value == null || value.isEmpty) return null;
+  static Future<String?>
+  getStatus() async {
+    final user =
+    await getUser();
+
+    final value =
+    user?['status']
+        ?.toString()
+        .trim();
+
+    if (value == null ||
+        value.isEmpty) {
+      return null;
+    }
+
     return value;
   }
 
-  static Future<String?> getStatus() async {
-    final user = await getUser();
-    final value = user?['status']?.toString().trim();
+  // ==========================================================================
+  // USER ID
+  // ==========================================================================
 
-    if (value == null || value.isEmpty) return null;
+  static Future<int?>
+  getUserId() async {
+    final user =
+    await getUser();
+
+    final value =
+    user?['id'];
+
+    if (value is int) {
+      return value;
+    }
+
+    return int.tryParse(
+      value?.toString() ??
+          '',
+    );
+  }
+
+  // ==========================================================================
+  // NAME
+  // ==========================================================================
+
+  static Future<String?>
+  getName() async {
+    final user =
+    await getUser();
+
+    final value =
+    user?['name']
+        ?.toString()
+        .trim();
+
+    if (value == null ||
+        value.isEmpty) {
+      return null;
+    }
+
     return value;
   }
 
-  static Future<int?> getUserId() async {
-    final user = await getUser();
-    final value = user?['id'];
+  // ==========================================================================
+  // EMAIL
+  // ==========================================================================
 
-    if (value is int) return value;
-    return int.tryParse(value?.toString() ?? '');
-  }
+  static Future<String?>
+  getEmail() async {
+    final user =
+    await getUser();
 
-  static Future<String?> getName() async {
-    final user = await getUser();
-    final value = user?['name']?.toString().trim();
+    final value =
+    user?['email']
+        ?.toString()
+        .trim();
 
-    if (value == null || value.isEmpty) return null;
+    if (value == null ||
+        value.isEmpty) {
+      return null;
+    }
+
     return value;
   }
 
-  static Future<String?> getEmail() async {
-    final user = await getUser();
-    final value = user?['email']?.toString().trim();
+  // ==========================================================================
+  // CLEAR
+  // ==========================================================================
 
-    if (value == null || value.isEmpty) return null;
-    return value;
+  static Future<void>
+  clearSession() async {
+    await _storage.delete(
+      key:
+      _sessionKey,
+    );
   }
 
-  static Future<void> clearSession() async {
-    await _storage.delete(key: _sessionKey);
-  }
+  // ==========================================================================
+  // PRIVATE WRITE
+  // ==========================================================================
 
-  static Future<void> _writeSession(Map<String, dynamic> session) async {
+  static Future<void> _writeSession(
+      Map<String, dynamic> session,
+      ) async {
     await _storage.write(
-      key: _sessionKey,
-      value: jsonEncode(session),
+      key:
+      _sessionKey,
+
+      value:
+      jsonEncode(
+        session,
+      ),
     );
   }
 }

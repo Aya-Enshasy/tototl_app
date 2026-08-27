@@ -7,7 +7,9 @@ import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart
 
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
+import '../../../../../core/session/account_role_store.dart';
 import 'company_register_step_four_screen.dart';
+import 'company_register_step_three_screen.dart';
 
 // ============================================================================
 // COMPANY REGISTRATION - STEP 2
@@ -220,111 +222,235 @@ class _CompanyRegisterStepTwoScreenState
 
     FocusScope.of(context).unfocus();
 
-    final valid = _formKey.currentState?.validate() ?? false;
+    final valid =
+        _formKey.currentState?.validate() ??
+            false;
 
     if (!valid) {
       HapticFeedback.heavyImpact();
+
       _showSnack(
         'Please complete all required fields.',
         isError: true,
       );
+
       return;
     }
 
     if (_selectedCountry == null ||
         _selectedWillingRegions.isEmpty) {
       HapticFeedback.heavyImpact();
+
       _showSnack(
         'Please select at least one operating region.',
         isError: true,
       );
+
       return;
     }
 
     if (!_isAgreed) {
       HapticFeedback.heavyImpact();
+
       _showSnack(
         'Please agree to the User Contract Agreement & Terms.',
         isError: true,
       );
+
       return;
     }
+
+    // ========================================================================
+    // BUILD THE FINAL COMPANY REQUEST
+    // Step 1 data already exists inside widget.draft.
+    // Step 2 completes the company profile and operating regions.
+    // ========================================================================
+
+    final regions =
+    _selectedWillingRegions
+        .map(
+          (city) =>
+          CompanyWorkRegion(
+            country:
+            _selectedCountry!
+                .name,
+            state:
+            null,
+            city:
+            city,
+          ),
+    )
+        .toList();
+
+    final updatedDraft =
+    widget.draft.copyWith(
+      description:
+      _descriptionController
+          .text
+          .trim(),
+
+      country:
+      _countryController
+          .text
+          .trim(),
+
+      state:
+      _stateController
+          .text
+          .trim(),
+
+      city:
+      _cityController
+          .text
+          .trim(),
+
+      address:
+      _addressController
+          .text
+          .trim(),
+
+      website:
+      _websiteController
+          .text
+          .trim()
+          .isEmpty
+          ? null
+          : _websiteController
+          .text
+          .trim(),
+
+      workRegions:
+      regions,
+    );
 
     setState(() {
       _isSubmitting = true;
     });
 
-    final regions = _selectedWillingRegions
-        .map(
-          (city) => CompanyWorkRegion(
-        country: _selectedCountry!.name,
-        state: null,
-        city: city,
-      ),
-    )
-        .toList();
+    try {
+      // ======================================================================
+      // IMPORTANT:
+      // THE COMPANY REGISTRATION REQUEST IS SENT HERE IN STEP 2.
+      // STEP 3 IS SUBSCRIPTION UI ONLY.
+      // ======================================================================
 
-    final updatedDraft = widget.draft.copyWith(
-      description: _descriptionController.text.trim(),
-      country: _countryController.text.trim(),
-      state: _stateController.text.trim(),
-      city: _cityController.text.trim(),
-      address: _addressController.text.trim(),
-      website: _websiteController.text.trim(),
-      workRegions: regions,
-    );
+      final response =
+      await widget.authController
+          .companyRegister(
+        request:
+        updatedDraft,
+      );
 
-    await Future.delayed(
-      const Duration(milliseconds: 250),
-    );
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (response == null) {
+        HapticFeedback.heavyImpact();
 
-    setState(() {
-      _isSubmitting = false;
-    });
+        _showSnack(
+          widget.authController
+              .errorMessage ??
+              'Registration failed. Please try again.',
+          isError: true,
+        );
 
-    HapticFeedback.mediumImpact();
+        return;
+      }
 
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 450),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (
-            context,
-            animation,
-            secondaryAnimation,
-            ) {
-          return CompanyRegisterStepFourScreen(
-            authController: widget.authController,
-            draft: updatedDraft,
-          );
-        },
-        transitionsBuilder: (
-            context,
-            animation,
-            secondaryAnimation,
-            child,
-            ) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          );
+      // The register response has already been processed by AuthController:
+      // token + user + role + profile are stored there.
+      await AccountRoleStore.instance
+          .setRole(
+        AccountRole.company,
+      );
 
-          return FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.08, 0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+      if (!mounted) return;
+
+      HapticFeedback.mediumImpact();
+
+      // ======================================================================
+      // STEP 3:
+      // Subscription is shown AFTER successful registration.
+      // No registration API request is sent from the next screen.
+      // ======================================================================
+
+      Navigator.of(
+        context,
+      ).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration:
+          const Duration(
+            milliseconds:
+            450,
+          ),
+          reverseTransitionDuration:
+          const Duration(
+            milliseconds:
+            300,
+          ),
+          pageBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              ) {
+            return const CompanyRegisterStepThreeScreen();
+          },
+          transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+              ) {
+            final curved =
+            CurvedAnimation(
+              parent:
+              animation,
+              curve:
+              Curves.easeOutCubic,
+            );
+
+            return FadeTransition(
+              opacity:
+              curved,
+              child:
+              SlideTransition(
+                position:
+                Tween<Offset>(
+                  begin:
+                  const Offset(
+                    0.08,
+                    0,
+                  ),
+                  end:
+                  Offset.zero,
+                ).animate(
+                  curved,
+                ),
+                child:
+                child,
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      HapticFeedback.heavyImpact();
+
+      _showSnack(
+        widget.authController
+            .errorMessage ??
+            'Something went wrong. Please try again.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting =
+          false;
+        });
+      }
+    }
   }
 
   // ==========================================================================
@@ -841,23 +967,28 @@ class _CompanyRegisterStepTwoScreenState
                                 hintText:
                                 'Company background, services provided, industry experience...',
                                 prefixIcon:
-                                Icons.notes_rounded,
-
+                                Icons
+                                    .notes_rounded,
                                 keyboardType:
                                 TextInputType.multiline,
-
-                                textInputAction:
-                                TextInputAction.newline,
-
                                 maxLines: 5,
-
-                                validator: (value) {
-                                  if (value == null ||
-                                      value.trim().isEmpty) {
+                                textInputAction:
+                                TextInputAction
+                                    .newline,
+                                validator:
+                                    (value) {
+                                  if (value ==
+                                      null ||
+                                      value
+                                          .trim()
+                                          .isEmpty) {
                                     return 'Please describe your company';
                                   }
 
-                                  if (value.trim().length < 20) {
+                                  if (value
+                                      .trim()
+                                      .length <
+                                      20) {
                                     return 'Please add a little more detail';
                                   }
 
@@ -892,7 +1023,7 @@ class _CompanyRegisterStepTwoScreenState
                               index: 11,
                               child:
                               _buildPrimaryButton(
-                                text: 'Continue',
+                                text: 'Create Account',
                                 isLoading:
                                 _isSubmitting,
                                 onPressed:
@@ -1256,8 +1387,12 @@ class _CompanyRegisterStepTwoScreenState
       readOnly: readOnly,
       obscureText:
       obscureText,
+      // Flutter requires multiline keyboard when using
+      // TextInputAction.newline on a multiline field.
       keyboardType:
-      keyboardType,
+      maxLines > 1
+          ? TextInputType.multiline
+          : keyboardType,
       textInputAction:
       textInputAction,
       onTap: onTap,

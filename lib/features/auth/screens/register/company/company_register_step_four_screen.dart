@@ -1,35 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
-import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
-
-import '../../../../../core/session/account_role_store.dart';
 import '../../../../../core/theme/app_colors.dart';
-import '../../../../company/company_shell_screen.dart';
+import '../../../../../core/navigation/company_shell_screen.dart';
 
 // ============================================================================
-// COMPANY REGISTRATION - FINAL STEP
+// COMPANY REGISTRATION - STEP 3
 // SUBSCRIPTION PLAN
 // ============================================================================
 
-class CompanyRegisterStepFourScreen extends StatefulWidget {
-  const CompanyRegisterStepFourScreen({
+class CompanyRegisterStepThreeScreen extends StatefulWidget {
+  const CompanyRegisterStepThreeScreen({
     super.key,
-    required this.authController,
-    required this.draft,
   });
 
-  final AuthController authController;
-  final CompanyRegisterRequestModel draft;
-
   @override
-  State<CompanyRegisterStepFourScreen> createState() =>
-      _CompanyRegisterStepFourScreenState();
+  State<CompanyRegisterStepThreeScreen> createState() =>
+      _CompanyRegisterStepThreeScreenState();
 }
 
-class _CompanyRegisterStepFourScreenState
-    extends State<CompanyRegisterStepFourScreen>
+class _CompanyRegisterStepThreeScreenState
+    extends State<CompanyRegisterStepThreeScreen>
     with TickerProviderStateMixin {
   // ==========================================================================
   // STATE
@@ -159,7 +150,7 @@ class _CompanyRegisterStepFourScreenState
   // COMPLETE REGISTRATION
   // ==========================================================================
 
-  Future<void> _handleCompleteRegistration() async {
+  Future<void> _handleContinue() async {
     if (_isLoading) return;
 
     HapticFeedback.mediumImpact();
@@ -168,448 +159,31 @@ class _CompanyRegisterStepFourScreenState
       _isLoading = true;
     });
 
-    // NOTE:
-    // The current company registration API does NOT contain a subscription_plan
-    // field, so _selectedPlan stays UI-only for now. Registration itself is sent
-    // here once, using all account/profile/operating-region data collected before.
-    final response = await widget.authController.companyRegister(
-      request: widget.draft,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (response == null) {
-      HapticFeedback.heavyImpact();
-      _showSnack(
-        widget.authController.errorMessage ??
-            'Registration failed. Please try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    await AccountRoleStore.instance.setRole(
-      AccountRole.company,
-    );
-
-    if (!mounted) return;
-
-    HapticFeedback.mediumImpact();
-    _showSuccessDialog();
-  }
-
-  // ==========================================================================
-  // SNACKBAR
-  // ==========================================================================
-
-  void _showSnack(
-      String message, {
-        bool isError = false,
-      }) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(18),
-          backgroundColor: isError
-              ? const Color(0xFFE95C67)
-              : const Color(0xFF168F8A),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      );
-  }
-
-  // ==========================================================================
-  // SUCCESS DIALOG
-  // ==========================================================================
-
-  void _showSuccessDialog() {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierLabel:
-      'Registration Complete',
-      barrierColor:
-      Colors.black.withOpacity(
-        0.45,
-      ),
-      transitionDuration:
+    // Subscription/payment APIs are not connected yet.
+    // For now, selecting any plan simply continues to the company home.
+    await Future.delayed(
       const Duration(
-        milliseconds: 420,
+        milliseconds: 220,
       ),
-      pageBuilder: (
-          context,
-          animation,
-          secondaryAnimation,
-          ) {
-        return const SizedBox.shrink();
-      },
-      transitionBuilder: (
-          context,
-          animation,
-          secondaryAnimation,
-          child,
-          ) {
-        final curved =
-        CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-        );
+    );
 
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(
-              begin: 0.86,
-              end: 1,
-            ).animate(
-              curved,
-            ),
-            child: Center(
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  width: double.infinity,
-                  constraints:
-                  const BoxConstraints(
-                    maxWidth: 390,
-                  ),
-                  margin:
-                  const EdgeInsets.symmetric(
-                    horizontal: 24,
-                  ),
-                  padding:
-                  const EdgeInsets.fromLTRB(
-                    24,
-                    28,
-                    24,
-                    22,
-                  ),
-                  decoration:
-                  BoxDecoration(
-                    color: Colors.white,
-                    borderRadius:
-                    BorderRadius.circular(
-                      28,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black
-                            .withOpacity(
-                          0.15,
-                        ),
-                        blurRadius: 35,
-                        offset:
-                        const Offset(
-                          0,
-                          15,
-                        ),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize:
-                    MainAxisSize.min,
-                    children: [
-                      // =========================================
-                      // ICON
-                      // =========================================
+    if (!mounted) return;
 
-                      Stack(
-                        alignment:
-                        Alignment.center,
-                        children: [
-                          Container(
-                            width: 94,
-                            height: 94,
-                            decoration:
-                            BoxDecoration(
-                              shape:
-                              BoxShape.circle,
-                              color: kPrimary
-                                  .withOpacity(
-                                0.06,
-                              ),
-                            ),
-                          ),
+    _goHome();
+  }
 
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration:
-                            BoxDecoration(
-                              shape:
-                              BoxShape.circle,
-                              gradient:
-                              const LinearGradient(
-                                begin:
-                                Alignment.topLeft,
-                                end:
-                                Alignment.bottomRight,
-                                colors: [
-                                  Color(
-                                    0xFF18B99F,
-                                  ),
-                                  kPrimary,
-                                ],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: kPrimary
-                                      .withOpacity(
-                                    0.25,
-                                  ),
-                                  blurRadius: 18,
-                                  offset:
-                                  const Offset(
-                                    0,
-                                    7,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            child:
-                            const Icon(
-                              Icons
-                                  .business_rounded,
-                              color:
-                              Colors.white,
-                              size: 34,
-                            ),
-                          ),
-                        ],
-                      ),
+  void _goHome() {
+    if (!mounted) return;
 
-                      const SizedBox(
-                        height: 22,
-                      ),
-
-                      const Text(
-                        'Company Account Ready!',
-                        textAlign:
-                        TextAlign.center,
-                        style:
-                        TextStyle(
-                          fontSize: 20,
-                          fontWeight:
-                          FontWeight.w800,
-                          color:
-                          kTextDark,
-                          letterSpacing:
-                          -0.3,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 9,
-                      ),
-
-                      Text(
-                        _successDescription(),
-                        textAlign:
-                        TextAlign.center,
-                        style:
-                        const TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          color:
-                          kTextMuted,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 20,
-                      ),
-
-                      // =========================================
-                      // SELECTED PLAN
-                      // =========================================
-
-                      Container(
-                        width: double.infinity,
-                        padding:
-                        const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration:
-                        BoxDecoration(
-                          color: kPrimary
-                              .withOpacity(
-                            0.06,
-                          ),
-                          borderRadius:
-                          BorderRadius.circular(
-                            15,
-                          ),
-                          border: Border.all(
-                            color: kPrimary
-                                .withOpacity(
-                              0.10,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons
-                                  .workspace_premium_rounded,
-                              size: 18,
-                              color:
-                              kPrimary,
-                            ),
-
-                            const SizedBox(
-                              width: 9,
-                            ),
-
-                            Expanded(
-                              child: Text(
-                                'Selected Plan: ${_selectedPlanName()}',
-                                style:
-                                const TextStyle(
-                                  color:
-                                  kPrimary,
-                                  fontSize:
-                                  12.5,
-                                  fontWeight:
-                                  FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 22,
-                      ),
-
-                      // =========================================
-                      // DONE
-                      // =========================================
-
-                      Container(
-                        width: double.infinity,
-                        height: 50,
-                        decoration:
-                        BoxDecoration(
-                          borderRadius:
-                          BorderRadius.circular(
-                            25,
-                          ),
-                          gradient:
-                          const LinearGradient(
-                            begin:
-                            Alignment.centerLeft,
-                            end:
-                            Alignment.centerRight,
-                            colors: [
-                              Color(
-                                0xFF0D8AA5,
-                              ),
-                              kPrimary,
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: kPrimary
-                                  .withOpacity(
-                                0.22,
-                              ),
-                              blurRadius: 16,
-                              offset:
-                              const Offset(
-                                0,
-                                6,
-                              ),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            ).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                const CompanyShellScreen(),
-                              ),
-                                  (route) => false,
-                            );
-                          },
-                          style:
-                          ElevatedButton.styleFrom(
-                            backgroundColor:
-                            Colors.transparent,
-                            shadowColor:
-                            Colors.transparent,
-                            shape:
-                            RoundedRectangleBorder(
-                              borderRadius:
-                              BorderRadius.circular(
-                                25,
-                              ),
-                            ),
-                          ),
-                          child:
-                          const Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Go to Dashboard',
-                                style:
-                                TextStyle(
-                                  color:
-                                  Colors.white,
-                                  fontSize:
-                                  14.5,
-                                  fontWeight:
-                                  FontWeight.w700,
-                                ),
-                              ),
-
-                              SizedBox(
-                                width: 7,
-                              ),
-
-                              Icon(
-                                Icons
-                                    .arrow_forward_rounded,
-                                color:
-                                Colors.white,
-                                size: 17,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) =>
+        const CompanyShellScreen(),
+      ),
+          (route) => false,
     );
   }
 
@@ -626,19 +200,6 @@ class _CompanyRegisterStepFourScreenState
     }
   }
 
-  String _successDescription() {
-    switch (_selectedPlan) {
-      case 'monthly':
-        return 'Your company profile is ready with the Monthly Plan selected.';
-
-      case 'yearly':
-        return 'Your company profile is ready with the Yearly Plan selected.';
-
-      default:
-        return 'Your company profile is ready with the Basic Plan selected.';
-    }
-  }
-
   // ==========================================================================
   // BUILD
   // ==========================================================================
@@ -647,356 +208,359 @@ class _CompanyRegisterStepFourScreenState
   Widget build(
       BuildContext context,
       ) {
-    return Scaffold(
-      backgroundColor:
-      const Color(
-        0xFFF8FAFB,
-      ),
-      body: Stack(
-        children: [
-          // ==================================================================
-          // BACKGROUND GLOW
-          // ==================================================================
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor:
+        const Color(
+          0xFFF8FAFB,
+        ),
+        body: Stack(
+          children: [
+            // ==================================================================
+            // BACKGROUND GLOW
+            // ==================================================================
 
-          Positioned(
-            top: -125,
-            right: -105,
-            child: IgnorePointer(
-              child: Container(
-                width: 285,
-                height: 285,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient:
-                  RadialGradient(
-                    colors: [
-                      kPrimary
-                          .withOpacity(
-                        0.12,
-                      ),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 580,
-            left: -165,
-            child: IgnorePointer(
-              child: Container(
-                width: 310,
-                height: 310,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient:
-                  RadialGradient(
-                    colors: [
-                      const Color(
-                        0xFF0D8AA5,
-                      ).withOpacity(
-                        0.045,
-                      ),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // ==================================================================
-          // CONTENT
-          // ==================================================================
-
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (
-                  context,
-                  constraints,
-                  ) {
-                return SingleChildScrollView(
-                  physics:
-                  const BouncingScrollPhysics(),
-                  padding:
-                  const EdgeInsets.fromLTRB(
-                    20,
-                    16,
-                    20,
-                    34,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints:
-                      const BoxConstraints(
-                        maxWidth: 560,
-                      ),
-                      child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                        children: [
-                          // ================================================
-                          // HEADER
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 0,
-                            child:
-                            _buildHeader(),
-                          ),
-
-                          const SizedBox(
-                            height: 26,
-                          ),
-
-                          // ================================================
-                          // BADGE
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 1,
-                            child:
-                            _buildSubscriptionBadge(),
-                          ),
-
-                          const SizedBox(
-                            height: 12,
-                          ),
-
-                          // ================================================
-                          // TITLE
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 2,
-                            child:
-                            const Text(
-                              'Choose Your Plan',
-                              style:
-                              TextStyle(
-                                fontSize: 27,
-                                fontWeight:
-                                FontWeight.w800,
-                                color:
-                                kTextDark,
-                                letterSpacing:
-                                -0.6,
-                                height: 1.15,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 7,
-                          ),
-
-                          _animatedEntry(
-                            index: 3,
-                            child:
-                            const Text(
-                              'Select the plan that best fits your company hiring and drone service needs.',
-                              style:
-                              TextStyle(
-                                fontSize: 13.5,
-                                height: 1.5,
-                                color:
-                                kTextMuted,
-                                fontWeight:
-                                FontWeight.w400,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 30,
-                          ),
-
-                          // ================================================
-                          // SECTION HEADER
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 4,
-                            child:
-                            _buildSectionHeader(),
-                          ),
-
-                          const SizedBox(
-                            height: 17,
-                          ),
-
-                          // ================================================
-                          // BASIC
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 5,
-                            child:
-                            _buildPlanCard(
-                              planId:
-                              'free',
-                              icon:
-                              Icons.rocket_launch_outlined,
-                              title:
-                              'Basic Plan',
-                              price:
-                              '\$0',
-                              period:
-                              '/ forever',
-                              badgeText:
-                              'FREE ACCESS',
-                              badgeColor:
-                              kTextMuted,
-                              description:
-                              'Start exploring the platform with essential hiring tools.',
-                              features:
-                              const [
-                                'Standard pilot search & profiles',
-                                'Post up to 2 active job offers',
-                                'In-app messaging system',
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 14,
-                          ),
-
-                          // ================================================
-                          // MONTHLY
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 6,
-                            child:
-                            _buildPlanCard(
-                              planId:
-                              'monthly',
-                              icon:
-                              Icons.flash_on_rounded,
-                              title:
-                              'Monthly Plan',
-                              price:
-                              '\$99',
-                              period:
-                              '/ month',
-                              badgeText:
-                              'MOST FLEXIBLE',
-                              badgeColor:
-                              kPrimary,
-                              description:
-                              'Powerful hiring tools with the flexibility of monthly billing.',
-                              features:
-                              const [
-                                'AI-powered top pilot matching',
-                                'Unlimited active job postings',
-                                'Priority direct messaging & calling',
-                                'Advanced job site P&ID analysis',
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 14,
-                          ),
-
-                          // ================================================
-                          // YEARLY
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 7,
-                            child:
-                            _buildPlanCard(
-                              planId:
-                              'yearly',
-                              icon:
-                              Icons.workspace_premium_rounded,
-                              title:
-                              'Yearly Plan',
-                              price:
-                              '\$948',
-                              period:
-                              '/ year',
-                              badgeText:
-                              'BEST VALUE · SAVE 20%',
-                              badgeColor:
-                              const Color(
-                                0xFF16A34A,
-                              ),
-                              description:
-                              'Maximum value and priority support for growing companies.',
-                              features:
-                              const [
-                                'Everything in Monthly Plan',
-                                '2 months free (20% savings)',
-                                'Dedicated account manager',
-                                'Priority customer support',
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 30,
-                          ),
-
-                          // ================================================
-                          // SELECTED SUMMARY
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 8,
-                            child:
-                            _buildSelectedPlanSummary(),
-                          ),
-
-                          const SizedBox(
-                            height: 27,
-                          ),
-
-                          // ================================================
-                          // BUTTON
-                          // ================================================
-
-                          _animatedEntry(
-                            index: 9,
-                            child:
-                            _buildPrimaryButton(
-                              text:
-                              'Complete Registration',
-                              isLoading:
-                              _isLoading,
-                              onPressed:
-                              _isLoading
-                                  ? null
-                                  : _handleCompleteRegistration,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 14,
-                          ),
-
-                          _animatedEntry(
-                            index: 10,
-                            child:
-                            _buildBottomNote(),
-                          ),
-
-                          const SizedBox(
-                            height: 8,
-                          ),
-                        ],
-                      ),
+            Positioned(
+              top: -125,
+              right: -105,
+              child: IgnorePointer(
+                child: Container(
+                  width: 285,
+                  height: 285,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient:
+                    RadialGradient(
+                      colors: [
+                        kPrimary
+                            .withOpacity(
+                          0.12,
+                        ),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
-        ],
+
+            Positioned(
+              top: 580,
+              left: -165,
+              child: IgnorePointer(
+                child: Container(
+                  width: 310,
+                  height: 310,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient:
+                    RadialGradient(
+                      colors: [
+                        const Color(
+                          0xFF0D8AA5,
+                        ).withOpacity(
+                          0.045,
+                        ),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ==================================================================
+            // CONTENT
+            // ==================================================================
+
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (
+                    context,
+                    constraints,
+                    ) {
+                  return SingleChildScrollView(
+                    physics:
+                    const BouncingScrollPhysics(),
+                    padding:
+                    const EdgeInsets.fromLTRB(
+                      20,
+                      16,
+                      20,
+                      34,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints:
+                        const BoxConstraints(
+                          maxWidth: 560,
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: [
+                            // ================================================
+                            // HEADER
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 0,
+                              child:
+                              _buildHeader(),
+                            ),
+
+                            const SizedBox(
+                              height: 26,
+                            ),
+
+                            // ================================================
+                            // BADGE
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 1,
+                              child:
+                              _buildSubscriptionBadge(),
+                            ),
+
+                            const SizedBox(
+                              height: 12,
+                            ),
+
+                            // ================================================
+                            // TITLE
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 2,
+                              child:
+                              const Text(
+                                'Choose Your Plan',
+                                style:
+                                TextStyle(
+                                  fontSize: 27,
+                                  fontWeight:
+                                  FontWeight.w800,
+                                  color:
+                                  kTextDark,
+                                  letterSpacing:
+                                  -0.6,
+                                  height: 1.15,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 7,
+                            ),
+
+                            _animatedEntry(
+                              index: 3,
+                              child:
+                              const Text(
+                                'Your company account is ready. Choose a plan now or skip and continue to your dashboard.',
+                                style:
+                                TextStyle(
+                                  fontSize: 13.5,
+                                  height: 1.5,
+                                  color:
+                                  kTextMuted,
+                                  fontWeight:
+                                  FontWeight.w400,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 30,
+                            ),
+
+                            // ================================================
+                            // SECTION HEADER
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 4,
+                              child:
+                              _buildSectionHeader(),
+                            ),
+
+                            const SizedBox(
+                              height: 17,
+                            ),
+
+                            // ================================================
+                            // BASIC
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 5,
+                              child:
+                              _buildPlanCard(
+                                planId:
+                                'free',
+                                icon:
+                                Icons.rocket_launch_outlined,
+                                title:
+                                'Basic Plan',
+                                price:
+                                '\$0',
+                                period:
+                                '/ forever',
+                                badgeText:
+                                'FREE ACCESS',
+                                badgeColor:
+                                kTextMuted,
+                                description:
+                                'Start exploring the platform with essential hiring tools.',
+                                features:
+                                const [
+                                  'Standard pilot search & profiles',
+                                  'Post up to 2 active job offers',
+                                  'In-app messaging system',
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 14,
+                            ),
+
+                            // ================================================
+                            // MONTHLY
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 6,
+                              child:
+                              _buildPlanCard(
+                                planId:
+                                'monthly',
+                                icon:
+                                Icons.flash_on_rounded,
+                                title:
+                                'Monthly Plan',
+                                price:
+                                '\$99',
+                                period:
+                                '/ month',
+                                badgeText:
+                                'MOST FLEXIBLE',
+                                badgeColor:
+                                kPrimary,
+                                description:
+                                'Powerful hiring tools with the flexibility of monthly billing.',
+                                features:
+                                const [
+                                  'AI-powered top pilot matching',
+                                  'Unlimited active job postings',
+                                  'Priority direct messaging & calling',
+                                  'Advanced job site P&ID analysis',
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 14,
+                            ),
+
+                            // ================================================
+                            // YEARLY
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 7,
+                              child:
+                              _buildPlanCard(
+                                planId:
+                                'yearly',
+                                icon:
+                                Icons.workspace_premium_rounded,
+                                title:
+                                'Yearly Plan',
+                                price:
+                                '\$948',
+                                period:
+                                '/ year',
+                                badgeText:
+                                'BEST VALUE · SAVE 20%',
+                                badgeColor:
+                                const Color(
+                                  0xFF16A34A,
+                                ),
+                                description:
+                                'Maximum value and priority support for growing companies.',
+                                features:
+                                const [
+                                  'Everything in Monthly Plan',
+                                  '2 months free (20% savings)',
+                                  'Dedicated account manager',
+                                  'Priority customer support',
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 30,
+                            ),
+
+                            // ================================================
+                            // SELECTED SUMMARY
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 8,
+                              child:
+                              _buildSelectedPlanSummary(),
+                            ),
+
+                            const SizedBox(
+                              height: 27,
+                            ),
+
+                            // ================================================
+                            // BUTTON
+                            // ================================================
+
+                            _animatedEntry(
+                              index: 9,
+                              child:
+                              _buildPrimaryButton(
+                                text:
+                                'Continue to Home',
+                                isLoading:
+                                _isLoading,
+                                onPressed:
+                                _isLoading
+                                    ? null
+                                    : _handleContinue,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 14,
+                            ),
+
+                            _animatedEntry(
+                              index: 10,
+                              child:
+                              _buildBottomNote(),
+                            ),
+
+                            const SizedBox(
+                              height: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1010,7 +574,7 @@ class _CompanyRegisterStepFourScreenState
       children: [
         Row(
           children: [
-            _buildBackButton(),
+            _buildCloseButton(),
 
             const Spacer(),
 
@@ -1107,10 +671,12 @@ class _CompanyRegisterStepFourScreenState
   // BACK
   // ==========================================================================
 
-  Widget _buildBackButton() {
+  Widget _buildCloseButton() {
     return Material(
-      color: Colors.transparent,
-      child: InkWell(
+      color:
+      Colors.transparent,
+      child:
+      InkWell(
         borderRadius:
         BorderRadius.circular(
           50,
@@ -1119,32 +685,40 @@ class _CompanyRegisterStepFourScreenState
         _isLoading
             ? null
             : () {
-          HapticFeedback.selectionClick();
+          HapticFeedback
+              .selectionClick();
 
-          Navigator.pop(
-            context,
-          );
+          _goHome();
         },
-        child: Container(
-          width: 38,
-          height: 38,
+        child:
+        Container(
+          width:
+          38,
+          height:
+          38,
           decoration:
           BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.black
+            color:
+            Colors.white,
+            shape:
+            BoxShape.circle,
+            border:
+            Border.all(
+              color:
+              Colors.black
                   .withOpacity(
                 0.045,
               ),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black
+                color:
+                Colors.black
                     .withOpacity(
                   0.035,
                 ),
-                blurRadius: 9,
+                blurRadius:
+                9,
                 offset:
                 const Offset(
                   0,
@@ -1155,9 +729,9 @@ class _CompanyRegisterStepFourScreenState
           ),
           child:
           const Icon(
-            Icons
-                .arrow_back_ios_new_rounded,
-            size: 13,
+            Icons.close_rounded,
+            size:
+            20,
             color:
             kTextDark,
           ),
@@ -2110,7 +1684,7 @@ class _CompanyRegisterStepFourScreenState
 
           Flexible(
             child: Text(
-              'You can upgrade or change your plan later.',
+              'You can choose or change your subscription later.',
               textAlign:
               TextAlign.center,
               style:
