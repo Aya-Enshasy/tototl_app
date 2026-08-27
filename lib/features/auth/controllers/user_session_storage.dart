@@ -168,7 +168,7 @@ class UserSessionStorage {
   // ==========================================================================
 
   static Future<void> mergeProfile(
-      Map<String, dynamic> freshProfile,
+      Map<String, dynamic> profile,
       ) async {
     final session =
         await getSession() ??
@@ -177,18 +177,18 @@ class UserSessionStorage {
     final oldRaw =
     session['profile'];
 
-    final oldProfile =
+    final merged =
     oldRaw is Map
         ? Map<String, dynamic>.from(
       oldRaw,
     )
         : <String, dynamic>{};
 
-    final merged =
-    <String, dynamic>{
-      ...oldProfile,
-      ...freshProfile,
-    };
+    merged.addAll(
+      Map<String, dynamic>.from(
+        profile,
+      ),
+    );
 
     session['profile'] =
         merged;
@@ -197,6 +197,7 @@ class UserSessionStorage {
       session,
     );
   }
+
 
   // ==========================================================================
   // PROFILE PHOTO URL
@@ -397,4 +398,7 @@ class UserSessionStorage {
       ),
     );
   }
+
+
+
 }

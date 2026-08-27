@@ -7,6 +7,7 @@ import '../../../shared/settings_detail_screens.dart';
 import '../../controllers/company_profile_controller.dart';
 import '../../models/company_profile_model.dart';
 import '../../services/company_profile_service.dart';
+import 'company_edit_profile_screen.dart';
 
 
 
@@ -185,6 +186,24 @@ class _CompanyProfileScreenState
         null;
       });
     }
+  }
+
+  // ==========================================================================
+  // EDIT COMPANY PROFILE
+  // ==========================================================================
+
+  Future<void> _openEditProfile() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => const CompanyEditProfileScreen(),
+      ),
+    );
+
+    if (!mounted || changed != true) {
+      return;
+    }
+
+    await _handleRefresh();
   }
 
   // ==========================================================================
@@ -655,11 +674,7 @@ class _CompanyProfileScreenState
                       subtitle:
                       'Industry, address, website and operating regions',
 
-                      onTap:
-                          () {
-                        // We will connect this next
-                        // to Edit Company Profile.
-                      },
+                      onTap: _openEditProfile,
                     ),
 
                     const Divider(
@@ -1014,21 +1029,21 @@ class _ProfileCard
             children: [
               _Metric(
                 value:
-                '—',
+                '0',
                 label:
                 'Jobs posted',
               ),
 
               _Metric(
                 value:
-                '—',
+                '0',
                 label:
                 'Pilots hired',
               ),
 
               _Metric(
                 value:
-                '—',
+                '0',
                 label:
                 'Company rating',
               ),

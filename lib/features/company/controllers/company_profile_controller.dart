@@ -1,6 +1,7 @@
 import '../../auth/controllers/user_session_storage.dart';
 
 import '../models/company_profile_model.dart';
+import '../models/company_profile_update_model.dart';
 import '../services/company_profile_service.dart';
 
 // ============================================================================
@@ -16,8 +17,8 @@ class CompanyProfileController {
 
   String? errorMessage;
 
-  bool isRefreshing =
-  false;
+  bool isRefreshing = false;
+  bool isUpdating = false;
 
   // ==========================================================================
   // LOCAL PROFILE
@@ -27,12 +28,10 @@ class CompanyProfileController {
   loadLocalProfile() async {
     try {
       final userJson =
-      await UserSessionStorage
-          .getUser();
+      await UserSessionStorage.getUser();
 
       final profileJson =
-      await UserSessionStorage
-          .getProfile();
+      await UserSessionStorage.getProfile();
 
       final photoUrl =
           await UserSessionStorage
@@ -47,26 +46,20 @@ class CompanyProfileController {
       final account =
       userJson == null
           ? const CompanyAccountModel()
-          : CompanyAccountModel
-          .fromJson(
+          : CompanyAccountModel.fromJson(
         userJson,
       );
 
       final profile =
       profileJson == null
           ? const CompanyProfileModel()
-          : CompanyProfileModel
-          .fromJson(
+          : CompanyProfileModel.fromJson(
         profileJson,
       );
 
       return CompanyProfileViewData(
-        account:
-        account,
-
-        profile:
-        profile,
-
+        account: account,
+        profile: profile,
         profilePhotoUrl:
         photoUrl.isNotEmpty
             ? photoUrl
@@ -86,8 +79,7 @@ class CompanyProfileController {
       CompanyProfileModel profile,
       ) async {
     final userJson =
-    await UserSessionStorage
-        .getUser();
+    await UserSessionStorage.getUser();
 
     final photoUrl =
         await UserSessionStorage
@@ -97,22 +89,37 @@ class CompanyProfileController {
     final account =
     userJson == null
         ? const CompanyAccountModel()
-        : CompanyAccountModel
-        .fromJson(
+        : CompanyAccountModel.fromJson(
       userJson,
     );
 
     return CompanyProfileViewData(
-      account:
-      account,
-
-      profile:
-      profile,
-
+      account: account,
+      profile: profile,
       profilePhotoUrl:
       photoUrl.isNotEmpty
           ? photoUrl
           : profile.profilePhoto,
+    );
+  }
+
+  // ==========================================================================
+  // READ MERGED CACHED PROFILE
+  // ==========================================================================
+
+  Future<CompanyProfileModel>
+  _readMergedProfile(
+      CompanyProfileModel fallback,
+      ) async {
+    final mergedJson =
+    await UserSessionStorage.getProfile();
+
+    if (mergedJson == null) {
+      return fallback;
+    }
+
+    return CompanyProfileModel.fromJson(
+      mergedJson,
     );
   }
 
@@ -126,92 +133,137 @@ class CompanyProfileController {
       return null;
     }
 
-    isRefreshing =
-    true;
-
-    errorMessage =
-    null;
+    isRefreshing = true;
+    errorMessage = null;
 
     try {
       final freshProfile =
-      await service
-          .getMyProfile();
+      await service.getMyProfile();
 
-      // Keep cached values such as profile_photo
-      // if GET profile does not return them.
-      await UserSessionStorage
-          .mergeProfile(
+      // mergeProfile preserves local keys that are NOT returned by GET,
+      // such as profile_photo and possibly work_regions.
+      await UserSessionStorage.mergeProfile(
         freshProfile.toJson(),
       );
 
-      // Re-read merged profile from local storage.
-      final mergedJson =
-      await UserSessionStorage
-          .getProfile();
-
       final mergedProfile =
-      mergedJson == null
-          ? freshProfile
-          : CompanyProfileModel
-          .fromJson(
-        mergedJson,
+      await _readMergedProfile(
+        freshProfile,
       );
 
       return await _buildViewData(
         mergedProfile,
       );
     } catch (e) {
-      errorMessage =
-          e.toString();
-
+      errorMessage = e.toString();
       return null;
     } finally {
-      isRefreshing =
-      false;
+      isRefreshing = false;
     }
   }
 
   // ==========================================================================
   // LOAD PROFILE
   //
-  // For screens where you explicitly want API first.
+  // API first. If API fails, return local data.
   // ==========================================================================
 
   Future<CompanyProfileViewData?>
   loadFreshProfile() async {
-    errorMessage =
-    null;
+    errorMessage = null;
 
     try {
       final freshProfile =
-      await service
-          .getMyProfile();
+      await service.getMyProfile();
 
-      await UserSessionStorage
-          .mergeProfile(
+      await UserSessionStorage.mergeProfile(
         freshProfile.toJson(),
       );
 
-      final mergedJson =
-      await UserSessionStorage
-          .getProfile();
-
-      final profile =
-      mergedJson == null
-          ? freshProfile
-          : CompanyProfileModel
-          .fromJson(
-        mergedJson,
+      final mergedProfile =
+      await _readMergedProfile(
+        freshProfile,
       );
 
       return await _buildViewData(
-        profile,
+        mergedProfile,
       );
     } catch (e) {
-      errorMessage =
-          e.toString();
+      errorMessage = e.toString();
 
       return await loadLocalProfile();
+    }
+  }
+
+  // ==========================================================================
+  // LOAD EDIT PROFILE
+  //
+  // Local first for the edit screen.
+  // ==========================================================================
+
+  Future<CompanyProfileViewData?>
+  loadEditProfile() async {
+    errorMessage = null;
+
+    final local =
+    await loadLocalProfile();
+
+    if (local != null) {
+      return local;
+    }
+
+    return await loadFreshProfile();
+  }
+
+  // ==========================================================================
+  // UPDATE PROFILE
+  // ==========================================================================
+
+  Future<CompanyProfileViewData?>
+  updateProfile(
+      CompanyProfileUpdateRequest request,
+      ) async {
+    if (isUpdating) {
+      return null;
+    }
+
+    isUpdating = true;
+    errorMessage = null;
+
+    try {
+      final updatedProfile =
+      await service.updateMyProfile(
+        request,
+      );
+
+      // IMPORTANT:
+      // PATCH response may not return work_regions.
+      // Start with response values, then apply exactly what the user submitted.
+      final cacheData =
+      updatedProfile.toJson();
+
+      cacheData.addAll(
+        request.toJson(),
+      );
+
+      // Preserve unrelated local-only values such as profile_photo.
+      await UserSessionStorage.mergeProfile(
+        cacheData,
+      );
+
+      final mergedProfile =
+      await _readMergedProfile(
+        updatedProfile,
+      );
+
+      return await _buildViewData(
+        mergedProfile,
+      );
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isUpdating = false;
     }
   }
 }

@@ -5,6 +5,7 @@ import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
 import '../models/company_profile_model.dart';
+import '../models/company_profile_update_model.dart';
 
 // ============================================================================
 // COMPANY PROFILE SERVICE
@@ -30,12 +31,10 @@ class CompanyProfileService {
       final response =
       await apiClient.get(
         ApiEndpoints.companyProfile,
-
         options: Options(
           headers: {
             'Accept':
             'application/json',
-
             'Authorization':
             'Bearer $token',
           },
@@ -66,8 +65,7 @@ class CompanyProfileService {
         );
       }
 
-      return CompanyProfileModel
-          .fromJson(
+      return CompanyProfileModel.fromJson(
         Map<String, dynamic>.from(
           rawData,
         ),
@@ -76,6 +74,77 @@ class CompanyProfileService {
       throw CompanyProfileException(
         _dioErrorMessage(
           e,
+          fallback:
+          'Unable to load company profile.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // UPDATE MY COMPANY PROFILE
+  // PATCH /company/profile
+  // ==========================================================================
+
+  Future<CompanyProfileModel>
+  updateMyProfile(
+      CompanyProfileUpdateRequest request,
+      ) async {
+    final token =
+    await _getToken();
+
+    try {
+      final response =
+      await apiClient.patch(
+        ApiEndpoints.companyProfile,
+        data: request.toJson(),
+        options: Options(
+          headers: {
+            'Accept':
+            'application/json',
+            'Content-Type':
+            'application/json',
+            'Authorization':
+            'Bearer $token',
+          },
+        ),
+      );
+
+      final body =
+      _parseBody(
+        response.data,
+      );
+
+      if (body['success'] != true) {
+        throw CompanyProfileException(
+          _messageFromBody(
+            body,
+            fallback:
+            'Unable to update company profile.',
+          ),
+        );
+      }
+
+      final rawData =
+      body['data'];
+
+      if (rawData is! Map) {
+        throw const CompanyProfileException(
+          'Updated company profile data is missing.',
+        );
+      }
+
+      return CompanyProfileModel.fromJson(
+        Map<String, dynamic>.from(
+          rawData,
+        ),
+      );
+    } on DioException catch (e) {
+      throw CompanyProfileException(
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to update company profile.',
         ),
       );
     }
@@ -127,6 +196,32 @@ class CompanyProfileService {
       Map<String, dynamic> body, {
         required String fallback,
       }) {
+    final errors =
+    body['errors'];
+
+    if (errors is Map) {
+      for (final value in errors.values) {
+        if (value is List &&
+            value.isNotEmpty) {
+          final first =
+          value.first.toString().trim();
+
+          if (first.isNotEmpty) {
+            return first;
+          }
+        }
+
+        if (value != null) {
+          final text =
+          value.toString().trim();
+
+          if (text.isNotEmpty) {
+            return text;
+          }
+        }
+      }
+    }
+
     final message =
     body['message']
         ?.toString()
@@ -145,26 +240,19 @@ class CompanyProfileService {
   // ==========================================================================
 
   String _dioErrorMessage(
-      DioException error,
-      ) {
+      DioException error, {
+        required String fallback,
+      }) {
     final raw =
         error.response?.data;
 
     if (raw is Map) {
-      final body =
-      Map<String, dynamic>.from(
-        raw,
+      return _messageFromBody(
+        Map<String, dynamic>.from(
+          raw,
+        ),
+        fallback: fallback,
       );
-
-      final message =
-      body['message']
-          ?.toString()
-          .trim();
-
-      if (message != null &&
-          message.isNotEmpty) {
-        return message;
-      }
     }
 
     if (error.type ==
@@ -185,7 +273,7 @@ class CompanyProfileService {
       return 'No internet connection.';
     }
 
-    return 'Unable to load company profile.';
+    return fallback;
   }
 }
 
