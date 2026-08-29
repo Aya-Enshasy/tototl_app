@@ -373,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Positioned.fill(
             child: RepaintBoundary(
               child: Image.asset(
-                'assets/images/pilot_background.png',
+                'assets/images/pilot_profile_background.png',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
                 filterQuality: FilterQuality.medium,
@@ -568,13 +568,9 @@ class _HeroContent extends StatelessWidget {
               left: side,
               right: side,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  _HeroAction(
-                    size: actionSize,
-                    icon: Icons.arrow_back_rounded,
-                    onTap: onBack,
-                  ),
+
                   _HeroAction(
                     size: actionSize,
                     icon: Icons.settings_outlined,
