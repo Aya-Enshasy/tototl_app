@@ -18,7 +18,12 @@ class ApiEndpoints {
   // Password
   static const String forgotPassword = '/auth/password/forgot';
 
-// مثال:
-// static const String profile = '/profile';
-// static const String notifications = '/notifications';
+
+  //drones
+  static const String drones =
+      '/drones';
+  /// GET    /drones/{id}
+  /// PATCH  /drones/{id}
+  /// DELETE /drones/{id}
+  static String drone(int droneId,) {return '/drones/$droneId';}
 }

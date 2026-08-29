@@ -1220,7 +1220,7 @@ class _PilotRegisterStepThreeScreenState
 
                               child:
                               const Text(
-                                'Add your aircraft details, flight capabilities and service rates.',
+                                'Add your aircraft details, flight capabilities and services rates.',
                                 style:
                                 TextStyle(
                                   fontSize:

@@ -189,8 +189,8 @@ class _MissionTrackingPilotScreenState
       icon: Icons.edit_document,
       title: 'Download & Sign Contract',
       description: contractUploaded
-          ? 'The company uploaded the service contract. Download and sign it, then tap "Start Job" to attach it automatically.'
-          : 'Waiting for the company to upload the service contract for this mission.',
+          ? 'The company uploaded the services contract. Download and sign it, then tap "Start Job" to attach it automatically.'
+          : 'Waiting for the company to upload the services contract for this mission.',
       attachmentName: current >= 2 ? mission.contractFileName : null,
       state: current >= 2
           ? StepState.done

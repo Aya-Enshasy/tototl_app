@@ -1,7 +1,7 @@
 // mission_tracking_company_screen.dart
 //
 // Company-facing mission workflow. Order of steps:
-//  1) Upload the service contract (pilot then downloads & signs it).
+//  1) Upload the services contract (pilot then downloads & signs it).
 //  2) Start the job (confirmation - waits on the pilot too).
 //  3) End the work (confirmation - waits on the pilot too).
 //  4) Upload the termination file (pilot then signs it).

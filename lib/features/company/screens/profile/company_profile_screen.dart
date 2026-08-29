@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../shared/account_settings_screen.dart';
+import '../../../shared/screens/profile/account_settings_screen.dart';
 import '../../../shared/settings_detail_screens.dart';
 import '../../controllers/company_profile_controller.dart';
 import '../../models/company_profile_model.dart';

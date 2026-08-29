@@ -223,7 +223,7 @@ class OperationStore extends ChangeNotifier {
   }
 
   void uploadContract(Mission mission) {
-    mission.contractFileName = 'service-contract-${mission.application.id}.pdf';
+    mission.contractFileName = 'services-contract-${mission.application.id}.pdf';
     mission.stage = MissionStage.contractPending;
     notifyListeners();
   }
