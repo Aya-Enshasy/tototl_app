@@ -1,10 +1,13 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'features/splash/splash_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'core/localization/app_language.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await AppLanguage.load();
 
   runApp(const MyApp());
