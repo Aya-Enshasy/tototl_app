@@ -26,4 +26,14 @@ class ApiEndpoints {
   /// PATCH  /drones/{id}
   /// DELETE /drones/{id}
   static String drone(int droneId,) {return '/drones/$droneId';}
+
+  // ==========================================================================
+  // ADMIN
+  // ==========================================================================
+
+  static const String adminPendingPilots =
+      '/admin/pilots/pending';
+
+  static const String adminPendingCompanies =
+      '/admin/companies/pending';
 }

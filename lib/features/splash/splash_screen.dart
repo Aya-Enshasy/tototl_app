@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/navigation/bottom_navbar.dart';
 import 'package:tototl_app/core/navigation/company_shell_screen.dart';
+import 'package:tototl_app/features/admin/screens/admin_shell_screen.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';
@@ -419,6 +420,11 @@ class _SplashScreenState
       final role =
       await UserSessionStorage.getRole();
 
+      final normalizedRole =
+      role
+          ?.trim()
+          .toLowerCase();
+
       debugPrint(
         'SPLASH TOKEN EXISTS: $hasToken',
       );
@@ -430,11 +436,26 @@ class _SplashScreenState
       if (!mounted) return;
 
       // ==========================================================
+      // ADMIN
+      // ==========================================================
+
+      if (normalizedRole == 'admin') {
+        debugPrint(
+          'SPLASH -> ADMIN',
+        );
+
+        _navigateToPage(
+          const AdminShellScreen(),
+        );
+
+        return;
+      }
+
+      // ==========================================================
       // COMPANY
       // ==========================================================
 
-      if (role != null &&
-          role.toLowerCase() == 'company') {
+      if (normalizedRole == 'company') {
         debugPrint(
           'SPLASH -> COMPANY',
         );
@@ -450,8 +471,7 @@ class _SplashScreenState
       // PILOT
       // ==========================================================
 
-      if (role != null &&
-          role.toLowerCase() == 'pilot') {
+      if (normalizedRole == 'pilot') {
         debugPrint(
           'SPLASH -> PILOT',
         );

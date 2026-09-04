@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import '../../../admin/screens/admin_shell_screen.dart';
 import '../../../../core/navigation/bottom_navbar.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -227,7 +227,22 @@ class _LoginScreenState extends State<LoginScreen>
     // ROLE NAVIGATION
     // ==========================================================
 
-    if (role.toLowerCase() == 'company') {
+    final normalizedRole =
+    role
+        .trim()
+        .toLowerCase();
+    if (normalizedRole == 'admin') {
+      Navigator.pushReplacement(
+        context,
+        _beautifulRoute(
+          const AdminShellScreen(),
+        ),
+      );
+
+      return;
+    }
+
+    if (normalizedRole == 'company') {
       Navigator.pushReplacement(
         context,
         _beautifulRoute(
@@ -238,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (role.toLowerCase() == 'pilot') {
+    if (normalizedRole == 'pilot') {
       Navigator.pushReplacement(
         context,
         _beautifulRoute(
@@ -248,7 +263,6 @@ class _LoginScreenState extends State<LoginScreen>
 
       return;
     }
-
     setState(() {
       _loginSuccess = false;
     });

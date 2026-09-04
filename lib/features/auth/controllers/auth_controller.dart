@@ -47,7 +47,12 @@ class AuthController {
           accessToken: token,
         );
       }
-
+      await UserSessionStorage.saveSession(
+        {
+          'user': response.data!.user.toJson(),
+          'role': response.data!.role,
+        },
+      );
       return response;
     } on DioException catch (e) {
       errorMessage = _extractErrorMessage(
