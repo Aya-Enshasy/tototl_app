@@ -1,78 +1,38 @@
+import 'admin_user_model.dart';
+
 class AdminPendingPilotModel {
-  final int id;
-  final String name;
-  final String email;
-  final DateTime? emailVerifiedAt;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  final String username;
-  final String status;
-  final String phone;
+  final AdminUserModel user;
   final AdminPilotProfileModel profile;
 
   const AdminPendingPilotModel({
-    required this.id,
-    this.name = '',
-    this.email = '',
-    this.emailVerifiedAt,
-    this.createdAt,
-    this.updatedAt,
-    this.username = '',
-    this.status = '',
-    this.phone = '',
+    required this.user,
     this.profile = const AdminPilotProfileModel(),
   });
 
   factory AdminPendingPilotModel.fromJson(Map<String, dynamic> json) {
-    final rawProfile = json['pilot_profile'];
+    final raw = json['pilot_profile'];
 
     return AdminPendingPilotModel(
-      id: _asInt(json['id']) ?? 0,
-      name: _asString(json['name']),
-      email: _asString(json['email']),
-      emailVerifiedAt: _asDate(json['email_verified_at']),
-      createdAt: _asDate(json['created_at']),
-      updatedAt: _asDate(json['updated_at']),
-      username: _asString(json['username']),
-      status: _asString(json['status']),
-      phone: _asString(json['phone']),
-      profile: rawProfile is Map
+      user: AdminUserModel.fromJson(json),
+      profile: raw is Map
           ? AdminPilotProfileModel.fromJson(
-              Map<String, dynamic>.from(rawProfile),
+              Map<String, dynamic>.from(raw),
             )
           : const AdminPilotProfileModel(),
     );
   }
 
-  String get displayName {
-    final value = name.trim();
-    return value.isEmpty ? 'Unnamed Pilot' : value;
-  }
-
-  String get displayUsername {
-    final value = username.trim();
-    if (value.isEmpty) return 'No username';
-    return value.startsWith('@') ? value : '@$value';
-  }
-
-  String get displayPhone {
-    final value = phone.trim();
-    return value.isEmpty ? 'Not provided' : value;
-  }
-
-  String get searchableText {
-    return [
-      name,
-      username,
-      email,
-      phone,
-      profile.nationality,
-      profile.currentCountry,
-      profile.currentState,
-      profile.currentCity,
-      profile.previousCompany,
-    ].join(' ').toLowerCase();
-  }
+  String get searchableText => [
+        user.name,
+        user.username,
+        user.email,
+        user.phone,
+        profile.nationality,
+        profile.currentCountry,
+        profile.currentState,
+        profile.currentCity,
+        profile.previousCompany,
+      ].join(' ').toLowerCase();
 }
 
 class AdminPilotProfileModel {
@@ -85,8 +45,6 @@ class AdminPilotProfileModel {
   final String linkedinUrl;
   final String previousCompany;
   final List<String> languages;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
   final String currentCountry;
   final String currentState;
   final String currentCity;
@@ -101,29 +59,26 @@ class AdminPilotProfileModel {
     this.linkedinUrl = '',
     this.previousCompany = '',
     this.languages = const [],
-    this.createdAt,
-    this.updatedAt,
     this.currentCountry = '',
     this.currentState = '',
     this.currentCity = '',
   });
 
   factory AdminPilotProfileModel.fromJson(Map<String, dynamic> json) {
-    final languages = <String>[];
-    final rawLanguages = json['languages'];
+    final langs = <String>[];
+    final raw = json['languages'];
 
-    if (rawLanguages is List) {
-      for (final item in rawLanguages) {
+    if (raw is List) {
+      for (final item in raw) {
         final value = item?.toString().trim() ?? '';
-        if (value.isNotEmpty) languages.add(value);
+        if (value.isNotEmpty) langs.add(value);
       }
-    } else if (rawLanguages != null) {
-      languages.addAll(
-        rawLanguages
-            .toString()
+    } else if (raw != null) {
+      langs.addAll(
+        raw.toString()
             .split(',')
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty),
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty),
       );
     }
 
@@ -136,42 +91,35 @@ class AdminPilotProfileModel {
       dateOfBirth: _asDate(json['date_of_birth']),
       linkedinUrl: _asString(json['linkedin_url']),
       previousCompany: _asString(json['previous_company']),
-      languages: languages,
-      createdAt: _asDate(json['created_at']),
-      updatedAt: _asDate(json['updated_at']),
+      languages: langs,
       currentCountry: _asString(json['current_country']),
       currentState: _asString(json['current_state']),
       currentCity: _asString(json['current_city']),
     );
   }
 
+  String get experienceLabel {
+    if (experienceYears == null) return 'Not provided';
+    if (experienceYears! <= 0) return 'Less than 1 year';
+    return '${experienceYears!} ${experienceYears == 1 ? 'year' : 'years'}';
+  }
+
   String get locationLabel {
-    final parts = <String>[
+    final parts = [
       currentCity,
       currentState,
       currentCountry,
-    ].map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+    ].where((e) => e.trim().isNotEmpty).toList();
 
-    return parts.isEmpty ? 'Location not provided' : parts.join(', ');
+    return parts.isEmpty ? 'Not provided' : parts.join(', ');
   }
 
-  String get experienceLabel {
-    final years = experienceYears;
-    if (years == null) return 'Experience not provided';
-    if (years <= 0) return 'Less than 1 year';
-    return '$years ${years == 1 ? 'year' : 'years'} experience';
-  }
-
-  String get languagesLabel {
-    if (languages.isEmpty) return 'Languages not provided';
-    return languages.join(', ');
-  }
+  String get languagesLabel =>
+      languages.isEmpty ? 'Not provided' : languages.join(', ');
 }
 
-String _asString(dynamic value) {
-  if (value == null) return '';
-  return value.toString().trim();
-}
+String _asString(dynamic value) =>
+    value == null ? '' : value.toString().trim();
 
 int? _asInt(dynamic value) {
   if (value == null) return null;

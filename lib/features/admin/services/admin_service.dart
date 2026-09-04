@@ -6,149 +6,198 @@ import '../../../core/storage/token_storage.dart';
 
 import '../models/admin_pending_company_model.dart';
 import '../models/admin_pending_pilot_model.dart';
-
-// ============================================================================
-// ADMIN SERVICE
-// ============================================================================
+import '../models/admin_user_model.dart';
+import '../models/admin_verification_history_model.dart';
 
 class AdminService {
   final ApiClient apiClient;
 
-  AdminService(
-    this.apiClient,
-  );
+  AdminService(this.apiClient);
 
-  // ==========================================================================
-  // PENDING PILOTS
-  // GET /admin/pilots/pending
-  // ==========================================================================
+  Future<List<AdminPendingPilotModel>> getPendingPilots() async {
+    final response = await _authorizedGet(
+      ApiEndpoints.adminPendingPilots,
+    );
 
-  Future<List<AdminPendingPilotModel>>
-  getPendingPilots() async {
-    final token = await _getToken();
+    final body = _body(response.data);
+    final raw = body['data'];
 
-    try {
-      final response = await apiClient.get(
-        ApiEndpoints.adminPendingPilots,
-        options: Options(
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
+    if (raw is! List) return const [];
 
-      final body = _parseBody(
-        response.data,
-      );
-
-      _ensureSuccess(
-        body,
-        fallback:
-            'Unable to load pending pilots.',
-      );
-
-      return _parsePilotList(
-        body['data'],
-      );
-    } on DioException catch (e) {
-      throw AdminException(
-        _dioErrorMessage(
-          e,
-          fallback:
-              'Unable to load pending pilots.',
-        ),
-      );
-    }
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => AdminPendingPilotModel.fromJson(
+        Map<String, dynamic>.from(item),
+      ),
+    )
+        .toList();
   }
 
-  // ==========================================================================
-  // PENDING COMPANIES
-  // GET /admin/companies/pending
-  // ==========================================================================
+  Future<List<AdminPendingCompanyModel>> getPendingCompanies() async {
+    final response = await _authorizedGet(
+      ApiEndpoints.adminPendingCompanies,
+    );
 
-  Future<List<AdminPendingCompanyModel>>
-  getPendingCompanies() async {
-    final token = await _getToken();
+    final body = _body(response.data);
+    final raw = body['data'];
 
-    try {
-      final response = await apiClient.get(
-        ApiEndpoints.adminPendingCompanies,
-        options: Options(
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
+    if (raw is! List) return const [];
 
-      final body = _parseBody(
-        response.data,
-      );
-
-      _ensureSuccess(
-        body,
-        fallback:
-            'Unable to load pending companies.',
-      );
-
-      return _parseCompanyList(
-        body['data'],
-      );
-    } on DioException catch (e) {
-      throw AdminException(
-        _dioErrorMessage(
-          e,
-          fallback:
-              'Unable to load pending companies.',
-        ),
-      );
-    }
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => AdminPendingCompanyModel.fromJson(
+        Map<String, dynamic>.from(item),
+      ),
+    )
+        .toList();
   }
 
-  // ==========================================================================
-  // TOKEN
-  // ==========================================================================
+  Future<AdminUserModel> approveUser(int userId) async {
+    final response = await _authorizedPost(
+      ApiEndpoints.adminApproveUser(userId),
+    );
 
-  Future<String>
-  _getToken() async {
-    final token =
-        await TokenStorage.getAccessToken();
-
-    if (token == null ||
-        token.trim().isEmpty) {
-      throw const AdminException(
-        'Authentication token not found.',
-      );
-    }
-
-    return token.trim();
-  }
-
-  // ==========================================================================
-  // PARSING
-  // ==========================================================================
-
-  Map<String, dynamic> _parseBody(
-    dynamic raw,
-  ) {
-    if (raw is! Map) {
-      throw const AdminException(
-        'Invalid server response.',
-      );
-    }
-
-    return Map<String, dynamic>.from(
-      raw,
+    return _parseActionUser(
+      response,
+      fallback: 'Unable to approve this account.',
     );
   }
 
-  void _ensureSuccess(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
-    if (body['success'] == true) {
-      return;
+  Future<AdminUserModel> rejectUser({
+    required int userId,
+    required String reason,
+  }) async {
+    final response = await _authorizedPost(
+      ApiEndpoints.adminRejectUser(userId),
+      data: {
+        'reason': reason.trim(),
+      },
+    );
+
+    return _parseActionUser(
+      response,
+      fallback: 'Unable to reject this account.',
+    );
+  }
+
+  Future<AdminUserModel> suspendUser({
+    required int userId,
+    required String reason,
+  }) async {
+    final response = await _authorizedPost(
+      ApiEndpoints.adminSuspendUser(userId),
+      data: {
+        'reason': reason.trim(),
+      },
+    );
+
+    return _parseActionUser(
+      response,
+      fallback: 'Unable to suspend this account.',
+    );
+  }
+
+  Future<AdminUserModel> reactivateUser(int userId) async {
+    final response = await _authorizedPost(
+      ApiEndpoints.adminReactivateUser(userId),
+    );
+
+    return _parseActionUser(
+      response,
+      fallback: 'Unable to reactivate this account.',
+    );
+  }
+
+  Future<List<AdminVerificationHistoryModel>>
+  getVerificationHistory(int userId) async {
+    final response = await _authorizedGet(
+      ApiEndpoints.adminVerificationHistory(userId),
+    );
+
+    final body = _body(response.data);
+    final raw = body['data'];
+
+    // Postman examples may contain success:false placeholder even on HTTP 200.
+    // For history, a valid 2xx response with a List is treated as usable data.
+    if (raw is! List) {
+      throw AdminException(
+        _messageFromBody(
+          body,
+          fallback: 'Verification history is unavailable.',
+        ),
+      );
+    }
+
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => AdminVerificationHistoryModel.fromJson(
+        Map<String, dynamic>.from(item),
+      ),
+    )
+        .toList();
+  }
+
+  Future<Response<dynamic>> _authorizedGet(String path) async {
+    final token = await _token();
+
+    try {
+      return await apiClient.get(
+        path,
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      throw AdminException(
+        _dioMessage(e),
+      );
+    }
+  }
+
+  Future<Response<dynamic>> _authorizedPost(
+      String path, {
+        Object? data,
+      }) async {
+    final token = await _token();
+
+    try {
+      return await apiClient.post(
+        path,
+        data: data,
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      throw AdminException(
+        _dioMessage(e),
+      );
+    }
+  }
+
+  AdminUserModel _parseActionUser(
+      Response<dynamic> response, {
+        required String fallback,
+      }) {
+    final body = _body(response.data);
+    final raw = body['data'];
+
+    // Some generated Postman examples show success:false even for an HTTP 200
+    // action response. A returned user object on 2xx is therefore accepted.
+    if (raw is Map) {
+      return AdminUserModel.fromJson(
+        Map<String, dynamic>.from(raw),
+      );
     }
 
     throw AdminException(
@@ -159,167 +208,82 @@ class AdminService {
     );
   }
 
-  List<AdminPendingPilotModel>
-  _parsePilotList(
-    dynamic raw,
-  ) {
-    if (raw == null) {
-      return <AdminPendingPilotModel>[];
-    }
-
-    if (raw is! List) {
+  Map<String, dynamic> _body(dynamic raw) {
+    if (raw is! Map) {
       throw const AdminException(
-        'Pending pilots data is invalid.',
+        'Invalid server response.',
       );
     }
 
-    final result =
-        <AdminPendingPilotModel>[];
-
-    for (final item in raw) {
-      if (item is Map) {
-        result.add(
-          AdminPendingPilotModel.fromJson(
-            Map<String, dynamic>.from(
-              item,
-            ),
-          ),
-        );
-      }
-    }
-
-    return result;
+    return Map<String, dynamic>.from(raw);
   }
 
-  List<AdminPendingCompanyModel>
-  _parseCompanyList(
-    dynamic raw,
-  ) {
-    if (raw == null) {
-      return <AdminPendingCompanyModel>[];
-    }
+  Future<String> _token() async {
+    final token = await TokenStorage.getAccessToken();
 
-    if (raw is! List) {
+    if (token == null || token.trim().isEmpty) {
       throw const AdminException(
-        'Pending companies data is invalid.',
+        'Authentication token not found.',
       );
     }
 
-    final result =
-        <AdminPendingCompanyModel>[];
-
-    for (final item in raw) {
-      if (item is Map) {
-        result.add(
-          AdminPendingCompanyModel.fromJson(
-            Map<String, dynamic>.from(
-              item,
-            ),
-          ),
-        );
-      }
-    }
-
-    return result;
+    return token.trim();
   }
 
-  // ==========================================================================
-  // ERRORS
-  // ==========================================================================
+  String _dioMessage(DioException e) {
+    final raw = e.response?.data;
+
+    if (raw is Map) {
+      return _messageFromBody(
+        Map<String, dynamic>.from(raw),
+        fallback: 'Admin request failed.',
+      );
+    }
+
+    if (e.type == DioExceptionType.connectionError) {
+      return 'No internet connection.';
+    }
+
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'The server took too long to respond.';
+    }
+
+    return 'Admin request failed.';
+  }
 
   String _messageFromBody(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     final errors = body['errors'];
 
     if (errors is Map) {
       for (final value in errors.values) {
-        if (value is List &&
-            value.isNotEmpty) {
-          final first =
-              value.first.toString().trim();
-
-          if (first.isNotEmpty) {
-            return first;
-          }
+        if (value is List && value.isNotEmpty) {
+          final text = value.first.toString().trim();
+          if (text.isNotEmpty) return text;
         }
 
         if (value != null) {
-          final text =
-              value.toString().trim();
-
-          if (text.isNotEmpty) {
-            return text;
-          }
+          final text = value.toString().trim();
+          if (text.isNotEmpty) return text;
         }
       }
     }
 
-    final message =
-        body['message']
-            ?.toString()
-            .trim();
-
-    if (message != null &&
-        message.isNotEmpty) {
-      return message;
-    }
-
-    return fallback;
-  }
-
-  String _dioErrorMessage(
-    DioException error, {
-    required String fallback,
-  }) {
-    final raw =
-        error.response?.data;
-
-    if (raw is Map) {
-      return _messageFromBody(
-        Map<String, dynamic>.from(
-          raw,
-        ),
-        fallback: fallback,
-      );
-    }
-
-    if (error.type ==
-        DioExceptionType
-            .connectionTimeout) {
-      return 'Connection timed out. Please try again.';
-    }
-
-    if (error.type ==
-        DioExceptionType
-            .receiveTimeout) {
-      return 'Server response timed out. Please try again.';
-    }
-
-    if (error.type ==
-        DioExceptionType
-            .connectionError) {
-      return 'No internet connection.';
-    }
+    final message = body['message']?.toString().trim();
+    if (message != null && message.isNotEmpty) return message;
 
     return fallback;
   }
 }
 
-// ============================================================================
-// ADMIN EXCEPTION
-// ============================================================================
-
-class AdminException
-    implements Exception {
+class AdminException implements Exception {
   final String message;
 
-  const AdminException(
-    this.message,
-  );
+  const AdminException(this.message);
 
   @override
-  String toString() =>
-      message;
+  String toString() => message;
 }

@@ -36,4 +36,28 @@ class ApiEndpoints {
 
   static const String adminPendingCompanies =
       '/admin/companies/pending';
+
+  // ==========================================================================
+  // ADMIN - VERIFICATION ACTIONS
+  // ==========================================================================
+
+  static String adminApproveUser(int userId) {
+    return '/admin/users/$userId/approve';
+  }
+
+  static String adminRejectUser(int userId) {
+    return '/admin/users/$userId/reject';
+  }
+
+  static String adminSuspendUser(int userId) {
+    return '/admin/users/$userId/suspend';
+  }
+
+  static String adminReactivateUser(int userId) {
+    return '/admin/users/$userId/reactivate';
+  }
+
+  static String adminVerificationHistory(int userId) {
+    return '/admin/users/$userId/verification-history';
+  }
 }
