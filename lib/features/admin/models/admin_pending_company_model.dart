@@ -27,6 +27,15 @@ class AdminPendingCompanyModel {
     return value.isEmpty ? user.displayName : value;
   }
 
+  AdminPendingCompanyModel copyWithUser(
+    AdminUserModel updatedUser,
+  ) {
+    return AdminPendingCompanyModel(
+      user: updatedUser,
+      profile: profile,
+    );
+  }
+
   String get searchableText => [
         displayCompanyName,
         user.name,

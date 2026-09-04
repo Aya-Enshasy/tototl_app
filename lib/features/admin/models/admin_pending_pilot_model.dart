@@ -22,6 +22,15 @@ class AdminPendingPilotModel {
     );
   }
 
+  AdminPendingPilotModel copyWithUser(
+    AdminUserModel updatedUser,
+  ) {
+    return AdminPendingPilotModel(
+      user: updatedUser,
+      profile: profile,
+    );
+  }
+
   String get searchableText => [
         user.name,
         user.username,
