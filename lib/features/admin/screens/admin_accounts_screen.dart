@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/admin_controller.dart';
- import '../models/admin_directory_entry.dart';
+import '../models/admin_directory_entry.dart';
 import '../widgets/admin_design.dart';
 import 'company_review_screen.dart';
 import 'pilot_review_screen.dart';
@@ -52,16 +52,10 @@ class _AdminAccountsScreenState
               return false;
             }
 
-            if (_status != 'all') {
-              if (_status == 'active') {
-                if (!entry.user.isActive) {
-                  return false;
-                }
-              } else if (
-                  entry.user.normalizedStatus !=
-                      _status) {
-                return false;
-              }
+            if (_status != 'all' &&
+                entry.effectiveStatus !=
+                    _status) {
+              return false;
             }
 
             final query =
@@ -71,9 +65,21 @@ class _AdminAccountsScreenState
               return true;
             }
 
+            final extraHistoryText =
+                entry.verificationHistory
+                    .map(
+                      (item) =>
+                          '${item.action} ${item.reason}',
+                    )
+                    .join(' ')
+                    .toLowerCase();
+
             return entry.searchableText.contains(
-              query,
-            );
+                  query,
+                ) ||
+                extraHistoryText.contains(
+                  query,
+                );
           },
         )
         .toList();
@@ -114,16 +120,14 @@ class _AdminAccountsScreenState
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Column(
       children: [
-        const AdminPageTitle(
+        AdminPageTitle(
           title:
               'Accounts Directory',
           subtitle:
-              'Browse pilots and companies by account status',
+              '${widget.controller.knownAccounts.length} known account${widget.controller.knownAccounts.length == 1 ? '' : 's'} • classified by verification history',
         ),
 
         Padding(
@@ -135,10 +139,9 @@ class _AdminAccountsScreenState
             10,
           ),
           child:
-              _ScopeBanner(
-            complete:
-                widget.controller
-                    .hasCompleteDirectoryApi,
+              _StatusSummary(
+            controller:
+                widget.controller,
           ),
         ),
 
@@ -155,7 +158,7 @@ class _AdminAccountsScreenState
             controller:
                 _searchController,
             hint:
-                'Search account, email, username or location',
+                'Search account, email, username, reason or location',
             onChanged:
                 (value) {
               setState(() {
@@ -253,7 +256,7 @@ class _AdminAccountsScreenState
               ),
               _StatusChip(
                 label:
-                    'Active',
+                    'Approved',
                 value:
                     'active',
                 selected:
@@ -296,20 +299,28 @@ class _AdminAccountsScreenState
             color:
                 AdminColors.tealDark,
             onRefresh:
-                widget.onRefresh,
+                () async {
+              await widget.onRefresh();
+
+              if (mounted) {
+                setState(() {});
+              }
+            },
             child:
                 _visible.isEmpty
                     ? ListView(
                         physics:
                             const AlwaysScrollableScrollPhysics(),
-                        children: const [
+                        children: [
                           AdminEmptyState(
                             icon:
                                 Icons.manage_search_rounded,
                             title:
-                                'No accounts in this view',
+                                'No accounts in this status',
                             message:
-                                'Change the filters or search text to see other accounts.',
+                                _status == 'all'
+                                    ? 'Change the role filter or search text.'
+                                    : 'No known ${_status == 'active' ? 'approved' : _status} accounts match the current filters.',
                           ),
                         ],
                       )
@@ -370,79 +381,148 @@ class _AdminAccountsScreenState
   }
 }
 
-class _ScopeBanner
+class _StatusSummary
     extends StatelessWidget {
-  const _ScopeBanner({
-    required this.complete,
+  const _StatusSummary({
+    required this.controller,
   });
 
-  final bool complete;
+  final AdminController controller;
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    if (complete) {
-      return const SizedBox.shrink();
-    }
+    return Row(
+      children: [
+        Expanded(
+          child:
+              _SummaryMini(
+            label:
+                'Approved',
+            value:
+                controller.knownActiveCount,
+            color:
+                AdminColors.success,
+            background:
+                AdminColors.successSoft,
+          ),
+        ),
+        const SizedBox(
+          width:
+              8,
+        ),
+        Expanded(
+          child:
+              _SummaryMini(
+            label:
+                'Suspended',
+            value:
+                controller.knownSuspendedCount,
+            color:
+                AdminColors.warning,
+            background:
+                const Color(
+              0xFFFFF0E3,
+            ),
+          ),
+        ),
+        const SizedBox(
+          width:
+              8,
+        ),
+        Expanded(
+          child:
+              _SummaryMini(
+            label:
+                'Rejected',
+            value:
+                controller.knownRejectedCount,
+            color:
+                AdminColors.danger,
+            background:
+                AdminColors.dangerSoft,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
+class _SummaryMini
+    extends StatelessWidget {
+  const _SummaryMini({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
     return Container(
-      width:
-          double.infinity,
       padding:
-          const EdgeInsets.all(
-        13,
+          const EdgeInsets.symmetric(
+        horizontal:
+            11,
+        vertical:
+            10,
       ),
       decoration:
           BoxDecoration(
         color:
-            const Color(
-          0xFFFFF9E8,
-        ),
+            background,
         borderRadius:
             BorderRadius.circular(
-          17,
-        ),
-        border:
-            Border.all(
-          color:
-              const Color(
-            0xFFFFE6A3,
-          ),
+          16,
         ),
       ),
       child:
-          const Row(
+          Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            color:
-                AdminColors.warning,
-            size:
-                18,
+          Text(
+            '$value',
+            style:
+                TextStyle(
+              color:
+                  color,
+              fontSize:
+                  18,
+              height:
+                  1,
+              fontWeight:
+                  FontWeight.w900,
+            ),
           ),
-          SizedBox(
-            width:
-                9,
+          const SizedBox(
+            height:
+                5,
           ),
-          Expanded(
+          FittedBox(
+            fit:
+                BoxFit.scaleDown,
+            alignment:
+                Alignment.centerLeft,
             child:
                 Text(
-              'The supplied API currently lists pending accounts only. This directory also keeps accounts updated by this admin during the current session. Add the backend “all pilots / all companies” list endpoints to make this directory fully historical.',
+              label,
               style:
                   TextStyle(
                 color:
-                    Color(
-                  0xFF80621D,
-                ),
+                    color,
                 fontSize:
-                    9.8,
-                height:
-                    1.45,
+                    8.8,
                 fontWeight:
-                    FontWeight.w600,
+                    FontWeight.w800,
               ),
             ),
           ),
@@ -658,6 +738,19 @@ class _AccountCard
   Widget build(
     BuildContext context,
   ) {
+    final latest =
+        entry.latestHistoryAction;
+
+    final action =
+        entry.latestAction;
+
+    final actionLabel =
+        action.isEmpty
+            ? 'Current status'
+            : _prettyAction(
+                action,
+              );
+
     return Material(
       color:
           Colors.white,
@@ -693,6 +786,8 @@ class _AccountCard
           ),
           child:
               Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               AdminInitialAvatar(
                 name:
@@ -700,10 +795,12 @@ class _AccountCard
                 isCompany:
                     entry.isCompany,
               ),
+
               const SizedBox(
                 width:
                     12,
               ),
+
               Expanded(
                 child:
                     Column(
@@ -731,20 +828,24 @@ class _AccountCard
                             ),
                           ),
                         ),
+
                         const SizedBox(
                           width:
                               7,
                         ),
+
                         AdminStatusBadge(
                           status:
-                              entry.user.status,
+                              entry.effectiveStatus,
                         ),
                       ],
                     ),
+
                     const SizedBox(
                       height:
                           5,
                     ),
+
                     Row(
                       children: [
                         Container(
@@ -782,10 +883,12 @@ class _AccountCard
                             ),
                           ),
                         ),
+
                         const SizedBox(
                           width:
                               7,
                         ),
+
                         Expanded(
                           child:
                               Text(
@@ -805,40 +908,197 @@ class _AccountCard
                         ),
                       ],
                     ),
+
                     const SizedBox(
                       height:
-                          8,
+                          9,
                     ),
-                    Text(
-                      entry.subtitle,
-                      maxLines:
-                          1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
-                        color:
-                            AdminColors.muted2,
-                        fontSize:
-                            9.5,
+
+                    Row(
+                      children: [
+                        Icon(
+                          _actionIcon(
+                            action,
+                          ),
+                          size:
+                              13,
+                          color:
+                              _actionColor(
+                            entry.effectiveStatus,
+                          ),
+                        ),
+                        const SizedBox(
+                          width:
+                              5,
+                        ),
+                        Expanded(
+                          child:
+                              Text(
+                            latest == null
+                                ? '$actionLabel • ${_prettyAction(entry.effectiveStatus)}'
+                                : '$actionLabel • ${adminDate(latest.createdAt)}',
+                            maxLines:
+                                1,
+                            overflow:
+                                TextOverflow.ellipsis,
+                            style:
+                                TextStyle(
+                              color:
+                                  _actionColor(
+                                entry.effectiveStatus,
+                              ),
+                              fontSize:
+                                  9.4,
+                              fontWeight:
+                                  FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    if (entry.latestReason.isNotEmpty) ...[
+                      const SizedBox(
+                        height:
+                            7,
                       ),
-                    ),
+                      Container(
+                        width:
+                            double.infinity,
+                        padding:
+                            const EdgeInsets.symmetric(
+                          horizontal:
+                              9,
+                          vertical:
+                              7,
+                        ),
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              AdminColors.bg,
+                          borderRadius:
+                              BorderRadius.circular(
+                            11,
+                          ),
+                        ),
+                        child:
+                            Text(
+                          entry.latestReason,
+                          maxLines:
+                              2,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style:
+                              const TextStyle(
+                            color:
+                                AdminColors.muted,
+                            fontSize:
+                                8.9,
+                            height:
+                                1.35,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+
               const SizedBox(
                 width:
                     7,
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color:
-                    AdminColors.muted2,
+
+              const Padding(
+                padding:
+                    EdgeInsets.only(
+                  top:
+                      28,
+                ),
+                child:
+                    Icon(
+                  Icons.chevron_right_rounded,
+                  color:
+                      AdminColors.muted2,
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+String _prettyAction(
+  String value,
+) {
+  final clean =
+      value.trim();
+
+  if (clean.isEmpty) {
+    return 'Unknown';
+  }
+
+  if (clean == 'active') {
+    return 'Approved';
+  }
+
+  return clean
+      .split(
+        RegExp(
+          r'[_\s-]+',
+        ),
+      )
+      .map(
+        (part) =>
+            part.isEmpty
+                ? part
+                : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
+      .join(
+        ' ',
+      );
+}
+
+Color _actionColor(
+  String status,
+) {
+  switch (status) {
+    case 'active':
+    case 'approved':
+    case 'verified':
+      return AdminColors.success;
+
+    case 'suspended':
+      return AdminColors.warning;
+
+    case 'rejected':
+      return AdminColors.danger;
+
+    default:
+      return AdminColors.tealDark;
+  }
+}
+
+IconData _actionIcon(
+  String action,
+) {
+  switch (action) {
+    case 'approved':
+      return Icons.verified_rounded;
+
+    case 'rejected':
+      return Icons.cancel_rounded;
+
+    case 'suspended':
+      return Icons.pause_circle_filled_rounded;
+
+    case 'reactivated':
+    case 'reactivate':
+      return Icons.restart_alt_rounded;
+
+    default:
+      return Icons.history_rounded;
   }
 }

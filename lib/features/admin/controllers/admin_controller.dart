@@ -10,17 +10,22 @@ class AdminController {
 
   AdminController(this.service);
 
-  List<AdminPendingPilotModel> pendingPilots = [];
-  List<AdminPendingCompanyModel> pendingCompanies = [];
+  List<AdminPendingPilotModel>
+      pendingPilots = [];
 
-  final Map<int, AdminDirectoryEntry> _knownAccounts = {};
+  List<AdminPendingCompanyModel>
+      pendingCompanies = [];
+
+  final Map<int, AdminDirectoryEntry>
+      _knownAccounts = {};
 
   bool loading = false;
   bool actionLoading = false;
 
   String? errorMessage;
 
-  int get pendingPilotCount => pendingPilots.length;
+  int get pendingPilotCount =>
+      pendingPilots.length;
 
   int get pendingCompanyCount =>
       pendingCompanies.length;
@@ -29,21 +34,28 @@ class AdminController {
       pendingPilotCount +
       pendingCompanyCount;
 
-  List<AdminDirectoryEntry> get knownAccounts {
+  List<AdminDirectoryEntry>
+      get knownAccounts {
     final items =
         _knownAccounts.values.toList();
 
     items.sort(
       (a, b) {
         final aDate =
+            a.latestActionAt ??
             a.user.updatedAt ??
             a.user.createdAt ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+            DateTime.fromMillisecondsSinceEpoch(
+              0,
+            );
 
         final bDate =
+            b.latestActionAt ??
             b.user.updatedAt ??
             b.user.createdAt ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+            DateTime.fromMillisecondsSinceEpoch(
+              0,
+            );
 
         return bDate.compareTo(aDate);
       },
@@ -55,28 +67,40 @@ class AdminController {
   int get knownPilotCount =>
       knownAccounts
           .where(
-            (item) => item.isPilot,
+            (item) =>
+                item.isPilot,
           )
           .length;
 
   int get knownCompanyCount =>
       knownAccounts
           .where(
-            (item) => item.isCompany,
+            (item) =>
+                item.isCompany,
+          )
+          .length;
+
+  int get knownPendingCount =>
+      knownAccounts
+          .where(
+            (item) =>
+                item.isEffectivelyPending,
           )
           .length;
 
   int get knownActiveCount =>
       knownAccounts
           .where(
-            (item) => item.user.isActive,
+            (item) =>
+                item.isEffectivelyActive,
           )
           .length;
 
   int get knownSuspendedCount =>
       knownAccounts
           .where(
-            (item) => item.user.isSuspended,
+            (item) =>
+                item.isEffectivelySuspended,
           )
           .length;
 
@@ -84,15 +108,15 @@ class AdminController {
       knownAccounts
           .where(
             (item) =>
-                item.user.normalizedStatus ==
-                'rejected',
+                item.isEffectivelyRejected,
           )
           .length;
 
-  // The supplied backend collection exposes only pending list endpoints.
-  // Therefore this directory is "known accounts": current pending records
-  // plus accounts changed by this admin during the current app session.
-  bool get hasCompleteDirectoryApi => false;
+  // The supplied backend collection exposes only pending account-list
+  // endpoints. Verification history can classify a known account, but
+  // it cannot discover accounts that were never returned by a list API.
+  bool get hasCompleteDirectoryApi =>
+      false;
 
   Future<bool> loadDashboard() async {
     if (loading) {
@@ -116,18 +140,38 @@ class AdminController {
           companies;
 
       for (final pilot in pilots) {
+        final existing =
+            _knownAccounts[
+              pilot.user.id
+            ];
+
         _knownAccounts[pilot.user.id] =
             AdminDirectoryEntry.pilot(
           pilot,
+          verificationHistory:
+              existing
+                      ?.verificationHistory ??
+                  const [],
         );
       }
 
       for (final company in companies) {
+        final existing =
+            _knownAccounts[
+              company.user.id
+            ];
+
         _knownAccounts[company.user.id] =
             AdminDirectoryEntry.company(
           company,
+          verificationHistory:
+              existing
+                      ?.verificationHistory ??
+                  const [],
         );
       }
+
+      await _refreshKnownHistories();
 
       return true;
     } catch (e) {
@@ -154,6 +198,8 @@ class AdminController {
       ),
       removePendingUserId:
           userId,
+      refreshHistory:
+          true,
     );
   }
 
@@ -169,6 +215,8 @@ class AdminController {
       ),
       removePendingUserId:
           userId,
+      refreshHistory:
+          true,
     );
   }
 
@@ -182,6 +230,8 @@ class AdminController {
         userId: userId,
         reason: reason,
       ),
+      refreshHistory:
+          true,
     );
   }
 
@@ -193,6 +243,8 @@ class AdminController {
           service.reactivateUser(
         userId,
       ),
+      refreshHistory:
+          true,
     );
   }
 
@@ -203,10 +255,25 @@ class AdminController {
     errorMessage = null;
 
     try {
-      return await service
-          .getVerificationHistory(
+      final history =
+          await service
+              .getVerificationHistory(
         userId,
       );
+
+      final existing =
+          _knownAccounts[
+            userId
+          ];
+
+      if (existing != null) {
+        _knownAccounts[userId] =
+            existing.withHistory(
+          history,
+        );
+      }
+
+      return history;
     } catch (e) {
       errorMessage =
           e.toString();
@@ -215,10 +282,69 @@ class AdminController {
     }
   }
 
+  Future<void> _refreshKnownHistories()
+      async {
+    final ids =
+        _knownAccounts.keys.toList();
+
+    for (final userId in ids) {
+      try {
+        final history =
+            await service
+                .getVerificationHistory(
+          userId,
+        );
+
+        final existing =
+            _knownAccounts[
+              userId
+            ];
+
+        if (existing != null) {
+          _knownAccounts[userId] =
+              existing.withHistory(
+            history,
+          );
+        }
+      } catch (_) {
+        // History should enrich the directory, not block the whole
+        // Admin dashboard when one user's history cannot be loaded.
+      }
+    }
+  }
+
+  Future<void> _refreshHistoryForUser(
+    int userId,
+  ) async {
+    try {
+      final history =
+          await service
+              .getVerificationHistory(
+        userId,
+      );
+
+      final existing =
+          _knownAccounts[
+            userId
+          ];
+
+      if (existing != null) {
+        _knownAccounts[userId] =
+            existing.withHistory(
+          history,
+        );
+      }
+    } catch (_) {
+      // The action already succeeded. History refresh failure should
+      // not turn the successful account action into a failed action.
+    }
+  }
+
   Future<AdminUserModel?> _action(
     Future<AdminUserModel> Function()
         call, {
     int? removePendingUserId,
+    bool refreshHistory = false,
   }) async {
     if (actionLoading) {
       return null;
@@ -235,7 +361,9 @@ class AdminController {
           await call();
 
       final existing =
-          _knownAccounts[updated.id];
+          _knownAccounts[
+            updated.id
+          ];
 
       if (existing != null) {
         _knownAccounts[updated.id] =
@@ -250,7 +378,8 @@ class AdminController {
         if (pendingPilots[i].user.id ==
             updated.id) {
           pendingPilots[i] =
-              pendingPilots[i].copyWithUser(
+              pendingPilots[i]
+                  .copyWithUser(
             updated,
           );
         }
@@ -280,6 +409,12 @@ class AdminController {
           (item) =>
               item.user.id ==
               removePendingUserId,
+        );
+      }
+
+      if (refreshHistory) {
+        await _refreshHistoryForUser(
+          updated.id,
         );
       }
 

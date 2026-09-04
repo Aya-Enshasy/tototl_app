@@ -28,9 +28,9 @@ class AdminService {
         .whereType<Map>()
         .map(
           (item) => AdminPendingPilotModel.fromJson(
-        Map<String, dynamic>.from(item),
-      ),
-    )
+            Map<String, dynamic>.from(item),
+          ),
+        )
         .toList();
   }
 
@@ -48,9 +48,9 @@ class AdminService {
         .whereType<Map>()
         .map(
           (item) => AdminPendingCompanyModel.fromJson(
-        Map<String, dynamic>.from(item),
-      ),
-    )
+            Map<String, dynamic>.from(item),
+          ),
+        )
         .toList();
   }
 
@@ -111,7 +111,7 @@ class AdminService {
   }
 
   Future<List<AdminVerificationHistoryModel>>
-  getVerificationHistory(int userId) async {
+      getVerificationHistory(int userId) async {
     final response = await _authorizedGet(
       ApiEndpoints.adminVerificationHistory(userId),
     );
@@ -134,9 +134,9 @@ class AdminService {
         .whereType<Map>()
         .map(
           (item) => AdminVerificationHistoryModel.fromJson(
-        Map<String, dynamic>.from(item),
-      ),
-    )
+            Map<String, dynamic>.from(item),
+          ),
+        )
         .toList();
   }
 
@@ -161,9 +161,9 @@ class AdminService {
   }
 
   Future<Response<dynamic>> _authorizedPost(
-      String path, {
-        Object? data,
-      }) async {
+    String path, {
+    Object? data,
+  }) async {
     final token = await _token();
 
     try {
@@ -186,9 +186,9 @@ class AdminService {
   }
 
   AdminUserModel _parseActionUser(
-      Response<dynamic> response, {
-        required String fallback,
-      }) {
+    Response<dynamic> response, {
+    required String fallback,
+  }) {
     final body = _body(response.data);
     final raw = body['data'];
 
@@ -253,9 +253,9 @@ class AdminService {
   }
 
   String _messageFromBody(
-      Map<String, dynamic> body, {
-        required String fallback,
-      }) {
+    Map<String, dynamic> body, {
+    required String fallback,
+  }) {
     final errors = body['errors'];
 
     if (errors is Map) {
