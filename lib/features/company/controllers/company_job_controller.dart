@@ -1,0 +1,152 @@
+import '../models/company_create_job_request.dart';
+import '../models/company_job_application_model.dart';
+import '../models/company_job_posting_model.dart';
+import '../models/company_update_job_request.dart';
+import '../services/company_job_service.dart';
+
+class CompanyJobController {
+  final CompanyJobService service;
+
+  CompanyJobController(this.service);
+
+  bool isCreating = false;
+  bool isPublishing = false;
+  bool isLoadingJobs = false;
+  bool isLoadingDetail = false;
+  bool isLoadingApplicants = false;
+  bool isUpdating = false;
+  bool isDeleting = false;
+
+  String? errorMessage;
+  String? applicantsErrorMessage;
+
+  List<CompanyJobPostingModel> jobs = const [];
+  CompanyJobPostingModel? selectedJob;
+  List<CompanyJobApplicationModel> applicants = const [];
+
+  Future<bool> loadMyJobs() async {
+    if (isLoadingJobs) return false;
+
+    isLoadingJobs = true;
+    errorMessage = null;
+
+    try {
+      jobs = await service.getMyJobs();
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingJobs = false;
+    }
+  }
+
+  Future<bool> loadJobDetails(int jobId) async {
+    if (isLoadingDetail) return false;
+
+    isLoadingDetail = true;
+    errorMessage = null;
+
+    try {
+      selectedJob = await service.getJobDetails(jobId);
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingDetail = false;
+    }
+  }
+
+  Future<bool> loadApplicants(int jobId) async {
+    if (isLoadingApplicants) return false;
+
+    isLoadingApplicants = true;
+    applicantsErrorMessage = null;
+
+    try {
+      applicants = await service.getApplicants(jobId);
+      return true;
+    } catch (e) {
+      applicants = const [];
+      applicantsErrorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingApplicants = false;
+    }
+  }
+
+  Future<CompanyJobPostingModel?> createJob(
+    CompanyCreateJobRequest request,
+  ) async {
+    if (isCreating) return null;
+
+    isCreating = true;
+    errorMessage = null;
+
+    try {
+      return await service.createJob(request);
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isCreating = false;
+    }
+  }
+
+  Future<CompanyJobPostingModel?> updateJob(
+    int jobId,
+    CompanyUpdateJobRequest request,
+  ) async {
+    if (isUpdating) return null;
+
+    isUpdating = true;
+    errorMessage = null;
+
+    try {
+      final updated = await service.updateJob(jobId, request);
+      selectedJob = updated;
+      return updated;
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isUpdating = false;
+    }
+  }
+
+  Future<bool> deleteJob(int jobId) async {
+    if (isDeleting) return false;
+
+    isDeleting = true;
+    errorMessage = null;
+
+    try {
+      await service.deleteJob(jobId);
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      return false;
+    } finally {
+      isDeleting = false;
+    }
+  }
+
+  Future<CompanyJobPostingModel?> publishJob(int jobId) async {
+    if (isPublishing) return null;
+
+    isPublishing = true;
+    errorMessage = null;
+
+    try {
+      final published = await service.publishJob(jobId);
+      selectedJob = published;
+      return published;
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isPublishing = false;
+    }
+  }
+}

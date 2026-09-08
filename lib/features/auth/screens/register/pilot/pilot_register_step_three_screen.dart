@@ -828,7 +828,7 @@ class _PilotRegisterStepThreeScreenState
         _capabilityToApiValue,
       )
           .toList(),
-      flightTimePerBatteryMinutes:
+      flightTime:
       flightTime,
       totalBatteries:
       totalBatteries,
@@ -1471,11 +1471,7 @@ class _PilotRegisterStepThreeScreenState
                                         .fitness_center_rounded,
 
                                     keyboardType:
-                                    const TextInputType
-                                        .numberWithOptions(
-                                      decimal:
-                                      true,
-                                    ),
+                                    TextInputType.number,
 
                                     textInputAction:
                                     TextInputAction
@@ -1587,7 +1583,7 @@ class _PilotRegisterStepThreeScreenState
 
                                 children: [
                                   _buildSmallLabel(
-                                    'Flight Time per Battery (hours)',
+                                    'Flight Time (minutes)',
                                   ),
 
                                   const SizedBox(
@@ -1599,7 +1595,7 @@ class _PilotRegisterStepThreeScreenState
                                     _flightTimeController,
 
                                     hintText:
-                                    'e.g. 3',
+                                    'e.g. 45',
 
                                     prefixIcon:
                                     Icons

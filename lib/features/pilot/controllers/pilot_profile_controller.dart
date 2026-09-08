@@ -17,12 +17,19 @@ class PilotProfileController {
   Future<PilotProfileViewData> _buildViewData(
       PilotProfileModel profile,
       ) async {
-    final userJson = await UserSessionStorage.getUser();
-    final photoUrl = await UserSessionStorage.getProfilePhotoUrl() ?? '';
+    final userJson =
+    await UserSessionStorage.getUser();
+
+    final photoUrl =
+        await UserSessionStorage
+            .getProfilePhotoUrl() ??
+            '';
 
     final account = userJson == null
         ? const PilotAccountModel()
-        : PilotAccountModel.fromJson(userJson);
+        : PilotAccountModel.fromJson(
+      userJson,
+    );
 
     return PilotProfileViewData(
       account: account,
@@ -31,23 +38,40 @@ class PilotProfileController {
     );
   }
 
-  Future<PilotProfileViewData?> loadLocalProfile() async {
-    try {
-      final userJson = await UserSessionStorage.getUser();
-      final profileJson = await UserSessionStorage.getProfile();
-      final photoUrl = await UserSessionStorage.getProfilePhotoUrl() ?? '';
+  // ==========================================================================
+  // LOCAL PROFILE
+  // ==========================================================================
 
-      if (userJson == null && profileJson == null) {
+  Future<PilotProfileViewData?>
+  loadLocalProfile() async {
+    try {
+      final userJson =
+      await UserSessionStorage.getUser();
+
+      final profileJson =
+      await UserSessionStorage.getProfile();
+
+      final photoUrl =
+          await UserSessionStorage
+              .getProfilePhotoUrl() ??
+              '';
+
+      if (userJson == null &&
+          profileJson == null) {
         return null;
       }
 
       final account = userJson == null
           ? const PilotAccountModel()
-          : PilotAccountModel.fromJson(userJson);
+          : PilotAccountModel.fromJson(
+        userJson,
+      );
 
       final profile = profileJson == null
           ? const PilotProfileModel()
-          : PilotProfileModel.fromJson(profileJson);
+          : PilotProfileModel.fromJson(
+        profileJson,
+      );
 
       return PilotProfileViewData(
         account: account,
@@ -59,58 +83,99 @@ class PilotProfileController {
     }
   }
 
-  Future<PilotProfileViewData?> refreshSilently() async {
-    try {
-      final freshProfile = await service.getMyProfile();
+  // ==========================================================================
+  // REFRESH FROM GET /me
+  // ==========================================================================
 
-      await UserSessionStorage.updateProfile(
+  Future<PilotProfileViewData?>
+  refreshSilently() async {
+    try {
+      final freshProfile =
+      await service.getMyProfile();
+
+      // The service already caches the complete /me response.
+      // Merge again instead of replacing so extra /me keys are preserved.
+      await UserSessionStorage.mergeProfile(
         freshProfile.toJson(),
       );
 
-      return _buildViewData(freshProfile);
+      return _buildViewData(
+        freshProfile,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  Future<PilotProfileViewData?> loadEditProfile() async {
+  // ==========================================================================
+  // LOAD EDIT PROFILE
+  // ==========================================================================
+
+  Future<PilotProfileViewData?>
+  loadEditProfile() async {
     errorMessage = null;
 
-    final local = await loadLocalProfile();
+    final local =
+    await loadLocalProfile();
+
     if (local != null) {
       return local;
     }
 
     try {
-      final freshProfile = await service.getMyProfile();
+      final freshProfile =
+      await service.getMyProfile();
 
-      await UserSessionStorage.updateProfile(
+      await UserSessionStorage.mergeProfile(
         freshProfile.toJson(),
       );
 
-      return _buildViewData(freshProfile);
+      return _buildViewData(
+        freshProfile,
+      );
     } catch (e) {
       errorMessage = e.toString();
       return null;
     }
   }
 
-  Future<PilotProfileViewData?> updateProfile(
+  // ==========================================================================
+  // UPDATE PROFILE
+  // ==========================================================================
+
+  Future<PilotProfileViewData?>
+  updateProfile(
       PilotProfileUpdateRequest request,
       ) async {
-    if (isUpdating) return null;
+    if (isUpdating) {
+      return null;
+    }
 
     isUpdating = true;
     errorMessage = null;
 
     try {
-      final freshProfile = await service.updateMyProfile(request);
-
-      await UserSessionStorage.updateProfile(
-        freshProfile.toJson(),
+      final freshProfile =
+      await service.updateMyProfile(
+        request,
       );
 
-      return _buildViewData(freshProfile);
+      // Do not replace the entire cached /me profile.
+      // This keeps profile_photo, drones, licenses and any other /me-only keys.
+      final cacheData =
+      freshProfile.toJson();
+
+      cacheData.addAll(
+        request.toJson(),
+      );
+
+      await UserSessionStorage.mergeProfile(
+        cacheData,
+      );
+
+      return _buildViewData(
+        freshProfile,
+      );
     } catch (e) {
       errorMessage = e.toString();
       return null;
@@ -119,21 +184,37 @@ class PilotProfileController {
     }
   }
 
-  Future<ProfileDocumentModel?> uploadProfilePhoto({
+  // ==========================================================================
+  // PROFILE PHOTO
+  // ==========================================================================
+
+  Future<ProfileDocumentModel?>
+  uploadProfilePhoto({
     required String filePath,
   }) async {
-    if (isUploadingPhoto) return null;
+    if (isUploadingPhoto) {
+      return null;
+    }
 
     isUploadingPhoto = true;
     errorMessage = null;
 
     try {
-      final document = await service.uploadProfilePhoto(
+      final document =
+      await service.uploadProfilePhoto(
         filePath: filePath,
       );
 
-      await UserSessionStorage.updateProfilePhotoUrl(
+      await UserSessionStorage
+          .updateProfilePhotoUrl(
         document.url,
+      );
+
+      // Also keep the direct profile_photo key aligned with GET /me format.
+      await UserSessionStorage.mergeProfile(
+        {
+          'profile_photo': document.url,
+        },
       );
 
       return document;

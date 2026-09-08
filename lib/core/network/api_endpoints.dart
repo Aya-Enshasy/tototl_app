@@ -9,33 +9,45 @@ class ApiEndpoints {
   static const String pilotRegister = '/auth/register/pilot';
   static const String companyRegister = '/auth/register/company';
   static const String logout = '/auth/logout';
-  static const String me = '/auth/me';
+  static const String me = '/me';
   static const String pilotProfile = '/pilot/profile';
-  static const String  editPilotProfile = '/pilot/profile';
+  static const String editPilotProfile = '/pilot/profile';
   static const String profileDocuments = '/profile/documents';
   static const String companyProfile = '/company/profile';
 
   // Password
   static const String forgotPassword = '/auth/password/forgot';
 
+  // Drones
+  static const String drones = '/drones';
 
-  //drones
-  static const String drones =
-      '/drones';
   /// GET    /drones/{id}
   /// PATCH  /drones/{id}
   /// DELETE /drones/{id}
-  static String drone(int droneId,) {return '/drones/$droneId';}
+  static String drone(int droneId) {
+    return '/drones/$droneId';
+  }
+
+  // ==========================================================================
+  // COMPANY JOBS
+  // ==========================================================================
+
+  /// GET  /company/job-postings
+  /// POST /company/job-postings
+  static const String companyJobPostings = '/company/job-postings';
+
+  /// POST /company/job-postings/{id}/publish
+  static String publishCompanyJob(int jobId) {
+    return '/company/job-postings/$jobId/publish';
+  }
 
   // ==========================================================================
   // ADMIN
   // ==========================================================================
 
-  static const String adminPendingPilots =
-      '/admin/pilots/pending';
+  static const String adminPendingPilots = '/admin/pilots/pending';
 
-  static const String adminPendingCompanies =
-      '/admin/companies/pending';
+  static const String adminPendingCompanies = '/admin/companies/pending';
 
   // ==========================================================================
   // ADMIN - VERIFICATION ACTIONS

@@ -370,7 +370,7 @@ class _ActiveJobPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => CompanyJobDetailScreen(companyJob: companyJob),
+            builder: (_) => CompanyJobDetailScreen(jobId: 0),
           ),
         ),
         child: Container(

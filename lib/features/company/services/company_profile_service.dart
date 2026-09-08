@@ -4,6 +4,8 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
+import '../../auth/controllers/user_session_storage.dart';
+
 import '../models/company_profile_model.dart';
 import '../models/company_profile_update_model.dart';
 
@@ -20,6 +22,10 @@ class CompanyProfileService {
 
   // ==========================================================================
   // GET MY COMPANY PROFILE
+  //
+  // IMPORTANT:
+  // Read current account + profile from GET /me.
+  // PATCH remains /company/profile.
   // ==========================================================================
 
   Future<CompanyProfileModel>
@@ -30,7 +36,7 @@ class CompanyProfileService {
     try {
       final response =
       await apiClient.get(
-        ApiEndpoints.companyProfile,
+        ApiEndpoints.me,
         options: Options(
           headers: {
             'Accept':
@@ -61,14 +67,67 @@ class CompanyProfileService {
 
       if (rawData is! Map) {
         throw const CompanyProfileException(
+          'Account data is missing.',
+        );
+      }
+
+      final meData =
+      Map<String, dynamic>.from(
+        rawData,
+      );
+
+      // ----------------------------------------------------------------------
+      // USER
+      // ----------------------------------------------------------------------
+
+      final rawUser =
+      meData['user'];
+
+      if (rawUser is Map) {
+        await UserSessionStorage
+            .updateUser(
+          Map<String, dynamic>.from(
+            rawUser,
+          ),
+        );
+      }
+
+      // ----------------------------------------------------------------------
+      // PROFILE
+      // ----------------------------------------------------------------------
+
+      final rawProfile =
+      meData['profile'];
+
+      if (rawProfile is! Map) {
+        throw const CompanyProfileException(
           'Company profile data is missing.',
         );
       }
 
+      final profileJson =
+      Map<String, dynamic>.from(
+        rawProfile,
+      );
+
+      await UserSessionStorage.mergeProfile(
+        profileJson,
+      );
+
+      // profile_photo is a direct URL String or null.
+      final profilePhotoUrl =
+          profileJson['profile_photo']
+              ?.toString()
+              .trim() ??
+              '';
+
+      await UserSessionStorage
+          .updateProfilePhotoUrl(
+        profilePhotoUrl,
+      );
+
       return CompanyProfileModel.fromJson(
-        Map<String, dynamic>.from(
-          rawData,
-        ),
+        profileJson,
       );
     } on DioException catch (e) {
       throw CompanyProfileException(
@@ -154,8 +213,7 @@ class CompanyProfileService {
   // TOKEN
   // ==========================================================================
 
-  Future<String>
-  _getToken() async {
+  Future<String> _getToken() async {
     final token =
     await TokenStorage
         .getAccessToken();
@@ -200,11 +258,14 @@ class CompanyProfileService {
     body['errors'];
 
     if (errors is Map) {
-      for (final value in errors.values) {
+      for (final value
+      in errors.values) {
         if (value is List &&
             value.isNotEmpty) {
           final first =
-          value.first.toString().trim();
+          value.first
+              .toString()
+              .trim();
 
           if (first.isNotEmpty) {
             return first;
@@ -213,7 +274,9 @@ class CompanyProfileService {
 
         if (value != null) {
           final text =
-          value.toString().trim();
+          value
+              .toString()
+              .trim();
 
           if (text.isNotEmpty) {
             return text;

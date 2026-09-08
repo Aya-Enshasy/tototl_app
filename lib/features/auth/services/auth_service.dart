@@ -421,8 +421,8 @@ class AuthService {
       // ----------------------------------------------------------------------
 
       addField(
-        'drone[flight_time_per_battery_minutes]',
-        drone.flightTimePerBatteryMinutes,
+        'drone[flight_time]',
+        drone.flightTime,
       );
 
       addField(

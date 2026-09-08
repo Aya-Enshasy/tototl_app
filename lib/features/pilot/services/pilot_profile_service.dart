@@ -6,6 +6,8 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
+import '../../auth/controllers/user_session_storage.dart';
+
 import '../models/pilot_profile_model.dart';
 import '../models/pilot_profile_update_model.dart';
 import '../models/profile_document_model.dart';
@@ -15,12 +17,20 @@ class PilotProfileService {
 
   PilotProfileService(this.apiClient);
 
+  // ==========================================================================
+  // GET MY PROFILE
+  //
+  // IMPORTANT:
+  // Read current user/profile data from GET /me.
+  // PATCH still uses /pilot/profile.
+  // ==========================================================================
+
   Future<PilotProfileModel> getMyProfile() async {
     final token = await _getToken();
 
     try {
       final response = await apiClient.get(
-        ApiEndpoints.pilotProfile,
+        ApiEndpoints.me,
         options: Options(
           headers: {
             'Accept': 'application/json',
@@ -41,19 +51,73 @@ class PilotProfileService {
       }
 
       final data = body['data'];
+
       if (data is! Map) {
+        throw const PilotProfileException(
+          'Account data is missing.',
+        );
+      }
+
+      final meData = Map<String, dynamic>.from(data);
+
+      // ----------------------------------------------------------------------
+      // USER
+      // ----------------------------------------------------------------------
+
+      final rawUser = meData['user'];
+
+      if (rawUser is Map) {
+        await UserSessionStorage.updateUser(
+          Map<String, dynamic>.from(rawUser),
+        );
+      }
+
+      // ----------------------------------------------------------------------
+      // PROFILE
+      // ----------------------------------------------------------------------
+
+      final rawProfile = meData['profile'];
+
+      if (rawProfile is! Map) {
         throw const PilotProfileException(
           'Pilot profile data is missing.',
         );
       }
 
+      final profileJson =
+      Map<String, dynamic>.from(rawProfile);
+
+      // Keep the complete /me profile cached.
+      // mergeProfile preserves extra keys such as drones/licenses.
+      await UserSessionStorage.mergeProfile(
+        profileJson,
+      );
+
+      // profile_photo is now a direct String URL or null.
+      final profilePhotoUrl =
+          profileJson['profile_photo']
+              ?.toString()
+              .trim() ??
+              '';
+
+      await UserSessionStorage.updateProfilePhotoUrl(
+        profilePhotoUrl,
+      );
+
       return PilotProfileModel.fromJson(
-        Map<String, dynamic>.from(data),
+        profileJson,
       );
     } on DioException catch (e) {
-      throw PilotProfileException(_dioErrorMessage(e));
+      throw PilotProfileException(
+        _dioErrorMessage(e),
+      );
     }
   }
+
+  // ==========================================================================
+  // UPDATE PROFILE
+  // PATCH /pilot/profile
+  // ==========================================================================
 
   Future<PilotProfileModel> updateMyProfile(
       PilotProfileUpdateRequest request,
@@ -85,6 +149,7 @@ class PilotProfileService {
       }
 
       final data = body['data'];
+
       if (data is! Map) {
         throw const PilotProfileException(
           'Updated profile data is missing.',
@@ -95,9 +160,16 @@ class PilotProfileService {
         Map<String, dynamic>.from(data),
       );
     } on DioException catch (e) {
-      throw PilotProfileException(_dioErrorMessage(e));
+      throw PilotProfileException(
+        _dioErrorMessage(e),
+      );
     }
   }
+
+  // ==========================================================================
+  // UPLOAD PROFILE PHOTO
+  // POST /profile/documents
+  // ==========================================================================
 
   Future<ProfileDocumentModel> uploadProfilePhoto({
     required String filePath,
@@ -156,6 +228,7 @@ class PilotProfileService {
       }
 
       final data = body['data'];
+
       if (data is! Map) {
         throw const PilotProfileException(
           'Uploaded photo data is missing.',
@@ -174,9 +247,15 @@ class PilotProfileService {
 
       return document;
     } on DioException catch (e) {
-      throw PilotProfileException(_dioErrorMessage(e));
+      throw PilotProfileException(
+        _dioErrorMessage(e),
+      );
     }
   }
+
+  // ==========================================================================
+  // TOKEN
+  // ==========================================================================
 
   Future<String> _getToken() async {
     final token = await TokenStorage.getAccessToken();
@@ -190,7 +269,13 @@ class PilotProfileService {
     return token.trim();
   }
 
-  Map<String, dynamic> _parseResponseBody(dynamic raw) {
+  // ==========================================================================
+  // RESPONSE HELPERS
+  // ==========================================================================
+
+  Map<String, dynamic> _parseResponseBody(
+      dynamic raw,
+      ) {
     if (raw is! Map) {
       throw const PilotProfileException(
         'Invalid server response.',
@@ -204,20 +289,29 @@ class PilotProfileService {
       Map<String, dynamic> body, {
         required String fallback,
       }) {
-    final message = body['message']?.toString().trim();
-    return message == null || message.isEmpty ? fallback : message;
+    final message =
+    body['message']?.toString().trim();
+
+    return message == null || message.isEmpty
+        ? fallback
+        : message;
   }
 
-  String _dioErrorMessage(DioException error) {
+  String _dioErrorMessage(
+      DioException error,
+      ) {
     final raw = error.response?.data;
 
     if (raw is Map) {
-      final body = Map<String, dynamic>.from(raw);
+      final body =
+      Map<String, dynamic>.from(raw);
+
       final errors = body['errors'];
 
       if (errors is Map) {
         for (final value in errors.values) {
-          if (value is List && value.isNotEmpty) {
+          if (value is List &&
+              value.isNotEmpty) {
             return value.first.toString();
           }
 
@@ -227,21 +321,27 @@ class PilotProfileService {
         }
       }
 
-      final message = body['message']?.toString().trim();
-      if (message != null && message.isNotEmpty) {
+      final message =
+      body['message']?.toString().trim();
+
+      if (message != null &&
+          message.isNotEmpty) {
         return message;
       }
     }
 
-    if (error.type == DioExceptionType.connectionTimeout) {
+    if (error.type ==
+        DioExceptionType.connectionTimeout) {
       return 'Connection timed out. Please try again.';
     }
 
-    if (error.type == DioExceptionType.receiveTimeout) {
+    if (error.type ==
+        DioExceptionType.receiveTimeout) {
       return 'Server response timed out. Please try again.';
     }
 
-    if (error.type == DioExceptionType.connectionError) {
+    if (error.type ==
+        DioExceptionType.connectionError) {
       return 'No internet connection.';
     }
 
@@ -252,7 +352,9 @@ class PilotProfileService {
 class PilotProfileException implements Exception {
   final String message;
 
-  const PilotProfileException(this.message);
+  const PilotProfileException(
+      this.message,
+      );
 
   @override
   String toString() => message;

@@ -19,7 +19,7 @@ class PilotDroneRequest {
     required this.serialNumber,
     required this.weightKg,
     required this.capabilities,
-    required this.flightTimePerBatteryMinutes,
+    required this.flightTime,
     required this.totalBatteries,
     this.batteryType,
     this.batteryUsageFee,
@@ -35,7 +35,7 @@ class PilotDroneRequest {
   final String serialNumber;
   final double weightKg;
   final List<String> capabilities;
-  final int flightTimePerBatteryMinutes;
+  final int flightTime;
   final int totalBatteries;
   final String? batteryType;
   final double? batteryUsageFee;
