@@ -27,7 +27,7 @@ class MyDroneCard extends StatelessWidget {
           count: drones.length,
           onOpenFleet: onOpenFleet,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         if (loading && drones.isEmpty)
           const _DroneShimmer()
         else if (errorMessage != null && drones.isEmpty)
@@ -171,7 +171,7 @@ class _DroneRail extends StatelessWidget {
             : (constraints.maxWidth * 0.86).clamp(280.0, 470.0).toDouble();
 
         return SizedBox(
-          height: 184,
+          height: 164,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -230,10 +230,10 @@ class _DroneItemCardState extends State<_DroneItemCard> {
           onTapDown: (_) => setState(() => _pressed = true),
           onTapCancel: () => setState(() => _pressed = false),
           onTapUp: (_) => setState(() => _pressed = false),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -256,15 +256,15 @@ class _DroneItemCardState extends State<_DroneItemCard> {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
               child: Stack(
                 children: [
                   Positioned(
-                    right: -36,
-                    top: -48,
+                    right: -30,
+                    top: -42,
                     child: Container(
-                      width: 160,
-                      height: 160,
+                      width: 140,
+                      height: 140,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: const Color(0xFF18BFC4).withOpacity(0.07),
@@ -272,11 +272,11 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                     ),
                   ),
                   Positioned(
-                    left: -45,
-                    bottom: -75,
+                    left: -38,
+                    bottom: -66,
                     child: Container(
-                      width: 150,
-                      height: 150,
+                      width: 132,
+                      height: 132,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.blue.withOpacity(0.035),
@@ -284,7 +284,7 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 15, 13, 14),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 11, 12),
                     child: Row(
                       children: [
                         Expanded(
@@ -296,8 +296,8 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
+                                      horizontal: 7,
+                                      vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF14B8B6)
@@ -310,7 +310,7 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                                           : 'Primary aircraft',
                                       style: const TextStyle(
                                         color: Color(0xFF0A8C92),
-                                        fontSize: 9.2,
+                                        fontSize: 8.7,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.25,
                                       ),
@@ -318,34 +318,34 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 7),
                               Text(
                                 drone.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: AppColors.navy,
-                                  fontSize: 17,
-                                  height: 1.08,
+                                  fontSize: 15.5,
+                                  height: 1.06,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: -0.35,
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 5),
                               Row(
                                 children: [
                                   if (drone.year.isNotEmpty) ...[
                                     const Icon(
                                       Icons.calendar_today_outlined,
                                       color: AppColors.grey,
-                                      size: 12,
+                                      size: 11,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       drone.year,
                                       style: const TextStyle(
                                         color: AppColors.grey,
-                                        fontSize: 10.8,
+                                        fontSize: 9.8,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -371,7 +371,7 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           color: AppColors.grey,
-                                          fontSize: 10.3,
+                                          fontSize: 9.4,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -402,19 +402,19 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 7),
                         Expanded(
-                          flex: 11,
+                          flex: 10,
                           child: Stack(
                             clipBehavior: Clip.none,
                             alignment: Alignment.center,
                             children: [
                               Positioned(
-                                right: -12,
-                                top: 0,
+                                right: -8,
+                                top: 4,
                                 child: Container(
-                                  width: 124,
-                                  height: 124,
+                                  width: 104,
+                                  height: 104,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     gradient: RadialGradient(
@@ -432,8 +432,8 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                                 right: -1,
                                 bottom: 3,
                                 child: Container(
-                                  width: 33,
-                                  height: 33,
+                                  width: 29,
+                                  height: 29,
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.96),
                                     shape: BoxShape.circle,
@@ -450,7 +450,7 @@ class _DroneItemCardState extends State<_DroneItemCard> {
                                   ),
                                   child: const Icon(
                                     Icons.arrow_forward_rounded,
-                                    size: 15,
+                                    size: 13,
                                     color: AppColors.blue,
                                   ),
                                 ),
@@ -479,23 +479,23 @@ class _DroneImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const outerRadius = BorderRadius.only(
-      topLeft: Radius.circular(28),
-      topRight: Radius.circular(16),
-      bottomLeft: Radius.circular(16),
-      bottomRight: Radius.circular(28),
+      topLeft: Radius.circular(24),
+      topRight: Radius.circular(14),
+      bottomLeft: Radius.circular(14),
+      bottomRight: Radius.circular(24),
     );
 
     const innerRadius = BorderRadius.only(
-      topLeft: Radius.circular(26.5),
-      topRight: Radius.circular(14.5),
-      bottomLeft: Radius.circular(14.5),
-      bottomRight: Radius.circular(26.5),
+      topLeft: Radius.circular(22.8),
+      topRight: Radius.circular(12.8),
+      bottomLeft: Radius.circular(12.8),
+      bottomRight: Radius.circular(22.8),
     );
 
     return Container(
       width: double.infinity,
-      height: 118,
-      padding: const EdgeInsets.all(1.2),
+      height: 96,
+      padding: const EdgeInsets.all(1.1),
       decoration: BoxDecoration(
         borderRadius: outerRadius,
         gradient: LinearGradient(
@@ -510,8 +510,8 @@ class _DroneImage extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: AppColors.navy.withOpacity(0.09),
-            blurRadius: 16,
-            offset: const Offset(0, 7),
+            blurRadius: 13,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -582,8 +582,8 @@ class _FallbackDroneImage extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Container(
-            width: 78,
-            height: 78,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.blue.withOpacity(0.055),
@@ -591,7 +591,7 @@ class _FallbackDroneImage extends StatelessWidget {
           ),
           const Icon(
             Icons.flight_takeoff_rounded,
-            size: 38,
+            size: 31,
             color: AppColors.logoTurquoiseDark,
           ),
         ],
@@ -608,8 +608,8 @@ class _CapabilityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 92),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      constraints: const BoxConstraints(maxWidth: 84),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.86),
         borderRadius: BorderRadius.circular(9),
@@ -623,7 +623,7 @@ class _CapabilityPill extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: Color(0xFF087F91),
-          fontSize: 9.2,
+          fontSize: 8.6,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -833,8 +833,8 @@ class _DroneShimmerState extends State<_DroneShimmer>
         }
 
         return Container(
-          height: 184,
-          padding: const EdgeInsets.all(16),
+          height: 164,
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
@@ -846,24 +846,24 @@ class _DroneShimmerState extends State<_DroneShimmer>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    glow(width: 86, height: 20, radius: 10),
-                    const SizedBox(height: 12),
-                    glow(width: 160, height: 18, radius: 8),
-                    const SizedBox(height: 8),
-                    glow(width: 116, height: 10, radius: 6),
+                    glow(width: 78, height: 18, radius: 9),
+                    const SizedBox(height: 9),
+                    glow(width: 142, height: 16, radius: 8),
+                    const SizedBox(height: 7),
+                    glow(width: 104, height: 9, radius: 5),
                     const Spacer(),
                     Row(
                       children: [
-                        glow(width: 65, height: 22, radius: 9),
+                        glow(width: 58, height: 19, radius: 9),
                         const SizedBox(width: 6),
-                        glow(width: 58, height: 22, radius: 9),
+                        glow(width: 52, height: 19, radius: 9),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              glow(width: 132, height: 118, radius: 24),
+              const SizedBox(width: 10),
+              glow(width: 112, height: 96, radius: 22),
             ],
           ),
         );
@@ -871,4 +871,3 @@ class _DroneShimmerState extends State<_DroneShimmer>
     );
   }
 }
-

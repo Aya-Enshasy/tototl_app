@@ -103,7 +103,8 @@ class DroneModel {
       capabilities,
       flightTimePerBatteryMinutes:
       _asInt(
-        json['flight_time_per_battery_minutes'],
+        json['flight_time'] ??
+            json['flight_time_per_battery_minutes'],
       ),
       totalBatteries:
       _asInt(json['total_batteries']),
@@ -138,7 +139,7 @@ class DroneModel {
       'serial_number': serialNumber,
       'weight_kg': weightKg,
       'capabilities': capabilities,
-      'flight_time_per_battery_minutes':
+      'flight_time':
       flightTimePerBatteryMinutes,
       'total_batteries': totalBatteries,
       'battery_type': batteryType,

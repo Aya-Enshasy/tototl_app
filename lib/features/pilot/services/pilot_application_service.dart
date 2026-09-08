@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/storage/token_storage.dart';
 
+import '../../auth/controllers/user_session_storage.dart';
 import '../models/pilot_application_model.dart';
 
 class PilotApplicationService {
@@ -10,6 +15,19 @@ class PilotApplicationService {
   PilotApplicationService(this.apiClient);
 
   static const String _applicationsPath = '/applications';
+  static const String _cacheVersion = 'v2';
+
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  static final Map<int, List<PilotApplicationModel>> _memoryLists =
+  <int, List<PilotApplicationModel>>{};
+
+  static final Map<int, Map<int, PilotApplicationModel>> _memoryDetails =
+  <int, Map<int, PilotApplicationModel>>{};
+
+  // ---------------------------------------------------------------------------
+  // APPLY
+  // ---------------------------------------------------------------------------
 
   Future<PilotApplicationModel> applyToJob({
     required int jobId,
@@ -25,12 +43,6 @@ class PilotApplicationService {
       if (cleanCover.isNotEmpty) 'cover_message': cleanCover,
     };
 
-    print('================ APPLY TO JOB REQUEST ================');
-    print('APPLY URL: $endpoint');
-    print('APPLY JOB ID: $jobId');
-    print('APPLY DRONE ID: $droneId');
-    print('APPLY COVER LENGTH: ${cleanCover.length}');
-
     try {
       final response = await apiClient.post(
         endpoint,
@@ -38,36 +50,143 @@ class PilotApplicationService {
         options: _jsonAuthOptions(token),
       );
 
-      print('APPLY STATUS: ${response.statusCode}');
-      print('APPLY RAW RESPONSE: ${response.data}');
-
       final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to submit your application.');
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to submit your application.',
+      );
 
+      final rawApplication = _applicationMap(body['data']);
       final application = _parseApplication(
         body['data'],
         fallback: 'Submitted application data is missing.',
       );
 
-      print(
-        'APPLY PARSED: id=${application.id}, status=${application.status}, '
-        'job=${application.jobPostingId}, drone=${application.droneId}',
+      unawaited(
+        _rememberNetworkApplication(
+          application,
+          rawApplication,
+        ),
       );
-      print('================ APPLY TO JOB SUCCESS ================');
 
       return application;
-    } on DioException catch (e, stack) {
-      _printDioError(title: 'APPLY TO JOB', error: e, stack: stack);
+    } on DioException catch (e) {
       throw PilotApplicationException(
-        _dioErrorMessage(e, fallback: 'Unable to submit your application.'),
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to submit your application.',
+        ),
       );
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // LOCAL CACHE - APPLICATION LIST
+  // ---------------------------------------------------------------------------
+
+  /// Returns null when no cache has ever been stored for this user.
+  /// An empty list means a valid cached snapshot exists and contains no items.
+  Future<List<PilotApplicationModel>?> getCachedApplications() async {
+    final userId = await UserSessionStorage.getUserId();
+    if (userId == null) return null;
+
+    final memory = _memoryLists[userId];
+    if (memory != null) {
+      return List<PilotApplicationModel>.unmodifiable(memory);
+    }
+
+    final key = _listCacheKey(userId);
+
+    try {
+      final raw = await _storage.read(key: key);
+      if (raw == null || raw.trim().isEmpty) return null;
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        await _storage.delete(key: key);
+        return null;
+      }
+
+      final applications = decoded
+          .whereType<Map>()
+          .map(
+            (item) => PilotApplicationModel.fromJson(
+          Map<String, dynamic>.from(item),
+        ),
+      )
+          .toList();
+
+      _sortNewestFirst(applications);
+      _rememberList(userId, applications);
+
+      return List<PilotApplicationModel>.unmodifiable(applications);
+    } catch (_) {
+      await _storage.delete(key: key);
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // LOCAL CACHE - ONE APPLICATION
+  // ---------------------------------------------------------------------------
+
+  Future<PilotApplicationModel?> getCachedApplication(
+      int applicationId,
+      ) async {
+    final userId = await UserSessionStorage.getUserId();
+    if (userId == null) return null;
+
+    final memoryDetail = _memoryDetails[userId]?[applicationId];
+    if (memoryDetail != null) return memoryDetail;
+
+    final memoryList = _memoryLists[userId];
+    if (memoryList != null) {
+      for (final item in memoryList) {
+        if (item.id == applicationId) {
+          _rememberDetail(userId, item);
+          return item;
+        }
+      }
+    }
+
+    final key = _detailCacheKey(userId, applicationId);
+
+    try {
+      final raw = await _storage.read(key: key);
+
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          final application = PilotApplicationModel.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+          _rememberDetail(userId, application);
+          return application;
+        }
+      }
+    } catch (_) {
+      await _storage.delete(key: key);
+    }
+
+    final list = await getCachedApplications();
+    if (list == null) return null;
+
+    for (final item in list) {
+      if (item.id == applicationId) {
+        _rememberDetail(userId, item);
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // GET MY APPLICATIONS - NETWORK
+  // ---------------------------------------------------------------------------
+
   Future<List<PilotApplicationModel>> getMyApplications() async {
     final token = await _getToken();
-
-    print('================ MY APPLICATIONS REQUEST ================');
 
     try {
       final response = await apiClient.get(
@@ -75,37 +194,46 @@ class PilotApplicationService {
         options: _authOptions(token),
       );
 
-      print('MY APPLICATIONS STATUS: ${response.statusCode}');
-      print('MY APPLICATIONS RAW RESPONSE: ${response.data}');
-
       final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to load your applications.');
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to load your applications.',
+      );
 
       final applications = _parseApplicationList(body['data']);
-      applications.sort((a, b) {
-        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bDate.compareTo(aDate);
-      });
+      _sortNewestFirst(applications);
 
-      print('MY APPLICATIONS PARSED COUNT: ${applications.length}');
-      print('================ MY APPLICATIONS SUCCESS ================');
+      final rawMaps = _extractApplicationMaps(body['data']);
+
+      // Do not make the UI wait for disk I/O after the network response has
+      // already succeeded. Cache work continues in the background.
+      unawaited(
+        _rememberNetworkList(
+          applications,
+          rawMaps,
+        ),
+      );
 
       return applications;
-    } on DioException catch (e, stack) {
-      _printDioError(title: 'MY APPLICATIONS', error: e, stack: stack);
+    } on DioException catch (e) {
       throw PilotApplicationException(
-        _dioErrorMessage(e, fallback: 'Unable to load your applications.'),
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to load your applications.',
+        ),
       );
     }
   }
 
-  Future<PilotApplicationModel> getApplicationDetails(int applicationId) async {
+  // ---------------------------------------------------------------------------
+  // GET APPLICATION DETAIL - NETWORK
+  // ---------------------------------------------------------------------------
+
+  Future<PilotApplicationModel> getApplicationDetails(
+      int applicationId,
+      ) async {
     final token = await _getToken();
     final endpoint = '$_applicationsPath/$applicationId';
-
-    print('================ APPLICATION DETAIL REQUEST ================');
-    print('APPLICATION DETAIL URL: $endpoint');
 
     try {
       final response = await apiClient.get(
@@ -113,35 +241,45 @@ class PilotApplicationService {
         options: _authOptions(token),
       );
 
-      print('APPLICATION DETAIL STATUS: ${response.statusCode}');
-      print('APPLICATION DETAIL RAW RESPONSE: ${response.data}');
-
       final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to load this application.');
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to load this application.',
+      );
 
+      final rawApplication = _applicationMap(body['data']);
       final application = _parseApplication(
         body['data'],
         fallback: 'Application details are missing.',
       );
 
-      print('APPLICATION DETAIL PARSED: id=${application.id}, status=${application.status}');
-      print('================ APPLICATION DETAIL SUCCESS ================');
+      unawaited(
+        _rememberNetworkApplication(
+          application,
+          rawApplication,
+        ),
+      );
 
       return application;
-    } on DioException catch (e, stack) {
-      _printDioError(title: 'APPLICATION DETAIL', error: e, stack: stack);
+    } on DioException catch (e) {
       throw PilotApplicationException(
-        _dioErrorMessage(e, fallback: 'Unable to load this application.'),
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to load this application.',
+        ),
       );
     }
   }
 
-  Future<PilotApplicationModel> withdrawApplication(int applicationId) async {
+  // ---------------------------------------------------------------------------
+  // WITHDRAW
+  // ---------------------------------------------------------------------------
+
+  Future<PilotApplicationModel> withdrawApplication(
+      int applicationId,
+      ) async {
     final token = await _getToken();
     final endpoint = '$_applicationsPath/$applicationId/withdraw';
-
-    print('================ WITHDRAW APPLICATION REQUEST ================');
-    print('WITHDRAW URL: $endpoint');
 
     try {
       final response = await apiClient.post(
@@ -149,28 +287,188 @@ class PilotApplicationService {
         options: _authOptions(token),
       );
 
-      print('WITHDRAW STATUS: ${response.statusCode}');
-      print('WITHDRAW RAW RESPONSE: ${response.data}');
-
       final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to withdraw this application.');
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to withdraw this application.',
+      );
 
+      final rawApplication = _applicationMap(body['data']);
       final application = _parseApplication(
         body['data'],
         fallback: 'Withdrawn application data is missing.',
       );
 
-      print('WITHDRAW PARSED: id=${application.id}, status=${application.status}');
-      print('================ WITHDRAW APPLICATION SUCCESS ================');
+      unawaited(
+        _rememberNetworkApplication(
+          application,
+          rawApplication,
+        ),
+      );
 
       return application;
-    } on DioException catch (e, stack) {
-      _printDioError(title: 'WITHDRAW APPLICATION', error: e, stack: stack);
+    } on DioException catch (e) {
       throw PilotApplicationException(
-        _dioErrorMessage(e, fallback: 'Unable to withdraw this application.'),
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to withdraw this application.',
+        ),
       );
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // CACHE HELPERS
+  // ---------------------------------------------------------------------------
+
+  Future<void> _rememberNetworkList(
+      List<PilotApplicationModel> applications,
+      List<Map<String, dynamic>> rawMaps,
+      ) async {
+    final userId = await UserSessionStorage.getUserId();
+    if (userId == null) return;
+
+    _rememberList(userId, applications);
+
+    try {
+      await _persistApplicationList(userId, rawMaps);
+    } catch (_) {
+      // Cache failure must never affect the real API flow.
+    }
+  }
+
+  Future<void> _rememberNetworkApplication(
+      PilotApplicationModel application,
+      Map<String, dynamic>? rawApplication,
+      ) async {
+    final userId = await UserSessionStorage.getUserId();
+    if (userId == null) return;
+
+    _rememberDetail(userId, application);
+    _upsertMemoryList(userId, application);
+
+    if (rawApplication == null) return;
+
+    await Future.wait<void>([
+      _storage.write(
+        key: _detailCacheKey(userId, application.id),
+        value: jsonEncode(rawApplication),
+      ),
+      _upsertPersistentListRaw(
+        userId,
+        rawApplication,
+      ),
+    ]);
+  }
+
+  void _rememberList(
+      int userId,
+      List<PilotApplicationModel> values,
+      ) {
+    final copy = List<PilotApplicationModel>.from(values);
+    _sortNewestFirst(copy);
+    _memoryLists[userId] = copy;
+
+    final details = _memoryDetails.putIfAbsent(
+      userId,
+          () => <int, PilotApplicationModel>{},
+    );
+
+    for (final item in copy) {
+      details[item.id] = item;
+    }
+  }
+
+  void _rememberDetail(
+      int userId,
+      PilotApplicationModel application,
+      ) {
+    final details = _memoryDetails.putIfAbsent(
+      userId,
+          () => <int, PilotApplicationModel>{},
+    );
+    details[application.id] = application;
+  }
+
+  void _upsertMemoryList(
+      int userId,
+      PilotApplicationModel application,
+      ) {
+    final list = _memoryLists[userId];
+    if (list == null) return;
+
+    final index = list.indexWhere((item) => item.id == application.id);
+    if (index == -1) {
+      list.insert(0, application);
+    } else {
+      list[index] = application;
+    }
+
+    _sortNewestFirst(list);
+  }
+
+  Future<void> _persistApplicationList(
+      int userId,
+      List<Map<String, dynamic>> rawMaps,
+      ) async {
+    await _storage.write(
+      key: _listCacheKey(userId),
+      value: jsonEncode(rawMaps),
+    );
+  }
+
+  Future<void> _upsertPersistentListRaw(
+      int userId,
+      Map<String, dynamic> rawApplication,
+      ) async {
+    final key = _listCacheKey(userId);
+
+    try {
+      final existingRaw = await _storage.read(key: key);
+      final existing = <Map<String, dynamic>>[];
+
+      if (existingRaw != null && existingRaw.trim().isNotEmpty) {
+        final decoded = jsonDecode(existingRaw);
+        if (decoded is List) {
+          existing.addAll(
+            decoded
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+
+      final id = _asInt(rawApplication['id']);
+      final index = id == null
+          ? -1
+          : existing.indexWhere(
+            (item) => _asInt(item['id']) == id,
+      );
+
+      if (index == -1) {
+        existing.insert(0, rawApplication);
+      } else {
+        existing[index] = rawApplication;
+      }
+
+      await _storage.write(
+        key: key,
+        value: jsonEncode(existing),
+      );
+    } catch (_) {
+      // Cache failure must never affect the real API flow.
+    }
+  }
+
+  String _listCacheKey(int userId) =>
+      'pilot_${userId}_applications_$_cacheVersion';
+
+  String _detailCacheKey(int userId, int applicationId) =>
+      'pilot_${userId}_application_${applicationId}_$_cacheVersion';
+
+  // ---------------------------------------------------------------------------
+  // PARSING
+  // ---------------------------------------------------------------------------
 
   Map<String, dynamic> _parseBody(dynamic raw) {
     if (raw is! Map) {
@@ -180,51 +478,90 @@ class PilotApplicationService {
   }
 
   PilotApplicationModel _parseApplication(
-    dynamic raw, {
-    required String fallback,
-  }) {
+      dynamic raw, {
+        required String fallback,
+      }) {
     if (raw is Map) {
-      return PilotApplicationModel.fromJson(Map<String, dynamic>.from(raw));
+      return PilotApplicationModel.fromJson(
+        Map<String, dynamic>.from(raw),
+      );
     }
     throw PilotApplicationException(fallback);
   }
 
   List<PilotApplicationModel> _parseApplicationList(dynamic raw) {
+    return _extractApplicationMaps(raw)
+        .map(PilotApplicationModel.fromJson)
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _extractApplicationMaps(dynamic raw) {
     if (raw is List) {
       return raw
           .whereType<Map>()
-          .map((item) => PilotApplicationModel.fromJson(Map<String, dynamic>.from(item)))
+          .map((item) => Map<String, dynamic>.from(item))
           .toList();
     }
 
     if (raw is Map) {
       final map = Map<String, dynamic>.from(raw);
       final nested = map['data'];
+
       if (nested is List) {
         return nested
             .whereType<Map>()
-            .map((item) => PilotApplicationModel.fromJson(Map<String, dynamic>.from(item)))
+            .map((item) => Map<String, dynamic>.from(item))
             .toList();
       }
     }
 
-    if (raw == null) return <PilotApplicationModel>[];
+    if (raw == null) return <Map<String, dynamic>>[];
 
-    throw const PilotApplicationException('Application list data is invalid.');
+    throw const PilotApplicationException(
+      'Application list data is invalid.',
+    );
   }
 
+  Map<String, dynamic>? _applicationMap(dynamic raw) {
+    if (raw is! Map) return null;
+    return Map<String, dynamic>.from(raw);
+  }
+
+  void _sortNewestFirst(List<PilotApplicationModel> applications) {
+    applications.sort((a, b) {
+      final aDate =
+          a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate =
+          b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  // ---------------------------------------------------------------------------
+  // RESPONSE / AUTH
+  // ---------------------------------------------------------------------------
+
   void _ensureSuccess(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     if (body['success'] == true) return;
-    throw PilotApplicationException(_messageFromBody(body, fallback: fallback));
+    throw PilotApplicationException(
+      _messageFromBody(body, fallback: fallback),
+    );
   }
 
   Future<String> _getToken() async {
     final token = await TokenStorage.getAccessToken();
     if (token == null || token.trim().isEmpty) {
-      throw const PilotApplicationException('Authentication token not found.');
+      throw const PilotApplicationException(
+        'Authentication token not found.',
+      );
     }
     return token.trim();
   }
@@ -249,9 +586,9 @@ class PilotApplicationService {
   }
 
   String _messageFromBody(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     final errors = body['errors'];
 
     if (errors is Map) {
@@ -275,12 +612,15 @@ class PilotApplicationService {
   }
 
   String _dioErrorMessage(
-    DioException error, {
-    required String fallback,
-  }) {
+      DioException error, {
+        required String fallback,
+      }) {
     final raw = error.response?.data;
     if (raw is Map) {
-      return _messageFromBody(Map<String, dynamic>.from(raw), fallback: fallback);
+      return _messageFromBody(
+        Map<String, dynamic>.from(raw),
+        fallback: fallback,
+      );
     }
 
     if (error.type == DioExceptionType.connectionTimeout) {
@@ -295,24 +635,11 @@ class PilotApplicationService {
 
     return fallback;
   }
-
-  void _printDioError({
-    required String title,
-    required DioException error,
-    required StackTrace stack,
-  }) {
-    print('================ $title DIO ERROR ================');
-    print('TYPE: ${error.type}');
-    print('MESSAGE: ${error.message}');
-    print('STATUS: ${error.response?.statusCode}');
-    print('RESPONSE: ${error.response?.data}');
-    print('URI: ${error.requestOptions.uri}');
-    print('STACK: $stack');
-  }
 }
 
 class PilotApplicationException implements Exception {
   final String message;
+
   const PilotApplicationException(this.message);
 
   @override

@@ -317,7 +317,7 @@ class _TopBar extends StatelessWidget {
                   'My Drones',
                   style: TextStyle(
                     color: _ink,
-                    fontSize: 21,
+                    fontSize: 18,
                     height: 1,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
@@ -892,28 +892,69 @@ class _DroneImage extends StatelessWidget {
   }
 }
 
-class _ImageLoading extends StatelessWidget {
+class _ImageLoading extends StatefulWidget {
   const _ImageLoading();
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return Container(
-      color:
-      const Color(0xFFE9F4F6),
-      alignment:
-      Alignment.center,
-      child:
-      const SizedBox(
-        width: 24,
-        height: 24,
-        child:
-        CircularProgressIndicator(
-          strokeWidth: 2.2,
-          color: _tealDark,
-        ),
-      ),
+  State<_ImageLoading> createState() =>
+      _ImageLoadingState();
+}
+
+class _ImageLoadingState extends State<_ImageLoading>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1350),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return _ShimmerSurface(
+          value: _controller.value,
+          radius: 0,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const SizedBox.expand(),
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.30),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.42),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.flight_takeoff_rounded,
+                    color: _tealDark.withOpacity(0.38),
+                    size: 30,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1306,60 +1347,443 @@ class _EmptyState extends StatelessWidget {
 // LOADING
 // ============================================================================
 
-class _LoadingState extends StatelessWidget {
+class _LoadingState extends StatefulWidget {
   const _LoadingState();
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return ListView(
-      physics:
-      const NeverScrollableScrollPhysics(),
-      padding:
-      const EdgeInsets.fromLTRB(
-        18,
-        8,
-        18,
-        24,
+  State<_LoadingState> createState() =>
+      _LoadingStateState();
+}
+
+class _LoadingStateState extends State<_LoadingState>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1450),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final value = _controller.value;
+
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            18,
+            4,
+            18,
+            32,
+          ),
+          children: [
+            _FleetSummaryShimmer(
+              value: value,
+            ),
+            const SizedBox(height: 16),
+            _DroneCardShimmer(
+              value: value,
+            ),
+            const SizedBox(height: 16),
+            _DroneCardShimmer(
+              value: value,
+              compact: true,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FleetSummaryShimmer extends StatelessWidget {
+  const _FleetSummaryShimmer({
+    required this.value,
+  });
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 82,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 17,
+        vertical: 15,
       ),
-      children: const [
-        _Skeleton(
-          height: 82,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF103D4D),
+            Color(0xFF0A6672),
+          ],
         ),
-        SizedBox(height: 16),
-        _Skeleton(
-          height: 305,
+        boxShadow: [
+          BoxShadow(
+            color: _ink.withOpacity(0.075),
+            blurRadius: 22,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _ShimmerBlock(
+            value: value,
+            width: 50,
+            height: 50,
+            radius: 16,
+            onDark: true,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ShimmerBlock(
+                  value: value,
+                  width: 112,
+                  height: 15,
+                  radius: 8,
+                  onDark: true,
+                ),
+                const SizedBox(height: 8),
+                _ShimmerBlock(
+                  value: value,
+                  width: 158,
+                  height: 9,
+                  radius: 6,
+                  onDark: true,
+                ),
+              ],
+            ),
+          ),
+          _ShimmerBlock(
+            value: value,
+            width: 76,
+            height: 28,
+            radius: 18,
+            onDark: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DroneCardShimmer extends StatelessWidget {
+  const _DroneCardShimmer({
+    required this.value,
+    this.compact = false,
+  });
+
+  final double value;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: compact ? 286 : 305,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: _border,
         ),
-        SizedBox(height: 16),
-        _Skeleton(
-          height: 305,
+        boxShadow: [
+          BoxShadow(
+            color: _ink.withOpacity(0.035),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            flex: 11,
+            child: _ShimmerSurface(
+              value: value,
+              radius: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(13),
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: _ShimmerBlock(
+                        value: value,
+                        width: 70,
+                        height: 25,
+                        radius: 16,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          left: 2,
+                          right: 48,
+                          bottom: 2,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ShimmerBlock(
+                              value: value,
+                              width: 170,
+                              height: 18,
+                              radius: 8,
+                            ),
+                            const SizedBox(height: 9),
+                            Row(
+                              children: [
+                                _ShimmerBlock(
+                                  value: value,
+                                  width: 58,
+                                  height: 22,
+                                  radius: 13,
+                                ),
+                                const SizedBox(width: 7),
+                                _ShimmerBlock(
+                                  value: value,
+                                  width: 68,
+                                  height: 22,
+                                  radius: 13,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: _ShimmerBlock(
+                        value: value,
+                        width: 38,
+                        height: 38,
+                        radius: 19,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 7,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                15,
+                14,
+                15,
+                14,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetricShimmer(
+                          value: value,
+                        ),
+                      ),
+                      const _VerticalDivider(),
+                      Expanded(
+                        child: _MetricShimmer(
+                          value: value,
+                        ),
+                      ),
+                      const _VerticalDivider(),
+                      Expanded(
+                        child: _MetricShimmer(
+                          value: value,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        children: [
+                          _ShimmerBlock(
+                            value: value,
+                            width: 62,
+                            height: 24,
+                            radius: 15,
+                          ),
+                          const SizedBox(width: 7),
+                          _ShimmerBlock(
+                            value: value,
+                            width: 78,
+                            height: 24,
+                            radius: 15,
+                          ),
+                          const SizedBox(width: 7),
+                          _ShimmerBlock(
+                            value: value,
+                            width: 54,
+                            height: 24,
+                            radius: 15,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricShimmer extends StatelessWidget {
+  const _MetricShimmer({
+    required this.value,
+  });
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ShimmerBlock(
+          value: value,
+          width: 20,
+          height: 20,
+          radius: 7,
+        ),
+        const SizedBox(height: 7),
+        _ShimmerBlock(
+          value: value,
+          width: 50,
+          height: 10,
+          radius: 5,
+        ),
+        const SizedBox(height: 5),
+        _ShimmerBlock(
+          value: value,
+          width: 38,
+          height: 7,
+          radius: 4,
         ),
       ],
     );
   }
 }
 
-class _Skeleton extends StatelessWidget {
-  const _Skeleton({
+class _ShimmerBlock extends StatelessWidget {
+  const _ShimmerBlock({
+    required this.value,
+    required this.width,
     required this.height,
+    required this.radius,
+    this.onDark = false,
   });
 
+  final double value;
+  final double width;
   final double height;
+  final double radius;
+  final bool onDark;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
+    final base = onDark
+        ? Colors.white.withOpacity(0.10)
+        : const Color(0xFFEAF0F3);
+    final highlight = onDark
+        ? Colors.white.withOpacity(0.25)
+        : const Color(0xFFF9FCFD);
+
     return Container(
+      width: width,
       height: height,
-      decoration:
-      BoxDecoration(
-        color:
-        const Color(0xFFEEF3F5),
-        borderRadius:
-        BorderRadius.circular(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(-1.8 + (3.6 * value), 0),
+          end: Alignment(-0.8 + (3.6 * value), 0),
+          colors: [
+            base,
+            highlight,
+            base,
+          ],
+          stops: const [
+            0.18,
+            0.50,
+            0.82,
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _ShimmerSurface extends StatelessWidget {
+  const _ShimmerSurface({
+    required this.value,
+    required this.child,
+    required this.radius,
+  });
+
+  final double value;
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(-1.8 + (3.6 * value), -0.2),
+          end: Alignment(-0.8 + (3.6 * value), 0.2),
+          colors: const [
+            Color(0xFFE8F2F4),
+            Color(0xFFF9FCFD),
+            Color(0xFFDDECEF),
+            Color(0xFFF9FCFD),
+            Color(0xFFE8F2F4),
+          ],
+          stops: [
+            0.00,
+            0.28,
+            0.50,
+            0.72,
+            1.00,
+          ],
+        ),
+      ),
+      child: child,
     );
   }
 }

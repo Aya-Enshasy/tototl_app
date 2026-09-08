@@ -52,7 +52,7 @@ class DroneFormRequest {
       'serial_number': serialNumber.trim(),
       'weight_kg': _number(weightKg),
 
-      'flight_time_per_battery_minutes':
+      'flight_time':
       flightTimePerBatteryMinutes.toString(),
 
       'total_batteries': totalBatteries.toString(),
