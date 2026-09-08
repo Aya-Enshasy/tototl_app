@@ -54,14 +54,15 @@ class DefaultFirebaseOptions {
     appId: '1:621532984434:android:fb4dacf30fae2c8e24beeb',
     messagingSenderId: '621532984434',
     projectId: 'tototl-290a9',
+    databaseURL: 'https://tototl-290a9-default-rtdb.firebaseio.com',
     storageBucket: 'tototl-290a9.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAdfyFx0IaP8lPSRit1bgPT3-9GLFGZkKE',
     appId: '1:621532984434:ios:ee10154239ed547224beeb',
     messagingSenderId: '621532984434',
     projectId: 'tototl-290a9',
+    databaseURL: 'https://tototl-290a9-default-rtdb.firebaseio.com',
     storageBucket: 'tototl-290a9.firebasestorage.app',
     iosBundleId: 'com.ayahinshasi.tototlApp',
   );

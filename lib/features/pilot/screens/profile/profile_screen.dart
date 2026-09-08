@@ -13,6 +13,7 @@ import '../../services/pilot_profile_service.dart';
 
 
 import '../drones/profile_drones_section.dart';
+import '../licenses/profile_licenses_section.dart';
 import 'pilot_edit_profile_screen.dart';
 
 // ============================================================================
@@ -491,6 +492,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _StatsRow(
                                 profile: data.profile,
                               ),
+
+                              const SizedBox(height: 14),
+
+                              const ProfileLicensesSection(),
 
                               const SizedBox(height: 14),
 

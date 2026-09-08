@@ -16,6 +16,9 @@ class CompanyJobController {
   bool isLoadingApplicants = false;
   bool isUpdating = false;
   bool isDeleting = false;
+  bool isAcceptingApplicant = false;
+  bool isRejectingApplicant = false;
+  int? actingApplicationId;
 
   String? errorMessage;
   String? applicantsErrorMessage;
@@ -74,6 +77,103 @@ class CompanyJobController {
     } finally {
       isLoadingApplicants = false;
     }
+  }
+
+Future<CompanyJobApplicationModel?> acceptApplicant({
+    required int jobId,
+    required CompanyJobApplicationModel application,
+  }) async {
+    if (isAcceptingApplicant ||
+        isRejectingApplicant) {
+      return null;
+    }
+
+    isAcceptingApplicant = true;
+    actingApplicationId = application.id;
+    applicantsErrorMessage = null;
+
+    try {
+      final updated =
+          await service.acceptApplicant(
+        jobId: jobId,
+        applicationId: application.id,
+      );
+
+      final enriched = updated.copyWith(
+        pilotProfile: application.pilotProfile,
+        drone: application.drone,
+      );
+
+      _replaceApplicant(enriched);
+
+      return enriched;
+    } catch (e) {
+      applicantsErrorMessage = e.toString();
+      return null;
+    } finally {
+      isAcceptingApplicant = false;
+      actingApplicationId = null;
+    }
+  }
+
+  Future<CompanyJobApplicationModel?> rejectApplicant({
+    required int jobId,
+    required CompanyJobApplicationModel application,
+    String? reason,
+  }) async {
+    if (isAcceptingApplicant ||
+        isRejectingApplicant) {
+      return null;
+    }
+
+    isRejectingApplicant = true;
+    actingApplicationId = application.id;
+    applicantsErrorMessage = null;
+
+    try {
+      final updated =
+          await service.rejectApplicant(
+        jobId: jobId,
+        applicationId: application.id,
+        reason: reason,
+      );
+
+      final enriched = updated.copyWith(
+        pilotProfile: application.pilotProfile,
+        drone: application.drone,
+      );
+
+      _replaceApplicant(enriched);
+
+      return enriched;
+    } catch (e) {
+      applicantsErrorMessage = e.toString();
+      return null;
+    } finally {
+      isRejectingApplicant = false;
+      actingApplicationId = null;
+    }
+  }
+
+  void _replaceApplicant(
+    CompanyJobApplicationModel updated,
+  ) {
+    final mutable =
+        List<CompanyJobApplicationModel>.from(
+      applicants,
+    );
+
+    final index = mutable.indexWhere(
+      (item) => item.id == updated.id,
+    );
+
+    if (index == -1) {
+      mutable.insert(0, updated);
+    } else {
+      mutable[index] = updated;
+    }
+
+    applicants = mutable;
   }
 
   Future<CompanyJobPostingModel?> createJob(

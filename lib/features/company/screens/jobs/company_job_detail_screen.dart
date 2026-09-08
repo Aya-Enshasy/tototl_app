@@ -9,6 +9,7 @@ import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
 
 import 'edit_company_job_screen.dart';
+import 'company_applicant_detail_screen.dart';
 
 class CompanyJobDetailScreen extends StatefulWidget {
   const CompanyJobDetailScreen({
@@ -59,18 +60,26 @@ class _CompanyJobDetailScreenState
       setState(() {
         _loading = false;
         _pageError =
-            _controller.errorMessage ?? 'Unable to load job.';
+            _controller.errorMessage ??
+                'Unable to load job.';
       });
       return;
     }
 
-    await _controller.loadApplicants(widget.jobId);
-
-    if (!mounted) return;
+    // Start applicants separately so the job page can render immediately
+    // while the Applications section shows its own shimmer.
+    final applicantsFuture =
+        _controller.loadApplicants(widget.jobId);
 
     setState(() {
       _loading = false;
     });
+
+    await applicantsFuture;
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Future<void> _refresh() async {
@@ -697,12 +706,56 @@ class _CompanyJobDetailScreenState
     );
   }
 
-  Widget _applicationsSection(CompanyJobPostingModel job) {
-    final applicants = _controller.applicants;
-    final error = _controller.applicantsErrorMessage;
+  Future<void> _openApplicant(
+    CompanyJobApplicationModel application,
+  ) async {
+    final changed =
+        await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            CompanyApplicantDetailScreen(
+          jobId: widget.jobId,
+          application: application,
+        ),
+      ),
+    );
+
+    // Always reload on return because the applicant may have been accepted
+    // or rejected, including via system back where no result is returned.
+    await _controller.loadApplicants(
+      widget.jobId,
+    );
+
+    if (!mounted) return;
+
+    setState(() {});
+
+    if (changed == true) {
+      _showSnack(
+        'Applications updated.',
+      );
+    }
+  }
+
+  Widget _applicationsSection(
+    CompanyJobPostingModel job,
+  ) {
+    final applicants =
+        _controller.applicants;
+
+    final error =
+        _controller.applicantsErrorMessage;
+
+    final pendingCount =
+        applicants
+            .where(
+              (item) => item.isPending,
+            )
+            .length;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -711,46 +764,150 @@ class _CompanyJobDetailScreenState
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontWeight:
+                    FontWeight.w800,
               ),
             ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 8,
                 vertical: 4,
               ),
               decoration: BoxDecoration(
                 color: AppColors.blueBg,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius:
+                    BorderRadius.circular(
+                  20,
+                ),
               ),
               child: Text(
                 '${applicants.length}',
-                style: const TextStyle(
-                  color: AppColors.blue,
+                style:
+                    const TextStyle(
+                  color:
+                      AppColors.blue,
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
             ),
+            if (pendingCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      AppColors.orangeBg,
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+                ),
+                child: Text(
+                  '$pendingCount pending',
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.orange,
+                    fontSize: 10.5,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
-        const SizedBox(height: 11),
-        if (error != null)
+        const SizedBox(height: 6),
+        const Text(
+          'Review each pilot, committed drone and cover message before making a decision.',
+          style: TextStyle(
+            color: AppColors.grey,
+            fontSize: 11.5,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_controller.isLoadingApplicants)
+          const _ApplicantsShimmer()
+        else if (error != null)
           _applicationsError(error)
         else if (applicants.isEmpty)
           const _EmptyApplications()
         else
-          ...applicants.map(
-            (application) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+          ..._sortedApplicants(applicants).map(
+            (application) =>
+                Padding(
+              padding:
+                  const EdgeInsets.only(
+                bottom: 10,
+              ),
               child: _ApplicantCard(
-                application: application,
+                application:
+                    application,
+                onTap: () =>
+                    _openApplicant(
+                  application,
+                ),
               ),
             ),
           ),
       ],
     );
+  }
+
+  List<CompanyJobApplicationModel>
+      _sortedApplicants(
+    List<CompanyJobApplicationModel> values,
+  ) {
+    final result =
+        List<CompanyJobApplicationModel>.from(
+      values,
+    );
+
+    int rank(
+      CompanyJobApplicationModel value,
+    ) {
+      if (value.isPending) return 0;
+      if (value.isAccepted) return 1;
+      if (value.isRejected) return 2;
+      if (value.isWithdrawn) return 3;
+      return 4;
+    }
+
+    result.sort(
+      (a, b) {
+        final statusCompare =
+            rank(a).compareTo(rank(b));
+
+        if (statusCompare != 0) {
+          return statusCompare;
+        }
+
+        final aDate =
+            a.createdAt ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  0,
+                );
+
+        final bDate =
+            b.createdAt ??
+                DateTime.fromMillisecondsSinceEpoch(
+                  0,
+                );
+
+        return bDate.compareTo(aDate);
+      },
+    );
+
+    return result;
   }
 
   Widget _applicationsError(String message) {
@@ -1045,172 +1202,289 @@ class _CompanyJobDetailScreenState
   }
 }
 
-class _ApplicantCard extends StatelessWidget {
+class _ApplicantCard
+    extends StatelessWidget {
   const _ApplicantCard({
     required this.application,
+    required this.onTap,
   });
 
-  final CompanyJobApplicationModel application;
+  final CompanyJobApplicationModel
+      application;
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final pilot = application.pilotProfile;
-    final drone = application.drone;
+    final pilot =
+        application.pilotProfile;
 
-    final pilotName = pilot?.name.trim().isNotEmpty == true
-        ? pilot!.name
-        : 'Pilot #${application.pilotProfileId}';
+    final drone =
+        application.drone;
 
-    final initial = pilotName.trim().isEmpty
-        ? 'P'
-        : pilotName.trim()[0].toUpperCase();
+    final pilotName =
+        pilot?.displayName ??
+            'Pilot #${application.pilotProfileId}';
 
-    final visual = _applicationVisual(application.status);
+    final initial =
+        pilotName.trim().isEmpty
+            ? 'P'
+            : pilotName
+                .trim()[0]
+                .toUpperCase();
 
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: AppColors.cardBorder,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.blueBg,
-                foregroundImage:
-                    pilot?.profilePhoto.trim().isNotEmpty == true
-                        ? NetworkImage(pilot!.profilePhoto)
-                        : null,
-                child: pilot?.profilePhoto.trim().isNotEmpty == true
-                    ? null
-                    : Text(
-                        initial,
-                        style: const TextStyle(
-                          color: AppColors.blue,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+    final visual =
+        _applicationVisual(
+      application.status,
+    );
+
+    return Material(
+      color: Colors.white,
+      borderRadius:
+          BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+            BorderRadius.circular(17),
+        child: Container(
+          padding:
+              const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(
+              17,
+            ),
+            border: Border.all(
+              color:
+                  AppColors.cardBorder,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.navy
+                    .withOpacity(0.025),
+                blurRadius: 15,
+                offset:
+                    const Offset(0, 5),
               ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      pilotName,
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor:
+                        AppColors.blueBg,
+                    foregroundImage:
+                        pilot?.profilePhoto
+                                    .trim()
+                                    .isNotEmpty ==
+                                true
+                            ? NetworkImage(
+                                pilot!
+                                    .profilePhoto,
+                              )
+                            : null,
+                    child: pilot?.profilePhoto
+                                .trim()
+                                .isNotEmpty ==
+                            true
+                        ? null
+                        : Text(
+                            initial,
+                            style:
+                                const TextStyle(
+                              color:
+                                  AppColors
+                                      .blue,
+                              fontWeight:
+                                  FontWeight
+                                      .w800,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      children: [
+                        Text(
+                          pilotName,
+                          style:
+                              const TextStyle(
+                            color:
+                                AppColors
+                                    .navy,
+                            fontSize: 14,
+                            fontWeight:
+                                FontWeight
+                                    .w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          _pilotSubtitle(
+                            application,
+                          ),
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
+                          style:
+                              const TextStyle(
+                            color:
+                                AppColors
+                                    .grey,
+                            fontSize: 11.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets
+                            .symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          visual.background,
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        20,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _pilotSubtitle(application),
+                    child: Text(
+                      application
+                          .statusLabel,
+                      style: TextStyle(
+                        color:
+                            visual.foreground,
+                        fontSize: 10.5,
+                        fontWeight:
+                            FontWeight
+                                .w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (application
+                  .coverMessage
+                  .isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.all(
+                    12,
+                  ),
+                  decoration:
+                      BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      12,
+                    ),
+                  ),
+                  child: Text(
+                    application
+                        .coverMessage,
+                    maxLines: 3,
+                    overflow:
+                        TextOverflow
+                            .ellipsis,
+                    style:
+                        const TextStyle(
+                      color:
+                          AppColors.navy,
+                      fontSize: 12.2,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 11),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.flight_outlined,
+                    size: 15,
+                    color: AppColors.grey,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      drone?.displayName ??
+                          'Drone #${application.droneId}',
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.grey,
+                      overflow:
+                          TextOverflow
+                              .ellipsis,
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.grey,
                         fontSize: 11.8,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: visual.background,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _prettyGlobal(application.status),
-                  style: TextStyle(
-                    color: visual.foreground,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'View details',
+                    style: TextStyle(
+                      color:
+                          AppColors.blue,
+                      fontSize: 10.8,
+                      fontWeight:
+                          FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(
+                    Icons
+                        .chevron_right_rounded,
+                    size: 18,
+                    color:
+                        AppColors.blue,
+                  ),
+                ],
               ),
             ],
           ),
-          if (application.coverMessage.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                application.coverMessage,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 12.5,
-                  height: 1.45,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 11),
-          Row(
-            children: [
-              const Icon(
-                Icons.flight_outlined,
-                size: 15,
-                color: AppColors.grey,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  drone?.displayName ?? 'Drone #${application.droneId}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 11.8,
-                  ),
-                ),
-              ),
-              if (application.createdAt != null)
-                Text(
-                  _smallDate(application.createdAt!),
-                  style: const TextStyle(
-                    color: AppColors.lightGrey,
-                    fontSize: 10.8,
-                  ),
-                ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  String _pilotSubtitle(CompanyJobApplicationModel application) {
-    final pilot = application.pilotProfile;
+  String _pilotSubtitle(
+    CompanyJobApplicationModel application,
+  ) {
+    final pilot =
+        application.pilotProfile;
 
-    final parts = <String>[];
+    final parts =
+        <String>[];
 
-    if (pilot != null && pilot.location.isNotEmpty) {
+    if (pilot != null &&
+        pilot.location.isNotEmpty) {
       parts.add(pilot.location);
     }
 
     if (pilot?.experienceYears != null) {
-      parts.add('${pilot!.experienceYears} yrs exp');
+      parts.add(
+        '${pilot!.experienceYears} yrs exp',
+      );
     }
 
     if (parts.isEmpty) {
@@ -1219,11 +1493,104 @@ class _ApplicantCard extends StatelessWidget {
 
     return parts.join(' · ');
   }
+}
 
-  String _smallDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+class _ApplicantsShimmer
+    extends StatefulWidget {
+  const _ApplicantsShimmer();
+
+  @override
+  State<_ApplicantsShimmer>
+      createState() =>
+          _ApplicantsShimmerState();
+}
+
+class _ApplicantsShimmerState
+    extends State<_ApplicantsShimmer>
+    with
+        SingleTickerProviderStateMixin {
+  late final AnimationController
+      _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller =
+        AnimationController(
+      vsync: this,
+      duration:
+          const Duration(
+        milliseconds: 1200,
+      ),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) {
+        final t =
+            _controller.value;
+
+        return Column(
+          children:
+              List.generate(
+            3,
+            (index) => Padding(
+              padding:
+                  const EdgeInsets.only(
+                bottom: 10,
+              ),
+              child: Container(
+                height:
+                    index == 0
+                        ? 128
+                        : 104,
+                decoration:
+                    BoxDecoration(
+                  borderRadius:
+                      BorderRadius
+                          .circular(
+                    17,
+                  ),
+                  gradient:
+                      LinearGradient(
+                    begin:
+                        Alignment(
+                      -1.6 +
+                          3.2 * t,
+                      0,
+                    ),
+                    end:
+                        Alignment(
+                      -0.6 +
+                          3.2 * t,
+                      0,
+                    ),
+                    colors: [
+                      Colors.grey
+                          .shade100,
+                      Colors.grey
+                          .shade200,
+                      Colors.grey
+                          .shade100,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

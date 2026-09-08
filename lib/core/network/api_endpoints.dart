@@ -14,7 +14,7 @@ class ApiEndpoints {
   static const String editPilotProfile = '/pilot/profile';
   static const String profileDocuments = '/profile/documents';
   static const String companyProfile = '/company/profile';
-
+  static const String fcmTokenRefresh = '/fcm-token/refresh';
   // Password
   static const String forgotPassword = '/auth/password/forgot';
 
@@ -72,4 +72,13 @@ class ApiEndpoints {
   static String adminVerificationHistory(int userId) {
     return '/admin/users/$userId/verification-history';
   }
+
+  static const String pilotLicenses =
+      '/pilot-licenses';
+
+  static String pilotLicense(int licenseId) {
+    return '/pilot-licenses/$licenseId';
+  }
+  static const String pilotDashboard = '/dashboard';
+  static const String companyDashboard = '/company/dashboard';
 }

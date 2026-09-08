@@ -1,46 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/network/api_client.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
+import 'package:tototl_app/features/pilot/screens/applications/apply_for_job_screen.dart';
+import 'package:tototl_app/features/pilot/screens/applications/application_details_screen.dart';
 
-import '../../../../../core/theme/app_colors.dart';
- import '../../../company/screens/profile/company_public_profile_screen.dart';
-import '../applications/apply_for_job_screen.dart';
-import '../shared/pilot_data.dart';
-
-// ============================================================================
-// JOB DETAILS SCREEN
-// ============================================================================
+import '../../models/pilot_job_model.dart';
+import '../../services/pilot_job_service.dart';
 
 class JobDetailsScreen extends StatefulWidget {
   const JobDetailsScreen({
     super.key,
-    this.job = solarFarmJob,
+    required this.jobId,
   });
 
-  final PilotJob job;
+  final int jobId;
 
   @override
-  State<JobDetailsScreen> createState() =>
-      _JobDetailsScreenState();
+  State<JobDetailsScreen> createState() => _JobDetailsScreenState();
 }
 
 class _JobDetailsScreenState extends State<JobDetailsScreen>
     with SingleTickerProviderStateMixin {
-  bool _saved = false;
-
+  late final PilotJobService _service;
   late final AnimationController _pageAnimationController;
+
+  PilotJobModel? _job;
+  bool _loading = true;
+  bool _saved = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
 
+    _service = PilotJobService(ApiClient());
+
     _pageAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(
-        milliseconds: 950,
-      ),
+      duration: const Duration(milliseconds: 850),
     );
 
-    _pageAnimationController.forward();
+    _load();
   }
 
   @override
@@ -49,646 +50,492 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     super.dispose();
   }
 
-  // ==========================================================================
-  // ENTRY ANIMATION
-  // ==========================================================================
+  Future<void> _load() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final job = await _service.getJobDetails(widget.jobId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _job = job;
+        _loading = false;
+      });
+
+      _pageAnimationController
+        ..reset()
+        ..forward();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _errorMessage = e.toString();
+      });
+    }
+  }
 
   Widget _animatedEntry({
     required int index,
     required Widget child,
   }) {
-    final start =
-    (index * 0.045)
-        .clamp(
-      0.0,
-      0.65,
-    )
-        .toDouble();
-
-    final end =
-    (start + 0.30)
-        .clamp(
-      0.0,
-      1.0,
-    )
-        .toDouble();
+    final start = (index * 0.045).clamp(0.0, 0.65).toDouble();
+    final end = (start + 0.30).clamp(0.0, 1.0).toDouble();
 
     final animation = CurvedAnimation(
       parent: _pageAnimationController,
-      curve: Interval(
-        start,
-        end,
-        curve: Curves.easeOutCubic,
-      ),
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
     );
 
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(
-            0,
-            0.035,
-          ),
+          begin: const Offset(0, 0.025),
           end: Offset.zero,
-        ).animate(
-          animation,
-        ),
+        ).animate(animation),
         child: child,
       ),
     );
   }
 
-  // ==========================================================================
-  // BUILD
-  // ==========================================================================
-
   @override
   Widget build(BuildContext context) {
-    final job = widget.job;
-
     return Scaffold(
       backgroundColor: AppColors.bg,
-
       body: Stack(
         children: [
-          // ==================================================================
-          // SOFT BACKGROUND DECORATION
-          // ==================================================================
-
-          Positioned(
-            top: -150,
-            right: -130,
-            child: IgnorePointer(
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.blue.withOpacity(
-                        0.09,
-                      ),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 650,
-            left: -170,
-            child: IgnorePointer(
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.logoTurquoiseLight.withOpacity(
-                        0.035,
-                      ),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // ==================================================================
-          // SCREEN
-          // ==================================================================
-
+          _backgroundGlow(),
           SafeArea(
             child: Column(
               children: [
-                // ============================================================
-                // TOP BAR
-                // ============================================================
-
-                _TopBar(
-                  saved: _saved,
-                  onBack: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.of(context).pop();
-                  },
-                  onSave: () {
-                    HapticFeedback.selectionClick();
-
-                    setState(() {
-                      _saved = !_saved;
-                    });
-                  },
-                ),
-
-                // ============================================================
-                // SCROLL CONTENT
-                // ============================================================
-
+                _topBar(),
                 Expanded(
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(),
-                    keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(
-                      16,
-                      12,
-                      16,
-                      30,
-                    ),
-                    children: [
-                      // ======================================================
-                      // HERO
-                      // ======================================================
-
-                      _animatedEntry(
-                        index: 0,
-                        child: _JobHero(
-                          job: job,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      // ======================================================
-                      // SUMMARY
-                      // ======================================================
-
-                      _animatedEntry(
-                        index: 1,
-                        child: _JobSummary(
-                          job: job,
-                        ),
-                      ),
-
-                      // ======================================================
-                      // SERVICE CATEGORY
-                      // ======================================================
-
-                      if (job.serviceCategory.isNotEmpty) ...[
-                        const SizedBox(
-                          height: 14,
-                        ),
-
-                        _animatedEntry(
-                          index: 2,
-                          child: _SectionCard(
-                            icon: Icons.category_outlined,
-                            title: 'Service Category',
-                            child: Text(
-                              job.serviceCategory,
-                              style: const TextStyle(
-                                color: AppColors.navy,
-                                fontSize: 13.5,
-                                height: 1.45,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      // ======================================================
-                      // DESCRIPTION
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 3,
-                        child: _SectionCard(
-                          icon: Icons.notes_rounded,
-                          title: 'Description',
-                          child: Text(
-                            job.description,
-                            style: const TextStyle(
-                              color: AppColors.text,
-                              fontSize: 13,
-                              height: 1.65,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // LOCATION
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 4,
-                        child: _SectionCard(
-                          icon: Icons.location_on_outlined,
-                          title: 'Location',
-                          child: Column(
-                            children: [
-                              _LocationRow(
-                                'Country',
-                                job.country,
-                              ),
-
-                              _LocationRow(
-                                'City',
-                                job.city,
-                              ),
-
-                              if (job.region.isNotEmpty)
-                                _LocationRow(
-                                  'Region',
-                                  job.region,
-                                ),
-
-                              if (job.address != null)
-                                _LocationRow(
-                                  'Address',
-                                  job.address!,
-                                ),
-
-                              if (job.indoorOutdoor != null)
-                                _LocationRow(
-                                  'Type',
-                                  job.indoorOutdoor!,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // SCHEDULE
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 5,
-                        child: _SectionCard(
-                          icon: Icons.calendar_month_outlined,
-                          title: 'Schedule',
-                          child: Column(
-                            children: [
-                              _LocationRow(
-                                'Date',
-                                job.date,
-                              ),
-
-                              if (job.startTime != null)
-                                _LocationRow(
-                                  'Start Time',
-                                  job.startTime!,
-                                ),
-
-                              if (job.flexibleSchedule)
-                                Container(
-                                  width: double.infinity,
-                                  margin: const EdgeInsets.only(
-                                    top: 5,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 11,
-                                    vertical: 9,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.green.withOpacity(
-                                      0.065,
-                                    ),
-                                    borderRadius: BorderRadius.circular(
-                                      11,
-                                    ),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(
-                                        Icons.access_time_rounded,
-                                        color: AppColors.green,
-                                        size: 15,
-                                      ),
-
-                                      SizedBox(
-                                        width: 7,
-                                      ),
-
-                                      Text(
-                                        'Flexible schedule',
-                                        style: TextStyle(
-                                          color: AppColors.green,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // BUDGET
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 6,
-                        child: _SectionCard(
-                          icon: Icons.payments_outlined,
-                          title: 'Budget',
-                          child: Column(
-                            children: [
-                              _LocationRow(
-                                'Payment Type',
-                                job.paymentType,
-                              ),
-
-                              _BudgetRow(
-                                label: 'Budget',
-                                value: job.pay,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // REQUIRED SKILLS
-                      // ======================================================
-
-                      if (job.requiredSkills.isNotEmpty) ...[
-                        const SizedBox(
-                          height: 14,
-                        ),
-
-                        _animatedEntry(
-                          index: 7,
-                          child: _SectionCard(
-                            icon: Icons.auto_awesome_outlined,
-                            title: 'Skills Required',
-                            child: Wrap(
-                              spacing: 7,
-                              runSpacing: 7,
-                              children: job.requiredSkills
-                                  .map(
-                                    (skill) => _CapabilityChip(
-                                  label: skill,
-                                ),
-                              )
-                                  .toList(),
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      // ======================================================
-                      // REQUIREMENTS
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 8,
-                        child: _SectionCard(
-                          icon: Icons.verified_user_outlined,
-                          title: 'Requirements',
-                          child: _Checklist(
-                            items: job.requirements,
-                            icon: Icons.verified_outlined,
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // DRONE CAPABILITIES
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 9,
-                        child: _SectionCard(
-                          icon: Icons.flight_takeoff_rounded,
-                          title: 'Required Drone Capabilities',
-                          child: Wrap(
-                            spacing: 7,
-                            runSpacing: 7,
-                            children: job.capabilities
-                                .map(
-                                  (capability) => _CapabilityChip(
-                                label: capability,
-                              ),
+                  child: _loading
+                      ? const _JobDetailShimmer()
+                      : _errorMessage != null
+                          ? _DetailError(
+                              message: _errorMessage!,
+                              onRetry: _load,
                             )
-                                .toList(),
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // SAFETY
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 10,
-                        child: _SectionCard(
-                          icon: Icons.health_and_safety_outlined,
-                          title: 'Safety Requirements',
-                          child: _Checklist(
-                            items: job.safetyRequirements,
-                            icon: Icons.health_and_safety_outlined,
-                          ),
-                        ),
-                      ),
-
-                      // ======================================================
-                      // ATTACHMENTS
-                      // ======================================================
-
-                      if (job.attachments.isNotEmpty) ...[
-                        const SizedBox(
-                          height: 14,
-                        ),
-
-                        _animatedEntry(
-                          index: 11,
-                          child: _SectionCard(
-                            icon: Icons.attach_file_rounded,
-                            title: 'Attachments',
-                            child: Wrap(
-                              spacing: 7,
-                              runSpacing: 7,
-                              children: job.attachments
-                                  .map(
-                                    (attachment) => _AttachmentChip(
-                                  label: attachment,
-                                ),
-                              )
-                                  .toList(),
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      // ======================================================
-                      // ABOUT COMPANY
-                      // ======================================================
-
-                      const SizedBox(
-                        height: 14,
-                      ),
-
-                      _animatedEntry(
-                        index: 12,
-                        child: _SectionCard(
-                          icon: Icons.business_outlined,
-                          title: 'About the Company',
-                          child: _CompanyCard(
-                            job: job,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 10,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ============================================================
-                // APPLY BAR
-                // ============================================================
-
-                _ApplyBar(
-                  pay: job.pay,
-                  onApply: () {
-                    HapticFeedback.mediumImpact();
-
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ApplyForJobScreen(
-                          job: job,
-                        ),
-                      ),
-                    );
-                  },
+                          : _content(),
                 ),
               ],
             ),
           ),
         ],
       ),
+      bottomNavigationBar: _buildBottomAction(),
     );
   }
-}
 
-// ============================================================================
-// TOP BAR
-// ============================================================================
+  Widget? _buildBottomAction() {
+    if (_loading || _errorMessage != null || _job == null) {
+      return null;
+    }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.saved,
-    required this.onBack,
-    required this.onSave,
-  });
+    final job = _job!;
+    final application = job.application;
 
-  final bool saved;
+    if (application?.hasApplied == true) {
+      final applicationId = application?.id;
+      final statusLabel = application?.statusLabel ?? '';
 
-  final VoidCallback onBack;
+      return SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 11, 16, 14),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorder),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.blueBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.assignment_turned_in_outlined,
+                        color: AppColors.blue,
+                        size: 19,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          statusLabel.isEmpty
+                              ? 'Application submitted'
+                              : 'Application $statusLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.navy,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (applicationId != null) ...[
+                const SizedBox(width: 9),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: () async {
+                      HapticFeedback.selectionClick();
 
-  final VoidCallback onSave;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ApplicationDetailsScreen(
+                            applicationId: applicationId,
+                          ),
+                        ),
+                      );
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        20,
-        16,
-        8,
+                      if (mounted) {
+                        await _load();
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'View',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 11, 16, 14),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: AppColors.cardBorder),
+          ),
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton.icon(
+            onPressed: () async {
+              HapticFeedback.mediumImpact();
+
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ApplyForJobScreen(job: job),
+                ),
+              );
+
+              if (mounted) {
+                await _load();
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            icon: const Icon(Icons.send_rounded, size: 18),
+            label: const Text(
+              'Apply for this Job',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _backgroundGlow() {
+    return Stack(
+      children: [
+        Positioned(
+          top: -150,
+          right: -130,
+          child: IgnorePointer(
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.blue.withOpacity(0.09),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 650,
+          left: -170,
+          child: IgnorePointer(
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.logoTurquoise.withOpacity(0.035),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _topBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 7),
       child: Row(
         children: [
-          // ==================================================================
-          // BACK
-          // ==================================================================
-
           _TopIconButton(
             tooltip: 'Back',
-            onTap: onBack,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              Navigator.of(context).pop();
+            },
             icon: Icons.arrow_back_ios_new_rounded,
           ),
-
-          // ==================================================================
-          // TITLE
-          // ==================================================================
-
           const Expanded(
             child: Text(
               'Job Details',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.navy,
-
-                // المطلوب: العنوان العلوي 18
                 fontSize: 18,
-
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.3,
               ),
             ),
           ),
-
-          // ==================================================================
-          // SAVE
-          // ==================================================================
-
           _TopIconButton(
-            tooltip:
-            saved
-                ? 'Remove saved job'
-                : 'Save job',
-            onTap: onSave,
-            icon:
-            saved
+            tooltip: _saved ? 'Remove saved job' : 'Save job',
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _saved = !_saved);
+            },
+            icon: _saved
                 ? Icons.bookmark_rounded
                 : Icons.bookmark_border_rounded,
-            selected: saved,
+            selected: _saved,
           ),
         ],
       ),
     );
   }
-}
 
-// ============================================================================
-// TOP ICON BUTTON
-// ============================================================================
+  Widget _content() {
+    final job = _job!;
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 34),
+        children: [
+          _animatedEntry(index: 0, child: _JobHero(job: job)),
+          const SizedBox(height: 14),
+          _animatedEntry(index: 1, child: _JobSummary(job: job)),
+          if (job.application?.hasApplied == true) ...[
+            const SizedBox(height: 14),
+            _animatedEntry(
+              index: 2,
+              child: _ApplicationStatusCard(
+                application: job.application!,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          _animatedEntry(
+            index: 3,
+            child: _SectionCard(
+              icon: Icons.notes_rounded,
+              title: 'Description',
+              child: Text(
+                job.description.isEmpty
+                    ? 'No description provided.'
+                    : job.description,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 13,
+                  height: 1.65,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _animatedEntry(
+            index: 4,
+            child: _SectionCard(
+              icon: Icons.location_on_outlined,
+              title: 'Location',
+              child: Column(
+                children: [
+                  _LocationRow(
+                    label: 'Country',
+                    value: _fallback(job.country),
+                  ),
+                  if (job.state.isNotEmpty)
+                    _LocationRow(label: 'State', value: job.state),
+                  if (job.city.isNotEmpty)
+                    _LocationRow(label: 'City', value: job.city),
+                  if (job.region.isNotEmpty)
+                    _LocationRow(label: 'Region', value: job.region),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _animatedEntry(
+            index: 5,
+            child: _SectionCard(
+              icon: Icons.calendar_month_outlined,
+              title: 'Schedule',
+              child: Column(
+                children: [
+                  _LocationRow(
+                    label: 'Start',
+                    value: _date(job.startDate),
+                  ),
+                  _LocationRow(
+                    label: 'End',
+                    value: _date(job.endDate),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _animatedEntry(
+            index: 6,
+            child: _SectionCard(
+              icon: Icons.payments_outlined,
+              title: 'Budget',
+              child: Column(
+                children: [
+                  _LocationRow(
+                    label: 'Type',
+                    value: job.paymentTypeLabel,
+                  ),
+                  _LocationRow(
+                    label: 'Budget',
+                    value: job.payLabel,
+                    valueColor: AppColors.green,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _animatedEntry(
+            index: 7,
+            child: _RequirementsCard(job: job),
+          ),
+          if (job.requiredCapabilities.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _animatedEntry(
+              index: 8,
+              child: _SectionCard(
+                icon: Icons.flight_takeoff_rounded,
+                title: 'Required Drone Capabilities',
+                child: Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: job.requiredCapabilities
+                      .map((item) => _CapabilityChip(label: item))
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+          if (job.attachments.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _animatedEntry(
+              index: 9,
+              child: _AttachmentsCard(attachments: job.attachments),
+            ),
+          ],
+          if (job.company != null) ...[
+            const SizedBox(height: 14),
+            _animatedEntry(
+              index: 10,
+              child: _CompanyCard(company: job.company!),
+            ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  String _date(DateTime? date) {
+    if (date == null) return 'Not specified';
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _fallback(String value) =>
+      value.trim().isEmpty ? 'Not specified' : value.trim();
+}
 
 class _TopIconButton extends StatelessWidget {
   const _TopIconButton({
@@ -699,11 +546,8 @@ class _TopIconButton extends StatelessWidget {
   });
 
   final String tooltip;
-
   final VoidCallback onTap;
-
   final IconData icon;
-
   final bool selected;
 
   @override
@@ -714,51 +558,33 @@ class _TopIconButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(
-            50,
-          ),
+          borderRadius: BorderRadius.circular(50),
           child: AnimatedContainer(
-            duration: const Duration(
-              milliseconds: 220,
-            ),
+            duration: const Duration(milliseconds: 220),
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color:
-              selected
-                  ? AppColors.blue.withOpacity(
-                0.09,
-              )
+              color: selected
+                  ? AppColors.blue.withOpacity(0.09)
                   : Colors.white,
               shape: BoxShape.circle,
               border: Border.all(
-                color:
-                selected
-                    ? AppColors.blue.withOpacity(
-                  0.20,
-                )
+                color: selected
+                    ? AppColors.blue.withOpacity(0.20)
                     : AppColors.cardBorder,
                 width: 0.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.navy.withOpacity(
-                    0.035,
-                  ),
+                  color: AppColors.navy.withOpacity(0.035),
                   blurRadius: 12,
-                  offset: const Offset(
-                    0,
-                    4,
-                  ),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Icon(
               icon,
-              color:
-              selected
-                  ? AppColors.blue
-                  : AppColors.navy,
+              color: selected ? AppColors.blue : AppColors.navy,
               size: 17,
             ),
           ),
@@ -768,72 +594,41 @@ class _TopIconButton extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// JOB HERO
-// ============================================================================
-
 class _JobHero extends StatelessWidget {
-  const _JobHero({
-    required this.job,
-  });
+  const _JobHero({required this.job});
 
-  final PilotJob job;
+  final PilotJobModel job;
 
   @override
   Widget build(BuildContext context) {
+    final company = job.company;
+
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        minHeight: 172,
-      ),
-      padding: const EdgeInsets.all(
-        18,
-      ),
+      constraints: const BoxConstraints(minHeight: 180),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(
-              0xFF122A3A,
-            ),
-            Color(
-              0xFF0D3B4A,
-            ),
-            Color(
-              0xFF087E8F,
-            ),
+            Color(0xFF122A3A),
+            Color(0xFF0D3B4A),
+            Color(0xFF087E8F),
           ],
-          stops: [
-            0,
-            0.60,
-            1,
-          ],
+          stops: [0, 0.60, 1],
         ),
-        borderRadius: BorderRadius.circular(
-          24,
-        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(
-              0xFF0D3B4A,
-            ).withOpacity(
-              0.16,
-            ),
+            color: const Color(0xFF0D3B4A).withOpacity(0.16),
             blurRadius: 26,
-            offset: const Offset(
-              0,
-              11,
-            ),
+            offset: const Offset(0, 11),
           ),
         ],
       ),
       child: Stack(
         children: [
-          // ==================================================================
-          // DECORATION
-          // ==================================================================
-
           Positioned(
             right: -18,
             top: -23,
@@ -842,141 +637,87 @@ class _JobHero extends StatelessWidget {
               height: 118,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(
-                  0.035,
-                ),
+                color: Colors.white.withOpacity(0.035),
               ),
             ),
           ),
-
           Positioned(
             right: 15,
             top: 15,
             child: Icon(
-              job.id == solarFarmJob.id
-                  ? Icons.solar_power_rounded
-                  : Icons.flight_takeoff_rounded,
-              color: Colors.white.withOpacity(
-                0.10,
-              ),
+              _categoryIcon(job.serviceCategory),
+              color: Colors.white.withOpacity(0.10),
               size: 80,
             ),
           ),
-
-          // ==================================================================
-          // CONTENT
-          // ==================================================================
-
           Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
-            mainAxisAlignment:
-            MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ==============================================================
-              // VERIFIED
-              // ==============================================================
-
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(
-                    0.09,
+              if (company != null && company.verified)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 6,
                   ),
-                  borderRadius: BorderRadius.circular(
-                    20,
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(
-                      0.07,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.09),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.07),
                     ),
                   ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.verified_rounded,
-                      color:
-                      AppColors.logoTurquoiseLight,
-                      size: 14,
-                    ),
-
-                    SizedBox(
-                      width: 5,
-                    ),
-
-                    Text(
-                      'Verified company',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.verified_rounded,
+                        color: AppColors.logoTurquoiseLight,
+                        size: 14,
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 5),
+                      Text(
+                        'Verified company',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-              const SizedBox(
-                height: 30,
-              ),
-
-              // ==============================================================
-              // TITLE
-              // ==============================================================
-
+              const SizedBox(height: 28),
               Text(
-                job.title,
+                job.title.isEmpty ? 'Untitled Job' : job.title,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 20.5,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                   letterSpacing: -0.35,
                 ),
               ),
-
-              const SizedBox(
-                height: 6,
+              const SizedBox(height: 7),
+              Text(
+                company?.displayName ?? job.categoryLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.74),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-
-              Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color:
-                      AppColors.logoTurquoiseLight,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    width: 7,
-                  ),
-
-                  Expanded(
-                    child: Text(
-                      job.company,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(
-                          0.72,
-                        ),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 17),
+              Text(
+                job.payLabel,
+                style: const TextStyle(
+                  color: AppColors.logoTurquoiseLight,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -984,127 +725,88 @@ class _JobHero extends StatelessWidget {
       ),
     );
   }
+
+  IconData _categoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'inspection':
+        return Icons.manage_search_rounded;
+      case 'mapping':
+        return Icons.map_outlined;
+      case 'photography':
+        return Icons.photo_camera_outlined;
+      case 'construction':
+        return Icons.construction_outlined;
+      case 'surveying':
+        return Icons.straighten_rounded;
+      default:
+        return Icons.flight_takeoff_rounded;
+    }
+  }
 }
 
-// ============================================================================
-// JOB SUMMARY
-// ============================================================================
-
 class _JobSummary extends StatelessWidget {
-  const _JobSummary({
-    required this.job,
-  });
+  const _JobSummary({required this.job});
 
-  final PilotJob job;
+  final PilotJobModel job;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        15,
-        16,
-        15,
-        15,
-      ),
+      padding: const EdgeInsets.fromLTRB(15, 16, 15, 15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(
-          20,
-        ),
-        border: Border.all(
-          color: AppColors.cardBorder,
-          width: 0.8,
-        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder, width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(
-              0.032,
-            ),
+            color: AppColors.navy.withOpacity(0.032),
             blurRadius: 18,
-            offset: const Offset(
-              0,
-              7,
-            ),
+            offset: const Offset(0, 7),
           ),
         ],
       ),
       child: Column(
         children: [
-          // ==================================================================
-          // METRICS
-          // ==================================================================
-
           Row(
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: _Metric(
                   icon: Icons.payments_outlined,
                   label: 'Pay',
-                  value: job.pay,
+                  value: job.payLabel,
                   accent: AppColors.green,
                 ),
               ),
-
-              _MetricDivider(),
-
+              const _MetricDivider(),
               Expanded(
                 child: _Metric(
                   icon: Icons.calendar_today_outlined,
                   label: 'Date',
-                  value: job.date,
+                  value: job.dateLabel,
                 ),
               ),
-
-              _MetricDivider(),
-
-              const Expanded(
+              const _MetricDivider(),
+              Expanded(
                 child: _Metric(
-                  icon: Icons.schedule_outlined,
-                  label: 'Time',
-                  value: '9:00 AM',
-                ),
-              ),
-
-              _MetricDivider(),
-
-              const Expanded(
-                child: _Metric(
-                  icon: Icons.today_outlined,
-                  label: 'Day',
-                  value: 'Thursday',
+                  icon: Icons.category_outlined,
+                  label: 'Service',
+                  value: job.categoryLabel,
                 ),
               ),
             ],
           ),
-
           const Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: 15,
-            ),
-            child: Divider(
-              height: 1,
-              color: AppColors.cardBorder,
-            ),
+            padding: EdgeInsets.symmetric(vertical: 15),
+            child: Divider(height: 1, color: AppColors.cardBorder),
           ),
-
-          // ==================================================================
-          // LOCATION
-          // ==================================================================
-
           Row(
             children: [
               Container(
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: AppColors.blue.withOpacity(
-                    0.065,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    9,
-                  ),
+                  color: AppColors.blue.withOpacity(0.065),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: const Icon(
                   Icons.location_on_outlined,
@@ -1112,15 +814,11 @@ class _JobSummary extends StatelessWidget {
                   size: 15,
                 ),
               ),
-
-              const SizedBox(
-                width: 9,
-              ),
-
+              const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  job.location,
-                  maxLines: 1,
+                  job.detailedLocationLabel,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.navy,
@@ -1129,73 +827,13 @@ class _JobSummary extends StatelessWidget {
                   ),
                 ),
               ),
-
-              const SizedBox(
-                width: 7,
-              ),
-
-              const Icon(
-                Icons.star_rounded,
-                color: AppColors.gold,
-                size: 16,
-              ),
-
-              const SizedBox(
-                width: 3,
-              ),
-
-              Flexible(
-                child: Text(
-                  '${job.companyRating} company rating',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
             ],
           ),
-
-          // ==================================================================
-          // INFO CHIPS
-          // ==================================================================
-
-          if (job.siteImagesProvided ||
-              job.pidIncluded) ...[
-            const SizedBox(
-              height: 13,
-            ),
-
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                if (job.siteImagesProvided)
-                  const _InfoChip(
-                    icon: Icons.image_outlined,
-                    label: 'Site images provided',
-                  ),
-
-                if (job.pidIncluded)
-                  const _InfoChip(
-                    icon: Icons.description_outlined,
-                    label: 'P&ID included',
-                  ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 }
-
-// ============================================================================
-// METRIC
-// ============================================================================
 
 class _Metric extends StatelessWidget {
   const _Metric({
@@ -1206,33 +844,18 @@ class _Metric extends StatelessWidget {
   });
 
   final IconData icon;
-
   final String label;
-
   final String value;
-
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 3,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 3),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: accent.withOpacity(
-              0.78,
-            ),
-            size: 15,
-          ),
-
-          const SizedBox(
-            height: 5,
-          ),
-
+          Icon(icon, color: accent.withOpacity(0.78), size: 15),
+          const SizedBox(height: 5),
           Text(
             label,
             maxLines: 1,
@@ -1243,11 +866,7 @@ class _Metric extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-
-          const SizedBox(
-            height: 3,
-          ),
-
+          const SizedBox(height: 3),
           Text(
             value,
             textAlign: TextAlign.center,
@@ -1255,7 +874,7 @@ class _Metric extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: accent,
-              fontSize: 11.5,
+              fontSize: 10.5,
               height: 1.2,
               fontWeight: FontWeight.w800,
             ),
@@ -1274,78 +893,11 @@ class _MetricDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 48,
-      margin: const EdgeInsets.symmetric(
-        horizontal: 2,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 2),
       color: AppColors.cardBorder,
     );
   }
 }
-
-// ============================================================================
-// INFO CHIP
-// ============================================================================
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.blue.withOpacity(
-          0.055,
-        ),
-        borderRadius: BorderRadius.circular(
-          9,
-        ),
-        border: Border.all(
-          color: AppColors.blue.withOpacity(
-            0.07,
-          ),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 13,
-            color: AppColors.blue,
-          ),
-
-          const SizedBox(
-            width: 5,
-          ),
-
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.blue,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// SECTION CARD
-// ============================================================================
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
@@ -1355,90 +907,52 @@ class _SectionCard extends StatelessWidget {
   });
 
   final IconData icon;
-
   final String title;
-
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(
-        16,
-      ),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(
-          20,
-        ),
-        border: Border.all(
-          color: AppColors.cardBorder,
-          width: 0.8,
-        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder, width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(
-              0.027,
-            ),
+            color: AppColors.navy.withOpacity(0.025),
             blurRadius: 16,
-            offset: const Offset(
-              0,
-              6,
-            ),
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ==================================================================
-          // SECTION HEADER
-          // ==================================================================
-
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: AppColors.blue.withOpacity(
-                    0.065,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    10,
-                  ),
+                  color: AppColors.blue.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppColors.blue,
-                  size: 16,
-                ),
+                child: Icon(icon, color: AppColors.blue, size: 16),
               ),
-
-              const SizedBox(
-                width: 10,
-              ),
-
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.1,
-                  ),
+              const SizedBox(width: 9),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
-
-          const SizedBox(
-            height: 14,
-          ),
-
+          const SizedBox(height: 13),
           child,
         ],
       ),
@@ -1446,125 +960,42 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// LOCATION ROW
-// ============================================================================
-
 class _LocationRow extends StatelessWidget {
-  const _LocationRow(
-      this.label,
-      this.value,
-      );
+  const _LocationRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
 
   final String label;
-
   final String value;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 9,
-      ),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 92,
+            width: 82,
             child: Text(
               label,
-              style: TextStyle(
-                color: AppColors.grey.withOpacity(
-                  0.86,
-                ),
-                fontSize: 11.5,
-                height: 1.4,
-                fontWeight: FontWeight.w500,
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 12,
               ),
             ),
           ),
-
-          const SizedBox(
-            width: 8,
-          ),
-
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: AppColors.navy,
-                fontSize: 12.5,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// BUDGET ROW
-// ============================================================================
-
-class _BudgetRow extends StatelessWidget {
-  const _BudgetRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 4,
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 92,
-            child: Text(
-              label,
+              textAlign: TextAlign.right,
               style: TextStyle(
-                color: AppColors.grey.withOpacity(
-                  0.86,
-                ),
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-
-          const SizedBox(
-            width: 8,
-          ),
-
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.green.withOpacity(
-                0.07,
-              ),
-              borderRadius: BorderRadius.circular(
-                10,
-              ),
-            ),
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.green,
+                color: valueColor ?? AppColors.navy,
                 fontSize: 12.5,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1574,117 +1005,80 @@ class _BudgetRow extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// CHECKLIST
-// ============================================================================
+class _RequirementsCard extends StatelessWidget {
+  const _RequirementsCard({required this.job});
 
-class _Checklist extends StatelessWidget {
-  const _Checklist({
-    required this.items,
-    required this.icon,
-  });
-
-  final List<String> items;
-
-  final IconData icon;
+  final PilotJobModel job;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: List.generate(
-        items.length,
-            (index) {
-          final item =
-          items[index];
+    final lines = job.requirementLines;
 
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom:
-              index == items.length - 1
-                  ? 0
-                  : 11,
-            ),
-            child: Row(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: AppColors.green.withOpacity(
-                      0.065,
-                    ),
-                    borderRadius: BorderRadius.circular(
-                      8,
-                    ),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: AppColors.green,
-                    size: 14,
-                  ),
-                ),
-
-                const SizedBox(
-                  width: 9,
-                ),
-
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      top: 3,
-                    ),
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: 12.5,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
+    return _SectionCard(
+      icon: Icons.verified_user_outlined,
+      title: 'Requirements',
+      child: lines.isEmpty
+          ? const Text(
+              'No additional requirements.',
+              style: TextStyle(color: AppColors.grey, fontSize: 12.5),
+            )
+          : Column(
+              children: lines.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: AppColors.green.withOpacity(0.065),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          color: AppColors.green,
+                          size: 14,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text(
+                            item,
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 12.5,
+                              height: 1.45,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              }).toList(),
             ),
-          );
-        },
-      ),
     );
   }
 }
-
-// ============================================================================
-// CAPABILITY CHIP
-// ============================================================================
 
 class _CapabilityChip extends StatelessWidget {
-  const _CapabilityChip({
-    required this.label,
-  });
+  const _CapabilityChip({required this.label});
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: AppColors.green.withOpacity(
-          0.065,
-        ),
-        borderRadius: BorderRadius.circular(
-          10,
-        ),
-        border: Border.all(
-          color: AppColors.green.withOpacity(
-            0.09,
-          ),
-        ),
+        color: AppColors.green.withOpacity(0.065),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.green.withOpacity(0.09)),
       ),
       child: Text(
         label,
@@ -1698,390 +1092,319 @@ class _CapabilityChip extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// ATTACHMENT CHIP
-// ============================================================================
+class _AttachmentsCard extends StatelessWidget {
+  const _AttachmentsCard({required this.attachments});
 
-class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({
-    required this.label,
-  });
-
-  final String label;
+  final List<PilotJobAttachmentModel> attachments;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.blue.withOpacity(
-          0.055,
-        ),
-        borderRadius: BorderRadius.circular(
-          10,
-        ),
-        border: Border.all(
-          color: AppColors.blue.withOpacity(
-            0.08,
-          ),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.attach_file_rounded,
-            color: AppColors.blue,
-            size: 13,
-          ),
-
-          const SizedBox(
-            width: 5,
-          ),
-
-          Flexible(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.blue,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-              ),
+    return _SectionCard(
+      icon: Icons.attach_file_rounded,
+      title: 'Attachments (${attachments.length})',
+      child: Column(
+        children: attachments.map((attachment) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// COMPANY CARD
-// ============================================================================
-
-class _CompanyCard extends StatelessWidget {
-  const _CompanyCard({
-    required this.job,
-  });
-
-  final PilotJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(
-          15,
-        ),
-        onTap: () {
-          HapticFeedback.selectionClick();
-
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-              const CompanyPublicProfileScreen(),
-            ),
-          );
-        },
-        child: Ink(
-          padding: const EdgeInsets.all(
-            12,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.bg,
-            borderRadius: BorderRadius.circular(
-              15,
-            ),
-            border: Border.all(
-              color: AppColors.cardBorder,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.blue.withOpacity(
-                        0.12,
-                      ),
-                      AppColors.blue.withOpacity(
-                        0.055,
-                      ),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    14,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.business_rounded,
-                  color: AppColors.blue,
-                  size: 22,
-                ),
-              ),
-
-              const SizedBox(
-                width: 12,
-              ),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            job.company,
-                            maxLines: 1,
-                            overflow:
-                            TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 13.5,
-                              fontWeight:
-                              FontWeight.w800,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(
-                          width: 5,
-                        ),
-
-                        const Icon(
-                          Icons.verified_rounded,
-                          color:
-                          AppColors.logoTurquoiseLight,
-                          size: 15,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                      height: 4,
-                    ),
-
-                    Text(
-                      '${job.jobsPosted} jobs posted · ${job.pilotsHired} pilots hired',
-                      maxLines: 1,
-                      overflow:
-                      TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.grey,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(
-                width: 7,
-              ),
-
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.cardBorder,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.chevron_right_rounded,
+            child: Row(
+              children: [
+                Icon(
+                  attachment.isImage
+                      ? Icons.image_outlined
+                      : Icons.insert_drive_file_outlined,
                   color: AppColors.blue,
                   size: 18,
                 ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    attachment.name.isEmpty ? 'Attachment' : attachment.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (attachment.size > 0)
+                  Text(
+                    _size(attachment.size),
+                    style: const TextStyle(
+                      color: AppColors.grey,
+                      fontSize: 10.5,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _size(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kb = bytes / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+    return '${(kb / 1024).toStringAsFixed(1)} MB';
+  }
+}
+
+class _CompanyCard extends StatelessWidget {
+  const _CompanyCard({required this.company});
+
+  final PilotJobCompanySummary company;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      icon: Icons.business_outlined,
+      title: 'About the Company',
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.blueBg,
+                borderRadius: BorderRadius.circular(14),
               ),
-            ],
-          ),
+              child: const Icon(
+                Icons.business_rounded,
+                color: AppColors.blue,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                company.displayName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (company.verified)
+              const Icon(
+                Icons.verified_rounded,
+                color: AppColors.logoTurquoiseLight,
+                size: 17,
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ============================================================================
-// APPLY BAR
-// ============================================================================
+class _ApplicationStatusCard extends StatelessWidget {
+  const _ApplicationStatusCard({required this.application});
 
-class _ApplyBar extends StatelessWidget {
-  const _ApplyBar({
-    required this.pay,
-    required this.onApply,
-  });
-
-  final String pay;
-
-  final VoidCallback onApply;
+  final PilotJobApplicationSummary application;
 
   @override
   Widget build(BuildContext context) {
+    final visual = _applicationVisual(application.status);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        11,
-        16,
-        12,
-      ),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(
-          top: BorderSide(
-            color: AppColors.cardBorder,
-            width: 0.8,
-          ),
+        color: visual.background,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: visual.foreground.withOpacity(0.18),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withOpacity(
-              0.045,
-            ),
-            blurRadius: 18,
-            offset: const Offset(
-              0,
-              -5,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.assignment_turned_in_outlined,
+            color: visual.foreground,
+            size: 21,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'You already applied',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  application.statusLabel,
+                  style: TextStyle(
+                    color: visual.foreground,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        minimum: EdgeInsets.zero,
-        child: Row(
+    );
+  }
+}
+
+class _VisualPair {
+  final Color foreground;
+  final Color background;
+
+  const _VisualPair(this.foreground, this.background);
+}
+
+_VisualPair _applicationVisual(String status) {
+  switch (status.toLowerCase()) {
+    case 'accepted':
+      return const _VisualPair(AppColors.green, AppColors.greenBg);
+    case 'rejected':
+      return _VisualPair(Colors.red.shade700, Colors.red.shade50);
+    case 'withdrawn':
+      return _VisualPair(AppColors.grey, Colors.grey.shade100);
+    default:
+      return const _VisualPair(AppColors.blue, AppColors.blueBg);
+  }
+}
+
+class _DetailError extends StatelessWidget {
+  const _DetailError({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // ==================================================================
-            // RATE
-            // ==================================================================
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Daily rate',
-                    style: TextStyle(
-                      color: AppColors.grey,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-
-                  const SizedBox(
-                    height: 2,
-                  ),
-
-                  Text(
-                    pay,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.green,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: AppColors.blue,
+              size: 44,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Couldn’t load this job',
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
               ),
             ),
-
-            const SizedBox(
-              width: 14,
-            ),
-
-            // ==================================================================
-            // APPLY BUTTON
-            // ==================================================================
-
-            Container(
-              height: 48,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  15,
-                ),
-                gradient: const LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Color(
-                      0xFF16BDB8,
-                    ),
-                    Color(
-                      0xFF087F9D,
-                    ),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blue.withOpacity(
-                      0.20,
-                    ),
-                    blurRadius: 15,
-                    offset: const Offset(
-                      0,
-                      5,
-                    ),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: onApply,
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 21,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      15,
-                    ),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Apply for Job',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-
-                    SizedBox(
-                      width: 7,
-                    ),
-
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 11.8,
               ),
             ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(backgroundColor: AppColors.blue),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try Again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _JobDetailShimmer extends StatefulWidget {
+  const _JobDetailShimmer();
+
+  @override
+  State<_JobDetailShimmer> createState() => _JobDetailShimmerState();
+}
+
+class _JobDetailShimmerState extends State<_JobDetailShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1250),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, _) {
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 34),
+          children: [
+            _skeleton(180, 24),
+            const SizedBox(height: 14),
+            _skeleton(138, 20),
+            const SizedBox(height: 14),
+            _skeleton(132, 20),
+            const SizedBox(height: 14),
+            _skeleton(150, 20),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _skeleton(double height, double radius) {
+    final t = _animation.value;
+
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment(-1.6 + (3.2 * t), 0),
+          end: Alignment(-0.6 + (3.2 * t), 0),
+          colors: [
+            Colors.grey.shade100,
+            Colors.grey.shade200,
+            Colors.grey.shade100,
           ],
         ),
       ),

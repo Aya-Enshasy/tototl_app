@@ -24,196 +24,67 @@ class CompanyJobService {
   // ==========================================================================
 
   Future<List<CompanyJobPostingModel>> getMyJobs() async {
-    print('================ MY JOBS START ================');
+    final token = await _getToken();
+
+    final allJobs = <CompanyJobPostingModel>[];
+    var page = 1;
+    var lastPage = 1;
 
     try {
-      final token = await _getToken();
-
-      print('MY JOBS TOKEN EXISTS: ${token.isNotEmpty}');
-      print('MY JOBS ENDPOINT: $_jobsBase');
-
-      final allJobs = <CompanyJobPostingModel>[];
-
-      int page = 1;
-      int lastPage = 1;
-
       do {
-        final endpoint =
-            '$_jobsBase?per_page=15&page=$page';
-
-        print('MY JOBS REQUEST: $endpoint');
+        final endpoint = '$_jobsBase?per_page=50&page=$page';
 
         final response = await apiClient.get(
           endpoint,
           options: _authOptions(token),
         );
 
-        print(
-          'MY JOBS STATUS CODE: ${response.statusCode}',
-        );
+        print('MY JOBS RESPONSE PAGE $page: ${response.data}');
 
-        print(
-          'MY JOBS RAW RESPONSE: ${response.data}',
-        );
-
-        final body = _parseBody(
-          response.data,
-        );
-
-        print(
-          'MY JOBS SUCCESS VALUE: ${body['success']}',
-        );
-
+        final body = _parseBody(response.data);
         _ensureSuccess(
           body,
-          fallback:
-          'Unable to load company jobs.',
+          fallback: 'Unable to load company jobs.',
         );
 
         final rawData = body['data'];
 
-        print(
-          'MY JOBS DATA TYPE: ${rawData.runtimeType}',
-        );
-
         if (rawData is! List) {
-          print(
-            'MY JOBS ERROR: data is NOT List',
-          );
-
           throw const CompanyJobException(
             'Company jobs data is missing.',
           );
         }
 
-        print(
-          'MY JOBS ITEMS COUNT: ${rawData.length}',
-        );
-
-        for (var i = 0;
-        i < rawData.length;
-        i++) {
-          final item = rawData[i];
-
-          print(
-            'PARSING JOB INDEX $i: $item',
-          );
-
+        for (final item in rawData) {
           if (item is Map) {
-            try {
-              final job =
+            allJobs.add(
               CompanyJobPostingModel.fromJson(
-                Map<String, dynamic>.from(
-                  item,
-                ),
-              );
-
-              print(
-                'PARSED JOB OK: id=${job.id}, title=${job.title}, status=${job.status}',
-              );
-
-              allJobs.add(job);
-            } catch (e, stack) {
-              print(
-                'JOB PARSE ERROR INDEX $i: $e',
-              );
-
-              print(
-                'JOB PARSE STACK: $stack',
-              );
-
-              rethrow;
-            }
+                Map<String, dynamic>.from(item),
+              ),
+            );
           }
         }
 
         final rawMeta = body['meta'];
 
-        print(
-          'MY JOBS META: $rawMeta',
-        );
-
         if (rawMeta is Map) {
-          final meta =
-          Map<String, dynamic>.from(
-            rawMeta,
-          );
-
-          lastPage =
-              _asInt(
-                meta['last_page'],
-              ) ??
-                  page;
+          final meta = Map<String, dynamic>.from(rawMeta);
+          lastPage = _asInt(meta['last_page']) ?? page;
         } else {
           lastPage = page;
         }
 
-        print(
-          'MY JOBS PAGE $page / $lastPage',
-        );
-
         page++;
       } while (page <= lastPage);
 
-      print(
-        'MY JOBS FINAL COUNT: ${allJobs.length}',
-      );
-
-      print(
-        '================ MY JOBS SUCCESS ================',
-      );
-
       return allJobs;
-    } on DioException catch (e, stack) {
-      print(
-        '================ MY JOBS DIO ERROR ================',
-      );
-
-      print(
-        'DIO TYPE: ${e.type}',
-      );
-
-      print(
-        'DIO MESSAGE: ${e.message}',
-      );
-
-      print(
-        'DIO STATUS: ${e.response?.statusCode}',
-      );
-
-      print(
-        'DIO RESPONSE: ${e.response?.data}',
-      );
-
-      print(
-        'DIO URI: ${e.requestOptions.uri}',
-      );
-
-      print(
-        'DIO STACK: $stack',
-      );
-
+    } on DioException catch (e) {
       throw CompanyJobException(
         _dioErrorMessage(
           e,
-          fallback:
-          'Unable to load company jobs.',
+          fallback: 'Unable to load company jobs.',
         ),
       );
-    } catch (e, stack) {
-      print(
-        '================ MY JOBS GENERAL ERROR ================',
-      );
-
-      print(
-        'ERROR: $e',
-      );
-
-      print(
-        'STACK: $stack',
-      );
-
-      rethrow;
     }
   }
 
@@ -305,6 +176,165 @@ class CompanyJobService {
         _dioErrorMessage(
           e,
           fallback: 'Unable to load job applicants.',
+        ),
+      );
+    }
+  }
+
+// ==========================================================================
+  // ACCEPT APPLICANT
+  // POST /company/job-postings/{jobId}/applicants/{applicationId}/accept
+  // ==========================================================================
+
+  Future<CompanyJobApplicationModel> acceptApplicant({
+    required int jobId,
+    required int applicationId,
+  }) async {
+    final token = await _getToken();
+
+    final endpoint =
+        '$_jobsBase/$jobId/applicants/$applicationId/accept';
+
+    print('================ ACCEPT APPLICANT REQUEST ================');
+    print('ACCEPT URL: $endpoint');
+
+    try {
+      final response = await apiClient.post(
+        endpoint,
+        options: _authOptions(token),
+      );
+
+      print('ACCEPT APPLICANT STATUS: ${response.statusCode}');
+      print('ACCEPT APPLICANT RESPONSE: ${response.data}');
+
+      final body = _parseBody(response.data);
+
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to accept applicant.',
+      );
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw const CompanyJobException(
+          'Accepted application data is missing.',
+        );
+      }
+
+      final result =
+          CompanyJobApplicationModel.fromJson(
+        Map<String, dynamic>.from(rawData),
+      );
+
+      print(
+        'ACCEPT APPLICANT PARSED: '
+        'application=${result.id}, status=${result.status}',
+      );
+      print('================ ACCEPT APPLICANT SUCCESS ================');
+
+      return result;
+    } on DioException catch (e) {
+      print('================ ACCEPT APPLICANT ERROR ================');
+      print('STATUS: ${e.response?.statusCode}');
+      print('RESPONSE: ${e.response?.data}');
+
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to accept applicant.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // REJECT APPLICANT
+  // POST /company/job-postings/{jobId}/applicants/{applicationId}/reject
+  // reason is OPTIONAL, max 2000 according to the API docs.
+  // ==========================================================================
+
+  Future<CompanyJobApplicationModel> rejectApplicant({
+    required int jobId,
+    required int applicationId,
+    String? reason,
+  }) async {
+    final token = await _getToken();
+
+    final endpoint =
+        '$_jobsBase/$jobId/applicants/$applicationId/reject';
+
+    final cleanReason =
+        reason?.trim() ?? '';
+
+    if (cleanReason.length > 2000) {
+      throw const CompanyJobException(
+        'Rejection reason cannot exceed 2000 characters.',
+      );
+    }
+
+    print('================ REJECT APPLICANT REQUEST ================');
+    print('REJECT URL: $endpoint');
+    print('REJECT REASON LENGTH: ${cleanReason.length}');
+
+    try {
+      final response = await apiClient.post(
+        endpoint,
+        data: cleanReason.isEmpty
+            ? null
+            : <String, dynamic>{
+                'reason': cleanReason,
+              },
+        options: cleanReason.isEmpty
+            ? _authOptions(token)
+            : Options(
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer $token',
+                },
+              ),
+      );
+
+      print('REJECT APPLICANT STATUS: ${response.statusCode}');
+      print('REJECT APPLICANT RESPONSE: ${response.data}');
+
+      final body = _parseBody(response.data);
+
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to reject applicant.',
+      );
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw const CompanyJobException(
+          'Rejected application data is missing.',
+        );
+      }
+
+      final result =
+          CompanyJobApplicationModel.fromJson(
+        Map<String, dynamic>.from(rawData),
+      );
+
+      print(
+        'REJECT APPLICANT PARSED: '
+        'application=${result.id}, status=${result.status}',
+      );
+      print('================ REJECT APPLICANT SUCCESS ================');
+
+      return result;
+    } on DioException catch (e) {
+      print('================ REJECT APPLICANT ERROR ================');
+      print('STATUS: ${e.response?.statusCode}');
+      print('RESPONSE: ${e.response?.data}');
+
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to reject applicant.',
         ),
       );
     }

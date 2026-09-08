@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/network/api_endpoints.dart';
+import 'dart:io';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../controllers/user_session_storage.dart';
 
 import '../models/LoginResponseModel.dart';
@@ -28,48 +30,77 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final response =
-    await apiClient.post(
+    // ============================================================
+    // GET REAL FCM TOKEN
+    // ============================================================
+
+    final messaging = FirebaseMessaging.instance;
+
+    String? fcmToken;
+
+    try {
+      fcmToken = await messaging.getToken();
+    } catch (e) {
+      print('FCM TOKEN NOT AVAILABLE: $e');
+    }
+
+    String? apnToken;
+
+    if (Platform.isIOS) {
+      apnToken = await messaging.getAPNSToken();
+    }
+
+    print('================ LOGIN FCM ================');
+    print(
+      'FCM TOKEN EXISTS: '
+          '${fcmToken != null && fcmToken.isNotEmpty}',
+    );
+    print(
+      'DEVICE TYPE: '
+          '${Platform.isIOS ? 'ios' : 'android'}',
+    );
+    print('===========================================');
+
+    // ============================================================
+    // LOGIN REQUEST
+    // ============================================================
+
+    final response = await apiClient.post(
       ApiEndpoints.login,
       data: {
-        'login':
-        email.trim(),
+        'login': email.trim(),
+        'password': password,
 
-        'password':
-        password,
+        'fcm_token': fcmToken,
 
-        'fcm_token':
-        '',
-
-        'apn_token':
-        '',
+        'apn_token': apnToken,
 
         'device_type':
-        'android',
+        Platform.isIOS ? 'ios' : 'android',
       },
     );
 
-    // ------------------------------------------------------------------------
+    // ============================================================
     // RAW RESPONSE
-    // ------------------------------------------------------------------------
+    // ============================================================
 
     final rawResponse =
     Map<String, dynamic>.from(
       response.data as Map,
     );
 
-    // ------------------------------------------------------------------------
+    // ============================================================
     // MODEL
-    // ------------------------------------------------------------------------
+    // ============================================================
 
     final model =
     LoginResponseModel.fromJson(
       rawResponse,
     );
 
-    // ------------------------------------------------------------------------
+    // ============================================================
     // SAVE SESSION
-    // ------------------------------------------------------------------------
+    // ============================================================
 
     if (model.success &&
         model.data != null) {
@@ -77,8 +108,7 @@ class AuthService {
       rawResponse['data'];
 
       if (data is Map) {
-        await UserSessionStorage
-            .saveSession(
+        await UserSessionStorage.saveSession(
           Map<String, dynamic>.from(
             data,
           ),

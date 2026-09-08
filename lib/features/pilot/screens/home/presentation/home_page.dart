@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../../../core/theme/app_colors.dart';
+
+import 'package:tototl_app/core/network/api_client.dart';
+  import '../../../../../core/theme/app_colors.dart';
+import '../../../controllers/pilot_dashboard_controller.dart';
+import '../../../services/pilot_dashboard_service.dart';
 import '../../applications/applications_screen.dart';
-import '../../jobs/find_job.dart';
-import '../../shared/pilot_data.dart';
+import '../../jobs/find_drone_jobs.dart';
 import '../widgets/home_header.dart';
 import '../widgets/job_card.dart';
 import '../widgets/my_drone_card.dart';
@@ -24,10 +27,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pageAnimationController;
+  late final PilotDashboardController _dashboardController;
 
   @override
   void initState() {
     super.initState();
+
+    _dashboardController = PilotDashboardController(
+      PilotDashboardService(
+        ApiClient(),
+      ),
+    );
+
+    _dashboardController.load();
 
     _pageAnimationController = AnimationController(
       vsync: this,
@@ -41,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _dashboardController.dispose();
     _pageAnimationController.dispose();
     super.dispose();
   }
@@ -241,177 +254,195 @@ class _HomeScreenState extends State<HomeScreen>
 
           SafeArea(
             child: AnimatedBuilder(
-              animation:
-              PilotApplicationsStore.instance,
+              animation: _dashboardController,
               builder: (
                   context,
                   _,
                   ) {
-                return SingleChildScrollView(
-                  physics:
-                  const BouncingScrollPhysics(),
-                  keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior
-                      .onDrag,
-                  padding:
-                  const EdgeInsets.fromLTRB(
-                    20,
-                    18,
-                    20,
-                    115,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints:
-                      const BoxConstraints(
-                        maxWidth: 620,
-                      ),
-                      child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                        children: [
-                          // ==================================================
-                          // HERO HEADER
-                          // ==================================================
+                return RefreshIndicator(
+                  color: AppColors.blue,
+                  backgroundColor: Colors.white,
+                  onRefresh: _dashboardController.refresh,
+                  child: SingleChildScrollView(
+                    physics:
+                    const BouncingScrollPhysics(),
+                    keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior
+                        .onDrag,
+                    padding:
+                    const EdgeInsets.fromLTRB(
+                      20,
+                      18,
+                      20,
+                      115,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints:
+                        const BoxConstraints(
+                          maxWidth: 620,
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: [
+                            // ==================================================
+                            // HERO HEADER
+                            // ==================================================
 
-                          _animatedEntry(
-                            index: 0,
-                            child:
-                            _buildPremiumHeroHeader(),
-                          ),
-
-                          const SizedBox(
-                            height: 8,
-                          ),
-
-                          // ==================================================
-                          // DRONE CARD
-                          // ==================================================
-
-                          _animatedEntry(
-                            index: 1,
-                            child: Transform.translate(
-                              offset: const Offset(
-                                0,
-                                -2,
-                              ),
+                            _animatedEntry(
+                              index: 0,
                               child:
-                              const MyDroneCard(),
+                              _buildPremiumHeroHeader(),
                             ),
-                          ),
 
-                          const SizedBox(
-                            height: 31,
-                          ),
-
-                          // ==================================================
-                          // RECOMMENDED JOBS
-                          // ==================================================
-
-                          _animatedEntry(
-                            index: 2,
-                            child:
-                            _SectionHeader(
-                              title:
-                              'Recommended Jobs',
-                              icon: Icons
-                                  .work_outline_rounded,
-                              onSeeAll: () {
-                                Navigator.of(
-                                  context,
-                                ).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const FindDroneJobsScreen(),
-                                  ),
-                                );
-                              },
+                            const SizedBox(
+                              height: 8,
                             ),
-                          ),
 
-                          const SizedBox(
-                            height: 13,
-                          ),
-
-                          _animatedEntry(
-                            index: 3,
-                            child:
-                            const JobCard(),
-                          ),
-
-                          const SizedBox(
-                            height: 31,
-                          ),
-
-                          // ==================================================
-                          // AVAILABILITY
-                          // ==================================================
-
-                          _animatedEntry(
-                            index: 4,
-                            child:
-                            const _SectionHeader(
-                              title:
-                              'My Availability',
-                              icon: Icons
-                                  .event_available_outlined,
+                            _animatedEntry(
+                              index: 1,
+                              child: _PilotDashboardOverview(
+                                controller: _dashboardController,
+                              ),
                             ),
-                          ),
 
-                          const SizedBox(
-                            height: 13,
-                          ),
-
-                          _animatedEntry(
-                            index: 5,
-                            child:
-                            _AvailabilityLauncher(
-                              onTap:
-                              _showAvailabilityDialog,
+                            const SizedBox(
+                              height: 18,
                             ),
-                          ),
 
-                          const SizedBox(
-                            height: 31,
-                          ),
+                            // ==================================================
+                            // DRONE CARD
+                            // ==================================================
 
-                          // ==================================================
-                          // APPLICATIONS
-                          // ==================================================
-
-                          _animatedEntry(
-                            index: 6,
-                            child:
-                            _SectionHeader(
-                              title:
-                              'My Applications',
-                              icon: Icons
-                                  .assignment_outlined,
-                              onSeeAll: () {
-                                Navigator.of(
-                                  context,
-                                ).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                    const ApplicationsScreen(),
-                                  ),
-                                );
-                              },
+                            _animatedEntry(
+                              index: 2,
+                              child: Transform.translate(
+                                offset: const Offset(
+                                  0,
+                                  -2,
+                                ),
+                                child:
+                                const MyDroneCard(),
+                              ),
                             ),
-                          ),
 
-                          const SizedBox(
-                            height: 13,
-                          ),
-
-                          _animatedEntry(
-                            index: 7,
-                            child:
-                            const ApplicationsScreen(
-                              compact: true,
+                            const SizedBox(
+                              height: 31,
                             ),
-                          ),
-                        ],
+
+                            // ==================================================
+                            // RECOMMENDED JOBS
+                            // ==================================================
+
+                            _animatedEntry(
+                              index: 3,
+                              child:
+                              _SectionHeader(
+                                title:
+                                'Latest Jobs',
+                                icon: Icons
+                                    .work_outline_rounded,
+                                onSeeAll: () {
+                                  Navigator.of(
+                                    context,
+                                  ).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                      const FindDroneJobsScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 13,
+                            ),
+
+                            _LatestDashboardJob(
+                              controller: _dashboardController,
+                              onRetry: _dashboardController.load,
+                              animatedEntry: (child) => _animatedEntry(
+                                index: 4,
+                                child: child,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 31,
+                            ),
+
+                            // ==================================================
+                            // AVAILABILITY
+                            // ==================================================
+
+                            _animatedEntry(
+                              index: 4,
+                              child:
+                              const _SectionHeader(
+                                title:
+                                'My Availability',
+                                icon: Icons
+                                    .event_available_outlined,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 13,
+                            ),
+
+                            _animatedEntry(
+                              index: 5,
+                              child:
+                              _AvailabilityLauncher(
+                                onTap:
+                                _showAvailabilityDialog,
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 31,
+                            ),
+
+                            // ==================================================
+                            // APPLICATIONS
+                            // ==================================================
+
+                            _animatedEntry(
+                              index: 6,
+                              child:
+                              _SectionHeader(
+                                title:
+                                'My Applications',
+                                icon: Icons
+                                    .assignment_outlined,
+                                onSeeAll: () {
+                                  Navigator.of(
+                                    context,
+                                  ).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                      const ApplicationsScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(
+                              height: 13,
+                            ),
+
+                            _animatedEntry(
+                              index: 7,
+                              child:
+                              const ApplicationsScreen(
+                                compact: true,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -532,6 +563,632 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       ],
+    );
+  }
+}
+
+// ============================================================================
+// PILOT DASHBOARD OVERVIEW
+// ============================================================================
+
+class _PilotDashboardOverview extends StatelessWidget {
+  const _PilotDashboardOverview({
+    required this.controller,
+  });
+
+  final PilotDashboardController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.isLoading && controller.dashboard == null) {
+      return const _DashboardOverviewSkeleton();
+    }
+
+    if (controller.dashboard == null) {
+      return _DashboardOverviewError(
+        message: controller.errorMessage ?? 'Unable to load dashboard.',
+        onRetry: controller.load,
+      );
+    }
+
+    final dashboard = controller.dashboard!;
+    final counts = dashboard.applicationsByStatus;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF071D39),
+            Color(0xFF0A526C),
+            Color(0xFF0FA6B4),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF087E9C).withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.10),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.dashboard_customize_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your Activity',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Live overview from your pilot dashboard',
+                      style: TextStyle(
+                        color: Color(0xFFCDE7EC),
+                        fontSize: 9.8,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      color: Color(0xFF72E5C2),
+                      size: 7,
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              Expanded(
+                child: _DashboardMetric(
+                  value: '${counts.pending}',
+                  label: 'Pending',
+                  icon: Icons.schedule_rounded,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: _DashboardMetric(
+                  value: '${counts.accepted}',
+                  label: 'Accepted',
+                  icon: Icons.check_circle_outline_rounded,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: _DashboardMetric(
+                  value: '${dashboard.dronesCount}',
+                  label: 'Drones',
+                  icon: Icons.flight_takeoff_rounded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _MiniDashboardStatus(
+                icon: Icons.cancel_outlined,
+                label: 'Rejected',
+                value: counts.rejected,
+              ),
+              const SizedBox(width: 8),
+              _MiniDashboardStatus(
+                icon: Icons.undo_rounded,
+                label: 'Withdrawn',
+                value: counts.withdrawn,
+              ),
+              const Spacer(),
+              Text(
+                '${dashboard.recentPublishedJobs.length} recent jobs',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.72),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardMetric extends StatelessWidget {
+  const _DashboardMetric({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 11, 9, 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFFA7F1EF),
+            size: 17,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              height: 1,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.72),
+              fontSize: 9.2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniDashboardStatus extends StatelessWidget {
+  const _MiniDashboardStatus({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.075),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: Colors.white.withOpacity(0.72),
+            size: 12,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$label $value',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.76),
+              fontSize: 8.8,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardOverviewSkeleton extends StatelessWidget {
+  const _DashboardOverviewSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 196,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF2F5),
+        borderRadius: BorderRadius.circular(24),
+      ),
+    );
+  }
+}
+
+class _DashboardOverviewError extends StatelessWidget {
+  const _DashboardOverviewError({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.blue.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.cloud_off_rounded,
+              color: AppColors.blue,
+              size: 19,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// LATEST JOB FROM DASHBOARD
+// ============================================================================
+
+class _LatestDashboardJob extends StatelessWidget {
+  const _LatestDashboardJob({
+    required this.controller,
+    required this.onRetry,
+    required this.animatedEntry,
+  });
+
+  final PilotDashboardController controller;
+  final VoidCallback onRetry;
+  final Widget Function(Widget child) animatedEntry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.isLoading && controller.dashboard == null) {
+      return const _RecommendedJobShimmer();
+    }
+
+    final dashboard = controller.dashboard;
+
+    if (dashboard == null) {
+      return _RecommendedJobsStateCard(
+        message: controller.errorMessage ?? 'Unable to load recent jobs.',
+        showRetry: true,
+        onRetry: onRetry,
+      );
+    }
+
+    if (dashboard.recentPublishedJobs.isEmpty) {
+      return _RecommendedJobsStateCard(
+        message: 'No published jobs available right now.',
+        showRetry: false,
+        onRetry: onRetry,
+      );
+    }
+
+    return animatedEntry(
+      JobCard(
+        job: dashboard.recentPublishedJobs.first,
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// RECOMMENDED JOB STATES
+// ============================================================================
+
+class _RecommendedJobsStateCard extends StatelessWidget {
+  const _RecommendedJobsStateCard({
+    required this.message,
+    required this.showRetry,
+    required this.onRetry,
+  });
+
+  final String message;
+  final bool showRetry;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.028),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.blue.withOpacity(0.06),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              showRetry
+                  ? Icons.cloud_off_rounded
+                  : Icons.work_outline_rounded,
+              color: AppColors.blue,
+              size: 21,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 12,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (showRetry) ...[
+            const SizedBox(height: 9),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(
+                Icons.refresh_rounded,
+                size: 16,
+              ),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendedJobShimmer extends StatefulWidget {
+  const _RecommendedJobShimmer();
+
+  @override
+  State<_RecommendedJobShimmer> createState() =>
+      _RecommendedJobShimmerState();
+}
+
+class _RecommendedJobShimmerState extends State<_RecommendedJobShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1250),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+
+        Widget box({
+          required double width,
+          required double height,
+          required double radius,
+        }) {
+          return Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              gradient: LinearGradient(
+                begin: Alignment(-1.6 + (3.2 * t), 0),
+                end: Alignment(-0.6 + (3.2 * t), 0),
+                colors: [
+                  Colors.grey.shade100,
+                  Colors.grey.shade200,
+                  Colors.grey.shade100,
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.cardBorder,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  box(
+                    width: 44,
+                    height: 44,
+                    radius: 12,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        box(
+                          width: 120,
+                          height: 10,
+                          radius: 6,
+                        ),
+                        const SizedBox(height: 8),
+                        box(
+                          width: double.infinity,
+                          height: 13,
+                          radius: 7,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              box(
+                width: double.infinity,
+                height: 11,
+                radius: 6,
+              ),
+              const SizedBox(height: 14),
+              const Divider(
+                height: 1,
+                color: AppColors.cardBorder,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  box(
+                    width: 105,
+                    height: 28,
+                    radius: 10,
+                  ),
+                  const Spacer(),
+                  box(
+                    width: 74,
+                    height: 22,
+                    radius: 9,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
