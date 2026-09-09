@@ -285,7 +285,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
                   'Apply for Job',
                   style: TextStyle(
                     color: AppColors.navy,
-                    fontSize: 17.5,
+                    fontSize: 16,
                     height: 1.1,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.25,
@@ -659,7 +659,7 @@ class _JobHero extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 16,
                     height: 1.15,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.4,

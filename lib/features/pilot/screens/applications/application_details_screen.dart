@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
-import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
+import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/chat/screens/chat_screen.dart';
 
 import '../../models/drone_model.dart';
@@ -24,15 +24,16 @@ class ApplicationDetailsScreen extends StatefulWidget {
 
   final int applicationId;
 
-  /// Preferred entry path. Start this request from the previous screen before
-  /// navigation, then pass the same Future here. This gives the route transition
-  /// a head start without ever painting stale list/cache data as detail data.
+  /// Preferred navigation path. The caller may start this network request before
+  /// the route transition. It is still not rendered until every relation we can
+  /// authoritatively resolve has completed its first hydration attempt.
   final Future<PilotApplicationDetailsResult>? detailsFuture;
 
-  /// Kept only for source compatibility with older navigation calls.
-  /// It is intentionally NOT rendered on first load.
+  /// Retained only so older call sites still compile. It is NEVER painted as
+  /// detail data. This prevents list/default values from flashing before the
+  /// authoritative detail response arrives.
   @Deprecated(
-    'Pass detailsFuture instead. initialApplication is not displayed as fresh detail data.',
+    'Use detailsFuture. initialApplication is not rendered on first load.',
   )
   final PilotApplicationModel? initialApplication;
 
@@ -51,7 +52,6 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
 
   bool _loading = true;
   bool _refreshing = false;
-  bool _relationsLoading = false;
   bool _withdrawing = false;
   bool _openingChat = false;
   bool _changed = false;
@@ -68,14 +68,14 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     _jobService = PilotJobService(apiClient);
     _droneService = DroneService(apiClient);
 
-    // IMPORTANT: no cached/list/initial object is assigned to _application.
-    // First paint is a deliberate loading state until the authoritative detail
-    // endpoint succeeds.
-    unawaited(_loadAuthoritative(initialFuture: widget.detailsFuture));
+    // Deliberately leave _application null. First paint is shimmer only.
+    unawaited(
+      _loadAuthoritative(initialFuture: widget.detailsFuture),
+    );
   }
 
   // ---------------------------------------------------------------------------
-  // AUTHORITATIVE DATA FLOW
+  // AUTHORITATIVE + ATOMIC DATA FLOW
   // ---------------------------------------------------------------------------
 
   Future<void> _loadAuthoritative({
@@ -83,10 +83,11 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     bool manual = false,
   }) async {
     final serial = ++_loadSerial;
+    final hadRealData = _application != null;
 
     if (mounted) {
       setState(() {
-        if (_application == null) {
+        if (!hadRealData) {
           _loading = true;
         } else if (manual) {
           _refreshing = true;
@@ -101,95 +102,71 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
             widget.applicationId,
           ));
 
+      // Do not publish the bare application yet. /applications/{id} is the
+      // authoritative application record, but the job/drone relations are not
+      // guaranteed by the API. Resolve both off-screen first.
+      final hydrated = await _hydrateBeforePaint(result.application);
+
       if (!mounted || serial != _loadSerial) return;
 
-      // This is real detail-endpoint data. It can safely replace the loader.
+      // One atomic swap: shimmer -> correct data. No fake/default intermediate.
       setState(() {
-        _application = result.application;
+        _application = hydrated;
         _companyChatTarget = result.companyChatTarget;
         _loading = false;
         _refreshing = false;
-        _relationsLoading = _needsRelationHydration(result.application);
         _error = null;
       });
-
-      await _hydrateRelations(
-        result.application,
-        serial: serial,
-      );
     } catch (e) {
       if (!mounted || serial != _loadSerial) return;
-
-      final hasRealData = _application != null;
 
       setState(() {
         _loading = false;
         _refreshing = false;
-        _relationsLoading = false;
-        if (!hasRealData) {
+        if (!hadRealData) {
           _error = e.toString();
         }
       });
 
-      if (hasRealData && manual) {
+      if (hadRealData && manual) {
         _snack(
-          'Couldn’t refresh right now. Your last loaded details are still shown.',
+          'Couldn’t refresh right now. The last confirmed details are still shown.',
         );
       }
     }
   }
 
-  bool _needsRelationHydration(PilotApplicationModel application) {
-    return (application.job == null && application.jobPostingId > 0) ||
-        (application.drone == null && application.droneId > 0);
-  }
-
-  Future<void> _hydrateRelations(
-      PilotApplicationModel base, {
-        required int serial,
-      }) async {
-    if (!_needsRelationHydration(base)) {
-      if (!mounted || serial != _loadSerial) return;
-      setState(() => _relationsLoading = false);
-      return;
-    }
-
-    PilotJobModel? job = base.job;
-    DroneModel? drone = base.drone;
-
-    final Future<PilotJobModel?> jobFuture = job != null ||
-        base.jobPostingId <= 0
-        ? Future<PilotJobModel?>.value(job)
+  Future<PilotApplicationModel> _hydrateBeforePaint(
+      PilotApplicationModel base,
+      ) async {
+    final jobFuture = base.job != null || base.jobPostingId <= 0
+        ? Future<PilotJobModel?>.value(base.job)
         : _safeLoadJob(base.jobPostingId);
 
-    final Future<DroneModel?> droneFuture = drone != null || base.droneId <= 0
-        ? Future<DroneModel?>.value(drone)
+    final droneFuture = base.drone != null || base.droneId <= 0
+        ? Future<DroneModel?>.value(base.drone)
         : _safeLoadDrone(base.droneId);
 
-    // Start both relation requests together.
     final values = await Future.wait<dynamic>([
       jobFuture,
       droneFuture,
     ]);
 
-    job = values[0] as PilotJobModel?;
-    drone = values[1] as DroneModel?;
+    final job = values[0] as PilotJobModel?;
+    final drone = values[1] as DroneModel?;
 
-    if (!mounted || serial != _loadSerial) return;
-
-    setState(() {
-      _application = base.copyWith(
-        job: job,
-        drone: drone,
-      );
-      _relationsLoading = false;
-    });
+    return base.copyWith(
+      job: job,
+      drone: drone,
+    );
   }
 
   Future<PilotJobModel?> _safeLoadJob(int jobId) async {
     try {
       return await _jobService.getJobDetails(jobId);
     } catch (_) {
+      // Old closed/cancelled jobs may not be visible through the pilot's
+      // Published-only job endpoint. Missing data stays missing — never fake it.
       return null;
     }
   }
@@ -222,8 +199,6 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     try {
       var target = _companyChatTarget;
 
-      // Some API responses may expose company identity only through the Job
-      // relationship. Resolve it lazily so the detail screen itself remains fast.
       target ??= await _applicationService.resolveCompanyChatTargetFromJob(
         application.jobPostingId,
       );
@@ -231,13 +206,9 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
       if (!mounted) return;
 
       if (target == null || target.userId <= 0) {
-        _snack(
-          'Company chat is not available for this application yet.',
-        );
+        _snack('Company chat is not available for this application yet.');
         return;
       }
-
-      final chatTarget = target;
 
       final currentUserId = await UserSessionStorage.getUserId();
       final currentUserName = await UserSessionStorage.getName();
@@ -251,29 +222,34 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
         return;
       }
 
-      final companyName = chatTarget.name.trim().isNotEmpty &&
-          chatTarget.name.trim().toLowerCase() != 'company'
-          ? chatTarget.name.trim()
-          : application.companyLabel.trim().isNotEmpty
-          ? application.companyLabel.trim()
+      final realCompany = application.job == null
+          ? ''
+          : application.companyLabel.trim();
+
+      final companyName = target.name.trim().isNotEmpty &&
+          target.name.trim().toLowerCase() != 'company'
+          ? target.name.trim()
+          : realCompany.isNotEmpty
+          ? realCompany
           : 'Company';
 
-      _companyChatTarget = chatTarget;
+      _companyChatTarget = target;
 
-      setState(() => _openingChat = false);
+      if (mounted) {
+        setState(() => _openingChat = false);
+      }
 
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ChatScreen(
             currentUserId: currentUserId.toString(),
-            currentUserName:
-            currentUserName?.trim().isNotEmpty == true
+            currentUserName: currentUserName?.trim().isNotEmpty == true
                 ? currentUserName!.trim()
                 : 'Pilot',
             currentUserPhotoUrl: currentUserPhoto,
-            partnerId: chatTarget.userId.toString(),
+            partnerId: target!.userId.toString(),
             partnerName: companyName,
-            partnerPhotoUrl: chatTarget.photoUrl,
+            partnerPhotoUrl: target.photoUrl,
           ),
         ),
       );
@@ -310,7 +286,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
           actionsPadding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
           title: const Row(
             children: [
-              _DialogIcon(),
+              _WithdrawDialogIcon(),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -363,13 +339,17 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
         application.id,
       );
 
+      // The mutation response may not contain relations. Keep only relations that
+      // were already confirmed from network on this screen.
+      final hydrated = updated.copyWith(
+        job: application.job,
+        drone: application.drone,
+      );
+
       if (!mounted) return;
 
       setState(() {
-        _application = updated.copyWith(
-          job: application.job,
-          drone: application.drone,
-        );
+        _application = hydrated;
         _withdrawing = false;
         _changed = true;
       });
@@ -405,12 +385,12 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
                 children: [
                   _TopBar(
                     onBack: _back,
-                    onRefresh: _loading ? null : _manualRefresh,
+                    onRefresh: _loading || _refreshing ? null : _manualRefresh,
                     refreshing: _refreshing,
                   ),
                   Expanded(
                     child: _loading && _application == null
-                        ? const _PremiumLoadingState()
+                        ? const _DetailsPageShimmer()
                         : _error != null && _application == null
                         ? _ErrorState(
                       message: _error!,
@@ -432,60 +412,55 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     final application = _application!;
     final visual = _statusVisual(application.status);
 
-    return RefreshIndicator(
-      color: AppColors.logoTurquoiseDark,
-      backgroundColor: Colors.white,
-      onRefresh: _manualRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 34),
-        children: [
-          TweenAnimationBuilder<double>(
-            duration: const Duration(milliseconds: 520),
-            curve: Curves.easeOutCubic,
-            tween: Tween(begin: 0, end: 1),
-            builder: (context, value, child) {
-              return Opacity(
-                opacity: value,
-                child: Transform.translate(
-                  offset: Offset(0, 14 * (1 - value)),
-                  child: child,
-                ),
-              );
-            },
-            child: _HeroCard(
-              application: application,
-              visual: visual,
-            ),
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(18, 7, 18, 36),
+      children: [
+        TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeOutCubic,
+          tween: Tween(begin: 0, end: 1),
+          builder: (context, value, child) {
+            return Opacity(
+              opacity: value,
+              child: Transform.translate(
+                offset: Offset(0, 13 * (1 - value)),
+                child: child,
+              ),
+            );
+          },
+          child: _HeroCard(
+            application: application,
+            visual: visual,
           ),
-          const SizedBox(height: 13),
-          _StatusJourney(application: application),
-          if (application.isAccepted) ...[
-            const SizedBox(height: 13),
-            _CompanyChatSection(
-              companyName: application.companyLabel,
-              loading: _openingChat,
-              onTap: _openCompanyChat,
-            ),
-          ],
-          const SizedBox(height: 13),
-          _ApplicationOverview(application: application),
-          const SizedBox(height: 13),
-          _jobSection(application),
-          const SizedBox(height: 13),
-          _droneSection(application),
-          if (application.coverMessage.trim().isNotEmpty) ...[
-            const SizedBox(height: 13),
-            _MessageSection(message: application.coverMessage),
-          ],
-          if (!application.isPending) ...[
-            const SizedBox(height: 13),
-            _DecisionSection(application: application),
-          ],
+        ),
+        const SizedBox(height: 14),
+        _StatusJourney(application: application),
+        if (application.isAccepted) ...[
+          const SizedBox(height: 14),
+          _CompanyChatCard(
+            companyName: application.job == null
+                ? ''
+                : application.companyLabel.trim(),
+            busy: _openingChat,
+            onTap: _openCompanyChat,
+          ),
         ],
-      ),
+        const SizedBox(height: 14),
+        _ApplicationSnapshot(application: application),
+        const SizedBox(height: 14),
+        _jobSection(application),
+        const SizedBox(height: 14),
+        _droneSection(application),
+        if (application.coverMessage.trim().isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MessageSection(message: application.coverMessage.trim()),
+        ],
+        if (!application.isPending) ...[
+          const SizedBox(height: 14),
+          _DecisionSection(application: application),
+        ],
+      ],
     );
   }
 
@@ -495,59 +470,17 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     return _PremiumSection(
       icon: Icons.work_outline_rounded,
       eyebrow: 'MISSION',
-      title: 'Job Overview',
-      child: job == null && _relationsLoading
-          ? const _InlineRelationLoader(kind: 'mission')
-          : job == null
+      title: 'Mission Details',
+      child: job == null
           ? _UnavailableRelation(
         icon: Icons.work_off_outlined,
-        title: 'Mission details unavailable',
+        title: 'Job #${application.jobPostingId}',
         message:
-        'The application is valid, but this job’s full details are not currently accessible.',
+        'Full mission details are not available from the current pilot endpoint. No replacement data is being invented.',
       )
-          : Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            job.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.navy,
-              fontSize: 16,
-              height: 1.2,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.25,
-            ),
-          ),
-          const SizedBox(height: 9),
-          _InfoLine(
-            icon: Icons.location_on_outlined,
-            text: job.detailedLocationLabel,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.payments_outlined,
-                  label: 'Pay',
-                  value: job.payLabel,
-                  color: AppColors.green,
-                ),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Mission date',
-                  value: job.dateLabel,
-                  color: AppColors.logoTurquoiseDark,
-                ),
-              ),
-            ],
-          ),
-        ],
+          : _JobContent(
+        job: job,
+        companyName: application.companyLabel.trim(),
       ),
     );
   }
@@ -558,67 +491,83 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     return _PremiumSection(
       icon: Icons.flight_rounded,
       eyebrow: 'AIRCRAFT',
-      title: 'Selected Drone',
-      child: drone == null && _relationsLoading
-          ? const _InlineRelationLoader(kind: 'aircraft')
-          : drone == null
+      title: 'Committed Drone',
+      child: drone == null
           ? _UnavailableRelation(
         icon: Icons.flight_outlined,
-        title: 'Drone profile unavailable',
+        title: 'Drone #${application.droneId}',
         message:
-        'Drone #${application.droneId} is still linked to this application, but its full profile could not be loaded.',
+        'This is the real drone ID linked to the application. Its full profile could not be retrieved.',
       )
-          : _DroneSummary(drone: drone),
+          : _DroneContent(drone: drone),
     );
   }
 
   Widget? _bottomAction() {
     final application = _application;
-    if (_loading || application == null || !application.isPending) return null;
+
+    if (_loading || application == null || !application.isPending) {
+      return null;
+    }
 
     return SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(18, 11, 18, 13),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.98),
+          color: Colors.white.withOpacity(0.985),
           border: const Border(
             top: BorderSide(color: AppColors.cardBorder),
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.navy.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
+              color: AppColors.navy.withOpacity(0.055),
+              blurRadius: 24,
+              offset: const Offset(0, -7),
             ),
           ],
         ),
         child: SizedBox(
-          height: 50,
-          child: OutlinedButton.icon(
+          height: 52,
+          child: OutlinedButton(
             onPressed: _withdrawing ? null : _withdraw,
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.red,
               side: BorderSide(
-                color: AppColors.red.withOpacity(0.7),
+                color: AppColors.red.withOpacity(0.48),
               ),
+              backgroundColor: AppColors.red.withOpacity(0.025),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            icon: _withdrawing
-                ? const SizedBox(
-              width: 17,
-              height: 17,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.red,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _withdrawing
+                  ? const Row(
+                key: ValueKey('withdrawing'),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _ActionDots(color: AppColors.red),
+                  SizedBox(width: 9),
+                  Text(
+                    'Withdrawing...',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
+              )
+                  : const Row(
+                key: ValueKey('withdraw'),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.undo_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Withdraw Application',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
               ),
-            )
-                : const Icon(Icons.undo_rounded, size: 18),
-            label: Text(
-              _withdrawing ? 'Withdrawing...' : 'Withdraw Application',
-              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -633,8 +582,9 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: success ? AppColors.green : AppColors.navy,
+          margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(14),
           ),
           content: Text(message),
         ),
@@ -643,7 +593,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
 }
 
 // =============================================================================
-// TOP / BACKGROUND
+// BACKGROUND + TOP BAR
 // =============================================================================
 
 class _DetailsBackdrop extends StatelessWidget {
@@ -656,16 +606,16 @@ class _DetailsBackdrop extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              top: -170,
-              right: -115,
+              top: -180,
+              right: -120,
               child: Container(
-                width: 320,
-                height: 320,
+                width: 340,
+                height: 340,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF16C6C7).withOpacity(0.10),
+                      const Color(0xFF16C6C7).withOpacity(0.11),
                       Colors.transparent,
                     ],
                   ),
@@ -673,11 +623,11 @@ class _DetailsBackdrop extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: 260,
-              left: -170,
+              top: 380,
+              left: -175,
               child: Container(
-                width: 300,
-                height: 300,
+                width: 310,
+                height: 310,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
@@ -710,7 +660,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(11, 9, 14, 7),
+      padding: const EdgeInsets.fromLTRB(11, 10, 14, 8),
       child: Row(
         children: [
           _RoundButton(
@@ -726,33 +676,29 @@ class _TopBar extends StatelessWidget {
                   'Application Details',
                   style: TextStyle(
                     color: AppColors.navy,
-                    fontSize: 17.5,
-                    height: 1.08,
+                    fontSize: 16,
+                    height: 1.05,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
+                    letterSpacing: -0.35,
                   ),
                 ),
-                SizedBox(height: 3),
+                SizedBox(height: 4),
                 Text(
-                  'Live status & mission overview',
+                  'Verified application record',
                   style: TextStyle(
                     color: AppColors.grey,
-                    fontSize: 9.7,
+                    fontSize: 9.8,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: refreshing
-                ? const _SyncPill(key: ValueKey('sync'))
-                : _RoundButton(
-              key: const ValueKey('refresh'),
-              icon: Icons.refresh_rounded,
-              onTap: onRefresh,
-            ),
+          refreshing
+              ? const _SyncBadge()
+              : _RoundButton(
+            icon: Icons.refresh_rounded,
+            onTap: onRefresh,
           ),
         ],
       ),
@@ -762,7 +708,6 @@ class _TopBar extends StatelessWidget {
 
 class _RoundButton extends StatelessWidget {
   const _RoundButton({
-    super.key,
     required this.icon,
     required this.onTap,
   });
@@ -786,7 +731,7 @@ class _RoundButton extends StatelessWidget {
             border: Border.all(color: AppColors.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: AppColors.navy.withOpacity(0.025),
+                color: AppColors.navy.withOpacity(0.03),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -803,43 +748,93 @@ class _RoundButton extends StatelessWidget {
   }
 }
 
-class _SyncPill extends StatelessWidget {
-  const _SyncPill({super.key});
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 37,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 11),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF9FA),
+        color: const Color(0xFFE9FAFA),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: AppColors.logoTurquoiseDark.withOpacity(0.08),
+          color: AppColors.logoTurquoiseDark.withOpacity(0.10),
         ),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.7,
-              color: AppColors.logoTurquoiseDark,
-            ),
-          ),
-          SizedBox(width: 6),
+          _ActionDots(color: AppColors.logoTurquoiseDark),
+          SizedBox(width: 7),
           Text(
-            'Updating',
+            'SYNCING',
             style: TextStyle(
               color: AppColors.logoTurquoiseDark,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.4,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ActionDots extends StatefulWidget {
+  const _ActionDots({required this.color});
+
+  final Color color;
+
+  @override
+  State<_ActionDots> createState() => _ActionDotsState();
+}
+
+class _ActionDotsState extends State<_ActionDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final phase = (_controller.value + index * 0.22) % 1;
+            final strength = 1 - (phase - 0.5).abs() * 2;
+            return Container(
+              width: 4.5,
+              height: 4.5,
+              margin: EdgeInsets.only(right: index == 2 ? 0 : 3),
+              decoration: BoxDecoration(
+                color: widget.color.withOpacity(
+                  (0.28 + 0.72 * strength).clamp(0.28, 1.0).toDouble(),
+                ),
+                shape: BoxShape.circle,
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
@@ -859,26 +854,35 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final job = application.job;
+    final realTitle = job?.title.trim() ?? '';
+    final title = realTitle.isNotEmpty
+        ? realTitle
+        : 'Application #${application.id}';
+
+    final company = job == null ? '' : application.companyLabel.trim();
+    final droneName = application.drone?.title.trim() ?? '';
+
     return Container(
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(27),
+        borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF06192A),
-            Color(0xFF0A3850),
-            Color(0xFF087984),
+            Color(0xFF06182A),
+            Color(0xFF0A3A50),
+            Color(0xFF087D85),
           ],
-          stops: [0, 0.58, 1],
+          stops: [0, 0.60, 1],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF07394A).withOpacity(0.20),
-            blurRadius: 30,
-            offset: const Offset(0, 13),
+            color: const Color(0xFF063E4D).withOpacity(0.22),
+            blurRadius: 32,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -893,23 +897,23 @@ class _HeroCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.06),
+                  color: Colors.white.withOpacity(0.055),
                   width: 18,
                 ),
               ),
             ),
           ),
           Positioned(
-            right: 24,
-            bottom: -42,
+            right: 20,
+            bottom: -43,
             child: Icon(
               Icons.flight_takeoff_rounded,
-              size: 132,
+              size: 138,
               color: Colors.white.withOpacity(0.035),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+            padding: const EdgeInsets.fromLTRB(19, 19, 19, 19),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -934,43 +938,43 @@ class _HeroCard extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.68),
                           fontSize: 8.8,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.35,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 19),
+                const SizedBox(height: 20),
                 Text(
-                  application.jobTitle,
+                  title,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 21.5,
+                    fontSize: 15,
                     height: 1.12,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.55,
+                    letterSpacing: -0.6,
                   ),
                 ),
-                if (application.companyLabel.trim().isNotEmpty) ...[
+                if (company.isNotEmpty) ...[
                   const SizedBox(height: 9),
                   Row(
                     children: [
                       Icon(
                         Icons.business_rounded,
-                        color: Colors.white.withOpacity(0.62),
+                        color: Colors.white.withOpacity(0.60),
                         size: 13,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          application.companyLabel,
+                          company,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.78),
+                            color: Colors.white.withOpacity(0.79),
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -978,8 +982,18 @@ class _HeroCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                ] else ...[
+                  const SizedBox(height: 9),
+                  Text(
+                    'Job #${application.jobPostingId}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.62),
+                      fontSize: 10.8,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 19),
                 Row(
                   children: [
                     Expanded(
@@ -989,12 +1003,14 @@ class _HeroCard extends StatelessWidget {
                         value: application.submittedLabel,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: _HeroMiniInfo(
                         icon: Icons.flight_outlined,
-                        label: 'Drone',
-                        value: '#${application.droneId}',
+                        label: 'Aircraft',
+                        value: droneName.isNotEmpty
+                            ? droneName
+                            : 'Drone #${application.droneId}',
                       ),
                     ),
                   ],
@@ -1009,7 +1025,10 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _HeroStatusPill extends StatelessWidget {
-  const _HeroStatusPill({required this.label, required this.color});
+  const _HeroStatusPill({
+    required this.label,
+    required this.color,
+  });
 
   final String label;
   final Color color;
@@ -1020,21 +1039,21 @@ class _HeroStatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 7,
-            height: 7,
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.55),
+                  color: color.withOpacity(0.45),
                   blurRadius: 7,
                 ),
               ],
@@ -1042,11 +1061,12 @@ class _HeroStatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            label,
+            label.toUpperCase(),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 10.2,
-              fontWeight: FontWeight.w800,
+              fontSize: 8.7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.45,
             ),
           ),
         ],
@@ -1069,16 +1089,16 @@ class _HeroMiniInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.075),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.045)),
+        border: Border.all(color: Colors.white.withOpacity(0.07)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white.withOpacity(0.58), size: 13),
-          const SizedBox(width: 7),
+          Icon(icon, color: const Color(0xFF80E2DE), size: 15),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1086,19 +1106,342 @@ class _HeroMiniInfo extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.48),
+                    color: Colors.white.withOpacity(0.47),
                     fontSize: 7.8,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.90),
-                    fontSize: 9.5,
+                    color: Colors.white.withOpacity(0.91),
+                    fontSize: 9.6,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// STATUS JOURNEY
+// =============================================================================
+
+class _StatusJourney extends StatelessWidget {
+  const _StatusJourney({required this.application});
+
+  final PilotApplicationModel application;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = application.status.trim().toLowerCase();
+    final isPending = status == 'pending';
+    final isAccepted = status == 'accepted';
+    final isRejected = status == 'rejected';
+    final isWithdrawn = status == 'withdrawn';
+
+    final decisionColor = isAccepted
+        ? AppColors.green
+        : isRejected
+        ? AppColors.red
+        : isWithdrawn
+        ? AppColors.grey
+        : AppColors.lightGrey;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.035),
+            blurRadius: 20,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.route_outlined,
+                color: AppColors.logoTurquoiseDark,
+                size: 17,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'APPLICATION JOURNEY',
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.55,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 17),
+          Row(
+            children: [
+              const _JourneyNode(
+                icon: Icons.send_rounded,
+                label: 'Submitted',
+                color: AppColors.logoTurquoiseDark,
+                active: true,
+              ),
+              Expanded(
+                child: _JourneyLine(
+                  active: true,
+                  color: isPending ? const Color(0xFFE99A18) : decisionColor,
+                ),
+              ),
+              _JourneyNode(
+                icon: isPending
+                    ? Icons.schedule_rounded
+                    : Icons.fact_check_outlined,
+                label: isPending ? 'In review' : 'Reviewed',
+                color: isPending ? const Color(0xFFE99A18) : decisionColor,
+                active: true,
+              ),
+              Expanded(
+                child: _JourneyLine(
+                  active: !isPending,
+                  color: decisionColor,
+                ),
+              ),
+              _JourneyNode(
+                icon: isAccepted
+                    ? Icons.verified_rounded
+                    : isRejected
+                    ? Icons.close_rounded
+                    : isWithdrawn
+                    ? Icons.undo_rounded
+                    : Icons.flag_outlined,
+                label: isAccepted
+                    ? 'Accepted'
+                    : isRejected
+                    ? 'Rejected'
+                    : isWithdrawn
+                    ? 'Withdrawn'
+                    : 'Decision',
+                color: decisionColor,
+                active: !isPending,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyNode extends StatelessWidget {
+  const _JourneyNode({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.active,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 66,
+      child: Column(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: active ? color.withOpacity(0.10) : AppColors.bg,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: active ? color.withOpacity(0.22) : AppColors.cardBorder,
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 15,
+              color: active ? color : AppColors.lightGrey,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: active ? AppColors.navy : AppColors.lightGrey,
+              fontSize: 8.3,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyLine extends StatelessWidget {
+  const _JourneyLine({
+    required this.active,
+    required this.color,
+  });
+
+  final bool active;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 2,
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: active ? color.withOpacity(0.42) : AppColors.cardBorder,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// SNAPSHOT
+// =============================================================================
+
+class _ApplicationSnapshot extends StatelessWidget {
+  const _ApplicationSnapshot({required this.application});
+
+  final PilotApplicationModel application;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PremiumSection(
+      icon: Icons.grid_view_rounded,
+      eyebrow: 'RECORD',
+      title: 'Application Snapshot',
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _SnapshotTile(
+                  icon: Icons.tag_rounded,
+                  label: 'Application',
+                  value: '#${application.id}',
+                  tint: AppColors.blue,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: _SnapshotTile(
+                  icon: Icons.work_outline_rounded,
+                  label: 'Job',
+                  value: '#${application.jobPostingId}',
+                  tint: AppColors.logoTurquoiseDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Expanded(
+                child: _SnapshotTile(
+                  icon: Icons.flight_outlined,
+                  label: 'Drone',
+                  value: '#${application.droneId}',
+                  tint: AppColors.green,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: _SnapshotTile(
+                  icon: Icons.schedule_rounded,
+                  label: 'Submitted',
+                  value: application.submittedLabel,
+                  tint: const Color(0xFFE99A18),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SnapshotTile extends StatelessWidget {
+  const _SnapshotTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tint,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppColors.cardBorder.withOpacity(0.75)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 31,
+            height: 31,
+            decoration: BoxDecoration(
+              color: tint.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: tint, size: 14),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.lightGrey,
+                    fontSize: 7.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 9.8,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1112,473 +1455,8 @@ class _HeroMiniInfo extends StatelessWidget {
 }
 
 // =============================================================================
-// JOURNEY
+// PREMIUM SECTION
 // =============================================================================
-
-class _StatusJourney extends StatelessWidget {
-  const _StatusJourney({required this.application});
-
-  final PilotApplicationModel application;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = application.status.trim().toLowerCase();
-    final accepted = status == 'accepted';
-    final rejected = status == 'rejected';
-    final withdrawn = status == 'withdrawn';
-    final pending = !accepted && !rejected && !withdrawn;
-
-    final finalColor = accepted
-        ? AppColors.green
-        : rejected
-        ? AppColors.red
-        : withdrawn
-        ? AppColors.grey
-        : AppColors.lightGrey;
-
-    final finalLabel = accepted
-        ? 'Accepted'
-        : rejected
-        ? 'Not selected'
-        : withdrawn
-        ? 'Withdrawn'
-        : 'Decision';
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(15, 14, 15, 13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withOpacity(0.025),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Text(
-                'Application journey',
-                style: TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Spacer(),
-              Icon(
-                Icons.route_rounded,
-                color: AppColors.logoTurquoiseDark,
-                size: 17,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Expanded(
-                child: _JourneyStep(
-                  icon: Icons.send_rounded,
-                  label: 'Submitted',
-                  color: AppColors.green,
-                  complete: true,
-                ),
-              ),
-              _JourneyLine(
-                color: pending ? AppColors.logoTurquoiseDark : AppColors.green,
-              ),
-              Expanded(
-                child: _JourneyStep(
-                  icon: pending
-                      ? Icons.hourglass_top_rounded
-                      : Icons.fact_check_outlined,
-                  label: pending ? 'In review' : 'Reviewed',
-                  color: pending
-                      ? AppColors.logoTurquoiseDark
-                      : AppColors.green,
-                  complete: true,
-                  pulse: pending,
-                ),
-              ),
-              _JourneyLine(
-                color: pending ? AppColors.cardBorder : finalColor,
-              ),
-              Expanded(
-                child: _JourneyStep(
-                  icon: accepted
-                      ? Icons.check_rounded
-                      : rejected
-                      ? Icons.close_rounded
-                      : withdrawn
-                      ? Icons.undo_rounded
-                      : Icons.flag_outlined,
-                  label: finalLabel,
-                  color: finalColor,
-                  complete: !pending,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _JourneyStep extends StatelessWidget {
-  const _JourneyStep({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.complete,
-    this.pulse = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool complete;
-  final bool pulse;
-
-  @override
-  Widget build(BuildContext context) {
-    final effective = complete ? color : AppColors.lightGrey;
-
-    return Column(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: effective.withOpacity(complete ? 0.10 : 0.06),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: effective.withOpacity(complete ? 0.26 : 0.10),
-            ),
-            boxShadow: pulse
-                ? [
-              BoxShadow(
-                color: color.withOpacity(0.10),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-            ]
-                : null,
-          ),
-          child: Icon(icon, color: effective, size: 15),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: complete ? AppColors.navy : AppColors.lightGrey,
-            fontSize: 8.7,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _JourneyLine extends StatelessWidget {
-  const _JourneyLine({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        height: 2,
-        margin: const EdgeInsets.only(bottom: 20),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// CHAT CTA
-// =============================================================================
-
-class _CompanyChatSection extends StatelessWidget {
-  const _CompanyChatSection({
-    required this.companyName,
-    required this.loading,
-    required this.onTap,
-  });
-
-  final String companyName;
-  final bool loading;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final displayName = companyName.trim().isEmpty ? 'the company' : companyName;
-
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(23),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFE9FBFA),
-            Color(0xFFF8FFFF),
-          ],
-        ),
-        border: Border.all(
-          color: AppColors.logoTurquoiseDark.withOpacity(0.14),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.logoTurquoiseDark.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -30,
-            top: -35,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.logoTurquoiseDark.withOpacity(0.055),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 43,
-                      height: 43,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF0D8AA5),
-                            Color(0xFF16C6C7),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.logoTurquoiseDark.withOpacity(0.18),
-                            blurRadius: 12,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.chat_bubble_rounded,
-                        color: Colors.white,
-                        size: 19,
-                      ),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Company Communication',
-                            style: TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'Your application was accepted',
-                            style: TextStyle(
-                              color: AppColors.green.withOpacity(0.92),
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.greenBg,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.lock_open_rounded,
-                            color: AppColors.green,
-                            size: 10,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'UNLOCKED',
-                            style: TextStyle(
-                              color: AppColors.green,
-                              fontSize: 7.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Coordinate mission details directly with $displayName through your secure in-app chat.',
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 10.8,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 13),
-                SizedBox(
-                  width: double.infinity,
-                  height: 47,
-                  child: FilledButton(
-                    onPressed: loading ? null : onTap,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.logoTurquoiseDark,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor:
-                      AppColors.logoTurquoiseDark.withOpacity(0.55),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      child: loading
-                          ? const Row(
-                        key: ValueKey('chat-loading'),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Opening chat...',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      )
-                          : const Row(
-                        key: ValueKey('chat-ready'),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.forum_rounded, size: 17),
-                          SizedBox(width: 8),
-                          Text(
-                            'Chat with Company',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(Icons.arrow_forward_rounded, size: 15),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// SECTIONS
-// =============================================================================
-
-class _ApplicationOverview extends StatelessWidget {
-  const _ApplicationOverview({required this.application});
-
-  final PilotApplicationModel application;
-
-  @override
-  Widget build(BuildContext context) {
-    return _PremiumSection(
-      icon: Icons.assignment_outlined,
-      eyebrow: 'REFERENCE',
-      title: 'Application Overview',
-      child: Row(
-        children: [
-          Expanded(
-            child: _ReferenceTile(
-              label: 'Application',
-              value: '#${application.id}',
-              icon: Icons.receipt_long_outlined,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ReferenceTile(
-              label: 'Job',
-              value: '#${application.jobPostingId}',
-              icon: Icons.work_outline_rounded,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ReferenceTile(
-              label: 'Drone',
-              value: '#${application.droneId}',
-              icon: Icons.flight_outlined,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _PremiumSection extends StatelessWidget {
   const _PremiumSection({
@@ -1596,16 +1474,15 @@ class _PremiumSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(0.028),
-            blurRadius: 18,
+            color: AppColors.navy.withOpacity(0.035),
+            blurRadius: 20,
             offset: const Offset(0, 7),
           ),
         ],
@@ -1622,20 +1499,14 @@ class _PremiumSection extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFE8F9FA),
-                      Color(0xFFF5FCFD),
-                    ],
+                    colors: [Color(0xFFE7FAFA), Color(0xFFF0F6FA)],
                   ),
                   borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                    color: AppColors.logoTurquoiseDark.withOpacity(0.07),
-                  ),
                 ),
                 child: Icon(
                   icon,
-                  color: AppColors.logoTurquoiseDark,
                   size: 18,
+                  color: AppColors.logoTurquoiseDark,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1645,11 +1516,11 @@ class _PremiumSection extends StatelessWidget {
                   children: [
                     Text(
                       eyebrow,
-                      style: TextStyle(
-                        color: AppColors.logoTurquoiseDark.withOpacity(0.68),
-                        fontSize: 7.4,
+                      style: const TextStyle(
+                        color: AppColors.logoTurquoiseDark,
+                        fontSize: 7.8,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.9,
+                        letterSpacing: 0.75,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1658,8 +1529,8 @@ class _PremiumSection extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 14.5,
-                        height: 1.1,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ],
@@ -1675,6 +1546,520 @@ class _PremiumSection extends StatelessWidget {
   }
 }
 
+// =============================================================================
+// JOB
+// =============================================================================
+
+class _JobContent extends StatelessWidget {
+  const _JobContent({
+    required this.job,
+    required this.companyName,
+  });
+
+  final PilotJobModel job;
+  final String companyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final location = job.detailedLocationLabel.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          job.title,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 16.5,
+            height: 1.2,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.25,
+          ),
+        ),
+        if (companyName.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _InfoLine(
+            icon: Icons.business_outlined,
+            text: companyName,
+          ),
+        ],
+        if (location.isNotEmpty && location.toLowerCase() != 'not specified') ...[
+          const SizedBox(height: 6),
+          _InfoLine(
+            icon: Icons.location_on_outlined,
+            text: location,
+          ),
+        ],
+        const SizedBox(height: 15),
+        Row(
+          children: [
+            Expanded(
+              child: _MissionMetric(
+                icon: Icons.payments_outlined,
+                label: 'Mission Value',
+                value: job.payLabel,
+                tint: AppColors.green,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: _MissionMetric(
+                icon: Icons.calendar_month_outlined,
+                label: 'Mission Date',
+                value: job.dateLabel,
+                tint: AppColors.logoTurquoiseDark,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  const _InfoLine({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.grey, size: 14),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.8,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MissionMetric extends StatelessWidget {
+  const _MissionMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tint,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tint.withOpacity(0.045),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: tint.withOpacity(0.09)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: tint.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: tint, size: 15),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.lightGrey,
+                    fontSize: 7.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 10,
+                    height: 1.2,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// DRONE
+// =============================================================================
+
+class _DroneContent extends StatelessWidget {
+  const _DroneContent({required this.drone});
+
+  final DroneModel drone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: AppColors.cardBorder.withOpacity(0.8)),
+      ),
+      child: Row(
+        children: [
+          _DroneThumb(drone: drone),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  drone.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 15,
+                    height: 1.18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 5,
+                  children: [
+                    if (drone.yearLabel.trim().isNotEmpty)
+                      _MicroChip(
+                        icon: Icons.calendar_today_outlined,
+                        label: drone.yearLabel,
+                      ),
+                    if (drone.flightTimeLabel.trim().isNotEmpty)
+                      _MicroChip(
+                        icon: Icons.timer_outlined,
+                        label: drone.flightTimeLabel,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            width: 31,
+            height: 31,
+            decoration: const BoxDecoration(
+              color: AppColors.greenBg,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: AppColors.green,
+              size: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DroneThumb extends StatelessWidget {
+  const _DroneThumb({required this.drone});
+
+  final DroneModel drone;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = drone.imageUrl.trim();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        width: 68,
+        height: 68,
+        child: url.isEmpty
+            ? Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFE5FAFA), Color(0xFFEAF1F8)],
+            ),
+          ),
+          child: const Icon(
+            Icons.flight_takeoff_rounded,
+            color: AppColors.logoTurquoiseDark,
+            size: 27,
+          ),
+        )
+            : Image.network(
+          url,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return const _ImageShimmer();
+          },
+          errorBuilder: (_, __, ___) => Container(
+            color: AppColors.bg,
+            child: const Icon(
+              Icons.flight_takeoff_rounded,
+              color: AppColors.logoTurquoiseDark,
+              size: 25,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageShimmer extends StatefulWidget {
+  const _ImageShimmer();
+
+  @override
+  State<_ImageShimmer> createState() => _ImageShimmerState();
+}
+
+class _ImageShimmerState extends State<_ImageShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(-1.8 + 3.6 * t, 0),
+              end: Alignment(-0.8 + 3.6 * t, 0),
+              colors: const [
+                Color(0xFFEDF2F5),
+                Color(0xFFF9FBFC),
+                Color(0xFFEDF2F5),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MicroChip extends StatelessWidget {
+  const _MicroChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 9, color: AppColors.grey),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 8.2,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// CHAT
+// =============================================================================
+
+class _CompanyChatCard extends StatelessWidget {
+  const _CompanyChatCard({
+    required this.companyName,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final String companyName;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = companyName.isEmpty ? 'Company' : companyName;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE9FAF6), Color(0xFFF7FCFB)],
+        ),
+        border: Border.all(color: AppColors.green.withOpacity(0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.green.withOpacity(0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: AppColors.green.withOpacity(0.10)),
+              ),
+              child: const Icon(
+                Icons.forum_outlined,
+                color: AppColors.green,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'DIRECT COMMUNICATION',
+                    style: TextStyle(
+                      color: AppColors.green,
+                      fontSize: 7.8,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  const Text(
+                    'Your accepted application can now move into coordination.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.grey,
+                      fontSize: 9.4,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Material(
+              color: AppColors.green,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: busy ? null : onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: busy
+                        ? const _ActionDots(color: Colors.white)
+                        : const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 19,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// MESSAGE / DECISION
+// =============================================================================
+
 class _MessageSection extends StatelessWidget {
   const _MessageSection({required this.message});
 
@@ -1683,40 +2068,25 @@ class _MessageSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PremiumSection(
-      icon: Icons.chat_bubble_outline_rounded,
-      eyebrow: 'YOUR MESSAGE',
+      icon: Icons.notes_rounded,
+      eyebrow: 'SUBMISSION',
       title: 'Cover Message',
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FBFC),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: AppColors.cardBorder.withOpacity(0.75)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 3,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.logoTurquoiseDark.withOpacity(0.55),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 12.2,
-                  height: 1.58,
-                ),
-              ),
-            ),
-          ],
+        child: Text(
+          message,
+          style: const TextStyle(
+            color: AppColors.grey,
+            fontSize: 11.5,
+            height: 1.55,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -1731,34 +2101,17 @@ class _DecisionSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = _statusVisual(application.status);
-    final accepted = application.isAccepted;
-    final rejected = application.status.trim().toLowerCase() == 'rejected';
-    final withdrawn = application.status.trim().toLowerCase() == 'withdrawn';
+    final rejection = application.rejectionReason.trim();
 
-    final title = accepted
-        ? 'Application Accepted'
-        : rejected
-        ? 'Application Not Selected'
-        : withdrawn
-        ? 'Application Withdrawn'
-        : application.statusLabel;
-
-    final message = accepted
-        ? 'The company selected your application. Company communication is now available above.'
-        : rejected
-        ? 'This application was not selected for the mission.'
-        : withdrawn
-        ? 'You withdrew this application from the selection process.'
-        : 'Your application status has been updated.';
+    String detail = application.decisionLabel.trim();
+    if (detail.isEmpty && application.status.trim().toLowerCase() == 'withdrawn') {
+      detail = application.withdrawnLabel.trim();
+    }
 
     return _PremiumSection(
-      icon: accepted
-          ? Icons.verified_rounded
-          : rejected
-          ? Icons.cancel_outlined
-          : Icons.fact_check_outlined,
-      eyebrow: 'DECISION',
-      title: 'Application Status',
+      icon: visual.icon,
+      eyebrow: 'OUTCOME',
+      title: 'Application Decision',
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -1772,90 +2125,45 @@ class _DecisionSection extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: visual.foreground.withOpacity(0.10),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    accepted
-                        ? Icons.check_rounded
-                        : rejected
-                        ? Icons.close_rounded
-                        : Icons.undo_rounded,
+                Icon(visual.icon, color: visual.foreground, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  application.statusLabel,
+                  style: TextStyle(
                     color: visual.foreground,
-                    size: 17,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: visual.foreground,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 10.8,
-                height: 1.45,
-              ),
-            ),
-            if (application.decisionLabel.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _DecisionMeta(
-                label: 'Decision date',
-                value: application.decisionLabel,
-              ),
-            ],
-            if (application.withdrawnLabel.trim().isNotEmpty) ...[
+            if (detail.isNotEmpty) ...[
               const SizedBox(height: 8),
-              _DecisionMeta(
-                label: 'Withdrawn',
-                value: application.withdrawnLabel,
+              Text(
+                detail,
+                style: const TextStyle(
+                  color: AppColors.grey,
+                  fontSize: 10.5,
+                  height: 1.4,
+                ),
               ),
             ],
-            if (application.rejectionReason.trim().isNotEmpty) ...[
-              const SizedBox(height: 11),
+            if (rejection.isNotEmpty) ...[
+              const SizedBox(height: 10),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.72),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Reason',
-                      style: TextStyle(
-                        color: AppColors.grey,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      application.rejectionReason,
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 11.5,
-                        height: 1.45,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  rejection,
+                  style: const TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 10.5,
+                    height: 1.45,
+                  ),
                 ),
               ),
             ],
@@ -1866,357 +2174,9 @@ class _DecisionSection extends StatelessWidget {
   }
 }
 
-class _DecisionMeta extends StatelessWidget {
-  const _DecisionMeta({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.grey,
-            fontSize: 9.3,
-          ),
-        ),
-        const Spacer(),
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.navy,
-            fontSize: 9.8,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // =============================================================================
-// SMALL UI
+// UNAVAILABLE RELATION
 // =============================================================================
-
-class _ReferenceTile extends StatelessWidget {
-  const _ReferenceTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF9FA),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(
-              icon,
-              color: AppColors.logoTurquoiseDark,
-              size: 13,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.navy,
-              fontSize: 11.3,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 7.9,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 31,
-            height: 31,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.09),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 15),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 8.4,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 10.5,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 27,
-          height: 27,
-          decoration: BoxDecoration(
-            color: AppColors.bg,
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(icon, color: AppColors.grey, size: 13),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 5),
-            child: Text(
-              text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 10.8,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DroneSummary extends StatelessWidget {
-  const _DroneSummary({required this.drone});
-
-  final DroneModel drone;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _DroneThumbnail(drone: drone),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                drone.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 14.5,
-                  height: 1.2,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 7),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (drone.yearLabel.trim().isNotEmpty)
-                    _SmallPill(
-                      icon: Icons.calendar_today_outlined,
-                      text: drone.yearLabel,
-                    ),
-                  if (drone.flightTimeLabel != 'Not specified')
-                    _SmallPill(
-                      icon: Icons.timer_outlined,
-                      text: drone.flightTimeLabel,
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 31,
-          height: 31,
-          decoration: const BoxDecoration(
-            color: AppColors.greenBg,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.check_rounded,
-            color: AppColors.green,
-            size: 16,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DroneThumbnail extends StatelessWidget {
-  const _DroneThumbnail({required this.drone});
-
-  final DroneModel drone;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 78,
-      height: 72,
-      padding: const EdgeInsets.all(1),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF16C6C7), Color(0xFFE7F0F4)],
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(17),
-        child: drone.imageUrl.trim().isEmpty
-            ? const _DroneFallback()
-            : Image.network(
-          drone.imageUrl,
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.medium,
-          errorBuilder: (_, __, ___) => const _DroneFallback(),
-        ),
-      ),
-    );
-  }
-}
-
-class _DroneFallback extends StatelessWidget {
-  const _DroneFallback();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFEAF7F8),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.flight_takeoff_rounded,
-        color: AppColors.logoTurquoiseDark,
-        size: 28,
-      ),
-    );
-  }
-}
-
-class _SmallPill extends StatelessWidget {
-  const _SmallPill({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.grey, size: 10),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 8.6,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _UnavailableRelation extends StatelessWidget {
   const _UnavailableRelation({
@@ -2233,17 +2193,26 @@ class _UnavailableRelation extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(15),
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.lightGrey, size: 19),
-          const SizedBox(width: 9),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Icon(icon, color: AppColors.grey, size: 17),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2252,7 +2221,7 @@ class _UnavailableRelation extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: AppColors.navy,
-                    fontSize: 11.7,
+                    fontSize: 12.2,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -2261,8 +2230,8 @@ class _UnavailableRelation extends StatelessWidget {
                   message,
                   style: const TextStyle(
                     color: AppColors.grey,
-                    fontSize: 9.5,
-                    height: 1.4,
+                    fontSize: 9.8,
+                    height: 1.45,
                   ),
                 ),
               ],
@@ -2274,83 +2243,14 @@ class _UnavailableRelation extends StatelessWidget {
   }
 }
 
-class _InlineRelationLoader extends StatelessWidget {
-  const _InlineRelationLoader({required this.kind});
-
-  final String kind;
+class _WithdrawDialogIcon extends StatelessWidget {
+  const _WithdrawDialogIcon();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.logoTurquoiseDark,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Loading latest $kind details...',
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// STATUS VISUALS
-// =============================================================================
-
-class _StatusVisual {
-  final Color foreground;
-  final Color background;
-
-  const _StatusVisual(this.foreground, this.background);
-}
-
-_StatusVisual _statusVisual(String status) {
-  switch (status.trim().toLowerCase()) {
-    case 'accepted':
-      return const _StatusVisual(AppColors.green, AppColors.greenBg);
-    case 'rejected':
-      return const _StatusVisual(AppColors.red, AppColors.redBg);
-    case 'withdrawn':
-      return _StatusVisual(AppColors.grey, Colors.grey.shade100);
-    default:
-      return const _StatusVisual(
-        AppColors.logoTurquoiseDark,
-        Color(0xFFEAF9FA),
-      );
-  }
-}
-
-class _DialogIcon extends StatelessWidget {
-  const _DialogIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 38,
-      height: 38,
+      width: 39,
+      height: 39,
       decoration: const BoxDecoration(
         color: AppColors.redBg,
         shape: BoxShape.circle,
@@ -2358,33 +2258,153 @@ class _DialogIcon extends StatelessWidget {
       child: const Icon(
         Icons.undo_rounded,
         color: AppColors.red,
-        size: 19,
+        size: 18,
       ),
     );
   }
 }
 
 // =============================================================================
-// LOADING / ERROR
+// STATUS VISUAL
 // =============================================================================
 
-class _PremiumLoadingState extends StatelessWidget {
-  const _PremiumLoadingState();
+class _StatusVisual {
+  const _StatusVisual(
+      this.foreground,
+      this.background,
+      this.icon,
+      );
 
-  @override
-  Widget build(BuildContext context) {
-    return const _ShimmerLoader();
+  final Color foreground;
+  final Color background;
+  final IconData icon;
+}
+
+_StatusVisual _statusVisual(String status) {
+  switch (status.trim().toLowerCase()) {
+    case 'accepted':
+      return const _StatusVisual(
+        AppColors.green,
+        AppColors.greenBg,
+        Icons.verified_rounded,
+      );
+    case 'rejected':
+      return const _StatusVisual(
+        AppColors.red,
+        AppColors.redBg,
+        Icons.close_rounded,
+      );
+    case 'withdrawn':
+      return _StatusVisual(
+        AppColors.grey,
+        Colors.grey.shade100,
+        Icons.undo_rounded,
+      );
+    default:
+      return const _StatusVisual(
+        Color(0xFFE99A18),
+        Color(0xFFFFF4E5),
+        Icons.schedule_rounded,
+      );
   }
 }
 
-class _ShimmerLoader extends StatefulWidget {
-  const _ShimmerLoader();
+// =============================================================================
+// ERROR
+// =============================================================================
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
 
   @override
-  State<_ShimmerLoader> createState() => _ShimmerLoaderState();
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE7FAFA), Color(0xFFF0F6FA)],
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: const Icon(
+                Icons.cloud_off_rounded,
+                color: AppColors.logoTurquoiseDark,
+                size: 31,
+              ),
+            ),
+            const SizedBox(height: 17),
+            const Text(
+              'Couldn’t load this application',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 16.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 11.5,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.logoTurquoiseDark,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 19,
+                  vertical: 13,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: const Text(
+                'Try Again',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ShimmerLoaderState extends State<_ShimmerLoader>
+// =============================================================================
+// FULL PAGE SHIMMER — NOTHING FAKE IS PAINTED BEFORE REAL DATA
+// =============================================================================
+
+class _DetailsPageShimmer extends StatefulWidget {
+  const _DetailsPageShimmer();
+
+  @override
+  State<_DetailsPageShimmer> createState() => _DetailsPageShimmerState();
+}
+
+class _DetailsPageShimmerState extends State<_DetailsPageShimmer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -2393,7 +2413,7 @@ class _ShimmerLoaderState extends State<_ShimmerLoader>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1250),
+      duration: const Duration(milliseconds: 1400),
     )..repeat();
   }
 
@@ -2410,153 +2430,350 @@ class _ShimmerLoaderState extends State<_ShimmerLoader>
       builder: (context, _) {
         return ListView(
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
+          padding: const EdgeInsets.fromLTRB(18, 7, 18, 36),
           children: [
-            Container(
-              padding: const EdgeInsets.all(17),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.cardBorder),
-              ),
-              child: const Row(
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: AppColors.logoTurquoiseDark,
-                    ),
-                  ),
-                  SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Loading latest application details',
-                          style: TextStyle(
-                            color: AppColors.navy,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Getting the current status directly from the server...',
-                          style: TextStyle(
-                            color: AppColors.grey,
-                            fontSize: 9.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 13),
-            _box(188, 27),
-            const SizedBox(height: 13),
-            _box(114, 21),
-            const SizedBox(height: 13),
-            _box(156, 22),
-            const SizedBox(height: 13),
-            _box(148, 22),
+            _HeroLoadingCard(animation: _controller),
+            const SizedBox(height: 14),
+            _JourneyLoadingCard(animation: _controller),
+            const SizedBox(height: 14),
+            _SectionLoadingCard(animation: _controller, height: 172),
+            const SizedBox(height: 14),
+            _SectionLoadingCard(animation: _controller, height: 190),
+            const SizedBox(height: 14),
+            _SectionLoadingCard(animation: _controller, height: 150),
           ],
         );
       },
     );
   }
+}
 
-  Widget _box(double height, double radius) {
-    final t = _controller.value;
+class _HeroLoadingCard extends StatelessWidget {
+  const _HeroLoadingCard({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      height: 240,
+      padding: const EdgeInsets.all(19),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A3448),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _ShimmerBlock(
+                animation: animation,
+                width: 76,
+                height: 24,
+                radius: 12,
+                dark: true,
+              ),
+              const Spacer(),
+              _ShimmerBlock(
+                animation: animation,
+                width: 57,
+                height: 23,
+                radius: 12,
+                dark: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 21),
+          _ShimmerBlock(
+            animation: animation,
+            width: double.infinity,
+            height: 22,
+            radius: 8,
+            dark: true,
+          ),
+          const SizedBox(height: 9),
+          _ShimmerBlock(
+            animation: animation,
+            width: 210,
+            height: 18,
+            radius: 7,
+            dark: true,
+          ),
+          const SizedBox(height: 11),
+          _ShimmerBlock(
+            animation: animation,
+            width: 128,
+            height: 10,
+            radius: 5,
+            dark: true,
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: _HeroMiniLoading(animation: animation),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: _HeroMiniLoading(animation: animation),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMiniLoading extends StatelessWidget {
+  const _HeroMiniLoading({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 55,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.055),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _ShimmerBlock(
+            animation: animation,
+            width: 18,
+            height: 18,
+            radius: 9,
+            dark: true,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ShimmerBlock(
+                  animation: animation,
+                  width: 45,
+                  height: 7,
+                  radius: 4,
+                  dark: true,
+                ),
+                const SizedBox(height: 6),
+                _ShimmerBlock(
+                  animation: animation,
+                  width: double.infinity,
+                  height: 9,
+                  radius: 5,
+                  dark: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyLoadingCard extends StatelessWidget {
+  const _JourneyLoadingCard({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 116,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ShimmerBlock(
+            animation: animation,
+            width: 135,
+            height: 10,
+            radius: 5,
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                Column(
+                  children: [
+                    _ShimmerBlock(
+                      animation: animation,
+                      width: 34,
+                      height: 34,
+                      radius: 17,
+                    ),
+                    const SizedBox(height: 6),
+                    _ShimmerBlock(
+                      animation: animation,
+                      width: 46,
+                      height: 7,
+                      radius: 4,
+                    ),
+                  ],
+                ),
+                if (i < 2)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _ShimmerBlock(
+                        animation: animation,
+                        width: double.infinity,
+                        height: 2,
+                        radius: 1,
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLoadingCard extends StatelessWidget {
+  const _SectionLoadingCard({
+    required this.animation,
+    required this.height,
+  });
+
+  final Animation<double> animation;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _ShimmerBlock(
+                animation: animation,
+                width: 39,
+                height: 39,
+                radius: 13,
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ShimmerBlock(
+                    animation: animation,
+                    width: 54,
+                    height: 7,
+                    radius: 4,
+                  ),
+                  const SizedBox(height: 6),
+                  _ShimmerBlock(
+                    animation: animation,
+                    width: 125,
+                    height: 13,
+                    radius: 6,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _ShimmerBlock(
+            animation: animation,
+            width: double.infinity,
+            height: 14,
+            radius: 6,
+          ),
+          const SizedBox(height: 9),
+          _ShimmerBlock(
+            animation: animation,
+            width: 220,
+            height: 10,
+            radius: 5,
+          ),
+          if (height > 175) ...[
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: _ShimmerBlock(
+                    animation: animation,
+                    width: double.infinity,
+                    height: 48,
+                    radius: 14,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: _ShimmerBlock(
+                    animation: animation,
+                    width: double.infinity,
+                    height: 48,
+                    radius: 14,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerBlock extends StatelessWidget {
+  const _ShimmerBlock({
+    required this.animation,
+    required this.width,
+    required this.height,
+    required this.radius,
+    this.dark = false,
+  });
+
+  final Animation<double> animation;
+  final double width;
+  final double height;
+  final double radius;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = animation.value;
+    final base = dark
+        ? Colors.white.withOpacity(0.075)
+        : const Color(0xFFF0F4F7);
+    final highlight = dark
+        ? Colors.white.withOpacity(0.17)
+        : const Color(0xFFF9FBFC);
+
+    return Container(
+      width: width,
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         gradient: LinearGradient(
           begin: Alignment(-1.8 + 3.6 * t, 0),
           end: Alignment(-0.8 + 3.6 * t, 0),
-          colors: [
-            Colors.grey.shade100,
-            Colors.grey.shade200,
-            Colors.grey.shade100,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF9FA),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.logoTurquoiseDark.withOpacity(0.08),
-                ),
-              ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                color: AppColors.logoTurquoiseDark,
-                size: 29,
-              ),
-            ),
-            const SizedBox(height: 15),
-            const Text(
-              'Couldn’t load application details',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.navy,
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 11,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onRetry,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.logoTurquoiseDark,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              icon: const Icon(Icons.refresh_rounded, size: 17),
-              label: const Text(
-                'Try Again',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
+          colors: [base, highlight, base],
         ),
       ),
     );

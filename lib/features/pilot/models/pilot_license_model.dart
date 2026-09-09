@@ -1,106 +1,123 @@
-class PilotLicenseDocument {
-  const PilotLicenseDocument({
-    this.id,
-    this.name,
-    this.url,
-    this.mimeType,
-    this.size,
-  });
-
-  final int? id;
-  final String? name;
-  final String? url;
-  final String? mimeType;
-  final int? size;
-
-  bool get hasValue =>
-      id != null ||
-      (name?.trim().isNotEmpty ?? false) ||
-      (url?.trim().isNotEmpty ?? false);
-
-  factory PilotLicenseDocument.fromDynamic(dynamic raw) {
-    if (raw == null) {
-      return const PilotLicenseDocument();
-    }
-
-    if (raw is String) {
-      final clean = raw.trim();
-      if (clean.isEmpty) {
-        return const PilotLicenseDocument();
-      }
-
-      return PilotLicenseDocument(
-        name: _fileNameFromUrl(clean),
-        url: clean,
-      );
-    }
-
-    if (raw is Map) {
-      final map = Map<String, dynamic>.from(raw);
-
-      final url = _firstString(map, const [
-        'url',
-        'download_url',
-        'file_url',
-        'full_url',
-        'temporary_url',
-      ]);
-
-      return PilotLicenseDocument(
-        id: _asInt(
-          map['id'] ??
-              map['media_id'] ??
-              map['document_id'],
-        ),
-        name: _firstString(map, const [
-              'name',
-              'file_name',
-              'original_name',
-              'filename',
-            ]) ??
-            (url == null ? null : _fileNameFromUrl(url)),
-        url: url,
-        mimeType: _firstString(map, const [
-          'mime_type',
-          'mime',
-          'content_type',
-        ]),
-        size: _asInt(
-          map['size'] ??
-              map['file_size'] ??
-              map['size_bytes'],
-        ),
-      );
-    }
-
-    return const PilotLicenseDocument();
-  }
-}
-
 class PilotLicenseModel {
-  const PilotLicenseModel({
-    required this.id,
-    required this.licenseType,
-    required this.licenseNumber,
-    required this.issuingAuthority,
-    required this.expiresAt,
-    this.pilotProfileId,
-    this.licenseDocument,
-    this.permitOrInsuranceDocument,
-    this.createdAt,
-    this.updatedAt,
-  });
-
   final int id;
   final int? pilotProfileId;
   final String licenseType;
   final String licenseNumber;
   final String issuingAuthority;
   final DateTime? expiresAt;
-  final PilotLicenseDocument? licenseDocument;
-  final PilotLicenseDocument? permitOrInsuranceDocument;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final List<PilotLicenseDocument> media;
+
+  const PilotLicenseModel({
+    this.id = 0,
+    this.pilotProfileId,
+    this.licenseType = '',
+    this.licenseNumber = '',
+    this.issuingAuthority = '',
+    this.expiresAt,
+    this.createdAt,
+    this.updatedAt,
+    this.media = const <PilotLicenseDocument>[],
+  });
+
+  factory PilotLicenseModel.fromJson(Map<String, dynamic> json) {
+    final media = <PilotLicenseDocument>[];
+    final rawMedia = json['media'];
+
+    if (rawMedia is List) {
+      for (final item in rawMedia) {
+        if (item is Map) {
+          media.add(
+            PilotLicenseDocument.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          );
+        }
+      }
+    }
+
+    return PilotLicenseModel(
+      id: _asInt(json['id']) ?? 0,
+      pilotProfileId: _asInt(
+        json['pilot_profile_id'] ?? json['pilotProfileId'],
+      ),
+      licenseType: _asString(
+        json['license_type'] ?? json['licenseType'],
+      ),
+      licenseNumber: _asString(
+        json['license_number'] ?? json['licenseNumber'],
+      ),
+      issuingAuthority: _asString(
+        json['issuing_authority'] ?? json['issuingAuthority'],
+      ),
+      expiresAt: _asDate(
+        json['expires_at'] ?? json['expiresAt'],
+      ),
+      createdAt: _asDate(
+        json['created_at'] ?? json['createdAt'],
+      ),
+      updatedAt: _asDate(
+        json['updated_at'] ?? json['updatedAt'],
+      ),
+      media: media,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'pilot_profile_id': pilotProfileId,
+      'license_type': licenseType,
+      'license_number': licenseNumber,
+      'issuing_authority': issuingAuthority,
+      'expires_at': expiresAt?.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'media': media.map((item) => item.toJson()).toList(),
+    };
+  }
+
+  PilotLicenseModel copyWith({
+    int? id,
+    int? pilotProfileId,
+    String? licenseType,
+    String? licenseNumber,
+    String? issuingAuthority,
+    DateTime? expiresAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    List<PilotLicenseDocument>? media,
+  }) {
+    return PilotLicenseModel(
+      id: id ?? this.id,
+      pilotProfileId: pilotProfileId ?? this.pilotProfileId,
+      licenseType: licenseType ?? this.licenseType,
+      licenseNumber: licenseNumber ?? this.licenseNumber,
+      issuingAuthority: issuingAuthority ?? this.issuingAuthority,
+      expiresAt: expiresAt ?? this.expiresAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      media: media ?? this.media,
+    );
+  }
+
+  PilotLicenseDocument? get licenseDocument {
+    return _documentForCollection('license_document');
+  }
+
+  PilotLicenseDocument? get permitOrInsuranceDocument {
+    return _documentForCollection('permit_or_insurance_document');
+  }
+
+  PilotLicenseDocument? _documentForCollection(String collection) {
+    for (final item in media) {
+      if (item.collectionName.trim().toLowerCase() == collection) {
+        return item;
+      }
+    }
+    return null;
+  }
 
   bool get isExpired {
     final expiry = expiresAt;
@@ -108,9 +125,9 @@ class PilotLicenseModel {
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final date = DateTime(expiry.year, expiry.month, expiry.day);
+    final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
 
-    return date.isBefore(today);
+    return expiryDay.isBefore(today);
   }
 
   bool get isExpiringSoon {
@@ -119,106 +136,108 @@ class PilotLicenseModel {
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final date = DateTime(expiry.year, expiry.month, expiry.day);
+    final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
+    final days = expiryDay.difference(today).inDays;
 
-    final days = date.difference(today).inDays;
-    return days <= 30;
+    return days >= 0 && days <= 30;
   }
+}
 
-  factory PilotLicenseModel.fromJson(Map<String, dynamic> json) {
-    final primaryRaw =
-        json['license_document'] ??
-        json['licenseDocument'] ??
-        json['license_document_media'] ??
-        json['license_document_url'];
+class PilotLicenseDocument {
+  final int? id;
+  final String collectionName;
+  final String fileName;
+  final String mimeType;
+  final int? size;
+  final String url;
+  final String downloadUrl;
+  final DateTime? createdAt;
 
-    final secondaryRaw =
-        json['permit_or_insurance_document'] ??
-        json['permitOrInsuranceDocument'] ??
-        json['permit_or_insurance_document_media'] ??
-        json['permit_or_insurance_document_url'];
+  const PilotLicenseDocument({
+    this.id,
+    this.collectionName = '',
+    this.fileName = '',
+    this.mimeType = '',
+    this.size,
+    this.url = '',
+    this.downloadUrl = '',
+    this.createdAt,
+  });
 
-    final primary = PilotLicenseDocument.fromDynamic(primaryRaw);
-    final secondary = PilotLicenseDocument.fromDynamic(secondaryRaw);
-
-    return PilotLicenseModel(
-      id: _asInt(json['id']) ?? 0,
-      pilotProfileId: _asInt(
-        json['pilot_profile_id'] ??
-            json['pilotProfileId'],
+  factory PilotLicenseDocument.fromJson(Map<String, dynamic> json) {
+    return PilotLicenseDocument(
+      id: _asInt(json['id']),
+      collectionName: _asString(
+        json['collection_name'] ?? json['collectionName'],
       ),
-      licenseType: _asString(
-        json['license_type'] ??
-            json['licenseType'],
+      fileName: _asString(
+        json['file_name'] ?? json['fileName'],
       ),
-      licenseNumber: _asString(
-        json['license_number'] ??
-            json['licenseNumber'],
+      mimeType: _asString(
+        json['mime_type'] ?? json['mimeType'],
       ),
-      issuingAuthority: _asString(
-        json['issuing_authority'] ??
-            json['issuingAuthority'],
+      size: _asInt(json['size']),
+      url: _asString(json['url']),
+      downloadUrl: _asString(
+        json['download_url'] ?? json['downloadUrl'],
       ),
-      expiresAt: _asDateTime(
-        json['expires_at'] ??
-            json['expiresAt'],
-      ),
-      licenseDocument: primary.hasValue ? primary : null,
-      permitOrInsuranceDocument:
-          secondary.hasValue ? secondary : null,
-      createdAt: _asDateTime(
-        json['created_at'] ??
-            json['createdAt'],
-      ),
-      updatedAt: _asDateTime(
-        json['updated_at'] ??
-            json['updatedAt'],
+      createdAt: _asDate(
+        json['created_at'] ?? json['createdAt'],
       ),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'collection_name': collectionName,
+      'file_name': fileName,
+      'mime_type': mimeType,
+      'size': size,
+      'url': url,
+      'download_url': downloadUrl,
+      'created_at': createdAt?.toIso8601String(),
+    };
+  }
+
+  /// Existing UI compatibility.
+  String? get name {
+    final value = fileName.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  /// Private media may legitimately have url == null/empty while download_url
+  /// is present. download_url therefore counts as a real attached document.
+  bool get hasValue {
+    return id != null ||
+        fileName.trim().isNotEmpty ||
+        url.trim().isNotEmpty ||
+        downloadUrl.trim().isNotEmpty;
+  }
+
+  String get bestDownloadUrl {
+    final privateUrl = downloadUrl.trim();
+    if (privateUrl.isNotEmpty) return privateUrl;
+    return url.trim();
   }
 }
 
 String _asString(dynamic value) {
-  return value?.toString().trim() ?? '';
-}
-
-String? _firstString(
-  Map<String, dynamic> map,
-  List<String> keys,
-) {
-  for (final key in keys) {
-    final value = map[key];
-    if (value == null) continue;
-
-    final text = value.toString().trim();
-    if (text.isNotEmpty) return text;
-  }
-
-  return null;
+  if (value == null) return '';
+  return value.toString().trim();
 }
 
 int? _asInt(dynamic value) {
+  if (value == null) return null;
   if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse(value?.toString() ?? '');
+  return int.tryParse(value.toString());
 }
 
-DateTime? _asDateTime(dynamic value) {
+DateTime? _asDate(dynamic value) {
   if (value == null) return null;
-  if (value is DateTime) return value;
 
   final text = value.toString().trim();
   if (text.isEmpty) return null;
 
   return DateTime.tryParse(text);
-}
-
-String _fileNameFromUrl(String url) {
-  final uri = Uri.tryParse(url);
-  if (uri != null && uri.pathSegments.isNotEmpty) {
-    return uri.pathSegments.last;
-  }
-
-  final parts = url.split('/');
-  return parts.isEmpty ? 'Document' : parts.last;
 }

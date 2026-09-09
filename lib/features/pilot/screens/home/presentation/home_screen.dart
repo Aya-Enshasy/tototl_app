@@ -12,7 +12,7 @@ import 'package:tototl_app/features/pilot/screens/home/widgets/availability_card
 import 'package:tototl_app/features/pilot/screens/home/widgets/home_header.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/my_drone_card.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/recent_applications_section.dart';
-import 'package:tototl_app/features/pilot/screens/jobs/find_drone_jobs.dart';
+import 'package:tototl_app/features/pilot/screens/jobs/jobs_screen.dart';
  import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
 import 'package:tototl_app/features/pilot/services/pilot_availability_local_store.dart';
 

@@ -22,20 +22,24 @@ class FindDroneJobsScreen extends StatefulWidget {
 class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController =
-      TextEditingController();
+  TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  late final PilotJobService _jobService;
   late final PilotJobController _controller;
   late final AnimationController _pageAnimationController;
 
   Timer? _searchDebounce;
+  bool _suppressSearchListener = false;
 
   @override
   void initState() {
     super.initState();
 
+    _jobService = PilotJobService(ApiClient());
+
     _controller = PilotJobController(
-      PilotJobService(ApiClient()),
+      _jobService,
     );
 
     _pageAnimationController = AnimationController(
@@ -72,16 +76,25 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
   }
 
   void _onSearchChanged() {
+    if (_suppressSearchListener) return;
+
     setState(() {});
 
     _searchDebounce?.cancel();
     _searchDebounce = Timer(
-      const Duration(milliseconds: 450),
-      () {
+      const Duration(milliseconds: 420),
+          () {
         if (!mounted) return;
-        _controller.updateSearch(_searchController.text);
+        _controller.updateSearch(
+          _searchController.text.trim(),
+        );
       },
     );
+  }
+
+  void _submitSearch(String value) {
+    _searchDebounce?.cancel();
+    _controller.updateSearch(value.trim());
   }
 
   Future<void> _openFilters() async {
@@ -106,16 +119,53 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
 
   Future<void> _clearAll() async {
     _searchDebounce?.cancel();
+
+    _suppressSearchListener = true;
     _searchController.clear();
-    await _controller.applyFilters(const PilotJobFilters());
+    _suppressSearchListener = false;
+
+    if (mounted) {
+      setState(() {});
+    }
+
+    await _controller.applyFilters(
+      const PilotJobFilters(),
+    );
   }
 
   Future<void> _openJob(PilotJobModel job) async {
     HapticFeedback.selectionClick();
 
+    // Start the authoritative detail request before route transition.
+    // The transition time becomes useful loading time and the detail screen
+    // never needs to paint list/demo data as if it were fresh details.
+    final detailsFuture = _jobService.getJobDetails(job.id);
+
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => JobDetailsScreen(jobId: job.id),
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 330),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (_, animation, __) => JobDetailsScreen(
+          jobId: job.id,
+          detailsFuture: detailsFuture,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
+
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.025, 0),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -299,13 +349,14 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
             child: TextField(
               controller: _searchController,
               textInputAction: TextInputAction.search,
+              onSubmitted: _submitSearch,
               style: const TextStyle(
                 color: AppColors.navy,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
-                hintText: 'Search title, location, service...',
+                hintText: 'Search job title or description...',
                 hintStyle: TextStyle(
                   color: AppColors.grey.withOpacity(0.78),
                   fontSize: 12.2,
@@ -325,17 +376,24 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: () {
-                          HapticFeedback.selectionClick();
-                          _searchController.clear();
-                        },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: AppColors.grey,
-                          size: 18,
-                        ),
-                      ),
+                  tooltip: 'Clear search',
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    _searchDebounce?.cancel();
+
+                    _suppressSearchListener = true;
+                    _searchController.clear();
+                    _suppressSearchListener = false;
+
+                    setState(() {});
+                    _controller.updateSearch('');
+                  },
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: AppColors.grey,
+                    size: 18,
+                  ),
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(vertical: 15),
@@ -413,11 +471,14 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
 
     final labels = <String>[
       if (f.category.isNotEmpty) _pretty(f.category),
-      if (f.city.isNotEmpty) f.city,
       if (f.country.isNotEmpty) f.country,
+      if (f.state.isNotEmpty) f.state,
+      if (f.city.isNotEmpty) f.city,
+      if (f.region.isNotEmpty) f.region,
       if (f.paymentMin != null || f.paymentMax != null) 'Budget',
       if (f.dateFrom != null || f.dateTo != null) 'Dates',
-      if (f.capabilities.isNotEmpty) '${f.capabilities.length} capabilities',
+      if (f.capabilities.isNotEmpty)
+        '${f.capabilities.length} ${f.capabilities.length == 1 ? 'capability' : 'capabilities'}',
       if (f.sort != 'newest') 'Sort: ${_sortLabel(f.sort)}',
     ];
 
@@ -427,7 +488,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
         scrollDirection: Axis.horizontal,
         children: [
           ...labels.map(
-            (label) => Padding(
+                (label) => Padding(
               padding: const EdgeInsets.only(right: 7),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -560,7 +621,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
         itemCount:
-            _controller.jobs.length + (_controller.isLoadingMore ? 1 : 0),
+        _controller.jobs.length + (_controller.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           if (index >= _controller.jobs.length) {
@@ -606,8 +667,8 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
         .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
+      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+    )
         .join(' ');
   }
 }
@@ -783,7 +844,7 @@ class _JobListCardState extends State<_JobListCard> {
                           children: [
                             ...job.requiredCapabilities.take(2).map(
                                   (item) => _CapabilityPill(label: item),
-                                ),
+                            ),
                             if (job.requiredCapabilities.length > 2)
                               _CapabilityPill(
                                 label: '+${job.requiredCapabilities.length - 2}',
@@ -836,8 +897,8 @@ class _JobListCardState extends State<_JobListCard> {
         .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
+      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+    )
         .join(' ');
   }
 }
@@ -1005,7 +1066,9 @@ class _JobsError extends StatelessWidget {
 }
 
 class _JobFilterSheet extends StatefulWidget {
-  const _JobFilterSheet({required this.initial});
+  const _JobFilterSheet({
+    required this.initial,
+  });
 
   final PilotJobFilters initial;
 
@@ -1020,14 +1083,16 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
   late final TextEditingController _region;
   late final TextEditingController _paymentMin;
   late final TextEditingController _paymentMax;
+  late final TextEditingController _customCapability;
 
   late String _category;
   late String _sort;
   late Set<String> _capabilities;
+
   DateTime? _dateFrom;
   DateTime? _dateTo;
 
-  static const categories = [
+  static const List<String> categories = [
     'inspection',
     'mapping',
     'photography',
@@ -1036,7 +1101,9 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     'other',
   ];
 
-  static const capabilities = [
+  // Quick suggestions only. The backend now accepts free-text capabilities,
+  // so pilots are not limited to this list.
+  static const List<String> suggestedCapabilities = [
     'Thermal Camera',
     'RTK',
     'Zoom',
@@ -1050,6 +1117,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
   @override
   void initState() {
     super.initState();
+
     final f = widget.initial;
 
     _country = TextEditingController(text: f.country);
@@ -1058,10 +1126,15 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     _region = TextEditingController(text: f.region);
     _paymentMin = TextEditingController(text: _number(f.paymentMin));
     _paymentMax = TextEditingController(text: _number(f.paymentMax));
+    _customCapability = TextEditingController();
 
     _category = f.category;
     _sort = f.sort;
-    _capabilities = f.capabilities.toSet();
+    _capabilities = f.capabilities
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+
     _dateFrom = f.dateFrom;
     _dateTo = f.dateTo;
   }
@@ -1074,10 +1147,13 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     _region.dispose();
     _paymentMin.dispose();
     _paymentMax.dispose();
+    _customCapability.dispose();
     super.dispose();
   }
 
   Future<void> _pickDates() async {
+    HapticFeedback.selectionClick();
+
     final now = DateTime.now();
 
     final result = await showDateRangePicker(
@@ -1085,11 +1161,24 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
       initialDateRange: _dateFrom != null && _dateTo != null
-          ? DateTimeRange(start: _dateFrom!, end: _dateTo!)
+          ? DateTimeRange(
+        start: _dateFrom!,
+        end: _dateTo!,
+      )
           : null,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.blue,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
-    if (result == null) return;
+    if (result == null || !mounted) return;
 
     setState(() {
       _dateFrom = result.start;
@@ -1097,9 +1186,64 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     });
   }
 
+  void _addCapability(String raw) {
+    final value = raw.trim();
+
+    if (value.isEmpty) return;
+
+    if (value.length > 60) {
+      _snack('Capability must be 60 characters or fewer.');
+      return;
+    }
+
+    final exists = _capabilities.any(
+          (item) => item.toLowerCase() == value.toLowerCase(),
+    );
+
+    if (exists) {
+      _customCapability.clear();
+      return;
+    }
+
+    setState(() {
+      _capabilities.add(value);
+      _customCapability.clear();
+    });
+
+    HapticFeedback.selectionClick();
+  }
+
+  void _toggleSuggestedCapability(String value, bool selected) {
+    if (selected) {
+      _addCapability(value);
+      return;
+    }
+
+    setState(() {
+      _capabilities.removeWhere(
+            (item) => item.toLowerCase() == value.toLowerCase(),
+      );
+    });
+  }
+
+  bool _containsCapability(String value) {
+    return _capabilities.any(
+          (item) => item.toLowerCase() == value.toLowerCase(),
+    );
+  }
+
+  void _removeCapability(String value) {
+    setState(() {
+      _capabilities.remove(value);
+    });
+  }
+
   void _apply() {
+    FocusScope.of(context).unfocus();
+
     final minText = _paymentMin.text.trim();
     final maxText = _paymentMax.text.trim();
+
     final min = minText.isEmpty ? null : double.tryParse(minText);
     final max = maxText.isEmpty ? null : double.tryParse(maxText);
 
@@ -1113,10 +1257,27 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
       return;
     }
 
-    if (min != null && max != null && max < min) {
-      _snack('Maximum payment must be greater than or equal to minimum.');
+    if (min != null && min < 0) {
+      _snack('Minimum payment cannot be negative.');
       return;
     }
+
+    if (max != null && max < 0) {
+      _snack('Maximum payment cannot be negative.');
+      return;
+    }
+
+    if (min != null && max != null && max < min) {
+      _snack(
+        'Maximum payment must be greater than or equal to minimum.',
+      );
+      return;
+    }
+
+    final cleanCapabilities = _capabilities
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty && item.length <= 60)
+        .toList();
 
     Navigator.of(context).pop(
       PilotJobFilters(
@@ -1130,13 +1291,15 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
         dateTo: _dateTo,
         paymentMin: min,
         paymentMax: max,
-        capabilities: _capabilities.toList(),
+        capabilities: cleanCapabilities,
         sort: _sort,
       ),
     );
   }
 
   void _reset() {
+    HapticFeedback.selectionClick();
+
     setState(() {
       _country.clear();
       _state.clear();
@@ -1144,9 +1307,12 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
       _region.clear();
       _paymentMin.clear();
       _paymentMax.clear();
+      _customCapability.clear();
+
       _category = '';
       _sort = 'newest';
       _capabilities.clear();
+
       _dateFrom = null;
       _dateTo = null;
     });
@@ -1158,12 +1324,19 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.90,
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
       ),
-      padding: EdgeInsets.fromLTRB(20, 10, 20, 18 + bottom),
+      padding: EdgeInsets.fromLTRB(
+        18,
+        9,
+        18,
+        16 + bottom,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.bg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
       ),
       child: Column(
         children: [
@@ -1178,30 +1351,81 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
           const SizedBox(height: 15),
           Row(
             children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.blue.withOpacity(0.065),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.tune_rounded,
+                  color: AppColors.blue,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
               const Expanded(
-                child: Text(
-                  'Filter Jobs',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Refine Jobs',
+                      style: TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Narrow opportunities to the missions that fit you',
+                      style: TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 9.8,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _reset,
+                child: const Text(
+                  'Reset',
                   style: TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 19,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              TextButton(onPressed: _reset, child: const Text('Reset')),
             ],
           ),
+          const SizedBox(height: 8),
           Expanded(
             child: ListView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
+              physics: const BouncingScrollPhysics(),
               children: [
-                _sectionLabel('Location'),
-                _field(_country, 'Country', Icons.public_rounded),
+                _sectionLabel(
+                  'Location',
+                  'Country, state, city or a more specific region',
+                ),
+                _field(
+                  _country,
+                  'Country',
+                  Icons.public_rounded,
+                ),
                 const SizedBox(height: 9),
                 Row(
                   children: [
                     Expanded(
-                      child: _field(_state, 'State', Icons.map_outlined),
+                      child: _field(
+                        _state,
+                        'State',
+                        Icons.map_outlined,
+                      ),
                     ),
                     const SizedBox(width: 9),
                     Expanded(
@@ -1214,65 +1438,122 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                   ],
                 ),
                 const SizedBox(height: 9),
-                _field(_region, 'Region / Area', Icons.place_outlined),
-                _sectionLabel('Service Category'),
+                _field(
+                  _region,
+                  'Region / Area',
+                  Icons.place_outlined,
+                ),
+                _sectionLabel(
+                  'Service Category',
+                  'Choose one primary mission type',
+                ),
                 Wrap(
                   spacing: 7,
                   runSpacing: 7,
-                  children: categories.map((item) {
-                    final selected = _category == item;
-                    return ChoiceChip(
-                      label: Text(_pretty(item)),
-                      selected: selected,
-                      onSelected: (value) {
-                        setState(() => _category = value ? item : '');
-                      },
-                      selectedColor: AppColors.blueBg,
-                      checkmarkColor: AppColors.blue,
-                      backgroundColor: Colors.white,
-                      side: BorderSide(
-                        color: selected ? AppColors.blue : AppColors.cardBorder,
-                      ),
-                    );
-                  }).toList(),
+                  children: categories.map(
+                        (item) {
+                      final selected = _category == item;
+
+                      return ChoiceChip(
+                        label: Text(_pretty(item)),
+                        selected: selected,
+                        showCheckmark: false,
+                        onSelected: (value) {
+                          HapticFeedback.selectionClick();
+                          setState(
+                                () => _category = value ? item : '',
+                          );
+                        },
+                        selectedColor: AppColors.blueBg,
+                        backgroundColor: Colors.white,
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? AppColors.blue
+                              : AppColors.navy,
+                          fontSize: 10.7,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                        ),
+                        side: BorderSide(
+                          color: selected
+                              ? AppColors.blue.withOpacity(0.42)
+                              : AppColors.cardBorder,
+                        ),
+                      );
+                    },
+                  ).toList(),
                 ),
-                _sectionLabel('Mission Dates'),
+                _sectionLabel(
+                  'Mission Dates',
+                  'Filter opportunities by the mission window',
+                ),
                 Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   child: InkWell(
                     onTap: _pickDates,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     child: Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.fromLTRB(
+                        13,
+                        12,
+                        10,
+                        12,
+                      ),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.cardBorder),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.cardBorder,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.calendar_month_outlined,
-                            color: AppColors.blue,
-                            size: 19,
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.blue.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month_outlined,
+                              color: AppColors.blue,
+                              size: 17,
+                            ),
                           ),
-                          const SizedBox(width: 9),
+                          const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              _dateFrom == null || _dateTo == null
-                                  ? 'Any date'
-                                  : '${_date(_dateFrom!)} – ${_date(_dateTo!)}',
-                              style: TextStyle(
-                                color: _dateFrom == null
-                                    ? AppColors.grey
-                                    : AppColors.navy,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Mission window',
+                                  style: TextStyle(
+                                    color: AppColors.grey,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _dateFrom == null || _dateTo == null
+                                      ? 'Any date'
+                                      : '${_date(_dateFrom!)}  –  ${_date(_dateTo!)}',
+                                  style: TextStyle(
+                                    color: _dateFrom == null
+                                        ? AppColors.grey
+                                        : AppColors.navy,
+                                    fontSize: 11.7,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           if (_dateFrom != null)
                             IconButton(
+                              tooltip: 'Clear dates',
                               visualDensity: VisualDensity.compact,
                               onPressed: () {
                                 setState(() {
@@ -1280,22 +1561,35 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                                   _dateTo = null;
                                 });
                               },
-                              icon: const Icon(Icons.close_rounded, size: 17),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 17,
+                              ),
+                            )
+                          else
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.grey,
+                              size: 19,
                             ),
                         ],
                       ),
                     ),
                   ),
                 ),
-                _sectionLabel('Payment'),
+                _sectionLabel(
+                  'Payment',
+                  'Optional budget range',
+                ),
                 Row(
                   children: [
                     Expanded(
                       child: _field(
                         _paymentMin,
-                        'Min',
+                        'Minimum',
                         Icons.payments_outlined,
-                        keyboardType: const TextInputType.numberWithOptions(
+                        keyboardType:
+                        const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                       ),
@@ -1304,65 +1598,210 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                     Expanded(
                       child: _field(
                         _paymentMax,
-                        'Max',
+                        'Maximum',
                         Icons.payments_outlined,
-                        keyboardType: const TextInputType.numberWithOptions(
+                        keyboardType:
+                        const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                       ),
                     ),
                   ],
                 ),
-                _sectionLabel('Drone Capabilities'),
+                _sectionLabel(
+                  'Drone Capabilities',
+                  'Pick suggestions or add any capability required by the mission',
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _customCapability,
+                        maxLength: 60,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: _addCapability,
+                        style: const TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 12.2,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Add capability...',
+                          counterText: '',
+                          hintStyle: const TextStyle(
+                            color: AppColors.grey,
+                            fontSize: 11.5,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.memory_rounded,
+                            color: AppColors.blue,
+                            size: 17,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: _border(AppColors.cardBorder),
+                          enabledBorder: _border(AppColors.cardBorder),
+                          focusedBorder: _border(
+                            AppColors.blue,
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: () =>
+                            _addCapability(_customCapability.text),
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor: AppColors.navy,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          size: 19,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_capabilities.isNotEmpty) ...[
+                  const SizedBox(height: 11),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: _capabilities
+                        .map(
+                          (item) => InputChip(
+                        label: Text(item),
+                        onDeleted: () => _removeCapability(item),
+                        deleteIcon: const Icon(
+                          Icons.close_rounded,
+                          size: 14,
+                        ),
+                        backgroundColor:
+                        AppColors.green.withOpacity(0.06),
+                        side: BorderSide(
+                          color:
+                          AppColors.green.withOpacity(0.13),
+                        ),
+                        labelStyle: const TextStyle(
+                          color: AppColors.green,
+                          fontSize: 9.8,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        deleteIconColor: AppColors.green,
+                      ),
+                    )
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 11),
+                const Text(
+                  'Quick suggestions',
+                  style: TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 9.3,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 7,
                   runSpacing: 7,
-                  children: capabilities.map((item) {
-                    final selected = _capabilities.contains(item);
-                    return FilterChip(
-                      label: Text(item),
-                      selected: selected,
-                      onSelected: (value) {
-                        setState(() {
-                          value
-                              ? _capabilities.add(item)
-                              : _capabilities.remove(item);
-                        });
-                      },
-                      selectedColor: AppColors.greenBg,
-                      checkmarkColor: AppColors.green,
-                      backgroundColor: Colors.white,
-                      side: BorderSide(
-                        color:
-                            selected ? AppColors.green : AppColors.cardBorder,
-                      ),
-                    );
-                  }).toList(),
+                  children: suggestedCapabilities.map(
+                        (item) {
+                      final selected = _containsCapability(item);
+
+                      return FilterChip(
+                        label: Text(item),
+                        selected: selected,
+                        showCheckmark: false,
+                        onSelected: (value) =>
+                            _toggleSuggestedCapability(item, value),
+                        selectedColor:
+                        AppColors.green.withOpacity(0.07),
+                        backgroundColor: Colors.white,
+                        side: BorderSide(
+                          color: selected
+                              ? AppColors.green.withOpacity(0.38)
+                              : AppColors.cardBorder,
+                        ),
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? AppColors.green
+                              : AppColors.navy,
+                          fontSize: 9.8,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                        ),
+                      );
+                    },
+                  ).toList(),
                 ),
-                _sectionLabel('Sort'),
-                _sortTile('newest', 'Newest first', Icons.auto_awesome_outlined),
-                _sortTile('pay', 'Pay', Icons.payments_outlined),
-                _sortTile('date', 'Mission date', Icons.calendar_today_outlined),
+                _sectionLabel(
+                  'Sort',
+                  'Choose how results should be ordered',
+                ),
+                _sortTile(
+                  'newest',
+                  'Newest first',
+                  'Recently published missions first',
+                  Icons.auto_awesome_outlined,
+                ),
+                _sortTile(
+                  'pay',
+                  'Highest pay',
+                  'Prioritize stronger budgets',
+                  Icons.payments_outlined,
+                ),
+                _sortTile(
+                  'date',
+                  'Mission date',
+                  'Prioritize the upcoming mission schedule',
+                  Icons.calendar_today_outlined,
+                ),
                 const SizedBox(height: 12),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 11),
           SizedBox(
             width: double.infinity,
-            height: 52,
-            child: FilledButton.icon(
+            height: 53,
+            child: FilledButton(
               onPressed: _apply,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.blue,
+                foregroundColor: Colors.white,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(17),
                 ),
               ),
-              icon: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text(
-                'Apply Filters',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 17,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Apply Filters',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1371,84 +1810,195 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     );
   }
 
-  Widget _sectionLabel(String text) {
+  Widget _sectionLabel(
+      String title,
+      String subtitle,
+      ) {
     return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 9),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.navy,
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-        ),
+      padding: const EdgeInsets.only(
+        top: 21,
+        bottom: 9,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.navy,
+              fontSize: 12.6,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 9.3,
+              height: 1.3,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _field(
-    TextEditingController controller,
-    String hint,
-    IconData icon, {
-    TextInputType keyboardType = TextInputType.text,
-  }) {
+      TextEditingController controller,
+      String hint,
+      IconData icon, {
+        TextInputType keyboardType = TextInputType.text,
+      }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 12.2,
+        fontWeight: FontWeight.w600,
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: AppColors.grey, fontSize: 12.2),
-        prefixIcon: Icon(icon, color: AppColors.blue, size: 18),
+        hintStyle: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 11.5,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: AppColors.blue,
+          size: 17,
+        ),
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(vertical: 13),
         border: _border(AppColors.cardBorder),
         enabledBorder: _border(AppColors.cardBorder),
-        focusedBorder: _border(AppColors.blue, width: 1.2),
+        focusedBorder: _border(
+          AppColors.blue,
+          width: 1.2,
+        ),
       ),
     );
   }
 
-  Widget _sortTile(String value, String title, IconData icon) {
+  Widget _sortTile(
+      String value,
+      String title,
+      String subtitle,
+      IconData icon,
+      ) {
     final selected = _sort == value;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: selected ? AppColors.blue : AppColors.cardBorder,
-        ),
-      ),
-      child: RadioListTile<String>(
-        value: value,
-        groupValue: _sort,
-        onChanged: (newValue) {
-          if (newValue == null) return;
-          setState(() => _sort = newValue);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _sort = value);
         },
-        activeColor: AppColors.blue,
-        secondary: Icon(
-          icon,
-          color: selected ? AppColors.blue : AppColors.grey,
-          size: 19,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: selected ? AppColors.navy : AppColors.grey,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: selected
+                  ? AppColors.blue.withOpacity(0.48)
+                  : AppColors.cardBorder,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 37,
+                height: 37,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.blue.withOpacity(0.07)
+                      : AppColors.bg,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  icon,
+                  color: selected
+                      ? AppColors.blue
+                      : AppColors.grey,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: selected
+                            ? AppColors.navy
+                            : AppColors.grey,
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 8.9,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 21,
+                height: 21,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? AppColors.blue
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.blue
+                        : AppColors.cardBorder,
+                    width: 1.2,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 13,
+                )
+                    : null,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  OutlineInputBorder _border(Color color, {double width = 0.8}) {
+  OutlineInputBorder _border(
+      Color color, {
+        double width = 0.8,
+      }) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: color, width: width),
+      borderSide: BorderSide(
+        color: color,
+        width: width,
+      ),
     );
   }
 
@@ -1458,17 +2008,20 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
         .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
+      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+    )
         .join(' ');
   }
 
-  String _date(DateTime value) =>
-      '${value.year}-${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
+  String _date(DateTime value) {
+    return '${value.year}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
+  }
 
   String _number(double? value) {
     if (value == null) return '';
+
     return value == value.roundToDouble()
         ? value.toStringAsFixed(0)
         : value.toStringAsFixed(2);
@@ -1480,6 +2033,11 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.navy,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           content: Text(message),
         ),
       );

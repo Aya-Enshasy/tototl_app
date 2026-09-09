@@ -6,6 +6,7 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 import '../../controllers/pilot_application_controller.dart';
 import '../../models/pilot_application_model.dart';
 import '../../services/pilot_application_service.dart';
+import '../../services/pilot_job_service.dart';
 import 'application_details_screen.dart';
 
 class ApplicationsScreen extends StatefulWidget {
@@ -26,9 +27,14 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   @override
   void initState() {
     super.initState();
+
+    final apiClient = ApiClient();
+
     _controller = PilotApplicationController(
-      PilotApplicationService(ApiClient()),
+      PilotApplicationService(apiClient),
+      jobService: PilotJobService(apiClient),
     );
+
     _controller.load();
   }
 
@@ -38,14 +44,24 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     super.dispose();
   }
 
-  Future<void> _openDetails(
-      PilotApplicationModel application,
-      ) async {
+  Future<void> _refresh() async {
     HapticFeedback.selectionClick();
 
-    // Start the authoritative detail request BEFORE the route transition.
-    // The details screen receives the same Future, so there is no duplicate
-    // request and no cached/list snapshot is displayed as if it were fresh.
+    final success = await _controller.refresh();
+
+    if (!mounted || success) return;
+
+    final message = _controller.refreshErrorMessage;
+    if (message == null || message.trim().isEmpty) return;
+
+    _snack(message);
+  }
+
+  Future<void> _openDetails(PilotApplicationModel application) async {
+    HapticFeedback.selectionClick();
+
+    // Start the authoritative detail request before the route transition.
+    // No list/cache snapshot is ever painted as detail data.
     final detailsFuture =
     _controller.service.getApplicationDetailsResult(application.id);
 
@@ -60,22 +76,27 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
     if (!mounted) return;
 
-    // ApplicationDetailsScreen refreshes its own cached snapshot. Reuse that
-    // snapshot immediately instead of issuing another request just because the
-    // user navigated back.
-    final cached =
-    await _controller.service.getCachedApplication(application.id);
-
-    if (!mounted) return;
-
-    if (cached != null) {
-      _controller.replaceApplication(cached);
-    }
-
-    // A mutation such as Withdraw deserves one authoritative list refresh.
+    // Only a real mutation deserves a refresh. We deliberately do not read a
+    // cached detail snapshot here because that can reintroduce a stale flash.
     if (changed == true) {
-      await _controller.refresh();
+      await _refresh();
     }
+  }
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.navy,
+          margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          content: Text(message),
+        ),
+      );
   }
 
   @override
@@ -89,14 +110,14 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // HOME / COMPACT VERSION
+  // COMPACT / HOME VERSION
   // ---------------------------------------------------------------------------
 
   Widget _compact() {
     final applications = _controller.applications;
 
     if (_controller.isLoading && applications.isEmpty) {
-      return const _ApplicationsShimmer(compact: true);
+      return const _CompactApplicationsShimmer();
     }
 
     if (_controller.errorMessage != null && applications.isEmpty) {
@@ -110,7 +131,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
     if (applications.isEmpty) {
       return const _CompactMessage(
-        icon: Icons.assignment_outlined,
+        icon: Icons.assignment_turned_in_outlined,
         text: 'No applications yet.',
       );
     }
@@ -122,7 +143,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
               .take(2)
               .map(
                 (application) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 8),
               child: _ApplicationCard(
                 application: application,
                 compact: true,
@@ -134,9 +155,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
         ),
         if (_controller.isRefreshing)
           const Positioned(
-            right: 8,
             top: 8,
-            child: _UpdatingDot(),
+            right: 8,
+            child: _LiveRefreshBadge(compact: true),
           ),
       ],
     );
@@ -147,21 +168,26 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _fullScreen() {
+    final firstLoad =
+        _controller.isLoading && _controller.applications.isEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          const _ScreenBackdrop(),
+          const _ApplicationsBackdrop(),
           SafeArea(
-            child: Column(
+            child: firstLoad
+                ? const _ApplicationsPageShimmer()
+                : Column(
               children: [
-                _PremiumHeader(
+                _Header(
                   total: _controller.totalCount,
                   pending: _controller.pendingCount,
                   accepted: _controller.acceptedCount,
+                  rejected: _controller.rejectedCount,
                   refreshing: _controller.isRefreshing,
-                  loading: _controller.isLoading &&
-                      _controller.applications.isEmpty,
+                  onRefresh: _controller.isRefreshing ? null : _refresh,
                 ),
                 Expanded(child: _body()),
               ],
@@ -175,10 +201,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   Widget _body() {
     final applications = _controller.applications;
 
-    if (_controller.isLoading && applications.isEmpty) {
-      return const _ApplicationsShimmer();
-    }
-
     if (_controller.errorMessage != null && applications.isEmpty) {
       return _FullMessage(
         icon: Icons.cloud_off_rounded,
@@ -190,32 +212,36 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     }
 
     if (applications.isEmpty) {
-      return RefreshIndicator(
-        color: AppColors.logoTurquoiseDark,
-        onRefresh: _controller.refresh,
-        child: const _EmptyApplications(),
-      );
+      return const _EmptyApplications();
     }
 
-    return RefreshIndicator(
-      color: AppColors.logoTurquoiseDark,
-      backgroundColor: Colors.white,
-      onRefresh: _controller.refresh,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        padding: const EdgeInsets.fromLTRB(18, 2, 18, 110),
-        itemCount: applications.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 11),
-        itemBuilder: (context, index) {
-          final application = applications[index];
-          return _ApplicationCard(
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 110),
+      itemCount: applications.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 9),
+      itemBuilder: (context, index) {
+        final application = applications[index];
+
+        return TweenAnimationBuilder<double>(
+          duration: Duration(milliseconds: 300 + (index.clamp(0, 5) * 55).toInt()),
+          curve: Curves.easeOutCubic,
+          tween: Tween(begin: 0, end: 1),
+          builder: (context, value, child) {
+            return Opacity(
+              opacity: value,
+              child: Transform.translate(
+                offset: Offset(0, 12 * (1 - value)),
+                child: child,
+              ),
+            );
+          },
+          child: _ApplicationCard(
             application: application,
             onTap: () => _openDetails(application),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -224,48 +250,52 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 // BACKDROP
 // =============================================================================
 
-class _ScreenBackdrop extends StatelessWidget {
-  const _ScreenBackdrop();
+class _ApplicationsBackdrop extends StatelessWidget {
+  const _ApplicationsBackdrop();
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -150,
-          right: -125,
-          child: Container(
-            width: 330,
-            height: 330,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFF16C6C7).withOpacity(0.11),
-                  Colors.transparent,
-                ],
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Positioned(
+              top: -175,
+              right: -125,
+              child: Container(
+                width: 350,
+                height: 350,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF16C6C7).withOpacity(0.12),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        Positioned(
-          top: 260,
-          left: -140,
-          child: Container(
-            width: 280,
-            height: 280,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  AppColors.blue.withOpacity(0.045),
-                  Colors.transparent,
-                ],
+            Positioned(
+              top: 320,
+              left: -160,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.blue.withOpacity(0.055),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -274,107 +304,106 @@ class _ScreenBackdrop extends StatelessWidget {
 // HEADER
 // =============================================================================
 
-class _PremiumHeader extends StatelessWidget {
-  const _PremiumHeader({
+class _Header extends StatelessWidget {
+  const _Header({
     required this.total,
     required this.pending,
     required this.accepted,
+    required this.rejected,
     required this.refreshing,
-    required this.loading,
+    required this.onRefresh,
   });
 
   final int total;
   final int pending;
   final int accepted;
+  final int rejected;
   final bool refreshing;
-  final bool loading;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 15),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 13),
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFFE7FBFB),
-                      Color(0xFFEAF3FA),
+                      Color(0xFFE7FAFA),
+                      Color(0xFFF2F7FB),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(13),
                   border: Border.all(
-                    color: const Color(0xFF16C6C7).withOpacity(0.12),
+                    color: AppColors.logoTurquoiseDark.withOpacity(0.10),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.navy.withOpacity(0.04),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
+                      color: AppColors.navy.withOpacity(0.035),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: const Icon(
-                  Icons.assignment_turned_in_outlined,
+                  Icons.route_rounded,
                   color: AppColors.logoTurquoiseDark,
-                  size: 22,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+              const SizedBox(width: 11),
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'My Applications',
+
+                    SizedBox(height: 3),
+                    Text(
+                      'Mission Pipeline',
                       style: TextStyle(
                         color: AppColors.navy,
-                        fontSize: 22,
+                        fontSize: 16,
                         height: 1.05,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.55,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: 4),
                     Text(
-                      loading
-                          ? 'Preparing your application history'
-                          : total == 0
-                          ? 'Your submitted jobs will appear here'
-                          : '$pending pending · $accepted accepted',
-                      style: const TextStyle(
+                      'Track every application and decision.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
                         color: AppColors.grey,
-                        fontSize: 11.5,
+                        fontSize: 10.5,
+                        height: 1.25,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: refreshing
-                    ? const _UpdatingPill(key: ValueKey('updating'))
-                    : const SizedBox(
-                  key: ValueKey('idle'),
-                  width: 1,
-                ),
-              ),
+              const SizedBox(width: 10),
+              refreshing
+                  ? const _LiveRefreshBadge(compact: true)
+                  : _RefreshButton(onTap: onRefresh),
             ],
           ),
-          const SizedBox(height: 16),
-          _StatsBar(
+          const SizedBox(height: 13),
+          _PipelineHero(
             total: total,
             pending: pending,
             accepted: accepted,
-            loading: loading,
+            rejected: rejected,
           ),
         ],
       ),
@@ -382,61 +411,153 @@ class _PremiumHeader extends StatelessWidget {
   }
 }
 
-class _StatsBar extends StatelessWidget {
-  const _StatsBar({
+class _PipelineHero extends StatelessWidget {
+  const _PipelineHero({
     required this.total,
     required this.pending,
     required this.accepted,
-    required this.loading,
+    required this.rejected,
   });
 
   final int total;
   final int pending;
   final int accepted;
-  final bool loading;
+  final int rejected;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
+        borderRadius: BorderRadius.circular(23),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF071B2D),
+            Color(0xFF0A3F54),
+            Color(0xFF087C84),
+          ],
+          stops: [0, 0.62, 1],
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(0.035),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF063B4A).withOpacity(0.20),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: _StatItem(
-              icon: Icons.layers_outlined,
-              label: 'Total',
-              value: loading ? '—' : '$total',
-              color: AppColors.blue,
+          Positioned(
+            right: -48,
+            top: -58,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.055),
+                  width: 19,
+                ),
+              ),
             ),
           ),
-          const _StatDivider(),
-          Expanded(
-            child: _StatItem(
-              icon: Icons.schedule_rounded,
-              label: 'Pending',
-              value: loading ? '—' : '$pending',
-              color: const Color(0xFFE99A18),
+          Positioned(
+            right: 18,
+            bottom: -38,
+            child: Icon(
+              Icons.flight_takeoff_rounded,
+              color: Colors.white.withOpacity(0.035),
+              size: 128,
             ),
           ),
-          const _StatDivider(),
-          Expanded(
-            child: _StatItem(
-              icon: Icons.check_circle_outline_rounded,
-              label: 'Accepted',
-              value: loading ? '—' : '$accepted',
-              color: AppColors.green,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.09),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.09),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.radar_rounded,
+                            size: 12,
+                            color: Color(0xFF73E1DD),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'LIVE PIPELINE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.65,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$total total',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.70),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _HeroMetric(
+                        value: '$pending',
+                        label: 'Pending',
+                        icon: Icons.schedule_rounded,
+                        tint: const Color(0xFFFFCC72),
+                      ),
+                    ),
+                    const _HeroDivider(),
+                    Expanded(
+                      child: _HeroMetric(
+                        value: '$accepted',
+                        label: 'Accepted',
+                        icon: Icons.verified_rounded,
+                        tint: const Color(0xFF7DE2B2),
+                      ),
+                    ),
+                    const _HeroDivider(),
+                    Expanded(
+                      child: _HeroMetric(
+                        value: '$rejected',
+                        label: 'Rejected',
+                        icon: Icons.cancel_outlined,
+                        tint: const Color(0xFFFFA0A0),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -445,105 +566,148 @@ class _StatsBar extends StatelessWidget {
   }
 }
 
-class _StatItem extends StatelessWidget {
-  const _StatItem({
-    required this.icon,
-    required this.label,
+class _HeroMetric extends StatelessWidget {
+  const _HeroMetric({
     required this.value,
-    required this.color,
+    required this.label,
+    required this.icon,
+    required this.tint,
   });
 
-  final IconData icon;
-  final String label;
   final String value;
-  final Color color;
+  final String label;
+  final IconData icon;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.navy,
-              fontSize: 15,
-              height: 1,
-              fontWeight: FontWeight.w900,
-            ),
+    return Column(
+      children: [
+        Icon(icon, color: tint, size: 15.5),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17.5,
+            height: 1,
+            fontWeight: FontWeight.w900,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 9.2,
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.61),
+            fontSize: 8.8,
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _StatDivider extends StatelessWidget {
-  const _StatDivider();
+class _HeroDivider extends StatelessWidget {
+  const _HeroDivider();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 38,
-      color: AppColors.cardBorder,
+      height: 45,
+      color: Colors.white.withOpacity(0.10),
     );
   }
 }
 
-class _UpdatingPill extends StatelessWidget {
-  const _UpdatingPill({super.key});
+class _RefreshButton extends StatelessWidget {
+  const _RefreshButton({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.95),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.navy.withOpacity(0.035),
+                blurRadius: 13,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.refresh_rounded,
+            color: AppColors.navy,
+            size: 18,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveRefreshBadge extends StatelessWidget {
+  const _LiveRefreshBadge({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 5 : 7,
+      ),
       decoration: BoxDecoration(
-        color: const Color(0xFFE9FAFA),
+        color: const Color(0xFFE8FAFA),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: const Color(0xFF16C6C7).withOpacity(0.12),
+          color: AppColors.logoTurquoiseDark.withOpacity(0.10),
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _UpdatingDot(),
-          SizedBox(width: 6),
-          Text(
-            'Updating',
-            style: TextStyle(
-              color: AppColors.logoTurquoiseDark,
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
+          const _PulseDots(),
+          if (!compact) ...[
+            const SizedBox(width: 7),
+            const Text(
+              'SYNCING',
+              style: TextStyle(
+                color: AppColors.logoTurquoiseDark,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.45,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _UpdatingDot extends StatefulWidget {
-  const _UpdatingDot({super.key});
+class _PulseDots extends StatefulWidget {
+  const _PulseDots();
 
   @override
-  State<_UpdatingDot> createState() => _UpdatingDotState();
+  State<_PulseDots> createState() => _PulseDotsState();
 }
 
-class _UpdatingDotState extends State<_UpdatingDot>
+class _PulseDotsState extends State<_PulseDots>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -553,7 +717,7 @@ class _UpdatingDotState extends State<_UpdatingDot>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    )..repeat();
   }
 
   @override
@@ -564,16 +728,29 @@ class _UpdatingDotState extends State<_UpdatingDot>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.35, end: 1).animate(_controller),
-      child: Container(
-        width: 6,
-        height: 6,
-        decoration: const BoxDecoration(
-          color: AppColors.logoTurquoiseDark,
-          shape: BoxShape.circle,
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final phase = (_controller.value + (index * 0.22)) % 1.0;
+            final opacity = 0.28 + (0.72 * (1 - (phase - 0.5).abs() * 2));
+
+            return Container(
+              width: 4.5,
+              height: 4.5,
+              margin: EdgeInsets.only(right: index == 2 ? 0 : 3),
+              decoration: BoxDecoration(
+                color: AppColors.logoTurquoiseDark.withOpacity(
+                  opacity.clamp(0.28, 1.0).toDouble(),
+                ),
+                shape: BoxShape.circle,
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
@@ -596,151 +773,265 @@ class _ApplicationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = _statusVisual(application.status);
+    final job = application.job;
+
+    final realTitle = job?.title.trim() ?? '';
+    final title = realTitle.isNotEmpty
+        ? realTitle
+        : 'Mission #${application.jobPostingId}';
+
+    final realCompany = job == null ? '' : application.companyLabel.trim();
+
+    final rawLocation = job?.detailedLocationLabel.trim() ?? '';
+    final location = rawLocation.toLowerCase() == 'not specified'
+        ? ''
+        : rawLocation;
+
+    final pay = job?.payLabel.trim() ?? '';
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(compact ? 18 : 21),
+        borderRadius: BorderRadius.circular(compact ? 17 : 19),
         child: Ink(
-          padding: EdgeInsets.fromLTRB(
-            compact ? 12 : 14,
-            compact ? 11 : 13,
-            compact ? 10 : 12,
-            compact ? 11 : 13,
-          ),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
                 Colors.white,
-                Color(0xFFFBFDFE),
+                Color(0xFFFCFDFE),
               ],
             ),
-            borderRadius: BorderRadius.circular(compact ? 18 : 21),
+            borderRadius: BorderRadius.circular(compact ? 17 : 19),
             border: Border.all(
               color: AppColors.cardBorder,
-              width: 0.85,
+              width: 0.8,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.navy.withOpacity(compact ? 0.025 : 0.045),
-                blurRadius: compact ? 12 : 20,
-                offset: Offset(0, compact ? 4 : 7),
+                color: AppColors.navy.withOpacity(compact ? 0.022 : 0.032),
+                blurRadius: compact ? 10 : 15,
+                offset: Offset(0, compact ? 3 : 5),
               ),
             ],
           ),
-          child: Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: compact ? 44 : 50,
-                    height: compact ? 44 : 50,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(compact ? 17 : 19),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 10,
+                  bottom: 10,
+                  child: Container(
+                    width: 3.2,
                     decoration: BoxDecoration(
-                      color: visual.background,
-                      borderRadius: BorderRadius.circular(compact ? 13 : 15),
-                    ),
-                    child: Icon(
-                      visual.icon,
-                      color: visual.foreground,
-                      size: compact ? 20 : 22,
-                    ),
-                  ),
-                  Positioned(
-                    left: -1,
-                    top: 9,
-                    bottom: 9,
-                    child: Container(
-                      width: 3,
-                      decoration: BoxDecoration(
-                        color: visual.foreground,
-                        borderRadius: BorderRadius.circular(10),
+                      color: visual.foreground.withOpacity(0.82),
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(8),
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      application.jobTitle,
-                      maxLines: compact ? 1 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.navy,
-                        fontSize: compact ? 13.5 : 14.5,
-                        height: 1.2,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.15,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    if (application.companyLabel.isNotEmpty)
-                      _MetaLine(
-                        icon: Icons.business_outlined,
-                        text: application.companyLabel,
-                        compact: compact,
-                      ),
-                    if (!compact || application.companyLabel.isEmpty) ...[
-                      SizedBox(height: compact ? 2 : 4),
-                      _MetaLine(
-                        icon: Icons.schedule_rounded,
-                        text: application.submittedLabel,
-                        compact: compact,
-                        lighter: true,
-                      ),
-                    ],
-                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: compact ? 8 : 9,
-                      vertical: compact ? 4 : 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: visual.background,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      application.statusLabel,
-                      style: TextStyle(
-                        color: visual.foreground,
-                        fontSize: compact ? 9.2 : 9.8,
-                        fontWeight: FontWeight.w800,
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 12 : 13,
+                    compact ? 11 : 12,
+                    compact ? 10 : 11,
+                    compact ? 11 : 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: compact ? 38 : 41,
+                            height: compact ? 38 : 41,
+                            decoration: BoxDecoration(
+                              color: visual.background,
+                              borderRadius: BorderRadius.circular(
+                                compact ? 12 : 13,
+                              ),
+                              border: Border.all(
+                                color: visual.foreground.withOpacity(0.09),
+                              ),
+                            ),
+                            child: Icon(
+                              visual.icon,
+                              color: visual.foreground,
+                              size: compact ? 18 : 19,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: AppColors.navy,
+                                          fontSize: compact ? 12.8 : 14,
+                                          height: 1.1,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.18,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 7),
+                                    _StatusPill(
+                                      label: application.statusLabel,
+                                      visual: visual,
+                                      compact: true,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _MetaLine(
+                                        icon: realCompany.isNotEmpty
+                                            ? Icons.business_outlined
+                                            : Icons.tag_rounded,
+                                        text: realCompany.isNotEmpty
+                                            ? realCompany
+                                            : 'Job #${application.jobPostingId}',
+                                        compact: true,
+                                        lighter: realCompany.isEmpty,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'APP #${application.id}',
+                                      style: TextStyle(
+                                        color: AppColors.lightGrey.withOpacity(0.95),
+                                        fontSize: 7.8,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.25,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Container(
+                            width: compact ? 25 : 27,
+                            height: compact ? 25 : 27,
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.cardBorder),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 9,
+                              color: AppColors.blue,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      if (!compact) ...[
+                        const SizedBox(height: 9),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 1),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _InlineDetail(
+                                  icon: Icons.schedule_rounded,
+                                  text: application.submittedLabel,
+                                ),
+                              ),
+                              if (location.isNotEmpty) ...[
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: _InlineDetail(
+                                    icon: Icons.location_on_outlined,
+                                    text: location,
+                                  ),
+                                ),
+                              ] else if (pay.isNotEmpty) ...[
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: _InlineDetail(
+                                    icon: Icons.payments_outlined,
+                                    text: pay,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  SizedBox(height: compact ? 7 : 10),
-                  Container(
-                    width: compact ? 26 : 29,
-                    height: compact ? 26 : 29,
-                    decoration: BoxDecoration(
-                      color: AppColors.bg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.cardBorder),
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: AppColors.blue,
-                      size: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.visual,
+    required this.compact,
+  });
+
+  final String label;
+  final _StatusVisual visual;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 8,
+        vertical: compact ? 3.5 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: visual.background,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: visual.foreground.withOpacity(0.09),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 4.5,
+            height: 4.5,
+            decoration: BoxDecoration(
+              color: visual.foreground,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4.5),
+          Text(
+            label,
+            style: TextStyle(
+              color: visual.foreground,
+              fontSize: compact ? 8.2 : 8.8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -765,18 +1056,18 @@ class _MetaLine extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: compact ? 10.5 : 11.5,
-          color: AppColors.grey.withOpacity(lighter ? 0.55 : 0.75),
+          size: compact ? 10 : 11,
+          color: AppColors.grey.withOpacity(lighter ? 0.50 : 0.78),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 4.5),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: AppColors.grey.withOpacity(lighter ? 0.65 : 0.9),
-              fontSize: compact ? 9.5 : 10.5,
+              color: AppColors.grey.withOpacity(lighter ? 0.64 : 0.92),
+              fontSize: compact ? 9.2 : 9.8,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -786,16 +1077,61 @@ class _MetaLine extends StatelessWidget {
   }
 }
 
-class _StatusVisual {
-  final Color foreground;
-  final Color background;
-  final IconData icon;
+class _InlineDetail extends StatelessWidget {
+  const _InlineDetail({
+    required this.icon,
+    required this.text,
+  });
 
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 23,
+          height: 23,
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 11.5,
+            color: AppColors.logoTurquoiseDark,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 9.1,
+              height: 1.1,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusVisual {
   const _StatusVisual(
       this.foreground,
       this.background,
       this.icon,
       );
+
+  final Color foreground;
+  final Color background;
+  final IconData icon;
 }
 
 _StatusVisual _statusVisual(String status) {
@@ -828,7 +1164,7 @@ _StatusVisual _statusVisual(String status) {
 }
 
 // =============================================================================
-// STATES
+// EMPTY / ERROR
 // =============================================================================
 
 class _CompactMessage extends StatelessWidget {
@@ -857,8 +1193,8 @@ class _CompactMessage extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 39,
+            height: 39,
             decoration: const BoxDecoration(
               color: AppColors.blueBg,
               shape: BoxShape.circle,
@@ -908,26 +1244,29 @@ class _FullMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(30),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: AppColors.blueBg,
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE5FAFA), Color(0xFFF1F7FB)],
+                ),
                 shape: BoxShape.circle,
+                border: Border.all(color: AppColors.cardBorder),
               ),
-              child: Icon(icon, color: AppColors.blue, size: 30),
+              child: Icon(icon, color: AppColors.logoTurquoiseDark, size: 30),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 17),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.navy,
-                fontSize: 16,
+                fontSize: 16.5,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -938,18 +1277,18 @@ class _FullMessage extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 11.5,
-                height: 1.45,
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 17),
+            const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: onAction,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.logoTurquoiseDark,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
+                  horizontal: 19,
+                  vertical: 13,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -974,16 +1313,18 @@ class _EmptyApplications extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(30, 72, 30, 120),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(32, 70, 32, 120),
       children: [
         Center(
           child: Container(
-            width: 82,
-            height: 82,
+            width: 90,
+            height: 90,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFE7FAFA), Color(0xFFF0F6FA)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFE5FAFA), Color(0xFFF1F6FB)],
               ),
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.cardBorder),
@@ -991,23 +1332,23 @@ class _EmptyApplications extends StatelessWidget {
             child: const Icon(
               Icons.send_time_extension_outlined,
               color: AppColors.logoTurquoiseDark,
-              size: 34,
+              size: 36,
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 19),
         const Text(
-          'Your opportunities start here',
+          'Your mission pipeline starts here',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.navy,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 8),
         const Text(
-          'Applications you submit to published jobs will appear here with their latest status.',
+          'Once you apply to a published mission, its real application status will appear here.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.grey,
@@ -1021,20 +1362,18 @@ class _EmptyApplications extends StatelessWidget {
 }
 
 // =============================================================================
-// PREMIUM STRUCTURED SHIMMER
+// PREMIUM SHIMMER — MATCHES THE REAL PAGE STRUCTURE
 // =============================================================================
 
-class _ApplicationsShimmer extends StatefulWidget {
-  const _ApplicationsShimmer({this.compact = false});
-
-  final bool compact;
+class _ApplicationsPageShimmer extends StatefulWidget {
+  const _ApplicationsPageShimmer();
 
   @override
-  State<_ApplicationsShimmer> createState() =>
-      _ApplicationsShimmerState();
+  State<_ApplicationsPageShimmer> createState() =>
+      _ApplicationsPageShimmerState();
 }
 
-class _ApplicationsShimmerState extends State<_ApplicationsShimmer>
+class _ApplicationsPageShimmerState extends State<_ApplicationsPageShimmer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -1043,7 +1382,7 @@ class _ApplicationsShimmerState extends State<_ApplicationsShimmer>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1350),
+      duration: const Duration(milliseconds: 1400),
     )..repeat();
   }
 
@@ -1058,80 +1397,409 @@ class _ApplicationsShimmerState extends State<_ApplicationsShimmer>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        if (widget.compact) {
-          return Column(
-            children: [
-              _card(compact: true),
-              const SizedBox(height: 10),
-              _card(compact: true),
-            ],
-          );
-        }
-
-        return ListView.separated(
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 2, 18, 110),
-          itemCount: 5,
-          separatorBuilder: (_, __) => const SizedBox(height: 11),
-          itemBuilder: (_, __) => _card(),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _ShimmerBlock(
+                        animation: _controller,
+                        width: 42,
+                        height: 42,
+                        radius: 13,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ShimmerBlock(
+                              animation: _controller,
+                              width: 78,
+                              height: 8,
+                              radius: 5,
+                            ),
+                            const SizedBox(height: 6),
+                            _ShimmerBlock(
+                              animation: _controller,
+                              width: 156,
+                              height: 20,
+                              radius: 7,
+                            ),
+                            const SizedBox(height: 6),
+                            _ShimmerBlock(
+                              animation: _controller,
+                              width: 190,
+                              height: 9,
+                              radius: 5,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _ShimmerBlock(
+                        animation: _controller,
+                        width: 40,
+                        height: 40,
+                        radius: 20,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 13),
+                  _HeroShimmer(animation: _controller),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 100),
+                itemCount: 5,
+                separatorBuilder: (_, __) => const SizedBox(height: 9),
+                itemBuilder: (_, __) => _ApplicationCardShimmer(
+                  animation: _controller,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
+}
 
-  Widget _card({bool compact = false}) {
+class _HeroShimmer extends StatelessWidget {
+  const _HeroShimmer({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      height: compact ? 76 : 92,
-      padding: EdgeInsets.all(compact ? 12 : 14),
+      height: 122,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B3347),
+        borderRadius: BorderRadius.circular(23),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _ShimmerBlock(
+                animation: animation,
+                width: 95,
+                height: 23,
+                radius: 12,
+                dark: true,
+              ),
+              const Spacer(),
+              _ShimmerBlock(
+                animation: animation,
+                width: 48,
+                height: 10,
+                radius: 6,
+                dark: true,
+              ),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: List.generate(3, (index) {
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: index == 2 ? 0 : 16,
+                  ),
+                  child: Column(
+                    children: [
+                      _ShimmerBlock(
+                        animation: animation,
+                        width: 22,
+                        height: 22,
+                        radius: 11,
+                        dark: true,
+                      ),
+                      const SizedBox(height: 7),
+                      _ShimmerBlock(
+                        animation: animation,
+                        width: 34,
+                        height: 17,
+                        radius: 6,
+                        dark: true,
+                      ),
+                      const SizedBox(height: 5),
+                      _ShimmerBlock(
+                        animation: animation,
+                        width: 48,
+                        height: 8,
+                        radius: 5,
+                        dark: true,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApplicationCardShimmer extends StatelessWidget {
+  const _ApplicationCardShimmer({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 116,
+      padding: const EdgeInsets.fromLTRB(13, 12, 11, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(compact ? 18 : 21),
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: Row(
+      child: Column(
         children: [
-          _glow(
-            width: compact ? 44 : 50,
-            height: compact ? 44 : 50,
-            radius: compact ? 13 : 15,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _glow(width: 150, height: 12, radius: 6),
-                const SizedBox(height: 8),
-                _glow(width: 110, height: 8, radius: 5),
-                if (!compact) ...[
-                  const SizedBox(height: 7),
-                  _glow(width: 82, height: 7, radius: 5),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 9),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              _glow(width: 58, height: 21, radius: 11),
-              const SizedBox(height: 8),
-              _glow(width: 26, height: 26, radius: 13),
+              _ShimmerBlock(
+                animation: animation,
+                width: 41,
+                height: 41,
+                radius: 13,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ShimmerBlock(
+                            animation: animation,
+                            width: double.infinity,
+                            height: 13,
+                            radius: 6,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        _ShimmerBlock(
+                          animation: animation,
+                          width: 62,
+                          height: 18,
+                          radius: 9,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _ShimmerBlock(
+                      animation: animation,
+                      width: 128,
+                      height: 8,
+                      radius: 4,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _ShimmerBlock(
+                animation: animation,
+                width: 27,
+                height: 27,
+                radius: 14,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _InlineMetaShimmer(animation: animation)),
+              const SizedBox(width: 14),
+              Expanded(child: _InlineMetaShimmer(animation: animation)),
             ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _glow({
-    required double width,
-    required double height,
-    required double radius,
-  }) {
-    final t = _controller.value;
+class _InlineMetaShimmer extends StatelessWidget {
+  const _InlineMetaShimmer({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ShimmerBlock(
+          animation: animation,
+          width: 23,
+          height: 23,
+          radius: 8,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _ShimmerBlock(
+            animation: animation,
+            width: double.infinity,
+            height: 8,
+            radius: 4,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactApplicationsShimmer extends StatefulWidget {
+  const _CompactApplicationsShimmer();
+
+  @override
+  State<_CompactApplicationsShimmer> createState() =>
+      _CompactApplicationsShimmerState();
+}
+
+class _CompactApplicationsShimmerState
+    extends State<_CompactApplicationsShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _CompactCardShimmer(animation: _controller),
+        const SizedBox(height: 8),
+        _CompactCardShimmer(animation: _controller),
+      ],
+    );
+  }
+}
+
+class _CompactCardShimmer extends StatelessWidget {
+  const _CompactCardShimmer({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          _ShimmerBlock(
+            animation: animation,
+            width: 38,
+            height: 38,
+            radius: 12,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ShimmerBlock(
+                        animation: animation,
+                        width: double.infinity,
+                        height: 12,
+                        radius: 6,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _ShimmerBlock(
+                      animation: animation,
+                      width: 58,
+                      height: 17,
+                      radius: 9,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _ShimmerBlock(
+                  animation: animation,
+                  width: 110,
+                  height: 8,
+                  radius: 4,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _ShimmerBlock(
+            animation: animation,
+            width: 25,
+            height: 25,
+            radius: 13,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerBlock extends StatelessWidget {
+  const _ShimmerBlock({
+    required this.animation,
+    required this.width,
+    required this.height,
+    required this.radius,
+    this.dark = false,
+  });
+
+  final Animation<double> animation;
+  final double width;
+  final double height;
+  final double radius;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = animation.value;
+
+    final base = dark
+        ? Colors.white.withOpacity(0.08)
+        : const Color(0xFFF0F4F7);
+    final highlight = dark
+        ? Colors.white.withOpacity(0.17)
+        : const Color(0xFFF9FBFC);
 
     return Container(
       width: width,
@@ -1141,13 +1809,7 @@ class _ApplicationsShimmerState extends State<_ApplicationsShimmer>
         gradient: LinearGradient(
           begin: Alignment(-1.8 + (3.6 * t), 0),
           end: Alignment(-0.8 + (3.6 * t), 0),
-          colors: const [
-            Color(0xFFEEF4F5),
-            Color(0xFFFAFCFD),
-            Color(0xFFE3F0F2),
-            Color(0xFFFAFCFD),
-            Color(0xFFEEF4F5),
-          ],
+          colors: [base, highlight, base],
         ),
       ),
     );

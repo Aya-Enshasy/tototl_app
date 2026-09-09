@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/pilot/screens/applications/applications_screen.dart';
 import '../../features/pilot/screens/home/presentation/home_screen.dart';
- import '../../features/pilot/screens/jobs/find_drone_jobs.dart';
+ import '../../features/pilot/screens/jobs/jobs_screen.dart';
 import '../../features/pilot/screens/message/messages_screen.dart';
 import '../../features/pilot/screens/profile/profile_screen.dart';
 import '../navigation/app_bottom_nav_bar.dart';

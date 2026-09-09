@@ -14,6 +14,9 @@ class PilotLicenseController extends ChangeNotifier {
   bool isLoading = false;
   bool isSaving = false;
   bool isDeleting = false;
+  bool isOpeningDocument = false;
+
+  String? openingDocumentKey;
   String? errorMessage;
 
   Future<void> loadLicenses() async {
@@ -46,8 +49,8 @@ class PilotLicenseController extends ChangeNotifier {
   }
 
   Future<bool> createLicense(
-    PilotLicenseFormRequest request,
-  ) async {
+      PilotLicenseFormRequest request,
+      ) async {
     if (isSaving) return false;
 
     isSaving = true;
@@ -68,9 +71,9 @@ class PilotLicenseController extends ChangeNotifier {
   }
 
   Future<bool> updateLicense(
-    int id,
-    PilotLicenseFormRequest request,
-  ) async {
+      int id,
+      PilotLicenseFormRequest request,
+      ) async {
     if (isSaving) return false;
 
     isSaving = true;
@@ -106,6 +109,41 @@ class PilotLicenseController extends ChangeNotifier {
       return false;
     } finally {
       isDeleting = false;
+      notifyListeners();
+    }
+  }
+
+  // ==========================================================================
+  // PRIVATE DOCUMENT
+  // ==========================================================================
+
+  Future<String?> downloadDocument({
+    required String documentKey,
+    required int mediaId,
+    required String downloadUrl,
+    required String fileName,
+    String mimeType = '',
+  }) async {
+    if (isOpeningDocument) return null;
+
+    isOpeningDocument = true;
+    openingDocumentKey = documentKey;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      return await service.downloadPrivateDocument(
+        mediaId: mediaId,
+        downloadUrl: downloadUrl,
+        fileName: fileName,
+        mimeType: mimeType,
+      );
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isOpeningDocument = false;
+      openingDocumentKey = null;
       notifyListeners();
     }
   }

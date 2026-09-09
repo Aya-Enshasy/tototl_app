@@ -209,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Change Profile Photo',
                         style: TextStyle(
                           color: _ink,
-                          fontSize: 17,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -447,10 +447,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   final side = width < 360 ? 16.0 : 24.0;
 
                   final heroHeight = (
-                      width * 0.62 + safeTop
+                      width * 0.66 + safeTop
                   ).clamp(
-                    335.0,
-                    410.0,
+                    360.0,
+                    430.0,
                   ).toDouble();
 
                   return Column(
@@ -548,10 +548,10 @@ class _HeroContent extends StatelessWidget {
         final compact = width < 360;
 
         final avatarSize = (
-            width * 0.21
+            width * 0.255
         ).clamp(
-          78.0,
-          102.0,
+          98.0,
+          122.0,
         ).toDouble();
 
         final actionSize = compact ? 44.0 : 48.0;
@@ -588,16 +588,19 @@ class _HeroContent extends StatelessWidget {
             Positioned(
               left: side + 8,
               right: side + 8,
-              bottom: 30,
+              bottom: 42,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _Avatar(
-                    size: avatarSize,
-                    name: name,
-                    photoUrl: data.profilePhotoUrl,
-                    uploading: uploadingPhoto,
-                    onEdit: onPhoto,
+                  Transform.translate(
+                    offset: const Offset(0, -8),
+                    child: _Avatar(
+                      size: avatarSize,
+                      name: name,
+                      photoUrl: data.profilePhotoUrl,
+                      uploading: uploadingPhoto,
+                      onEdit: onPhoto,
+                    ),
                   ),
 
                   SizedBox(
@@ -705,10 +708,10 @@ class _Avatar extends StatelessWidget {
     final hasPhoto = photoUrl.trim().isNotEmpty;
 
     final cameraSize = (
-        size * 0.34
+        size * 0.30
     ).clamp(
-      29.0,
-      36.0,
+      31.0,
+      38.0,
     ).toDouble();
 
     return Stack(
@@ -843,7 +846,7 @@ class _AvatarInitials extends StatelessWidget {
         _initials(name),
         style: const TextStyle(
           color: _ink,
-          fontSize: 25,
+          fontSize: 22,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -917,7 +920,7 @@ class _StatusPill extends StatelessWidget {
 }
 
 // ============================================================================
-// PROFILE DETAILS CARD
+// PREMIUM PROFILE INFORMATION
 // ============================================================================
 
 class _ProfileDetailsCard extends StatelessWidget {
@@ -934,97 +937,172 @@ class _ProfileDetailsCard extends StatelessWidget {
     final account = data.account;
     final profile = data.profile;
 
-    final localRegion = profile.currentLocationLabel.trim();
+    final localRegionRaw = profile.currentLocationLabel.trim();
+    final localRegion = localRegionRaw.toLowerCase() == 'not specified'
+        ? ''
+        : localRegionRaw;
 
-    final rows = <_DetailItem>[
-      _DetailItem(
+    final left = <_ProfileInfoItem>[
+      _ProfileInfoItem(
         icon: Icons.calendar_month_outlined,
-        label: 'DOB',
-        value: _formatDate(
-          profile.dateOfBirth,
-        ),
+        label: 'Date of Birth',
+        value: _formatDate(profile.dateOfBirth),
       ),
-      _DetailItem(
-        icon: Icons.flag_outlined,
+      _ProfileInfoItem(
+        icon: Icons.public_rounded,
         label: 'Nationality',
         value: profile.nationality,
       ),
-      _DetailItem(
-        icon: Icons.language_rounded,
+      _ProfileInfoItem(
+        icon: Icons.chat_bubble_outline_rounded,
         label: 'Languages',
-        value: _languagesLabel(
-          profile.languages,
-        ),
+        value: _languagesLabel(profile.languages),
       ),
-      _DetailItem(
+    ];
+
+    final right = <_ProfileInfoItem>[
+      _ProfileInfoItem(
         icon: Icons.phone_outlined,
         label: 'Phone',
         value: account.phone,
       ),
-      _DetailItem(
+      _ProfileInfoItem(
         icon: Icons.location_on_outlined,
         label: 'Local Region',
-        value: localRegion == 'Not specified'
-            ? ''
-            : localRegion,
+        value: localRegion,
       ),
-      _DetailItem(
+      _ProfileInfoItem(
         icon: Icons.work_outline_rounded,
         label: 'Willing to Work',
-        value: _workRegionsLabel(
-          profile.workRegions,
-        ),
+        value: _workRegionsLabel(profile.workRegions),
       ),
     ];
 
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(17, 16, 17, 18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.96),
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white.withOpacity(0.97),
+        borderRadius: BorderRadius.circular(27),
         border: Border.all(
           color: Colors.white,
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: _ink.withOpacity(0.055),
-            blurRadius: 24,
-            offset: const Offset(
-              0,
-              9,
-            ),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
-        children: List.generate(
-          rows.length,
-              (index) {
-            return Column(
-              children: [
-                _DetailRow(
-                  item: rows[index],
-                  onTap: onEdit,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pilot Information',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.35,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Professional details & working preferences',
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 10.7,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 10),
+              Material(
+                color: const Color(0xFFF7FCFD),
+                borderRadius: BorderRadius.circular(15),
+                child: InkWell(
+                  onTap: onEdit,
+                  borderRadius: BorderRadius.circular(15),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: _teal.withOpacity(0.15),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          color: _tealDark,
+                          size: 16,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Edit',
+                          style: TextStyle(
+                            color: _tealDark,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
-                if (index != rows.length - 1)
-                  const Divider(
-                    height: 1,
-                    indent: 22,
-                    endIndent: 22,
+          const SizedBox(height: 15),
+
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCFDFE),
+              borderRadius: BorderRadius.circular(21),
+              border: Border.all(color: _border),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _ProfileInfoColumn(items: left),
+                  ),
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(vertical: 15),
                     color: _border,
                   ),
-              ],
-            );
-          },
-        ),
+                  Expanded(
+                    child: _ProfileInfoColumn(items: right),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _DetailItem {
-  const _DetailItem({
+class _ProfileInfoItem {
+  const _ProfileInfoItem({
     required this.icon,
     required this.label,
     required this.value,
@@ -1035,91 +1113,94 @@ class _DetailItem {
   final String value;
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.item,
-    required this.onTap,
-  });
+class _ProfileInfoColumn extends StatelessWidget {
+  const _ProfileInfoColumn({required this.items});
 
-  final _DetailItem item;
-  final VoidCallback onTap;
+  final List<_ProfileInfoItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(items.length, (index) {
+        return Column(
+          children: [
+            _ProfileInfoCell(item: items[index]),
+            if (index != items.length - 1)
+              const Divider(
+                height: 1,
+                indent: 14,
+                endIndent: 14,
+                color: _border,
+              ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _ProfileInfoCell extends StatelessWidget {
+  const _ProfileInfoCell({required this.item});
+
+  final _ProfileInfoItem item;
 
   @override
   Widget build(BuildContext context) {
     final clean = item.value.trim();
     final hasValue = clean.isNotEmpty;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            18,
-            15,
-            16,
-            15,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 35,
+            height: 35,
+            decoration: BoxDecoration(
+              color: _tealSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              item.icon,
+              color: _tealDark,
+              size: 18,
+            ),
           ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 31,
-                child: Icon(
-                  item.icon,
-                  color: _teal,
-                  size: 22,
-                ),
-              ),
-
-              const SizedBox(width: 9),
-
-              Expanded(
-                flex: 4,
-                child: Text(
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _muted,
-                    fontSize: 13,
+                    fontSize: 10.2,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-
-              const SizedBox(width: 8),
-
-              Expanded(
-                flex: 5,
-                child: Text(
-                  hasValue
-                      ? clean
-                      : 'Not specified',
-                  maxLines: 1,
+                const SizedBox(height: 4),
+                Text(
+                  hasValue ? clean : 'Not specified',
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
                   style: TextStyle(
-                    color: hasValue
-                        ? _ink
-                        : _muted2,
-                    fontSize: 13,
+                    color: hasValue ? _ink : _muted2,
+                    fontSize: 10,
+                    height: 1.15,
                     fontWeight: hasValue
                         ? FontWeight.w800
                         : FontWeight.w600,
+                    letterSpacing: -0.12,
                   ),
                 ),
-              ),
-
-              const SizedBox(width: 6),
-
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: _muted2,
-                size: 20,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1357,7 +1438,7 @@ class _MyDronesSection extends StatelessWidget {
                   'My Drones',
                   style: TextStyle(
                     color: _ink,
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.3,
                   ),
@@ -1764,7 +1845,7 @@ class _NoProfileData extends StatelessWidget {
                   'Profile unavailable',
                   style: TextStyle(
                     color: _ink,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../controllers/pilot_license_controller.dart';
@@ -46,6 +47,7 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
   DateTime? _expiresAt;
   PlatformFile? _licenseDocument;
   PlatformFile? _permitDocument;
+  String? _openingDocumentKey;
 
   @override
   void initState() {
@@ -149,6 +151,80 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
     });
   }
 
+  Future<void> _openDocument({
+    required String key,
+    required PlatformFile? selectedFile,
+    required PilotLicenseDocument? existingDocument,
+  }) async {
+    if (_openingDocumentKey != null) return;
+
+    HapticFeedback.selectionClick();
+
+    setState(() {
+      _openingDocumentKey = key;
+    });
+
+    try {
+      final selectedPath = selectedFile?.path?.trim() ?? '';
+
+      if (selectedPath.isNotEmpty) {
+        final file = File(selectedPath);
+
+        if (!await file.exists()) {
+          if (!mounted) return;
+          _showSnack('Selected file could not be found.', error: true);
+          return;
+        }
+
+        await OpenFilex.open(selectedPath);
+        return;
+      }
+
+      final document = existingDocument;
+
+      if (document == null || !document.hasValue) {
+        if (!mounted) return;
+        _showSnack('This document is not available yet.', error: true);
+        return;
+      }
+
+      final mediaId = document.id ?? 0;
+      final downloadUrl = document.bestDownloadUrl;
+      final fileName = document.name?.trim().isNotEmpty == true
+          ? document.name!.trim()
+          : (mediaId > 0 ? 'document_$mediaId' : 'document');
+
+      final localPath = await _controller.downloadDocument(
+        documentKey: key,
+        mediaId: mediaId,
+        downloadUrl: downloadUrl,
+        fileName: fileName,
+        mimeType: document.mimeType,
+      );
+
+      if (!mounted) return;
+
+      if (localPath == null || localPath.trim().isEmpty) {
+        _showSnack(
+          _controller.errorMessage ?? 'Unable to open this document.',
+          error: true,
+        );
+        return;
+      }
+
+      await OpenFilex.open(localPath);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Unable to open this document.', error: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingDocumentKey = null;
+        });
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (_controller.isSaving) return;
 
@@ -177,9 +253,9 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
 
     final success = widget.isEditing
         ? await _controller.updateLicense(
-            widget.existingLicense!.id,
-            request,
-          )
+      widget.existingLicense!.id,
+      request,
+    )
         : await _controller.createLicense(request);
 
     if (!mounted) return;
@@ -261,7 +337,7 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                             icon: Icons.badge_outlined,
                             title: 'License Information',
                             subtitle:
-                                'Use the exact details printed on the credential.',
+                            'Use the exact details printed on the credential.',
                           ),
                           const SizedBox(height: 10),
                           _FormCard(
@@ -313,26 +389,35 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                             icon: Icons.attach_file_rounded,
                             title: 'Documents',
                             subtitle:
-                                'PDF or image files. Maximum 10 MB per document.',
+                            'PDF or image files. Maximum 10 MB per document.',
                           ),
                           const SizedBox(height: 10),
                           _DocumentPickerCard(
                             title: 'License Document',
                             subtitle: widget.isEditing &&
-                                    existing?.licenseDocument != null
+                                existing?.licenseDocument != null
                                 ? 'Current document stays unless you replace it.'
                                 : 'Required',
                             selectedFile: _licenseDocument,
                             existingName: existing?.licenseDocument?.name,
                             requiredDocument: true,
+                            opening: _openingDocumentKey == 'license_document',
+                            onOpen: (_licenseDocument != null ||
+                                existing?.licenseDocument?.hasValue == true)
+                                ? () => _openDocument(
+                              key: 'license_document',
+                              selectedFile: _licenseDocument,
+                              existingDocument: existing?.licenseDocument,
+                            )
+                                : null,
                             onPick: () => _pickDocument(primary: true),
                             onClear: _licenseDocument == null
                                 ? null
                                 : () {
-                                    setState(() {
-                                      _licenseDocument = null;
-                                    });
-                                  },
+                              setState(() {
+                                _licenseDocument = null;
+                              });
+                            },
                           ),
                           const SizedBox(height: 10),
                           _DocumentPickerCard(
@@ -340,16 +425,28 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                             subtitle: 'Optional supporting document',
                             selectedFile: _permitDocument,
                             existingName:
-                                existing?.permitOrInsuranceDocument?.name,
+                            existing?.permitOrInsuranceDocument?.name,
                             requiredDocument: false,
+                            opening: _openingDocumentKey ==
+                                'permit_or_insurance_document',
+                            onOpen: (_permitDocument != null ||
+                                existing?.permitOrInsuranceDocument?.hasValue ==
+                                    true)
+                                ? () => _openDocument(
+                              key: 'permit_or_insurance_document',
+                              selectedFile: _permitDocument,
+                              existingDocument:
+                              existing?.permitOrInsuranceDocument,
+                            )
+                                : null,
                             onPick: () => _pickDocument(primary: false),
                             onClear: _permitDocument == null
                                 ? null
                                 : () {
-                                    setState(() {
-                                      _permitDocument = null;
-                                    });
-                                  },
+                              setState(() {
+                                _permitDocument = null;
+                              });
+                            },
                           ),
                           const SizedBox(height: 16),
                           _PreviewCard(
@@ -396,34 +493,34 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                     ),
                     child: _controller.isSaving
                         ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Colors.white,
-                            ),
-                          )
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: Colors.white,
+                      ),
+                    )
                         : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                widget.isEditing
-                                    ? Icons.save_outlined
-                                    : Icons.add_circle_outline_rounded,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                widget.isEditing
-                                    ? 'Save Changes'
-                                    : 'Add License',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          widget.isEditing
+                              ? Icons.save_outlined
+                              : Icons.add_circle_outline_rounded,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          widget.isEditing
+                              ? 'Save Changes'
+                              : 'Add License',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -722,6 +819,8 @@ class _DocumentPickerCard extends StatelessWidget {
     required this.selectedFile,
     required this.existingName,
     required this.requiredDocument,
+    required this.opening,
+    required this.onOpen,
     required this.onPick,
     required this.onClear,
   });
@@ -731,6 +830,8 @@ class _DocumentPickerCard extends StatelessWidget {
   final PlatformFile? selectedFile;
   final String? existingName;
   final bool requiredDocument;
+  final bool opening;
+  final VoidCallback? onOpen;
   final VoidCallback onPick;
   final VoidCallback? onClear;
 
@@ -739,8 +840,8 @@ class _DocumentPickerCard extends StatelessWidget {
     final name = selectedFile?.name.trim().isNotEmpty == true
         ? selectedFile!.name
         : (existingName?.trim().isNotEmpty == true
-            ? existingName!.trim()
-            : null);
+        ? existingName!.trim()
+        : null);
 
     final hasFile = name != null;
 
@@ -840,9 +941,31 @@ class _DocumentPickerCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (onOpen != null)
+                    TextButton.icon(
+                      onPressed: opening ? null : onOpen,
+                      style: TextButton.styleFrom(
+                        foregroundColor: _tealDark,
+                        padding: const EdgeInsets.symmetric(horizontal: 7),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: Icon(
+                        opening
+                            ? Icons.hourglass_top_rounded
+                            : Icons.open_in_new_rounded,
+                        size: 14,
+                      ),
+                      label: Text(
+                        opening ? 'Opening' : 'Open',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                   if (onClear != null)
                     IconButton(
-                      onPressed: onClear,
+                      onPressed: opening ? null : onClear,
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(
                         Icons.close_rounded,
@@ -996,3 +1119,4 @@ String _formatDate(DateTime date) {
 
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }
+

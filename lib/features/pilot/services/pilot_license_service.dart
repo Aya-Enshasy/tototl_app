@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -89,8 +90,8 @@ class PilotLicenseService {
   // ===========================================================================
 
   Future<void> createLicense(
-    PilotLicenseFormRequest request,
-  ) async {
+      PilotLicenseFormRequest request,
+      ) async {
     final token = await _getToken();
 
     final primaryPath =
@@ -141,9 +142,9 @@ class PilotLicenseService {
   // ===========================================================================
 
   Future<void> updateLicense(
-    int id,
-    PilotLicenseFormRequest request,
-  ) async {
+      int id,
+      PilotLicenseFormRequest request,
+      ) async {
     final token = await _getToken();
 
     try {
@@ -213,13 +214,173 @@ class PilotLicenseService {
   }
 
   // ===========================================================================
+  // PRIVATE MEDIA DOWNLOAD
+  // GET /media/{id}/download
+  //
+  // The backend protects this endpoint with Bearer auth. We therefore download
+  // the bytes ourselves, save them to the device temp directory, then let the
+  // UI open the local file with the native viewer.
+  // ===========================================================================
+
+  Future<String> downloadPrivateDocument({
+    required int mediaId,
+    required String downloadUrl,
+    required String fileName,
+    String mimeType = '',
+  }) async {
+    final token = await _getToken();
+
+    final cleanUrl = downloadUrl.trim();
+    final endpoint = cleanUrl.isNotEmpty
+        ? cleanUrl
+        : (mediaId > 0 ? '/media/$mediaId/download' : '');
+
+    if (endpoint.isEmpty) {
+      throw const PilotLicenseException(
+        'Document download link is missing.',
+      );
+    }
+
+    try {
+      // Use a dedicated Dio request here because download_url is an absolute
+      // URL returned by the API. The token is sent only in the Authorization
+      // header; it is never appended to the URL.
+      final response = await Dio().get<dynamic>(
+        endpoint,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          headers: {
+            'Accept': '*/*',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      final bytes = _asBytes(response.data);
+
+      if (bytes.isEmpty) {
+        throw const PilotLicenseException(
+          'The downloaded document is empty.',
+        );
+      }
+
+      final directory = Directory(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}tototl_private_media',
+      );
+
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+
+      final resolvedName = _resolveFileName(
+        fileName: fileName,
+        mimeType: mimeType,
+        mediaId: mediaId,
+      );
+
+      final localFile = File(
+        '${directory.path}${Platform.pathSeparator}${mediaId > 0 ? '${mediaId}_' : ''}$resolvedName',
+      );
+
+      await localFile.writeAsBytes(
+        bytes,
+        flush: true,
+      );
+
+      return localFile.path;
+    } on PilotLicenseException {
+      rethrow;
+    } on DioException catch (e) {
+      throw PilotLicenseException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to open this document.',
+        ),
+      );
+    } on FileSystemException {
+      throw const PilotLicenseException(
+        'Unable to prepare this document on the device.',
+      );
+    } catch (_) {
+      throw const PilotLicenseException(
+        'Unable to open this document.',
+      );
+    }
+  }
+
+  Uint8List _asBytes(dynamic raw) {
+    if (raw is Uint8List) {
+      return raw;
+    }
+
+    if (raw is List<int>) {
+      return Uint8List.fromList(raw);
+    }
+
+    if (raw is List) {
+      try {
+        return Uint8List.fromList(
+          raw.map((value) => value as int).toList(),
+        );
+      } catch (_) {
+        return Uint8List(0);
+      }
+    }
+
+    return Uint8List(0);
+  }
+
+  String _resolveFileName({
+    required String fileName,
+    required String mimeType,
+    required int mediaId,
+  }) {
+    var name = fileName.trim();
+
+    if (name.isEmpty) {
+      name = mediaId > 0 ? 'document_$mediaId' : 'document';
+    }
+
+    name = name.replaceAll(
+      RegExp(r'[\\/:*?"<>|]'),
+      '_',
+    );
+
+    if (!name.contains('.')) {
+      final extension = _extensionFromMime(mimeType);
+      if (extension.isNotEmpty) {
+        name = '$name.$extension';
+      }
+    }
+
+    return name;
+  }
+
+  String _extensionFromMime(String mimeType) {
+    switch (mimeType.trim().toLowerCase()) {
+      case 'application/pdf':
+        return 'pdf';
+      case 'image/png':
+        return 'png';
+      case 'image/jpeg':
+      case 'image/jpg':
+        return 'jpg';
+      case 'image/webp':
+        return 'webp';
+      default:
+        return '';
+    }
+  }
+
+  // ===========================================================================
   // FORM DATA
   // ===========================================================================
 
   Future<FormData> _buildFormData(
-    PilotLicenseFormRequest request, {
-    required bool requirePrimaryDocument,
-  }) async {
+      PilotLicenseFormRequest request, {
+        required bool requirePrimaryDocument,
+      }) async {
     final formData = FormData();
 
     for (final entry in request.toFields().entries) {
@@ -269,9 +430,9 @@ class PilotLicenseService {
   }
 
   Future<MultipartFile> _multipartFile(
-    String path, {
-    required String label,
-  }) async {
+      String path, {
+        required String label,
+      }) async {
     final file = File(path);
 
     if (!await file.exists()) {
@@ -380,9 +541,9 @@ class PilotLicenseService {
   }
 
   void _ensureSuccess(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     if (body['success'] == true) return;
 
     throw PilotLicenseException(
@@ -414,9 +575,9 @@ class PilotLicenseService {
   // ===========================================================================
 
   String _messageFromBody(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     final errors = body['errors'];
 
     if (errors is Map) {
@@ -442,9 +603,9 @@ class PilotLicenseService {
   }
 
   String _dioErrorMessage(
-    DioException error, {
-    required String fallback,
-  }) {
+      DioException error, {
+        required String fallback,
+      }) {
     final raw = error.response?.data;
 
     if (raw is Map) {
@@ -478,3 +639,4 @@ class PilotLicenseException implements Exception {
   @override
   String toString() => message;
 }
+
