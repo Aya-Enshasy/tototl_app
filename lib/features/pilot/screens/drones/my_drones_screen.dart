@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -42,8 +44,6 @@ class _MyDronesScreenState
     extends State<MyDronesScreen> {
   late final DroneController _controller;
 
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
@@ -54,42 +54,51 @@ class _MyDronesScreenState
       ),
     );
 
-    _load();
+    _controller.addListener(
+      _onControllerChanged,
+    );
+
+    // Local snapshot first. The controller starts a silent API refresh after
+    // cached data is visible.
+    unawaited(
+      _controller.bootstrap(),
+    );
   }
 
-  // ==========================================================================
-  // LOAD
-  // ==========================================================================
-
-  Future<void> _load() async {
-    final result =
-    await _controller.loadDrones();
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _loading = false;
-    });
-
-    if (result == null) {
-      _showSnack(
-        _controller.errorMessage ??
-            'Unable to load drones.',
-        isError: true,
-      );
-    }
+  @override
+  void dispose() {
+    _controller.removeListener(
+      _onControllerChanged,
+    );
+    _controller.dispose();
+    super.dispose();
   }
 
-  Future<void> _refresh() async {
-    await _controller.loadDrones();
-
+  void _onControllerChanged() {
     if (!mounted) {
       return;
     }
 
     setState(() {});
+  }
+
+  // ==========================================================================
+  // REFRESH
+  // ==========================================================================
+
+  Future<void> _refresh() async {
+    final success = await _controller.refresh();
+
+    if (!mounted || success) {
+      return;
+    }
+
+    _showSnack(
+      _controller.lastRefreshError ??
+          _controller.errorMessage ??
+          'Unable to refresh drones.',
+      isError: true,
+    );
   }
 
   // ==========================================================================
@@ -112,7 +121,12 @@ class _MyDronesScreenState
       return;
     }
 
-    await _refresh();
+    // The create endpoint already returned the authoritative new drone and
+    // DroneService stores it in the shared local cache. Update this screen
+    // immediately without wasting another blocking list request.
+    _controller.upsertLocal(
+      created,
+    );
   }
 
   // ==========================================================================
@@ -124,7 +138,8 @@ class _MyDronesScreenState
       ) async {
     HapticFeedback.selectionClick();
 
-    await Navigator.of(context).push(
+    final deleted =
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) =>
             DroneDetailsScreen(
@@ -137,7 +152,22 @@ class _MyDronesScreenState
       return;
     }
 
-    await _refresh();
+    if (deleted == true) {
+      // Delete returns true from DroneDetailsScreen. Remove the card instantly;
+      // the service also updates the persistent cache.
+      _controller.removeLocal(
+        drone.id,
+      );
+      return;
+    }
+
+    // An edit may have happened. Keep the current content visible and ask for
+    // the newest list in the background only.
+    unawaited(
+      _controller.refresh(
+        silent: true,
+      ),
+    );
   }
 
   // ==========================================================================
@@ -179,6 +209,10 @@ class _MyDronesScreenState
   Widget build(
       BuildContext context,
       ) {
+    final firstLoad =
+        _controller.isInitialLoading &&
+            !_controller.hasSnapshot;
+
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -192,7 +226,7 @@ class _MyDronesScreenState
             ),
 
             Expanded(
-              child: _loading
+              child: firstLoad
                   ? const _LoadingState()
                   : RefreshIndicator(
                 color: _tealDark,
@@ -317,7 +351,7 @@ class _TopBar extends StatelessWidget {
                   'My Drones',
                   style: TextStyle(
                     color: _ink,
-                    fontSize: 18,
+                    fontSize: 16,
                     height: 1,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,

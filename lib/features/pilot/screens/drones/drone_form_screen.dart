@@ -542,7 +542,7 @@ class _DroneFormScreenState
           style:
           const TextStyle(
             color: _ink,
-            fontSize: 18,
+            fontSize: 16,
             fontWeight:
             FontWeight.w900,
           ),

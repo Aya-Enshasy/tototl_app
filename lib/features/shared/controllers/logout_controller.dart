@@ -1,6 +1,6 @@
 import '../../../core/storage/token_storage.dart';
 
-import '../../auth/controllers/user_session_storage.dart';
+import '../../../core/storage/user_session_storage.dart';
  import '../services/logout_service.dart';
 
 // ============================================================================

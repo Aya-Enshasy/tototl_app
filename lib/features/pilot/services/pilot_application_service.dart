@@ -6,8 +6,30 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/storage/token_storage.dart';
 
-import '../../auth/controllers/user_session_storage.dart';
+import '../../../core/storage/user_session_storage.dart';
 import '../models/pilot_application_model.dart';
+
+class PilotApplicationDetailsResult {
+  final PilotApplicationModel application;
+  final ApplicationCompanyChatTarget? companyChatTarget;
+
+  const PilotApplicationDetailsResult({
+    required this.application,
+    this.companyChatTarget,
+  });
+}
+
+class ApplicationCompanyChatTarget {
+  final int userId;
+  final String name;
+  final String photoUrl;
+
+  const ApplicationCompanyChatTarget({
+    required this.userId,
+    required this.name,
+    this.photoUrl = '',
+  });
+}
 
 class PilotApplicationService {
   final ApiClient apiClient;
@@ -229,7 +251,7 @@ class PilotApplicationService {
   // GET APPLICATION DETAIL - NETWORK
   // ---------------------------------------------------------------------------
 
-  Future<PilotApplicationModel> getApplicationDetails(
+  Future<PilotApplicationDetailsResult> getApplicationDetailsResult(
       int applicationId,
       ) async {
     final token = await _getToken();
@@ -253,6 +275,10 @@ class PilotApplicationService {
         fallback: 'Application details are missing.',
       );
 
+      final chatTarget = _extractCompanyChatTargetFromApplication(
+        rawApplication,
+      );
+
       unawaited(
         _rememberNetworkApplication(
           application,
@@ -260,7 +286,10 @@ class PilotApplicationService {
         ),
       );
 
-      return application;
+      return PilotApplicationDetailsResult(
+        application: application,
+        companyChatTarget: chatTarget,
+      );
     } on DioException catch (e) {
       throw PilotApplicationException(
         _dioErrorMessage(
@@ -268,6 +297,46 @@ class PilotApplicationService {
           fallback: 'Unable to load this application.',
         ),
       );
+    }
+  }
+
+  Future<PilotApplicationModel> getApplicationDetails(
+      int applicationId,
+      ) async {
+    final result = await getApplicationDetailsResult(applicationId);
+    return result.application;
+  }
+
+  /// Tries the published-job response only when the accepted application
+  /// response did not include a company user identity. We never use
+  /// company_profile_id as a Firebase user id because those are different
+  /// identifiers in the API model.
+  Future<ApplicationCompanyChatTarget?> resolveCompanyChatTargetFromJob(
+      int jobPostingId,
+      ) async {
+    if (jobPostingId <= 0) return null;
+
+    final token = await _getToken();
+
+    try {
+      final response = await apiClient.get(
+        '/jobs/$jobPostingId',
+        options: _authOptions(token),
+      );
+
+      final body = _parseBody(response.data);
+      if (body['success'] != true) return null;
+
+      final raw = body['data'];
+      if (raw is! Map) return null;
+
+      return _extractCompanyChatTargetFromJob(
+        Map<String, dynamic>.from(raw),
+      );
+    } on DioException {
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -525,6 +594,169 @@ class PilotApplicationService {
   Map<String, dynamic>? _applicationMap(dynamic raw) {
     if (raw is! Map) return null;
     return Map<String, dynamic>.from(raw);
+  }
+
+  ApplicationCompanyChatTarget? _extractCompanyChatTargetFromApplication(
+      Map<String, dynamic>? application,
+      ) {
+    if (application == null) return null;
+
+    final directUserId = _asInt(application['company_user_id']);
+    if (directUserId != null && directUserId > 0) {
+      return ApplicationCompanyChatTarget(
+        userId: directUserId,
+        name: _firstNonEmpty([
+          application['company_name'],
+          application['company_label'],
+          'Company',
+        ]),
+        photoUrl: _firstNonEmpty([
+          application['company_photo_url'],
+          application['company_logo_url'],
+        ]),
+      );
+    }
+
+    final directCompanyUser =
+        _mapOf(application['company_user']) ?? _mapOf(application['companyUser']);
+    final directCompanyUserId = _asInt(directCompanyUser?['id']);
+    if (directCompanyUserId != null && directCompanyUserId > 0) {
+      return ApplicationCompanyChatTarget(
+        userId: directCompanyUserId,
+        name: _firstNonEmpty([
+          directCompanyUser?['name'],
+          directCompanyUser?['username'],
+          application['company_name'],
+          'Company',
+        ]),
+        photoUrl: _firstNonEmpty([
+          directCompanyUser?['profile_photo_url'],
+          application['company_photo_url'],
+        ]),
+      );
+    }
+
+    for (final key in const [
+      'company',
+      'company_profile',
+      'companyProfile',
+    ]) {
+      final candidate = _mapOf(application[key]);
+      final target = _extractCompanyTarget(candidate);
+      if (target != null) return target;
+    }
+
+    for (final key in const [
+      'job',
+      'job_posting',
+      'jobPosting',
+    ]) {
+      final job = _mapOf(application[key]);
+      final target = _extractCompanyChatTargetFromJob(job);
+      if (target != null) return target;
+    }
+
+    return null;
+  }
+
+  ApplicationCompanyChatTarget? _extractCompanyChatTargetFromJob(
+      Map<String, dynamic>? job,
+      ) {
+    if (job == null) return null;
+
+    final directUserId = _asInt(job['company_user_id']);
+    if (directUserId != null && directUserId > 0) {
+      return ApplicationCompanyChatTarget(
+        userId: directUserId,
+        name: _firstNonEmpty([
+          job['company_name'],
+          job['company_label'],
+          'Company',
+        ]),
+        photoUrl: _firstNonEmpty([
+          job['company_photo_url'],
+          job['company_logo_url'],
+        ]),
+      );
+    }
+
+    final directCompanyUser =
+        _mapOf(job['company_user']) ?? _mapOf(job['companyUser']);
+    final directCompanyUserId = _asInt(directCompanyUser?['id']);
+    if (directCompanyUserId != null && directCompanyUserId > 0) {
+      return ApplicationCompanyChatTarget(
+        userId: directCompanyUserId,
+        name: _firstNonEmpty([
+          directCompanyUser?['name'],
+          directCompanyUser?['username'],
+          job['company_name'],
+          'Company',
+        ]),
+        photoUrl: _firstNonEmpty([
+          directCompanyUser?['profile_photo_url'],
+          job['company_photo_url'],
+        ]),
+      );
+    }
+
+    for (final key in const [
+      'company',
+      'company_profile',
+      'companyProfile',
+    ]) {
+      final target = _extractCompanyTarget(_mapOf(job[key]));
+      if (target != null) return target;
+    }
+
+    return null;
+  }
+
+  ApplicationCompanyChatTarget? _extractCompanyTarget(
+      Map<String, dynamic>? company,
+      ) {
+    if (company == null) return null;
+
+    final user = _mapOf(company['user']);
+    final userId = _asInt(company['user_id']) ?? _asInt(user?['id']);
+
+    if (userId == null || userId <= 0) return null;
+
+    final media = _mapOf(company['profile_photo']) ??
+        _mapOf(company['logo']) ??
+        _mapOf(company['photo']);
+
+    return ApplicationCompanyChatTarget(
+      userId: userId,
+      name: _firstNonEmpty([
+        company['company_name'],
+        company['display_name'],
+        company['name'],
+        user?['name'],
+        user?['username'],
+        'Company',
+      ]),
+      photoUrl: _firstNonEmpty([
+        company['profile_photo_url'],
+        company['logo_url'],
+        company['photo_url'],
+        media?['original_url'],
+        media?['url'],
+        user?['profile_photo_url'],
+      ]),
+    );
+  }
+
+  Map<String, dynamic>? _mapOf(dynamic raw) {
+    if (raw is! Map) return null;
+    return Map<String, dynamic>.from(raw);
+  }
+
+  String _firstNonEmpty(Iterable<dynamic> values) {
+    for (final value in values) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    }
+    return '';
   }
 
   void _sortNewestFirst(List<PilotApplicationModel> applications) {

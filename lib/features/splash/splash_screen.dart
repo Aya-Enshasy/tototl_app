@@ -8,7 +8,7 @@ import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/controllers/auth_controller.dart';
-import '../auth/controllers/user_session_storage.dart';
+import '../../core/storage/user_session_storage.dart';
 import '../auth/screens/login/login_screen.dart';
 import '../auth/services/auth_service.dart';
 

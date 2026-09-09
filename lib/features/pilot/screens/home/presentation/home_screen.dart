@@ -1,21 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
-import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
 import 'package:tototl_app/features/pilot/controllers/pilot_home_controller.dart';
 import 'package:tototl_app/features/pilot/models/pilot_availability_preference.dart';
 import 'package:tototl_app/features/pilot/models/pilot_home_snapshot.dart';
-import 'package:tototl_app/features/pilot/services/pilot_availability_local_store.dart';
 import 'package:tototl_app/features/pilot/screens/applications/application_details_screen.dart';
 import 'package:tototl_app/features/pilot/screens/applications/applications_screen.dart';
-import 'package:tototl_app/features/pilot/screens/jobs/find_drone_jobs.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/availability_card.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/home_header.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/my_drone_card.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/recent_applications_section.dart';
+import 'package:tototl_app/features/pilot/screens/jobs/find_drone_jobs.dart';
+ import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
+import 'package:tototl_app/features/pilot/services/pilot_availability_local_store.dart';
 
 import '../../../services/drone_service.dart';
 import '../../drones/my_drones_screen.dart';
+import '../../notification/NotificationsScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _entranceController;
 
   PilotAvailabilityPreference _availability =
-      const PilotAvailabilityPreference();
+  const PilotAvailabilityPreference();
 
   @override
   void initState() {
@@ -43,24 +46,32 @@ class _HomeScreenState extends State<HomeScreen>
 
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 780),
+      duration: const Duration(milliseconds: 620),
     );
 
-    _bootstrap();
+    // IMPORTANT: do not wait for API/bootstrap before showing the page.
+    // On a true first use the skeletons appear immediately; on later uses the
+    // controller swaps them for cached data as soon as local storage responds.
+    _entranceController.forward();
+    unawaited(_bootstrap());
   }
 
   Future<void> _bootstrap() async {
-    final availability = await PilotAvailabilityLocalStore.read();
+    // Start Home cache/network orchestration and availability disk read together.
+    final homeFuture = _controller.bootstrap();
+    final availabilityFuture = PilotAvailabilityLocalStore.read();
 
-    if (mounted) {
-      setState(() => _availability = availability);
+    try {
+      final availability = await availabilityFuture;
+      if (mounted) {
+        setState(() => _availability = availability);
+      }
+    } catch (_) {
+      // Availability is optional Home metadata. A local read failure must never
+      // keep the dashboard from appearing.
     }
 
-    await _controller.bootstrap();
-
-    if (mounted) {
-      _entranceController.forward();
-    }
+    await homeFuture;
   }
 
   @override
@@ -74,8 +85,8 @@ class _HomeScreenState extends State<HomeScreen>
     required int index,
     required Widget child,
   }) {
-    final start = (index * 0.075).clamp(0.0, 0.48).toDouble();
-    final end = (start + 0.42).clamp(0.0, 1.0).toDouble();
+    final start = (index * 0.055).clamp(0.0, 0.34).toDouble();
+    final end = (start + 0.50).clamp(0.0, 1.0).toDouble();
 
     final animation = CurvedAnimation(
       parent: _entranceController,
@@ -90,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
       opacity: animation,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.035),
+          begin: const Offset(0, 0.022),
           end: Offset.zero,
         ).animate(animation),
         child: child,
@@ -106,7 +117,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      await _controller.forceRefresh();
+      // Keep current Home content on-screen. Fresh data arrives silently.
+      unawaited(_controller.forceRefresh());
     }
   }
 
@@ -118,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      await _controller.forceRefresh();
+      unawaited(_controller.forceRefresh());
     }
   }
 
@@ -130,24 +142,39 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      await _controller.forceRefresh();
+      unawaited(_controller.forceRefresh());
     }
   }
 
   Future<void> _openApplication(
-    PilotHomeApplicationItem application,
-  ) async {
+      PilotHomeApplicationItem application,
+      ) async {
+    // Start the authoritative detail request before the route transition. The
+    // Details screen still shows its real loader until that request completes;
+    // no list/cache object is painted as if it were detail data.
+    final detailsFuture = _controller.applicationService
+        .getApplicationDetailsResult(application.id);
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ApplicationDetailsScreen(
           applicationId: application.id,
+          detailsFuture: detailsFuture,
         ),
       ),
     );
 
     if (mounted) {
-      await _controller.forceRefresh();
+      unawaited(_controller.forceRefresh());
     }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PilotNotificationsScreen(),
+      ),
+    );
   }
 
   Future<void> _editAvailability() async {
@@ -182,14 +209,12 @@ class _HomeScreenState extends State<HomeScreen>
               builder: (context, _) {
                 final snapshot =
                     _controller.snapshot ?? const PilotHomeSnapshot();
-                final firstLoad =
-                    _controller.isInitialLoading && _controller.snapshot == null;
 
                 return SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 17, 20, 112),
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 620),
@@ -198,11 +223,13 @@ class _HomeScreenState extends State<HomeScreen>
                         children: [
                           _entry(
                             index: 0,
-                            child: const HomeHeader(),
+                            child: HomeHeader(
+                              onNotificationsTap: _openNotifications,
+                            ),
                           ),
-                          const SizedBox(height: 13),
+                          const SizedBox(height: 16),
                           if (_controller.errorMessage != null &&
-                              _controller.snapshot == null) ...[
+                              !_controller.hasAnySnapshot) ...[
                             _HomeErrorCard(
                               message: _controller.errorMessage!,
                               onRetry: _controller.forceRefresh,
@@ -213,21 +240,23 @@ class _HomeScreenState extends State<HomeScreen>
                             index: 1,
                             child: MyDroneCard(
                               drones: snapshot.drones,
-                              loading: firstLoad,
-                              errorMessage: _controller.snapshot == null
+                              loading: _controller.isDronesInitialLoading,
+                              errorMessage: !_controller.hasDronesSnapshot
                                   ? _controller.dronesError
                                   : null,
                               onRetry: _controller.forceRefresh,
                               onOpenFleet: _openFleet,
                             ),
                           ),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 26),
                           _entry(
                             index: 2,
                             child: RecentApplicationsSection(
                               applications: snapshot.applications,
-                              loading: firstLoad,
-                              errorMessage: _controller.snapshot == null
+                              loading:
+                              _controller.isApplicationsInitialLoading,
+                              errorMessage:
+                              !_controller.hasApplicationsSnapshot
                                   ? _controller.applicationsError
                                   : null,
                               onRetry: _controller.forceRefresh,
@@ -236,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen>
                               onOpenApplication: _openApplication,
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 26),
                           _entry(
                             index: 3,
                             child: AvailabilityCard(

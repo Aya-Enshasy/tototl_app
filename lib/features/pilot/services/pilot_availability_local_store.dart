@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:tototl_app/features/auth/controllers/user_session_storage.dart';
+import 'package:tototl_app/core/storage/user_session_storage.dart';
 
 import '../models/pilot_availability_preference.dart';
 

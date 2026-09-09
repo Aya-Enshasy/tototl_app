@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../auth/controllers/user_session_storage.dart';
+import '../../../core/storage/user_session_storage.dart';
 import '../widgets/admin_design.dart';
 
 class AdminSettingsScreen extends StatefulWidget {

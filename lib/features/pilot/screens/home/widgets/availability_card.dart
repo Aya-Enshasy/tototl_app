@@ -14,150 +14,291 @@ class AvailabilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Ink(
-          padding: const EdgeInsets.fromLTRB(15, 15, 13, 15),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFFFFFF),
-                Color(0xFFF8FCFC),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: AppColors.cardBorder.withOpacity(0.95),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.navy.withOpacity(0.035),
-                blurRadius: 18,
-                offset: const Offset(0, 7),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AvailabilitySectionHeader(
+          configured: preference.isConfigured,
+          onTap: onTap,
+        ),
+        const SizedBox(height: 10),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Ink(
+              padding: const EdgeInsets.fromLTRB(
+                14,
+                13,
+                12,
+                13,
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF16C6C7),
-                      Color(0xFF087E9C),
-                    ],
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.cardBorder.withOpacity(0.95),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.navy.withOpacity(0.035),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0A92A2).withOpacity(0.17),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.event_available_rounded,
-                  color: Colors.white,
-                  size: 23,
-                ),
+                ],
               ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Availability',
-                            style: TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: preference.isConfigured
-                                ? AppColors.green.withOpacity(0.08)
-                                : AppColors.blue.withOpacity(0.055),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            preference.isConfigured ? 'Set' : 'Not set',
-                            style: TextStyle(
-                              color: preference.isConfigured
-                                  ? AppColors.green
-                                  : AppColors.blue,
-                              fontSize: 8.8,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF16C6C7),
+                          Color(0xFF087E9C),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0A92A2)
+                              .withOpacity(0.14),
+                          blurRadius: 11,
+                          offset: const Offset(0, 5),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      preference.isConfigured
-                          ? preference.dateRangeLabel
-                          : 'Set one range instead of selecting every date.',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.grey.withOpacity(0.92),
-                        fontSize: 10.8,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: const Icon(
+                      Icons.event_available_rounded,
+                      color: Colors.white,
+                      size: 21,
                     ),
-                    if (preference.isConfigured) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        '${preference.daysLabel}  •  ${preference.timeLabel}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.blue,
-                          fontSize: 9.8,
-                          fontWeight: FontWeight.w700,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                preference.isConfigured
+                                    ? preference.dateRangeLabel
+                                    : 'Set your work availability',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.navy,
+                                  fontSize: 13.5,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _AvailabilityStatus(
+                              configured:
+                              preference.isConfigured,
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ],
+                        const SizedBox(height: 5),
+                        Text(
+                          preference.isConfigured
+                              ? preference.daysLabel
+                              : 'Choose the days and hours you are open for missions.',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color:
+                            AppColors.grey.withOpacity(0.92),
+                            fontSize: 10.4,
+                            height: 1.25,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (preference.isConfigured) ...[
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.schedule_rounded,
+                                size: 11.5,
+                                color:
+                                AppColors.logoTurquoiseDark,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  preference.timeLabel,
+                                  maxLines: 1,
+                                  overflow:
+                                  TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color:
+                                    AppColors.logoTurquoiseDark,
+                                    fontSize: 9.7,
+                                    fontWeight:
+                                    FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 31,
+                    height: 31,
+                    decoration: BoxDecoration(
+                      color: AppColors.blue.withOpacity(0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.blue,
+                      size: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AvailabilitySectionHeader extends StatelessWidget {
+  const _AvailabilitySectionHeader({
+    required this.configured,
+    required this.onTap,
+  });
+
+  final bool configured;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0EA5A8)
+                .withOpacity(0.07),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: const Icon(
+            Icons.schedule_rounded,
+            color: AppColors.logoTurquoiseDark,
+            size: 17,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Available Times',
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.35,
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 31,
-                height: 31,
-                decoration: BoxDecoration(
-                  color: AppColors.blue.withOpacity(0.055),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.tune_rounded,
-                  color: AppColors.blue,
-                  size: 16,
+              SizedBox(height: 2),
+              Text(
+                'Your preferred work window',
+                style: TextStyle(
+                  color: AppColors.grey,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
+        ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 5,
+                vertical: 5,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    configured ? 'Edit' : 'Set up',
+                    style: const TextStyle(
+                      color: AppColors.blue,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: AppColors.blue,
+                    size: 9,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AvailabilityStatus extends StatelessWidget {
+  const _AvailabilityStatus({
+    required this.configured,
+  });
+
+  final bool configured;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = configured
+        ? AppColors.green
+        : AppColors.blue;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 7,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.075),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        configured ? 'SET' : 'NOT SET',
+        style: TextStyle(
+          color: color,
+          fontSize: 8.1,
+          height: 1,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.25,
         ),
       ),
     );

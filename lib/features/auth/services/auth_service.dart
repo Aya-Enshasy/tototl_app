@@ -5,7 +5,7 @@ import 'package:tototl_app/core/network/api_endpoints.dart';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import '../controllers/user_session_storage.dart';
+import '../../../core/storage/user_session_storage.dart';
 
 import '../models/LoginResponseModel.dart';
 import '../models/PilotRegisterRequestModel.dart';

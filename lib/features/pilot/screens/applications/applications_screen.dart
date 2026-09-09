@@ -43,11 +43,17 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
       ) async {
     HapticFeedback.selectionClick();
 
+    // Start the authoritative detail request BEFORE the route transition.
+    // The details screen receives the same Future, so there is no duplicate
+    // request and no cached/list snapshot is displayed as if it were fresh.
+    final detailsFuture =
+    _controller.service.getApplicationDetailsResult(application.id);
+
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ApplicationDetailsScreen(
           applicationId: application.id,
-          initialApplication: application,
+          detailsFuture: detailsFuture,
         ),
       ),
     );

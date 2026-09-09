@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../auth/controllers/user_session_storage.dart';
+import '../../../core/storage/user_session_storage.dart';
 import '../models/chat_conversation.dart';
 import '../services/cloudinary_chat_media_service.dart';
 import '../services/firebase_chat_service.dart';

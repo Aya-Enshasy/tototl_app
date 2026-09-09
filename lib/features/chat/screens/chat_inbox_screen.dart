@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../auth/controllers/user_session_storage.dart';
+import '../../../core/storage/user_session_storage.dart';
 import '../models/chat_conversation.dart';
 import '../services/firebase_chat_service.dart';
 import 'chat_screen.dart';

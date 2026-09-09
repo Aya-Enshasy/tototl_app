@@ -259,7 +259,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
                 'Find Drone Jobs',
                 style: TextStyle(
                   color: AppColors.navy,
-                  fontSize: 19,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.45,
                   height: 1.1,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -33,30 +35,46 @@ class _ProfileDronesSectionState
     extends State<ProfileDronesSection> {
   late final DroneController _controller;
 
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
 
-    _controller =
-        DroneController(
-          DroneService(
-            ApiClient(),
-          ),
-        );
+    _controller = DroneController(
+      DroneService(
+        ApiClient(),
+      ),
+    );
 
-    _load();
+    _controller.addListener(
+      _onControllerChanged,
+    );
+
+    // Same source of truth used by Home and My Drones:
+    // cached fleet immediately, silent API refresh after it is shown.
+    unawaited(
+      _controller.bootstrap(),
+    );
   }
 
-  Future<void> _load() async {
-    await _controller.loadDrones();
+  @override
+  void dispose() {
+    _controller.removeListener(
+      _onControllerChanged,
+    );
+    _controller.dispose();
+    super.dispose();
+  }
 
-    if (!mounted) return;
+  void _onControllerChanged() {
+    if (!mounted) {
+      return;
+    }
 
-    setState(() {
-      _loading = false;
-    });
+    setState(() {});
+  }
+
+  Future<void> _retry() async {
+    await _controller.refresh();
   }
 
   Future<void> _add() async {
@@ -75,7 +93,10 @@ class _ProfileDronesSectionState
       return;
     }
 
-    await _load();
+    // No second list request is needed after create.
+    _controller.upsertLocal(
+      created,
+    );
   }
 
   Future<void> _openAll() async {
@@ -88,9 +109,24 @@ class _ProfileDronesSectionState
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
-    await _load();
+    // MyDronesScreen may have created/updated/deleted something. Re-read the
+    // shared local cache first so the profile changes immediately, then refresh
+    // silently in the background.
+    await _controller.reloadLocalSnapshot();
+
+    if (!mounted) {
+      return;
+    }
+
+    unawaited(
+      _controller.refresh(
+        silent: true,
+      ),
+    );
   }
 
   Future<void> _openDrone(
@@ -98,25 +134,43 @@ class _ProfileDronesSectionState
       ) async {
     HapticFeedback.selectionClick();
 
-    await Navigator.of(context).push(
+    final deleted =
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) =>
             DroneDetailsScreen(
-              drone:
-              drone,
+              drone: drone,
             ),
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
-    await _load();
+    if (deleted == true) {
+      _controller.removeLocal(
+        drone.id,
+      );
+      return;
+    }
+
+    // Keep the preview visible while the newest version is requested.
+    unawaited(
+      _controller.refresh(
+        silent: true,
+      ),
+    );
   }
 
   @override
   Widget build(
       BuildContext context,
       ) {
+    final firstLoad =
+        _controller.isInitialLoading &&
+            !_controller.hasSnapshot;
+
     return Container(
       width:
       double.infinity,
@@ -172,7 +226,7 @@ class _ProfileDronesSectionState
                 ),
               ),
 
-              if (!_loading &&
+              if (!firstLoad &&
                   _controller.drones.length > 1)
                 TextButton(
                   onPressed:
@@ -235,7 +289,7 @@ class _ProfileDronesSectionState
 
           const SizedBox(height: 3),
 
-          if (_loading)
+          if (firstLoad)
             const _PreviewSkeleton()
           else if (_controller.drones.isEmpty)
             _EmptyPreview(
@@ -252,13 +306,13 @@ class _ProfileDronesSectionState
               ),
             ),
 
-          if (!_loading &&
+          if (!firstLoad &&
               _controller.errorMessage != null &&
               _controller.drones.isEmpty) ...[
             const SizedBox(height: 9),
             TextButton.icon(
               onPressed:
-              _load,
+              _retry,
               icon:
               const Icon(
                 Icons.refresh_rounded,

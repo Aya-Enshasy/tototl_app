@@ -208,16 +208,17 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
 
       if (!mounted) return;
 
-      final enriched = result.copyWith(
-        job: widget.job,
-        drone: drone,
-      );
+      // Start a fresh detail request before opening the next screen. The
+      // response returned by Apply is valid, but the details endpoint is the
+      // authoritative source for the detail page and may contain newer fields.
+      final detailsFuture =
+      _applicationService.getApplicationDetailsResult(result.id);
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ApplicationDetailsScreen(
             applicationId: result.id,
-            initialApplication: enriched,
+            detailsFuture: detailsFuture,
           ),
         ),
       );

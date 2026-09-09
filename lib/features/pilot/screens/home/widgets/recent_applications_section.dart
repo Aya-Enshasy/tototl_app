@@ -91,7 +91,7 @@ class _Header extends StatelessWidget {
                 'Recent Applications',
                 style: TextStyle(
                   color: AppColors.navy,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.35,
                 ),
