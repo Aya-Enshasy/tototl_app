@@ -355,11 +355,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                     34,
                   ),
                   children: [
-                    _SettingsIntro(
-                      isCompany: widget.isCompany,
-                      locale: locale,
-                    ),
-                    const SizedBox(height: 18),
+
 
                     _SectionCard(
                       title: AppLanguage.t('profile'),
@@ -769,109 +765,6 @@ class TermsPrivacyScreen extends StatelessWidget {
 // SETTINGS INTRO
 // ============================================================================
 
-class _SettingsIntro extends StatelessWidget {
-  const _SettingsIntro({
-    required this.isCompany,
-    required this.locale,
-  });
-
-  final bool isCompany;
-  final Locale locale;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(17, 17, 15, 17),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFF7FCFD),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.cardBorder,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF071A35).withOpacity(0.035),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF9FA),
-              borderRadius: BorderRadius.circular(17),
-            ),
-            child: const Icon(
-              Icons.tune_rounded,
-              color: Color(0xFF078B98),
-              size: 25,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _settingsIntroTitle(locale),
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _settingsIntroSubtitle(
-                    locale,
-                    isCompany: isCompany,
-                  ),
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 11.2,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 9,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2F6F9),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Text(
-              isCompany
-                  ? _companyRoleLabel(locale)
-                  : _pilotRoleLabel(locale),
-              style: const TextStyle(
-                color: AppColors.navy,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ============================================================================
 // SECTION CARD
@@ -1494,11 +1387,7 @@ _LegalContentData _legalContent(Locale locale) {
             body:
             'TOTOTL INTGRX connects drone pilots and companies and helps them discover work, manage applications, and communicate. The parties remain responsible for performing missions and complying with applicable laws.',
           ),
-          _LegalItemData(
-            title: 'Account Responsibility',
-            body:
-            'You must provide accurate, current information, protect your sign-in credentials, and avoid using another person’s account or submitting misleading documents.',
-          ),
+
           _LegalItemData(
             title: 'Jobs & Engagements',
             body:
@@ -1556,20 +1445,7 @@ _LegalContentData _legalContent(Locale locale) {
   }
 }
 
-// ============================================================================
-// LOCALIZED HELPERS
-// ============================================================================
 
-String _settingsIntroTitle(Locale locale) {
-  switch (locale.languageCode) {
-    case 'ar':
-      return 'إعداداتك في مكان واحد';
-    case 'de':
-      return 'Deine Einstellungen an einem Ort';
-    default:
-      return 'Your settings, all in one place';
-  }
-}
 
 String _settingsIntroSubtitle(
     Locale locale, {

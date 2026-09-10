@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:open_filex/open_filex.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../controllers/pilot_license_controller.dart';
 import '../../models/pilot_license_model.dart';
 import '../../services/pilot_license_service.dart';
 import 'pilot_license_form_screen.dart';
+import 'pilot_license_document_viewer_screen.dart';
 
 const Color _page = Color(0xFFF6F9FC);
 const Color _ink = Color(0xFF071A35);
@@ -197,15 +197,15 @@ class _PilotLicenseDetailsScreenState
       return;
     }
 
-    try {
-      await OpenFilex.open(localPath);
-    } catch (_) {
-      if (!mounted) return;
-      _showSnack(
-        'The file was downloaded, but no app could open it.',
-        error: true,
-      );
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PilotLicenseDocumentViewerScreen(
+          filePath: localPath,
+          fileName: fileName,
+          mimeType: document.mimeType,
+        ),
+      ),
+    );
   }
 
   void _showSnack(String message, {bool error = false}) {
@@ -1189,4 +1189,5 @@ String _formatDate(DateTime? date) {
 
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }
+
 

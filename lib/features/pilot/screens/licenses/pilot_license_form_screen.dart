@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:open_filex/open_filex.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../controllers/pilot_license_controller.dart';
 import '../../models/pilot_license_form_request.dart';
 import '../../models/pilot_license_model.dart';
 import '../../services/pilot_license_service.dart';
+import 'pilot_license_document_viewer_screen.dart';
 
 const Color _page = Color(0xFFF7F9FB);
 const Color _ink = Color(0xFF071A35);
@@ -176,7 +176,17 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
           return;
         }
 
-        await OpenFilex.open(selectedPath);
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PilotLicenseDocumentViewerScreen(
+              filePath: selectedPath,
+              fileName: selectedFile?.name ?? file.uri.pathSegments.last,
+              mimeType: _mimeFromFileName(
+                selectedFile?.name ?? selectedPath,
+              ),
+            ),
+          ),
+        );
         return;
       }
 
@@ -212,7 +222,15 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
         return;
       }
 
-      await OpenFilex.open(localPath);
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PilotLicenseDocumentViewerScreen(
+            filePath: localPath,
+            fileName: fileName,
+            mimeType: document.mimeType,
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       _showSnack('Unable to open this document.', error: true);
@@ -223,6 +241,19 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
         });
       }
     }
+  }
+
+  String _mimeFromFileName(String value) {
+    final lower = value.trim().toLowerCase();
+
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.webp')) return 'image/webp';
+
+    return '';
   }
 
   Future<void> _submit() async {
