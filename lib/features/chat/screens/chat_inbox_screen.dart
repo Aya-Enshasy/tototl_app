@@ -10,14 +10,18 @@ import 'chat_screen.dart';
 class ChatInboxScreen extends StatefulWidget {
   const ChatInboxScreen({
     super.key,
-    required this.defaultRecipientId,
-    required this.defaultRecipientName,
+    this.defaultRecipientId,
+    this.defaultRecipientName,
   });
 
-  /// Kept only so existing navigation calls do not break.
-  /// The inbox intentionally does NOT show a "New chat" card anymore.
-  final String defaultRecipientId;
-  final String defaultRecipientName;
+  /// Legacy compatibility only. The inbox no longer depends on a hardcoded
+  /// recipient. Conversations are loaded from Firebase for the authenticated
+  /// user stored in [UserSessionStorage].
+  @Deprecated('The inbox now resolves conversations from the signed-in user.')
+  final String? defaultRecipientId;
+
+  @Deprecated('The inbox now resolves conversations from the signed-in user.')
+  final String? defaultRecipientName;
 
   @override
   State<ChatInboxScreen> createState() =>

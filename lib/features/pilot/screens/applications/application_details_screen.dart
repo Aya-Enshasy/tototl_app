@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
-import 'package:tototl_app/core/storage/user_session_storage.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
-import 'package:tototl_app/features/chat/screens/chat_screen.dart';
 
 import '../../models/drone_model.dart';
 import '../../models/pilot_application_model.dart';
@@ -13,6 +11,7 @@ import '../../models/pilot_job_model.dart';
 import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
 import '../../services/pilot_job_service.dart';
+import '../message/messages_screen.dart';
 
 class ApplicationDetailsScreen extends StatefulWidget {
   const ApplicationDetailsScreen({
@@ -197,28 +196,16 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     setState(() => _openingChat = true);
 
     try {
-      var target = _companyChatTarget;
-
-      target ??= await _applicationService.resolveCompanyChatTargetFromJob(
-        application.jobPostingId,
-      );
+      final target = _companyChatTarget ??
+          await _applicationService.resolveCompanyChatTargetFromJob(
+            application.jobPostingId,
+          );
 
       if (!mounted) return;
 
+      // Firebase chat must use the COMPANY USER ID, not company_profile_id.
       if (target == null || target.userId <= 0) {
         _snack('Company chat is not available for this application yet.');
-        return;
-      }
-
-      final currentUserId = await UserSessionStorage.getUserId();
-      final currentUserName = await UserSessionStorage.getName();
-      final currentUserPhoto =
-          await UserSessionStorage.getProfilePhotoUrl() ?? '';
-
-      if (!mounted) return;
-
-      if (currentUserId == null || currentUserId <= 0) {
-        _snack('Your account session could not be identified.');
         return;
       }
 
@@ -239,17 +226,15 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
         setState(() => _openingChat = false);
       }
 
+      // MessagesScreen is now the single bridge into chat:
+      // - current user id/name/photo -> UserSessionStorage
+      // - company user id/name/photo -> accepted application/job target
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ChatScreen(
-            currentUserId: currentUserId.toString(),
-            currentUserName: currentUserName?.trim().isNotEmpty == true
-                ? currentUserName!.trim()
-                : 'Pilot',
-            currentUserPhotoUrl: currentUserPhoto,
-            partnerId: target!.userId.toString(),
-            partnerName: companyName,
-            partnerPhotoUrl: target.photoUrl,
+          builder: (_) => MessagesScreen(
+            companyUserId: target.userId,
+            companyName: companyName,
+            companyPhotoUrl: target.photoUrl,
           ),
         ),
       );
