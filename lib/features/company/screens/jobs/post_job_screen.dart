@@ -31,6 +31,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
   DateTime? _endDate;
 
   String? _droneSize;
+  final _customDroneLength = TextEditingController();
+  final _customDroneWidth = TextEditingController();
+  final _customDroneHeight = TextEditingController();
+  final _customDroneWeight = TextEditingController();
+
   final Set<String> _requiredCapabilities = {};
   String? _requiredExperience;
   final Set<String> _requiredCertifications = {};
@@ -48,9 +53,37 @@ class _PostJobScreenState extends State<PostJobScreen> {
   bool _submitting = false;
   bool _publishingNow = false;
 
+  static const _stepTitles = <String>[
+    'Basic information',
+    'Location',
+    'Schedule',
+    'Requirements',
+    'Budget',
+    'Attachments & publish',
+  ];
+
+  static const _stepSubtitles = <String>[
+    'Add the core mission details pilots need to understand the job.',
+    'Tell pilots where the mission will take place.',
+    'Choose the expected start and end dates.',
+    'Define the drone, pilot and compliance requirements.',
+    'Set the payment structure and expected range.',
+    'Review the job, attach files and choose how to save it.',
+  ];
+
+  static const _stepIcons = <IconData>[
+    Icons.description_outlined,
+    Icons.location_on_outlined,
+    Icons.calendar_month_outlined,
+    Icons.flight_outlined,
+    Icons.payments_outlined,
+    Icons.publish_outlined,
+  ];
+
   @override
   void initState() {
     super.initState();
+
     _controller = CompanyJobController(
       CompanyJobService(ApiClient()),
     );
@@ -65,6 +98,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
       _state,
       _city,
       _region,
+      _customDroneLength,
+      _customDroneWidth,
+      _customDroneHeight,
+      _customDroneWeight,
       _requirementsNotes,
       _paymentMin,
       _paymentMax,
@@ -94,13 +131,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return !_endDate!.isBefore(_startDate!);
     }
 
+    if (_step == 3) {
+      return _validCustomDroneSize();
+    }
+
     if (_step == 4 && _paymentType != 'negotiable') {
       final min = double.tryParse(_paymentMin.text.trim());
+
       if (min == null || min < 0) return false;
 
       final maxText = _paymentMax.text.trim();
+
       if (maxText.isNotEmpty) {
         final max = double.tryParse(maxText);
+
         if (max == null || max < min) return false;
       }
     }
@@ -123,13 +167,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return false;
     }
 
+    if (!_validCustomDroneSize()) {
+      return false;
+    }
+
     if (_paymentType != 'negotiable') {
       final min = double.tryParse(_paymentMin.text.trim());
+
       if (min == null || min < 0) return false;
 
       final maxText = _paymentMax.text.trim();
+
       if (maxText.isNotEmpty) {
         final max = double.tryParse(maxText);
+
         if (max == null || max < min) return false;
       }
     }
@@ -139,6 +190,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   void _next() {
     if (!_validStep()) {
+      if (_step == 3 && !_validCustomDroneSize()) {
+        _showSnack(
+          'For a custom drone size, enter at least length and width.',
+          isError: true,
+        );
+        return;
+      }
+
       _showSnack(
         'Please complete the required job details.',
         isError: true,
@@ -189,6 +248,113 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (picked == null) return;
 
     setState(() => _endDate = picked);
+  }
+
+  // ==========================================================================
+  // DRONE SIZE
+  // ==========================================================================
+
+  void _onDroneSizeChanged(String? value) {
+    setState(() {
+      _droneSize = value;
+
+      if (value != 'custom') {
+        _customDroneLength.clear();
+        _customDroneWidth.clear();
+        _customDroneHeight.clear();
+        _customDroneWeight.clear();
+      }
+    });
+  }
+
+  bool _validCustomDroneSize() {
+    if (_droneSize != 'custom') return true;
+
+    final length = _positiveNumber(_customDroneLength.text);
+    final width = _positiveNumber(_customDroneWidth.text);
+    final heightText = _customDroneHeight.text.trim();
+    final weightText = _customDroneWeight.text.trim();
+
+    if (length == null || width == null) {
+      return false;
+    }
+
+    if (heightText.isNotEmpty && _positiveNumber(heightText) == null) {
+      return false;
+    }
+
+    if (weightText.isNotEmpty && _positiveNumber(weightText) == null) {
+      return false;
+    }
+
+    return true;
+  }
+
+  double? _positiveNumber(String value) {
+    final parsed = double.tryParse(value.trim());
+
+    if (parsed == null || parsed <= 0) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  String? _droneSizePayload() {
+    final value = _droneSize;
+
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    switch (value) {
+      case 'small':
+        return 'Small';
+      case 'medium':
+        return 'Medium';
+      case 'large':
+        return 'Large';
+      case 'specific':
+        return 'Specific';
+      case 'custom':
+        if (!_validCustomDroneSize()) {
+          return null;
+        }
+
+        final length = _cleanMeasurement(_customDroneLength.text);
+        final width = _cleanMeasurement(_customDroneWidth.text);
+        final height = _cleanMeasurement(_customDroneHeight.text);
+        final weight = _cleanMeasurement(_customDroneWeight.text);
+
+        final dimensions = height.isEmpty
+            ? '$length × $width cm'
+            : '$length × $width × $height cm';
+
+        if (weight.isEmpty) {
+          return 'Custom: $dimensions';
+        }
+
+        return 'Custom: $dimensions · Max weight $weight kg';
+      default:
+        return value.trim();
+    }
+  }
+
+  String _cleanMeasurement(String value) {
+    final parsed = double.tryParse(value.trim());
+
+    if (parsed == null) {
+      return value.trim();
+    }
+
+    if (parsed == parsed.roundToDouble()) {
+      return parsed.toStringAsFixed(0);
+    }
+
+    return parsed
+        .toStringAsFixed(2)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
   }
 
   // ==========================================================================
@@ -254,7 +420,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       requiredCapabilities: _requiredCapabilities.toList(),
       requiredExperience: _requiredExperience,
       requiredCertifications: _requiredCertifications.toList(),
-      droneSize: _droneSize,
+      droneSize: _droneSizePayload(),
       trainingSafetyRequired: _safetyTrainingRequired,
       ndaRequired: _ndaRequired,
       requirementsNotes: _nullIfEmpty(_requirementsNotes.text),
@@ -273,6 +439,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (_submitting) return;
 
     if (!_validAll()) {
+      if (!_validCustomDroneSize()) {
+        _showSnack(
+          'For a custom drone size, enter at least length and width.',
+          isError: true,
+        );
+        return;
+      }
+
       _showSnack(
         'Please complete the required job details.',
         isError: true,
@@ -308,16 +482,20 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   // ==========================================================================
   // CREATE + PUBLISH
-  //
-  // Backend flow:
-  // 1) Create the job => Draft
-  // 2) Publish the returned job id immediately
   // ==========================================================================
 
   Future<void> _publishJob() async {
     if (_submitting) return;
 
     if (!_validAll()) {
+      if (!_validCustomDroneSize()) {
+        _showSnack(
+          'For a custom drone size, enter at least length and width.',
+          isError: true,
+        );
+        return;
+      }
+
       _showSnack(
         'Please complete the required job details.',
         isError: true,
@@ -330,7 +508,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
       _publishingNow = true;
     });
 
-    // STEP 1: Create Draft.
     final created = await _controller.createJob(
       _buildRequest(),
     );
@@ -350,7 +527,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return;
     }
 
-    // STEP 2: Publish the newly-created Draft.
     final published = await _controller.publishJob(created.id);
 
     if (!mounted) return;
@@ -361,8 +537,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
     });
 
     if (published == null) {
-      // Important: creation already succeeded, so do NOT create it again.
-      // The job safely remains Draft on the server.
       _showSnack(
         'Job was saved as Draft, but publishing failed: '
             '${_controller.errorMessage ?? 'Unknown error'}',
@@ -399,6 +573,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   String? _nullIfEmpty(String value) {
     final clean = value.trim();
+
     return clean.isEmpty ? null : clean;
   }
 
@@ -413,7 +588,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
           behavior: SnackBarBehavior.floating,
           backgroundColor:
           isError ? Colors.red.shade700 : AppColors.navy,
-          content: Text(message),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          margin: const EdgeInsets.all(16),
+          content: Text(
+            message,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       );
   }
@@ -424,605 +609,971 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const titles = [
-      'Basic Information',
-      'Location',
-      'Schedule',
-      'Requirements',
-      'Budget',
-      'Attachments & Publish',
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 20, 10),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: _submitting
-                        ? null
-                        : () {
-                      if (_step == 0) {
-                        Navigator.of(context).pop();
-                      } else {
-                        setState(() => _step--);
-                      }
-                    },
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      titles[_step],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: List.generate(
-                  6,
-                      (index) => Expanded(
-                    child: Container(
-                      height: 4,
-                      margin: EdgeInsets.only(
-                        right: index == 5 ? 0 : 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: index <= _step
-                            ? AppColors.blue
-                            : AppColors.cardBorder,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          Positioned(
+            top: -150,
+            right: -120,
+            child: IgnorePointer(
+              child: Container(
+                width: 310,
+                height: 310,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.blue.withOpacity(0.10),
+                      AppColors.blue.withOpacity(0.018),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
               ),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: _step == 0
-                    ? _basicInfoStep()
-                    : _step == 1
-                    ? _locationStep()
-                    : _step == 2
-                    ? _scheduleStep()
-                    : _step == 3
-                    ? _requirementsStep()
-                    : _step == 4
-                    ? _budgetStep()
-                    : _attachmentsStep(),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: AppColors.cardBorder),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                _topBar(),
+                _progressBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      20,
+                      12,
+                      20,
+                      24,
+                    ),
+                    child: Column(
+                      children: [
+                        _introCard(),
+                        const SizedBox(height: 13),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: KeyedSubtree(
+                            key: ValueKey<int>(_step),
+                            child: _currentStep(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              child: _bottomButton(),
+                _bottomBar(),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _topBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: _step == 0 ? 'Back' : 'Previous step',
+            onPressed: _submitting
+                ? null
+                : () {
+              if (_step == 0) {
+                Navigator.of(context).pop();
+                return;
+              }
+
+              setState(() => _step--);
+            },
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 17,
+              color: AppColors.navy,
+            ),
+          ),
+          const Expanded(
+            child: Text(
+              'Post a job',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.blueBg,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${_step + 1}/6',
+              style: const TextStyle(
+                color: AppColors.blue,
+                fontSize: 9.8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _progressBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 1, 20, 8),
+      child: Row(
+        children: List.generate(
+          _stepTitles.length,
+              (index) => Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 4,
+              margin: EdgeInsets.only(
+                right: index == _stepTitles.length - 1 ? 0 : 6,
+              ),
+              decoration: BoxDecoration(
+                color: index <= _step
+                    ? AppColors.blue
+                    : AppColors.cardBorder,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  Widget _introCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.navy,
+            AppColors.navy.withOpacity(0.92),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+            child: Icon(
+              _stepIcons[_step],
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _stepTitles[_step],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _stepSubtitles[_step],
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.64),
+                    fontSize: 10.8,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _currentStep() {
+    switch (_step) {
+      case 0:
+        return _basicInfoStep();
+      case 1:
+        return _locationStep();
+      case 2:
+        return _scheduleStep();
+      case 3:
+        return _requirementsStep();
+      case 4:
+        return _budgetStep();
+      default:
+        return _attachmentsStep();
+    }
   }
 
   // ==========================================================================
   // STEP 1
   // ==========================================================================
 
-  Widget _basicInfoStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stepHeader(
-        'Basic Information',
-        'Provide the essential details about your job.',
-      ),
-      _label('Job Title *'),
-      _field(
-        _title,
-        'e.g. Thermal Inspection - Solar Farm',
-      ),
-      _label('Service Category'),
-      _select(
-        value: _serviceCategory,
-        items: const [
-          'inspection',
-          'mapping',
-          'photography',
-          'construction',
-          'surveying',
-          'other',
+  Widget _basicInfoStep() {
+    return _sectionCard(
+      icon: Icons.description_outlined,
+      title: 'Basic information',
+      subtitle: 'Core mission details',
+      child: Column(
+        children: [
+          _label('Job title *'),
+          _field(
+            _title,
+            'Thermal Inspection - Solar Farm',
+            prefixIcon: Icons.work_outline_rounded,
+          ),
+          _label('Service category'),
+          _select(
+            value: _serviceCategory,
+            items: const [
+              'inspection',
+              'mapping',
+              'photography',
+              'construction',
+              'surveying',
+              'other',
+            ],
+            labelBuilder: _pretty,
+            onChanged: (value) {
+              setState(() => _serviceCategory = value);
+            },
+          ),
+          _label('Description *'),
+          _field(
+            _description,
+            'Describe the mission, site conditions and expected deliverables...',
+            lines: 5,
+            prefixIcon: Icons.notes_rounded,
+          ),
         ],
-        labelBuilder: _pretty,
-        onChanged: (value) {
-          setState(() => _serviceCategory = value);
-        },
       ),
-      _label('Job Description *'),
-      _field(
-        _description,
-        'Describe the mission scope, site conditions, and expected deliverables...',
-        lines: 5,
-      ),
-    ],
-  );
+    );
+  }
 
   // ==========================================================================
   // STEP 2
   // ==========================================================================
 
-  Widget _locationStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stepHeader(
-        'Location',
-        'Specify where the job will take place.',
+  Widget _locationStep() {
+    return _sectionCard(
+      icon: Icons.location_on_outlined,
+      title: 'Location',
+      subtitle: 'Where the mission takes place',
+      child: Column(
+        children: [
+          _label('Country *'),
+          _field(
+            _country,
+            'United States',
+            prefixIcon: Icons.public_rounded,
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    _label('State'),
+                    _field(
+                      _state,
+                      'California',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  children: [
+                    _label('City'),
+                    _field(
+                      _city,
+                      'Los Angeles',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          _label('Region / area'),
+          _field(
+            _region,
+            'Downtown, industrial zone...',
+            prefixIcon: Icons.map_outlined,
+          ),
+        ],
       ),
-      _label('Country *'),
-      _field(_country, 'e.g. United States'),
-      _label('State (optional)'),
-      _field(_state, 'e.g. California'),
-      _label('City (optional)'),
-      _field(_city, 'e.g. Los Angeles'),
-      _label('Region / Area (optional)'),
-      _field(_region, 'e.g. Downtown, Industrial Zone'),
-    ],
-  );
+    );
+  }
 
   // ==========================================================================
   // STEP 3
   // ==========================================================================
 
-  Widget _scheduleStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stepHeader(
-        'Schedule',
-        'Choose the job start and end dates.',
+  Widget _scheduleStep() {
+    return _sectionCard(
+      icon: Icons.calendar_month_outlined,
+      title: 'Schedule',
+      subtitle: 'Mission date range',
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _dateBox(
+                  label: 'Start',
+                  date: _startDate,
+                  onTap: _pickStartDate,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _dateBox(
+                  label: 'End',
+                  date: _endDate,
+                  onTap: _pickEndDate,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _infoStrip(
+            icon: Icons.info_outline_rounded,
+            text:
+            'Choose an end date that is the same as or later than the start date.',
+          ),
+        ],
       ),
-      _label('Start Date *'),
-      _dateBox(
-        date: _startDate,
-        hint: 'Select start date',
-        onTap: _pickStartDate,
-      ),
-      _label('End Date *'),
-      _dateBox(
-        date: _endDate,
-        hint: 'Select end date',
-        onTap: _pickEndDate,
-      ),
-    ],
-  );
+    );
+  }
 
   // ==========================================================================
   // STEP 4
   // ==========================================================================
 
-  Widget _requirementsStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stepHeader(
-        'Requirements',
-        'Add optional drone and pilot requirements.',
-      ),
-      _label('Drone Size'),
-      _select(
-        value: _droneSize,
-        items: const [
-          'small',
-          'medium',
-          'large',
-          'custom',
-          'specific',
+  Widget _requirementsStep() {
+    return _sectionCard(
+      icon: Icons.flight_outlined,
+      title: 'Requirements',
+      subtitle: 'Drone and pilot requirements',
+      child: Column(
+        children: [
+          _label('Drone size'),
+          _select(
+            value: _droneSize,
+            items: const [
+              'small',
+              'medium',
+              'large',
+              'custom',
+              'specific',
+            ],
+            labelBuilder: _droneSizeLabel,
+            onChanged: _onDroneSizeChanged,
+          ),
+          const SizedBox(height: 7),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Choose Custom dimensions when you need an exact physical size.',
+              style: TextStyle(
+                color: AppColors.grey,
+                fontSize: 10.8,
+                height: 1.4,
+              ),
+            ),
+          ),
+          if (_droneSize == 'custom') ...[
+            const SizedBox(height: 11),
+            _customDroneSizeCard(),
+          ],
+          _label('Required experience'),
+          _select(
+            value: _requiredExperience,
+            items: const [
+              '1+ year',
+              '2+ years',
+              '3+ years',
+              '5+ years',
+              '10+ years',
+            ],
+            onChanged: (value) {
+              setState(() => _requiredExperience = value);
+            },
+          ),
+          _label('Required capabilities'),
+          _chips(
+            items: const [
+              'Thermal Camera',
+              'RTK',
+              'Zoom',
+              'LiDAR',
+              'Multispectral',
+              'Night Vision',
+              'Spotlight',
+              'Winch',
+            ],
+            selected: _requiredCapabilities,
+            onChanged: (items) {
+              setState(() {
+                _requiredCapabilities
+                  ..clear()
+                  ..addAll(items);
+              });
+            },
+          ),
+          _label('Required certifications'),
+          _chips(
+            items: const [
+              'Part 107 (US)',
+              'CAA (UK)',
+              'EASA (EU)',
+              'Transport Canada',
+              'Other',
+            ],
+            selected: _requiredCertifications,
+            onChanged: (items) {
+              setState(() {
+                _requiredCertifications
+                  ..clear()
+                  ..addAll(items);
+              });
+            },
+          ),
+          const SizedBox(height: 14),
+          _toggle(
+            icon: Icons.health_and_safety_outlined,
+            title: 'Safety training',
+            subtitle: 'Pilot must have completed safety training',
+            value: _safetyTrainingRequired,
+            onChanged: (value) {
+              setState(() => _safetyTrainingRequired = value);
+            },
+          ),
+          const SizedBox(height: 9),
+          _toggle(
+            icon: Icons.lock_outline_rounded,
+            title: 'NDA required',
+            subtitle: 'Pilot must agree to an NDA for this job',
+            value: _ndaRequired,
+            onChanged: (value) {
+              setState(() => _ndaRequired = value);
+            },
+          ),
+          _label('Other requirements'),
+          _field(
+            _requirementsNotes,
+            'Additional requirements or notes...',
+            lines: 4,
+            prefixIcon: Icons.fact_check_outlined,
+          ),
         ],
-        labelBuilder: _pretty,
-        onChanged: (value) {
-          setState(() => _droneSize = value);
-        },
       ),
-      _label('Required Capabilities'),
-      _chips(
-        items: const [
-          'Thermal Camera',
-          'RTK',
-          'Zoom',
-          'LiDAR',
-          'Multispectral',
-          'Night Vision',
-          'Spotlight',
-          'Winch',
-        ],
-        selectedItems: _requiredCapabilities,
-        onChanged: (items) {
-          setState(() {
-            _requiredCapabilities
-              ..clear()
-              ..addAll(items);
-          });
-        },
-      ),
-      _label('Required Experience'),
-      _select(
-        value: _requiredExperience,
-        items: const [
-          '1+ year',
-          '2+ years',
-          '3+ years',
-          '5+ years',
-          '10+ years',
-        ],
-        onChanged: (value) {
-          setState(() => _requiredExperience = value);
-        },
-      ),
-      _label('Required Certifications'),
-      _chips(
-        items: const [
-          'Part 107 (US)',
-          'CAA (UK)',
-          'EASA (EU)',
-          'Transport Canada',
-          'Other',
-        ],
-        selectedItems: _requiredCertifications,
-        onChanged: (items) {
-          setState(() {
-            _requiredCertifications
-              ..clear()
-              ..addAll(items);
-          });
-        },
-      ),
-      const SizedBox(height: 22),
-      _toggle(
-        'Safety Training Required',
-        'Pilot must have completed safety training',
-        _safetyTrainingRequired,
-            (value) {
-          setState(() => _safetyTrainingRequired = value);
-        },
-      ),
-      const SizedBox(height: 10),
-      _toggle(
-        'NDA Required',
-        'Pilot must agree to an NDA for this job',
-        _ndaRequired,
-            (value) {
-          setState(() => _ndaRequired = value);
-        },
-      ),
-      _label('Other Requirements'),
-      _field(
-        _requirementsNotes,
-        'Any additional requirements or notes...',
-        lines: 4,
-      ),
-    ],
-  );
+    );
+  }
 
   // ==========================================================================
   // STEP 5
   // ==========================================================================
 
-  Widget _budgetStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stepHeader(
-        'Budget',
-        'Set the payment details for this job.',
-      ),
-      _label('Payment Type *'),
-      _select(
-        value: _paymentType,
-        items: const [
-          'fixed',
-          'hourly',
-          'daily',
-          'negotiable',
-        ],
-        labelBuilder: _pretty,
-        onChanged: (value) {
-          if (value == null) return;
+  Widget _budgetStep() {
+    return _sectionCard(
+      icon: Icons.payments_outlined,
+      title: 'Budget',
+      subtitle: 'Payment structure and range',
+      child: Column(
+        children: [
+          _label('Payment type *'),
+          _select(
+            value: _paymentType,
+            items: const [
+              'fixed',
+              'hourly',
+              'daily',
+              'negotiable',
+            ],
+            labelBuilder: _pretty,
+            onChanged: (value) {
+              if (value == null) return;
 
-          setState(() {
-            _paymentType = value;
+              setState(() {
+                _paymentType = value;
 
-            if (value == 'negotiable') {
-              _paymentMin.clear();
-              _paymentMax.clear();
-            }
-          });
-        },
-      ),
-      if (_paymentType != 'negotiable') ...[
-        _label('Minimum Payment *'),
-        _field(
-          _paymentMin,
-          'e.g. 500',
-          type: const TextInputType.numberWithOptions(
-            decimal: true,
+                if (value == 'negotiable') {
+                  _paymentMin.clear();
+                  _paymentMax.clear();
+                }
+              });
+            },
           ),
-        ),
-        _label('Maximum Payment (optional)'),
-        _field(
-          _paymentMax,
-          'e.g. 800',
-          type: const TextInputType.numberWithOptions(
-            decimal: true,
-          ),
-        ),
-      ] else ...[
-        const SizedBox(height: 20),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.blueBg,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Text(
-            'Payment amount can be empty for a negotiable job.',
-            style: TextStyle(
-              color: AppColors.navy,
-              fontSize: 12.5,
+          if (_paymentType != 'negotiable') ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      _label('Minimum *'),
+                      _field(
+                        _paymentMin,
+                        '500',
+                        type: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        prefixText: '\$',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _label('Maximum'),
+                      _field(
+                        _paymentMax,
+                        '800',
+                        type: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        prefixText: '\$',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
-      ],
-    ],
-  );
+          ] else ...[
+            const SizedBox(height: 12),
+            _infoStrip(
+              icon: Icons.handshake_outlined,
+              text:
+              'No payment amount is required for a negotiable job.',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   // ==========================================================================
   // STEP 6
   // ==========================================================================
 
-  Widget _attachmentsStep() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stepHeader(
-        'Attachments & Publish',
-        'Add up to 10 optional files, then save as Draft or publish now.',
-      ),
-      _label('Attachments (optional)'),
-      SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: OutlinedButton.icon(
-          onPressed: _submitting ? null : _pickAttachments,
-          icon: const Icon(Icons.attach_file_rounded),
-          label: Text(
-            _attachments.isEmpty ? 'Choose Files' : 'Add More Files',
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.blue,
-            side: const BorderSide(color: AppColors.cardBorder),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+  Widget _attachmentsStep() {
+    return Column(
+      children: [
+        _sectionCard(
+          icon: Icons.attach_file_rounded,
+          title: 'Attachments',
+          subtitle: 'Optional mission files',
+          child: Column(
+            children: [
+              const SizedBox(height: 9),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: _submitting ? null : _pickAttachments,
+                  icon: const Icon(
+                    Icons.attach_file_rounded,
+                    size: 17,
+                  ),
+                  label: Text(
+                    _attachments.isEmpty
+                        ? 'Choose files'
+                        : 'Add more files',
+                    style: const TextStyle(
+                      fontSize: 11.8,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.blue,
+                    backgroundColor: AppColors.bg,
+                    side: const BorderSide(
+                      color: AppColors.cardBorder,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              if (_attachments.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ...List.generate(
+                  _attachments.length,
+                      (index) {
+                    final file = _attachments[index];
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.fromLTRB(
+                        10,
+                        9,
+                        7,
+                        9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                          color: AppColors.cardBorder,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 31,
+                            height: 31,
+                            decoration: BoxDecoration(
+                              color: AppColors.blueBg,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: const Icon(
+                              Icons.insert_drive_file_outlined,
+                              color: AppColors.blue,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              file.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.navy,
+                                fontSize: 10.8,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _submitting
+                                ? null
+                                : () {
+                              setState(
+                                    () => _attachments.removeAt(index),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 17,
+                              color: AppColors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ],
           ),
         ),
-      ),
-      if (_attachments.isNotEmpty) ...[
-        const SizedBox(height: 14),
-        ...List.generate(
-          _attachments.length,
-              (index) {
-            final file = _attachments[index];
+        const SizedBox(height: 13),
+        _jobSummaryCard(),
+      ],
+    );
+  }
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 9),
-              padding: const EdgeInsets.all(12),
+  Widget _jobSummaryCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(15, 14, 15, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.022),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.fact_check_outlined,
+                color: AppColors.blue,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Job summary',
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _title.text.trim().isEmpty
+                ? 'Untitled job'
+                : _title.text.trim(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.navy,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            _locationPreview().isEmpty
+                ? 'Location not specified'
+                : _locationPreview(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.6,
+            ),
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              Expanded(
+                child: _previewMetric(
+                  'Payment',
+                  _paymentPreview(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _previewMetric(
+                  'Start',
+                  _formatDate(_startDate),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _previewMetric(
+                  'End',
+                  _formatDate(_endDate),
+                ),
+              ),
+            ],
+          ),
+          if (_droneSizePayload() != null) ...[
+            const SizedBox(height: 11),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 8,
+              ),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.cardBorder),
+                color: AppColors.blueBg,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   const Icon(
-                    Icons.insert_drive_file_outlined,
+                    Icons.flight_outlined,
                     color: AppColors.blue,
+                    size: 15,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 7),
                   Expanded(
                     child: Text(
-                      file.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      _droneSizePayload()!,
                       style: const TextStyle(
                         color: AppColors.navy,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 10.3,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _submitting
-                        ? null
-                        : () {
-                      setState(
-                            () => _attachments.removeAt(index),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      size: 18,
                     ),
                   ),
                 ],
               ),
-            );
-          },
-        ),
-      ],
-      const SizedBox(height: 24),
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Job Summary',
-              style: TextStyle(
-                color: AppColors.navy,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _title.text.trim(),
-              style: const TextStyle(
-                color: AppColors.navy,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _locationPreview(),
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _previewMetric(
-                    'Payment',
-                    _paymentPreview(),
-                  ),
-                ),
-                Expanded(
-                  child: _previewMetric(
-                    'Start',
-                    _formatDate(_startDate),
-                  ),
-                ),
-                Expanded(
-                  child: _previewMetric(
-                    'End',
-                    _formatDate(_endDate),
-                  ),
-                ),
-              ],
             ),
           ],
-        ),
+        ],
       ),
-    ],
-  );
+    );
+  }
 
   // ==========================================================================
-  // BOTTOM BUTTONS
+  // BOTTOM BAR
   // ==========================================================================
 
-  Widget _bottomButton() {
-    if (_step != 5) {
-      return SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: FilledButton(
-          onPressed: _submitting ? null : _next,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.blue,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ),
-          child: const Text(
-            'Next',
-            style: TextStyle(fontWeight: FontWeight.w800),
+  Widget _bottomBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 11, 20, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(
+          top: BorderSide(
+            color: AppColors.cardBorder,
           ),
         ),
-      );
-    }
-
-    return SizedBox(
-      height: 52,
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _submitting ? null : _saveAsDraft,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.navy,
-                side: const BorderSide(color: AppColors.cardBorder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              child: _submitting && !_publishingNow
-                  ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                ),
-              )
-                  : const Text(
-                'Save as Draft',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: FilledButton(
-              onPressed: _submitting ? null : _publishJob,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              child: _submitting && _publishingNow
-                  ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: Colors.white,
-                ),
-              )
-                  : const Text(
-                'Publish Job',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.045),
+            blurRadius: 18,
+            offset: const Offset(0, -5),
           ),
         ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: _step == 5
+            ? SizedBox(
+          height: 50,
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed:
+                  _submitting ? null : _saveAsDraft,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.navy,
+                    side: const BorderSide(
+                      color: AppColors.cardBorder,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _submitting && !_publishingNow
+                      ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
+                    'Save draft',
+                    style: TextStyle(
+                      fontSize: 11.8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed:
+                  _submitting ? null : _publishJob,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.blue,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                    AppColors.blue.withOpacity(0.55),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon: _submitting && _publishingNow
+                      ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Icon(
+                    Icons.publish_rounded,
+                    size: 17,
+                  ),
+                  label: const Text(
+                    'Publish',
+                    style: TextStyle(
+                      fontSize: 11.8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        )
+            : SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: FilledButton.icon(
+            onPressed: _submitting ? null : _next,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            icon: const Icon(
+              Icons.arrow_forward_rounded,
+              size: 17,
+            ),
+            label: const Text(
+              'Continue',
+              style: TextStyle(
+                fontSize: 12.4,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1031,66 +1582,648 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // UI HELPERS
   // ==========================================================================
 
-  Widget _stepHeader(String title, String subtitle) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.navy,
-          fontSize: 24,
-          fontWeight: FontWeight.w800,
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(15, 14, 15, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.cardBorder,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.022),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      const SizedBox(height: 7),
-      Text(
-        subtitle,
-        style: const TextStyle(
-          color: AppColors.grey,
-          fontSize: 13.5,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 35,
+                height: 35,
+                decoration: BoxDecoration(
+                  color: AppColors.blueBg,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.blue,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          child,
+        ],
       ),
-      const SizedBox(height: 23),
-    ],
-  );
+    );
+  }
 
-  Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, top: 17),
-    child: Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.navy,
-        fontSize: 13.5,
-        fontWeight: FontWeight.w700,
+  Widget _label(String text) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          top: 13,
+          bottom: 7,
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 11.8,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _field(
       TextEditingController controller,
       String hint, {
         int lines = 1,
         TextInputType type = TextInputType.text,
-      }) =>
-      TextField(
-        controller: controller,
-        minLines: lines,
-        maxLines: lines,
-        keyboardType: type,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
-            color: AppColors.lightGrey,
-            fontSize: 13,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.all(14),
-          border: _border(AppColors.cardBorder),
-          enabledBorder: _border(AppColors.cardBorder),
-          focusedBorder: _border(AppColors.blue, width: 1.3),
+        IconData? prefixIcon,
+        String? prefixText,
+      }) {
+    return TextField(
+      controller: controller,
+      minLines: lines,
+      maxLines: lines,
+      keyboardType: type,
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 12.4,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(
+          color: AppColors.lightGrey,
+          fontSize: 11.8,
+          fontWeight: FontWeight.w500,
         ),
-      );
+        prefixIcon: prefixIcon == null
+            ? null
+            : Icon(
+          prefixIcon,
+          color: AppColors.grey,
+          size: 17,
+        ),
+        prefixText: prefixText,
+        prefixStyle: const TextStyle(
+          color: AppColors.navy,
+          fontSize: 12.4,
+          fontWeight: FontWeight.w800,
+        ),
+        filled: true,
+        fillColor: AppColors.bg,
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 13,
+          vertical: lines > 1 ? 13 : 12,
+        ),
+        border: _border(AppColors.cardBorder),
+        enabledBorder: _border(AppColors.cardBorder),
+        focusedBorder: _border(
+          AppColors.blue,
+          width: 1.25,
+        ),
+      ),
+    );
+  }
+
+  Widget _select({
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    String Function(String value)? labelBuilder,
+  }) {
+    final safeValue =
+    value != null && items.contains(value) ? value : null;
+
+    return DropdownButtonFormField<String>(
+      value: safeValue,
+      isExpanded: true,
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppColors.grey,
+      ),
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 12.4,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: AppColors.bg,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 13,
+          vertical: 10,
+        ),
+        border: _border(AppColors.cardBorder),
+        enabledBorder: _border(AppColors.cardBorder),
+        focusedBorder: _border(
+          AppColors.blue,
+          width: 1.25,
+        ),
+      ),
+      hint: const Text(
+        'Select...',
+        style: TextStyle(
+          color: AppColors.lightGrey,
+          fontSize: 11.8,
+        ),
+      ),
+      items: items
+          .map(
+            (item) => DropdownMenuItem<String>(
+          value: item,
+          child: Text(
+            labelBuilder?.call(item) ?? _pretty(item),
+          ),
+        ),
+      )
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _dateBox({
+    required String label,
+    required DateTime? date,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: AppColors.bg,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 11,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: AppColors.cardBorder,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: AppColors.blueBg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.calendar_today_outlined,
+                  color: AppColors.blue,
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      date == null ? 'Select' : _formatDate(date),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: date == null
+                            ? AppColors.lightGrey
+                            : AppColors.navy,
+                        fontSize: 11.3,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chips({
+    required List<String> items,
+    required Set<String> selected,
+    required ValueChanged<Set<String>> onChanged,
+  }) {
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: items.map((item) {
+        final active = selected.contains(item);
+
+        return FilterChip(
+          label: Text(item),
+          selected: active,
+          selectedColor: AppColors.blueBg,
+          checkmarkColor: AppColors.blue,
+          backgroundColor: AppColors.bg,
+          labelStyle: TextStyle(
+            color: active ? AppColors.blue : AppColors.navy,
+            fontSize: 10.7,
+            fontWeight: FontWeight.w700,
+          ),
+          side: BorderSide(
+            color:
+            active ? AppColors.blue : AppColors.cardBorder,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          onSelected: (value) {
+            final updated = Set<String>.from(selected);
+
+            if (value) {
+              updated.add(item);
+            } else {
+              updated.remove(item);
+            }
+
+            onChanged(updated);
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _toggle({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        10,
+        8,
+        10,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color:
+              value ? AppColors.blueBg : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color:
+              value ? AppColors.blue : AppColors.grey,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 11.7,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 9.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Transform.scale(
+            scale: 0.88,
+            child: Switch.adaptive(
+              value: value,
+              activeTrackColor: AppColors.blue,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _customDroneSizeCard() {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.blueBg,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: AppColors.blue.withOpacity(0.13),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.straighten_rounded,
+                size: 16,
+                color: AppColors.blue,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Custom dimensions',
+                style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 12.2,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Length × width are required. Height and maximum weight are optional.',
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.3,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              Expanded(
+                child: _compactMeasureField(
+                  controller: _customDroneLength,
+                  label: 'Length',
+                  suffix: 'cm',
+                  hint: '60',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _compactMeasureField(
+                  controller: _customDroneWidth,
+                  label: 'Width',
+                  suffix: 'cm',
+                  hint: '50',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _compactMeasureField(
+                  controller: _customDroneHeight,
+                  label: 'Height',
+                  suffix: 'cm',
+                  hint: '20',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _compactMeasureField(
+                  controller: _customDroneWeight,
+                  label: 'Max weight',
+                  suffix: 'kg',
+                  hint: '4.5',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          AnimatedBuilder(
+            animation: Listenable.merge([
+              _customDroneLength,
+              _customDroneWidth,
+              _customDroneHeight,
+              _customDroneWeight,
+            ]),
+            builder: (context, _) {
+              final ready = _validCustomDroneSize();
+              final preview =
+              ready ? _droneSizePayload() : null;
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.78),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Text(
+                  preview ??
+                      'Enter length and width to build the API text',
+                  style: TextStyle(
+                    color: ready
+                        ? AppColors.navy
+                        : AppColors.grey,
+                    fontSize: 10.2,
+                    fontWeight: ready
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _compactMeasureField({
+    required TextEditingController controller,
+    required String label,
+    required String suffix,
+    required String hint,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType:
+      const TextInputType.numberWithOptions(
+        decimal: true,
+      ),
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 11.8,
+        fontWeight: FontWeight.w700,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 9.8,
+        ),
+        hintText: hint,
+        hintStyle: const TextStyle(
+          color: AppColors.lightGrey,
+          fontSize: 10.5,
+        ),
+        suffixText: suffix,
+        suffixStyle: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 9.8,
+          fontWeight: FontWeight.w700,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 11,
+        ),
+        border: _border(AppColors.cardBorder),
+        enabledBorder: _border(AppColors.cardBorder),
+        focusedBorder: _border(
+          AppColors.blue,
+          width: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _infoStrip({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.blueBg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: AppColors.blue,
+            size: 17,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppColors.navy,
+                fontSize: 10.7,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _previewMetric(
+      String label,
+      String value,
+      ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.grey,
+            fontSize: 9.7,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 10.8,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
 
   OutlineInputBorder _border(
       Color color, {
@@ -1105,211 +2238,34 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
-  Widget _select({
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-    String Function(String value)? labelBuilder,
-  }) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: value,
-            isExpanded: true,
-            hint: const Text(
-              'Select...',
-              style: TextStyle(
-                color: AppColors.lightGrey,
-                fontSize: 13.5,
-              ),
-            ),
-            items: items
-                .map(
-                  (item) => DropdownMenuItem(
-                value: item,
-                child: Text(
-                  labelBuilder?.call(item) ?? item,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 13.5,
-                  ),
-                ),
-              ),
-            )
-                .toList(),
-            onChanged: onChanged,
-          ),
-        ),
-      );
-
-  Widget _dateBox({
-    required DateTime? date,
-    required String hint,
-    required VoidCallback onTap,
-  }) =>
-      Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 15,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_month_outlined,
-                  size: 20,
-                  color: AppColors.blue,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  date == null ? hint : _formatDate(date),
-                  style: TextStyle(
-                    color: date == null
-                        ? AppColors.lightGrey
-                        : AppColors.navy,
-                    fontSize: 13.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-  Widget _toggle(
-      String title,
-      String subtitle,
-      bool value,
-      ValueChanged<bool> onChanged,
-      ) =>
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.navy,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: AppColors.grey,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch.adaptive(
-              value: value,
-              activeTrackColor: AppColors.blue,
-              onChanged: onChanged,
-            ),
-          ],
-        ),
-      );
-
-  Widget _chips({
-    required List<String> items,
-    required Set<String> selectedItems,
-    required ValueChanged<Set<String>> onChanged,
-  }) =>
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: items.map((item) {
-          final selected = selectedItems.contains(item);
-
-          return FilterChip(
-            label: Text(item),
-            selected: selected,
-            onSelected: (value) {
-              final updated = Set<String>.from(selectedItems);
-
-              if (value) {
-                updated.add(item);
-              } else {
-                updated.remove(item);
-              }
-
-              onChanged(updated);
-            },
-            selectedColor: AppColors.blueBg,
-            checkmarkColor: AppColors.blue,
-            labelStyle: TextStyle(
-              color: selected ? AppColors.blue : AppColors.navy,
-              fontWeight: FontWeight.w700,
-            ),
-            backgroundColor: Colors.white,
-            side: BorderSide(
-              color: selected ? AppColors.blue : AppColors.cardBorder,
-            ),
-          );
-        }).toList(),
-      );
-
-  Widget _previewMetric(String label, String value) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.grey,
-          fontSize: 11.5,
-        ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: AppColors.navy,
-          fontSize: 12.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    ],
-  );
+  String _droneSizeLabel(String value) {
+    switch (value) {
+      case 'small':
+        return 'Small';
+      case 'medium':
+        return 'Medium';
+      case 'large':
+        return 'Large';
+      case 'custom':
+        return 'Custom dimensions';
+      case 'specific':
+        return 'Specific requirement';
+      default:
+        return _pretty(value);
+    }
+  }
 
   String _pretty(String value) {
-    if (value.isEmpty) return value;
+    final clean = value.trim();
 
-    return value
-        .split('_')
+    if (clean.isEmpty) return '';
+
+    return clean
+        .split(RegExp(r'[_\s-]+'))
+        .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-      '${part[0].toUpperCase()}${part.substring(1)}',
+      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
     )
         .join(' ');
   }
@@ -1328,7 +2284,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
       _city.text.trim(),
       _state.text.trim(),
       _country.text.trim(),
-    ].where((value) => value.isNotEmpty);
+    ].where(
+          (value) => value.isNotEmpty,
+    );
 
     return values.join(', ');
   }
@@ -1341,6 +2299,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final min = _paymentMin.text.trim();
     final max = _paymentMax.text.trim();
 
-    return max.isEmpty ? '\$$min' : '\$$min - \$$max';
+    if (min.isEmpty) {
+      return '—';
+    }
+
+    return max.isEmpty
+        ? '\$$min'
+        : '\$$min - \$$max';
   }
 }

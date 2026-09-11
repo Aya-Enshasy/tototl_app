@@ -6,10 +6,11 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
-import '../models/company_create_job_request.dart';
+ import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
 import '../models/company_job_posting_model.dart';
 import '../models/company_update_job_request.dart';
+import '../screens/operations/company_applicant_list_item.dart';
 
 class CompanyJobService {
   final ApiClient apiClient;
@@ -83,6 +84,91 @@ class CompanyJobService {
         _dioErrorMessage(
           e,
           fallback: 'Unable to load company jobs.',
+        ),
+      );
+    }
+  }
+
+
+  // ==========================================================================
+  // ALL COMPANY APPLICATIONS
+  // GET /company/applicants?status=&per_page=&page=
+  // ==========================================================================
+
+  Future<List<CompanyApplicantListItem>> getCompanyApplicants({
+    String? status,
+    int perPage = 50,
+  }) async {
+    final token = await _getToken();
+    final cleanStatus = status?.trim().toLowerCase() ?? '';
+    final safePerPage = perPage.clamp(1, 100).toInt();
+
+    final allApplicants = <CompanyApplicantListItem>[];
+    var page = 1;
+    var lastPage = 1;
+
+    try {
+      do {
+        final query = <String>[
+          if (cleanStatus.isNotEmpty)
+            'status=${Uri.encodeQueryComponent(cleanStatus)}',
+          'per_page=$safePerPage',
+          'page=$page',
+        ].join('&');
+
+        final endpoint = '/company/applicants?$query';
+
+        final response = await apiClient.get(
+          endpoint,
+          options: _authOptions(token),
+        );
+
+        print(
+          'COMPANY APPLICANTS RESPONSE '
+              '[status=${cleanStatus.isEmpty ? 'all' : cleanStatus}, page=$page]: '
+              '${response.data}',
+        );
+
+        final body = _parseBody(response.data);
+        _ensureSuccess(
+          body,
+          fallback: 'Unable to load company applications.',
+        );
+
+        final rawData = body['data'];
+        if (rawData is! List) {
+          throw const CompanyJobException(
+            'Company applications data is missing.',
+          );
+        }
+
+        for (final item in rawData) {
+          if (item is Map) {
+            allApplicants.add(
+              CompanyApplicantListItem.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            );
+          }
+        }
+
+        final rawMeta = body['meta'];
+        if (rawMeta is Map) {
+          final meta = Map<String, dynamic>.from(rawMeta);
+          lastPage = _asInt(meta['last_page']) ?? page;
+        } else {
+          lastPage = page;
+        }
+
+        page++;
+      } while (page <= lastPage);
+
+      return allApplicants;
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to load company applications.',
         ),
       );
     }

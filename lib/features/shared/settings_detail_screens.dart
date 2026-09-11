@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/localization/app_language.dart';
 import '../../core/theme/app_colors.dart';
@@ -29,7 +30,7 @@ class SettingsPage extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.navy,
             fontWeight: FontWeight.w800,
-            fontSize: 18,
+            fontSize: 16,
           ),
         ),
         centerTitle: true,
@@ -497,7 +498,7 @@ class LanguageScreen extends StatelessWidget {
                           secondary: Text(
                             item.$3,
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 16,
                             ),
                           ),
                           activeColor:
@@ -654,7 +655,7 @@ class AboutScreen extends StatelessWidget {
                   'TOTOTL',
                   style: TextStyle(
                     color: AppColors.navy,
-                    fontSize: 23,
+                    fontSize: 16,
                     fontWeight:
                     FontWeight.w900,
                   ),
@@ -715,6 +716,440 @@ class AboutScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ============================================================================
+// COMPANY SUBSCRIPTION
+// ============================================================================
+
+class CompanySubscriptionScreen extends StatelessWidget {
+  const CompanySubscriptionScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsPage(
+      title: 'Subscription',
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF071A35),
+                  Color(0xFF0B4E6E),
+                  Color(0xFF0D8AA5),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(21),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF071A35).withOpacity(.10),
+                  blurRadius: 24,
+                  offset: const Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_outlined,
+                    color: Colors.white,
+                    size: 23,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Company Subscription',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Plan and billing controls will live here.',
+                        style: TextStyle(
+                          color: Color(0xFFD7E8EF),
+                          fontSize: 11.3,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 13),
+          _Card(
+            child: Column(
+              children: const [
+                _SettingsInfoRow(
+                  icon: Icons.layers_outlined,
+                  title: 'Current plan',
+                  value: 'Not available from API yet',
+                ),
+                Divider(color: AppColors.cardBorder),
+                _SettingsInfoRow(
+                  icon: Icons.autorenew_rounded,
+                  title: 'Renewal',
+                  value: 'Will appear when billing is connected',
+                ),
+                Divider(color: AppColors.cardBorder),
+                _SettingsInfoRow(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Billing history',
+                  value: 'No billing API connected yet',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 13),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF9FA),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: const Color(0xFF0FA6B4).withOpacity(.15),
+              ),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xFF078B98),
+                  size: 18,
+                ),
+                SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'The interface is ready, but no subscription endpoint is currently connected. No plan, price, or billing status is being fabricated locally.',
+                    style: TextStyle(
+                      color: Color(0xFF356475),
+                      fontSize: 10.8,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// NOTIFICATION PREFERENCES
+// ============================================================================
+
+class NotificationPreferencesScreen extends StatefulWidget {
+  const NotificationPreferencesScreen({super.key});
+
+  @override
+  State<NotificationPreferencesScreen> createState() =>
+      _NotificationPreferencesScreenState();
+}
+
+class _NotificationPreferencesScreenState
+    extends State<NotificationPreferencesScreen> {
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  bool _loading = true;
+  bool _applications = true;
+  bool _jobs = true;
+  bool _messages = true;
+  bool _account = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final values = await Future.wait([
+        _storage.read(key: 'company_notify_applications'),
+        _storage.read(key: 'company_notify_jobs'),
+        _storage.read(key: 'company_notify_messages'),
+        _storage.read(key: 'company_notify_account'),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _applications = _readBool(values[0], true);
+        _jobs = _readBool(values[1], true);
+        _messages = _readBool(values[2], true);
+        _account = _readBool(values[3], true);
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool _readBool(String? raw, bool fallback) {
+    if (raw == '1') return true;
+    if (raw == '0') return false;
+    return fallback;
+  }
+
+  Future<void> _set(String key, bool value, VoidCallback update) async {
+    update();
+    await _storage.write(key: key, value: value ? '1' : '0');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsPage(
+      title: 'Notifications',
+      child: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+        children: [
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Company alerts',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Choose which activity you want highlighted on this device.',
+                  style: TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 11.2,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _NotificationToggle(
+                  icon: Icons.people_alt_outlined,
+                  title: 'New applications',
+                  subtitle: 'When a pilot applies to one of your jobs',
+                  value: _applications,
+                  onChanged: (value) => _set(
+                    'company_notify_applications',
+                    value,
+                        () => setState(() => _applications = value),
+                  ),
+                ),
+                const Divider(color: AppColors.cardBorder),
+                _NotificationToggle(
+                  icon: Icons.work_outline_rounded,
+                  title: 'Job activity',
+                  subtitle: 'Publishing, closing and job status updates',
+                  value: _jobs,
+                  onChanged: (value) => _set(
+                    'company_notify_jobs',
+                    value,
+                        () => setState(() => _jobs = value),
+                  ),
+                ),
+                const Divider(color: AppColors.cardBorder),
+                _NotificationToggle(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Messages',
+                  subtitle: 'New pilot and mission conversations',
+                  value: _messages,
+                  onChanged: (value) => _set(
+                    'company_notify_messages',
+                    value,
+                        () => setState(() => _messages = value),
+                  ),
+                ),
+                const Divider(color: AppColors.cardBorder),
+                _NotificationToggle(
+                  icon: Icons.security_outlined,
+                  title: 'Account alerts',
+                  subtitle: 'Verification and important account activity',
+                  value: _account,
+                  onChanged: (value) => _set(
+                    'company_notify_account',
+                    value,
+                        () => setState(() => _account = value),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 13),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.blueBg,
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.phone_android_rounded,
+                  color: AppColors.blue,
+                  size: 18,
+                ),
+                SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'These choices are saved locally on this device. Server-side notification preference endpoints can be linked later without changing this screen.',
+                    style: TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 10.8,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationToggle extends StatelessWidget {
+  const _NotificationToggle({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.blueBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppColors.blue, size: 17),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 12.3,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 10.4,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            activeTrackColor: AppColors.blue,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsInfoRow extends StatelessWidget {
+  const _SettingsInfoRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.blue, size: 17),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 12.2,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: AppColors.grey,
+                    fontSize: 10.7,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),

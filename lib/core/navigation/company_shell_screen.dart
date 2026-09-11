@@ -3,8 +3,7 @@ import 'package:tototl_app/features/company/screens/home/company_home_screen.dar
 import 'package:tototl_app/features/company/screens/jobs/company_jobs_screen.dart';
 import 'package:tototl_app/features/company/screens/messages/company_messages_screen.dart';
 import 'package:tototl_app/features/company/screens/operations/company_operations_screen.dart';
-import 'package:tototl_app/features/company/screens/pilots/pilot_search_screen.dart';
-import 'package:tototl_app/features/company/screens/profile/company_profile_screen.dart';
+ import 'package:tototl_app/features/company/screens/profile/company_profile_screen.dart';
 
 import 'app_bottom_nav_bar.dart';
 import '../theme/app_colors.dart';

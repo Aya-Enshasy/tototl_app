@@ -1,7 +1,8 @@
-import '../models/company_create_job_request.dart';
+ import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
 import '../models/company_job_posting_model.dart';
 import '../models/company_update_job_request.dart';
+import '../screens/operations/company_applicant_list_item.dart';
 import '../services/company_job_service.dart';
 
 class CompanyJobController {
@@ -16,6 +17,7 @@ class CompanyJobController {
   bool isLoadingJobs = false;
   bool isLoadingDetail = false;
   bool isLoadingApplicants = false;
+  bool isLoadingCompanyApplicants = false;
   bool isUpdating = false;
   bool isDeleting = false;
   bool isAcceptingApplicant = false;
@@ -24,10 +26,12 @@ class CompanyJobController {
 
   String? errorMessage;
   String? applicantsErrorMessage;
+  String? companyApplicantsErrorMessage;
 
   List<CompanyJobPostingModel> jobs = const [];
   CompanyJobPostingModel? selectedJob;
   List<CompanyJobApplicationModel> applicants = const [];
+  List<CompanyApplicantListItem> companyApplicants = const [];
 
   Future<bool> loadMyJobs() async {
     if (isLoadingJobs) return false;
@@ -43,6 +47,30 @@ class CompanyJobController {
       return false;
     } finally {
       isLoadingJobs = false;
+    }
+  }
+
+
+  Future<bool> loadCompanyApplicants({
+    String? status,
+    int perPage = 50,
+  }) async {
+    if (isLoadingCompanyApplicants) return false;
+
+    isLoadingCompanyApplicants = true;
+    companyApplicantsErrorMessage = null;
+
+    try {
+      companyApplicants = await service.getCompanyApplicants(
+        status: status,
+        perPage: perPage,
+      );
+      return true;
+    } catch (e) {
+      companyApplicantsErrorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingCompanyApplicants = false;
     }
   }
 

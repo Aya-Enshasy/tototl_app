@@ -568,7 +568,7 @@ class _CompanyHeader extends StatelessWidget {
               child: hasPhoto
                   ? Image.network(
                 profilePhotoUrl.trim(),
-                fit: BoxFit.cover,
+                fit: BoxFit.fill,
                 errorBuilder: (_, __, ___) => _CompanyAvatarFallback(
                   companyName: companyName,
                 ),

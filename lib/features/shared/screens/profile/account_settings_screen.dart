@@ -8,17 +8,12 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/login/login_screen.dart';
 import 'package:tototl_app/features/auth/services/auth_service.dart';
-
 import 'package:tototl_app/features/company/screens/profile/company_edit_profile_screen.dart';
 import 'package:tototl_app/features/pilot/screens/profile/pilot_edit_profile_screen.dart';
 
 import '../../controllers/logout_controller.dart';
 import '../../services/logout_service.dart';
 import '../../settings_detail_screens.dart';
-
-// ============================================================================
-// ACCOUNT SETTINGS SCREEN
-// ============================================================================
 
 class AccountSettingsScreen extends StatefulWidget {
   const AccountSettingsScreen({
@@ -29,8 +24,7 @@ class AccountSettingsScreen extends StatefulWidget {
   final bool isCompany;
 
   @override
-  State<AccountSettingsScreen> createState() =>
-      _AccountSettingsScreenState();
+  State<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
 }
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
@@ -45,71 +39,34 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   @override
   void initState() {
     super.initState();
-
     _apiClient = ApiClient();
-
-    _logoutService = LogoutService(
-      _apiClient,
-    );
-
-    _logoutController = LogoutController(
-      _logoutService,
-    );
-
-    _authService = AuthService(
-      _apiClient,
-    );
-
-    _authController = AuthController(
-      _authService,
-    );
+    _logoutService = LogoutService(_apiClient);
+    _logoutController = LogoutController(_logoutService);
+    _authService = AuthService(_apiClient);
+    _authController = AuthController(_authService);
   }
-
-  // ==========================================================================
-  // UPDATE PROFILE
-  // ==========================================================================
 
   Future<void> _openUpdateProfile() async {
     HapticFeedback.selectionClick();
-
-    if (widget.isCompany) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const CompanyEditProfileScreen(),
-        ),
-      );
-      return;
-    }
-
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PilotEditProfileScreen(),
+        builder: (_) => widget.isCompany
+            ? const CompanyEditProfileScreen()
+            : const PilotEditProfileScreen(),
       ),
     );
   }
-
-  // ==========================================================================
-  // NAVIGATION
-  // ==========================================================================
 
   void _go(Widget screen) {
     HapticFeedback.selectionClick();
-
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => screen,
-      ),
+      MaterialPageRoute(builder: (_) => screen),
     );
   }
 
-  // ==========================================================================
-  // LOGOUT CONFIRMATION
-  // ==========================================================================
-
   Future<void> _confirmLogout() async {
     if (_loggingOut) return;
-
     HapticFeedback.selectionClick();
 
     final confirmed = await showModalBottomSheet<bool>(
@@ -121,18 +78,16 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
           top: false,
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: AppColors.cardBorder,
-              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.cardBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 28,
-                  offset: const Offset(0, 12),
+                  color: Colors.black.withOpacity(.08),
+                  blurRadius: 26,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -140,104 +95,86 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 42,
+                  width: 40,
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.cardBorder,
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 17),
                 Container(
-                  width: 58,
-                  height: 58,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFEEEE),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(17),
                   ),
                   child: const Icon(
                     Icons.logout_rounded,
                     color: Color(0xFFD94A4A),
-                    size: 26,
+                    size: 23,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Text(
                   _logoutTitle(),
-                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.navy,
-                    fontSize: 19,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 7),
+                const SizedBox(height: 6),
                 Text(
                   _logoutMessage(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.grey,
-                    fontSize: 12,
+                    fontSize: 11.5,
                     height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pop(
-                            sheetContext,
-                            false,
-                          );
-                        },
+                        onPressed: () => Navigator.pop(sheetContext, false),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.navy,
-                          side: const BorderSide(
-                            color: AppColors.cardBorder,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                          ),
+                          side: const BorderSide(color: AppColors.cardBorder),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: Text(
                           _cancelLabel(),
                           style: const TextStyle(
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () {
-                          Navigator.pop(
-                            sheetContext,
-                            true,
-                          );
-                        },
+                        onPressed: () => Navigator.pop(sheetContext, true),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFFD94A4A),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          size: 17,
-                        ),
+                        icon: const Icon(Icons.logout_rounded, size: 16),
                         label: Text(
                           _logoutLabel(),
                           style: const TextStyle(
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -252,64 +189,41 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       },
     );
 
-    if (confirmed != true) return;
-
-    await _logout();
+    if (confirmed == true) await _logout();
   }
-
-  // ==========================================================================
-  // LOGOUT
-  // ==========================================================================
 
   Future<void> _logout() async {
     if (_loggingOut) return;
-
-    setState(() {
-      _loggingOut = true;
-    });
+    setState(() => _loggingOut = true);
 
     final success = await _logoutController.logout();
-
     if (!mounted) return;
 
     if (!success) {
-      setState(() {
-        _loggingOut = false;
-      });
-
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFFD94A4A),
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+      setState(() => _loggingOut = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFD94A4A),
+            content: Text(
+              _logoutController.errorMessage ?? 'Unable to sign out.',
+              style: const TextStyle(fontSize: 12.5),
+            ),
           ),
-          content: Text(
-            _logoutController.errorMessage ?? 'Unable to sign out.',
-          ),
-        ),
-      );
-
+        );
       return;
     }
 
     HapticFeedback.mediumImpact();
-
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => LoginScreen(
-          authController: _authController,
-        ),
+        builder: (_) => LoginScreen(authController: _authController),
       ),
           (route) => false,
     );
   }
-
-  // ==========================================================================
-  // BUILD
-  // ==========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -329,16 +243,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   AppLanguage.t('settings'),
                   style: const TextStyle(
                     color: AppColors.navy,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 leading: IconButton(
-                  onPressed: _loggingOut
-                      ? null
-                      : () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: _loggingOut ? null : () => Navigator.pop(context),
                   icon: const Icon(
                     Icons.arrow_back_ios_new_rounded,
                     size: 18,
@@ -348,15 +258,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               body: SafeArea(
                 child: ListView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
-                    18,
-                    8,
-                    18,
-                    34,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 6, 18, 34),
                   children: [
-
-
                     _SectionCard(
                       title: AppLanguage.t('profile'),
                       subtitle: _profileSectionSubtitle(locale),
@@ -371,39 +274,66 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         onTap: _openUpdateProfile,
                       ),
                     ),
-                    const SizedBox(height: 14),
-
+                    if (widget.isCompany) ...[
+                      const SizedBox(height: 12),
+                      _SectionCard(
+                        title: _companyToolsTitle(locale),
+                        subtitle: _companyToolsSubtitle(locale),
+                        child: Column(
+                          children: [
+                            _SettingsRow(
+                              icon: Icons.workspace_premium_outlined,
+                              title: _subscriptionTitle(locale),
+                              subtitle: _subscriptionSubtitle(locale),
+                              onTap: () => _go(
+                                const CompanySubscriptionScreen(),
+                              ),
+                              accentColor: const Color(0xFF8B65D6),
+                              accentBackground: const Color(0xFFF3EEFF),
+                            ),
+                            const _SoftDivider(),
+                            _SettingsRow(
+                              icon: Icons.notifications_none_rounded,
+                              title: _notificationsTitle(locale),
+                              subtitle: _notificationsSubtitle(locale),
+                              onTap: () => _go(
+                                const NotificationPreferencesScreen(),
+                              ),
+                              accentColor: const Color(0xFFE59519),
+                              accentBackground: const Color(0xFFFFF6E7),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     _SectionCard(
-                      title: _accountSecurityTitle(locale),
-                      subtitle: _accountSecuritySubtitle(locale),
+                      title: _preferencesTitle(locale),
+                      subtitle: _preferencesSubtitle(locale),
                       child: Column(
                         children: [
-                          _SettingsRow(
-                            icon: Icons.lock_outline_rounded,
-                            title: AppLanguage.t('changePassword'),
-                            subtitle: _passwordSubtitle(locale),
-                            onTap: () => _go(
-                              const ChangePasswordScreen(),
-                            ),
-                          ),
-                          const _SoftDivider(),
                           _SettingsRow(
                             icon: Icons.language_rounded,
                             title: AppLanguage.t('language'),
                             subtitle: {
                               'ar': 'العربية',
                               'de': 'Deutsch',
-                            }[locale.languageCode] ??
-                                'English',
-                            onTap: () => _go(
-                              const LanguageScreen(),
-                            ),
+                            }[locale.languageCode] ?? 'English',
+                            onTap: () => _go(const LanguageScreen()),
+                          ),
+                          const _SoftDivider(),
+                          _SettingsRow(
+                            icon: Icons.shield_outlined,
+                            title: AppLanguage.t('privacy'),
+                            subtitle: _privacySubtitle(locale),
+                            onTap: () => _go(const PrivacyScreen()),
+                            accentColor: const Color(0xFF0FA6B4),
+                            accentBackground: const Color(0xFFEAF9FA),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-
+                    const SizedBox(height: 12),
                     _SectionCard(
                       title: _legalSectionTitle(locale),
                       subtitle: _legalSectionSubtitle(locale),
@@ -411,15 +341,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         icon: Icons.gavel_rounded,
                         title: _termsPrivacyTitle(locale),
                         subtitle: _termsPrivacySubtitle(locale),
-                        onTap: () => _go(
-                          TermsPrivacyScreen(locale: locale),
-                        ),
+                        onTap: () => _go(TermsPrivacyScreen(locale: locale)),
                         accentColor: const Color(0xFF0FA6B4),
                         accentBackground: const Color(0xFFEAF9FA),
                       ),
                     ),
-                    const SizedBox(height: 14),
-
+                    const SizedBox(height: 12),
                     _SectionCard(
                       title: AppLanguage.t('about'),
                       subtitle: _aboutSectionSubtitle(locale),
@@ -427,13 +354,10 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         icon: Icons.info_outline_rounded,
                         title: AppLanguage.t('about'),
                         subtitle: 'TOTOTL INTGRX · 1.0.0',
-                        onTap: () => _go(
-                          const AboutScreen(),
-                        ),
+                        onTap: () => _go(const AboutScreen()),
                       ),
                     ),
-                    const SizedBox(height: 14),
-
+                    const SizedBox(height: 12),
                     _SectionCard(
                       title: _sessionLabel(locale),
                       subtitle: _sessionSectionSubtitle(locale),
@@ -447,7 +371,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ),
               ),
             ),
-
             if (_loggingOut) ...[
               const Positioned.fill(
                 child: ModalBarrier(
@@ -460,57 +383,30 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   child: Material(
                     color: Colors.transparent,
                     child: Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 170,
-                        maxWidth: 230,
-                      ),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 17,
+                        horizontal: 18,
+                        vertical: 15,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: AppColors.cardBorder,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 22,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                        borderRadius: BorderRadius.circular(17),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEAF9FA),
-                              borderRadius: BorderRadius.circular(11),
-                            ),
-                            child: const Icon(
-                              Icons.hourglass_top_rounded,
-                              color: Color(0xFF078B98),
-                              size: 18,
-                            ),
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          const SizedBox(width: 12),
-                          Flexible(
-                            child: Text(
-                              _signingOutLabel(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.navy,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                                decoration: TextDecoration.none,
-                              ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _signingOutLabel(),
+                            style: const TextStyle(
+                              color: AppColors.navy,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -527,73 +423,86 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   String _logoutLabel() {
-    final code = AppLanguage.locale.value.languageCode;
-
-    switch (code) {
-      case 'ar':
-        return 'تسجيل الخروج';
-      case 'de':
-        return 'Abmelden';
-      default:
-        return 'Log out';
+    switch (AppLanguage.locale.value.languageCode) {
+      case 'ar': return 'تسجيل الخروج';
+      case 'de': return 'Abmelden';
+      default: return 'Log out';
     }
   }
 
   String _logoutTitle() {
-    final code = AppLanguage.locale.value.languageCode;
-
-    switch (code) {
-      case 'ar':
-        return 'تسجيل الخروج؟';
-      case 'de':
-        return 'Abmelden?';
-      default:
-        return 'Log out?';
+    switch (AppLanguage.locale.value.languageCode) {
+      case 'ar': return 'تسجيل الخروج؟';
+      case 'de': return 'Abmelden?';
+      default: return 'Log out?';
     }
   }
 
   String _logoutMessage() {
-    final code = AppLanguage.locale.value.languageCode;
-
-    switch (code) {
-      case 'ar':
-        return 'سيتم إنهاء الجلسة الحالية وإعادتك إلى شاشة تسجيل الدخول.';
-      case 'de':
-        return 'Deine aktuelle Sitzung wird beendet und du wirst zur Anmeldung zurückgebracht.';
-      default:
-        return 'Your current session will end and you will return to the sign-in screen.';
+    switch (AppLanguage.locale.value.languageCode) {
+      case 'ar': return 'سيتم إنهاء الجلسة الحالية وإعادتك إلى شاشة تسجيل الدخول.';
+      case 'de': return 'Deine aktuelle Sitzung wird beendet und du wirst zur Anmeldung zurückgebracht.';
+      default: return 'Your current session will end and you will return to the sign-in screen.';
     }
   }
 
   String _cancelLabel() {
-    final code = AppLanguage.locale.value.languageCode;
-
-    switch (code) {
-      case 'ar':
-        return 'إلغاء';
-      case 'de':
-        return 'Abbrechen';
-      default:
-        return 'Cancel';
+    switch (AppLanguage.locale.value.languageCode) {
+      case 'ar': return 'إلغاء';
+      case 'de': return 'Abbrechen';
+      default: return 'Cancel';
     }
   }
 
   String _signingOutLabel() {
-    final code = AppLanguage.locale.value.languageCode;
-
-    switch (code) {
-      case 'ar':
-        return 'جارٍ تسجيل الخروج...';
-      case 'de':
-        return 'Abmeldung...';
-      default:
-        return 'Signing out...';
+    switch (AppLanguage.locale.value.languageCode) {
+      case 'ar': return 'جارٍ تسجيل الخروج...';
+      case 'de': return 'Abmeldung...';
+      default: return 'Signing out...';
     }
   }
 }
 
-// ============================================================================
-// TERMS & PRIVACY SCREEN
+String _companyToolsTitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'إعدادات الشركة',
+  'de' => 'Unternehmenseinstellungen',
+  _ => 'Company Settings',
+};
+String _companyToolsSubtitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'الاشتراك والتنبيهات الخاصة بحساب الشركة.',
+  'de' => 'Abonnement und Benachrichtigungen verwalten.',
+  _ => 'Manage subscription and company notifications.',
+};
+String _subscriptionTitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'الاشتراك', 'de' => 'Abonnement', _ => 'Subscription',
+};
+String _subscriptionSubtitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'الخطة والفوترة والتجديد',
+  'de' => 'Plan, Abrechnung und Verlängerung',
+  _ => 'Plan, billing and renewal',
+};
+String _notificationsTitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'الإشعارات', 'de' => 'Benachrichtigungen', _ => 'Notifications',
+};
+String _notificationsSubtitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'طلبات التقديم والوظائف والرسائل',
+  'de' => 'Bewerbungen, Aufträge und Nachrichten',
+  _ => 'Applications, jobs and messages',
+};
+String _preferencesTitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'التفضيلات', 'de' => 'Einstellungen', _ => 'Preferences',
+};
+String _preferencesSubtitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'اللغة والخصوصية.',
+  'de' => 'Sprache und Datenschutz.',
+  _ => 'Language and privacy controls.',
+};
+String _privacySubtitle(Locale locale) => switch (locale.languageCode) {
+  'ar' => 'التحكم بظهور معلومات حسابك',
+  'de' => 'Sichtbarkeit deiner Kontodaten steuern',
+  _ => 'Control account information visibility',
+};
+
 // ============================================================================
 
 class TermsPrivacyScreen extends StatelessWidget {
@@ -619,7 +528,7 @@ class TermsPrivacyScreen extends StatelessWidget {
           _termsPrivacyTitle(locale),
           style: const TextStyle(
             color: AppColors.navy,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -685,7 +594,7 @@ class TermsPrivacyScreen extends StatelessWidget {
                           content.heroTitle,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 17,
+                            fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
