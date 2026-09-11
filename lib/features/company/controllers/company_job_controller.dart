@@ -11,6 +11,8 @@ class CompanyJobController {
 
   bool isCreating = false;
   bool isPublishing = false;
+  bool isClosing = false;
+  bool isCancelling = false;
   bool isLoadingJobs = false;
   bool isLoadingDetail = false;
   bool isLoadingApplicants = false;
@@ -79,12 +81,11 @@ class CompanyJobController {
     }
   }
 
-Future<CompanyJobApplicationModel?> acceptApplicant({
+  Future<CompanyJobApplicationModel?> acceptApplicant({
     required int jobId,
     required CompanyJobApplicationModel application,
   }) async {
-    if (isAcceptingApplicant ||
-        isRejectingApplicant) {
+    if (isAcceptingApplicant || isRejectingApplicant) {
       return null;
     }
 
@@ -93,8 +94,7 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
     applicantsErrorMessage = null;
 
     try {
-      final updated =
-          await service.acceptApplicant(
+      final updated = await service.acceptApplicant(
         jobId: jobId,
         applicationId: application.id,
       );
@@ -121,8 +121,7 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
     required CompanyJobApplicationModel application,
     String? reason,
   }) async {
-    if (isAcceptingApplicant ||
-        isRejectingApplicant) {
+    if (isAcceptingApplicant || isRejectingApplicant) {
       return null;
     }
 
@@ -131,8 +130,7 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
     applicantsErrorMessage = null;
 
     try {
-      final updated =
-          await service.rejectApplicant(
+      final updated = await service.rejectApplicant(
         jobId: jobId,
         applicationId: application.id,
         reason: reason,
@@ -156,15 +154,14 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
   }
 
   void _replaceApplicant(
-    CompanyJobApplicationModel updated,
-  ) {
-    final mutable =
-        List<CompanyJobApplicationModel>.from(
+      CompanyJobApplicationModel updated,
+      ) {
+    final mutable = List<CompanyJobApplicationModel>.from(
       applicants,
     );
 
     final index = mutable.indexWhere(
-      (item) => item.id == updated.id,
+          (item) => item.id == updated.id,
     );
 
     if (index == -1) {
@@ -177,8 +174,8 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
   }
 
   Future<CompanyJobPostingModel?> createJob(
-    CompanyCreateJobRequest request,
-  ) async {
+      CompanyCreateJobRequest request,
+      ) async {
     if (isCreating) return null;
 
     isCreating = true;
@@ -195,9 +192,9 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
   }
 
   Future<CompanyJobPostingModel?> updateJob(
-    int jobId,
-    CompanyUpdateJobRequest request,
-  ) async {
+      int jobId,
+      CompanyUpdateJobRequest request,
+      ) async {
     if (isUpdating) return null;
 
     isUpdating = true;
@@ -247,6 +244,49 @@ Future<CompanyJobApplicationModel?> acceptApplicant({
       return null;
     } finally {
       isPublishing = false;
+    }
+  }
+
+
+  Future<CompanyJobPostingModel?> closeJob(int jobId) async {
+    if (isClosing || isCancelling) return null;
+
+    isClosing = true;
+    errorMessage = null;
+
+    try {
+      final closed = await service.closeJob(jobId);
+      selectedJob = closed;
+      return closed;
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isClosing = false;
+    }
+  }
+
+  Future<CompanyJobPostingModel?> cancelJob(
+      int jobId, {
+        String? reason,
+      }) async {
+    if (isCancelling || isClosing) return null;
+
+    isCancelling = true;
+    errorMessage = null;
+
+    try {
+      final cancelled = await service.cancelJob(
+        jobId,
+        reason: reason,
+      );
+      selectedJob = cancelled;
+      return cancelled;
+    } catch (e) {
+      errorMessage = e.toString();
+      return null;
+    } finally {
+      isCancelling = false;
     }
   }
 }

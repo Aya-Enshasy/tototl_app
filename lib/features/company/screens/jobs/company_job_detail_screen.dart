@@ -52,7 +52,7 @@ class _CompanyJobDetailScreenState
     }
 
     final detailSuccess =
-        await _controller.loadJobDetails(widget.jobId);
+    await _controller.loadJobDetails(widget.jobId);
 
     if (!mounted) return;
 
@@ -69,7 +69,7 @@ class _CompanyJobDetailScreenState
     // Start applicants separately so the job page can render immediately
     // while the Applications section shows its own shimmer.
     final applicantsFuture =
-        _controller.loadApplicants(widget.jobId);
+    _controller.loadApplicants(widget.jobId);
 
     setState(() {
       _loading = false;
@@ -84,7 +84,7 @@ class _CompanyJobDetailScreenState
 
   Future<void> _refresh() async {
     final detailSuccess =
-        await _controller.loadJobDetails(widget.jobId);
+    await _controller.loadJobDetails(widget.jobId);
 
     if (detailSuccess) {
       await _controller.loadApplicants(widget.jobId);
@@ -99,7 +99,42 @@ class _CompanyJobDetailScreenState
     });
   }
 
+  Future<void> _waitForOverlayToSettle() async {
+    // Popup menus and dialogs are routes in the Navigator overlay.
+    // Waiting briefly before rebuilding/removing their source widgets avoids
+    // inherited-widget teardown assertions while the exit animation is active.
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+  }
+
+  Future<void> _handleMenuAction(String value) async {
+    // onSelected fires while the popup route is still dismissing.
+    // Do not open another route until that overlay has fully settled.
+    await _waitForOverlayToSettle();
+
+    if (!mounted || _actionLoading) return;
+
+    switch (value) {
+      case 'edit':
+        await _edit();
+        break;
+      case 'publish':
+        await _publish();
+        break;
+      case 'delete':
+        await _delete();
+        break;
+      case 'close':
+        await _closeJob();
+        break;
+      case 'cancel':
+        await _cancelJob();
+        break;
+    }
+  }
+
   Future<void> _edit() async {
+    if (_actionLoading) return;
+
     final job = _controller.selectedJob;
 
     if (job == null || job.status.toLowerCase() != 'draft') {
@@ -112,12 +147,16 @@ class _CompanyJobDetailScreenState
       ),
     );
 
+    if (!mounted) return;
+
     if (changed == true) {
       await _refresh();
     }
   }
 
   Future<void> _publish() async {
+    if (_actionLoading) return;
+
     final job = _controller.selectedJob;
 
     if (job == null || job.status.toLowerCase() != 'draft') {
@@ -130,7 +169,7 @@ class _CompanyJobDetailScreenState
         title: const Text('Publish Job?'),
         content: const Text(
           'Once published, pilots can see this job and submit applications. '
-          'Editing and deleting are only available while the job is Draft.',
+              'Editing and deleting are only available while the job is Draft.',
         ),
         actions: [
           TextButton(
@@ -146,6 +185,9 @@ class _CompanyJobDetailScreenState
     );
 
     if (confirmed != true || !mounted) return;
+
+    await _waitForOverlayToSettle();
+    if (!mounted) return;
 
     setState(() => _actionLoading = true);
 
@@ -168,6 +210,8 @@ class _CompanyJobDetailScreenState
   }
 
   Future<void> _delete() async {
+    if (_actionLoading) return;
+
     final job = _controller.selectedJob;
 
     if (job == null || job.status.toLowerCase() != 'draft') {
@@ -199,6 +243,9 @@ class _CompanyJobDetailScreenState
 
     if (confirmed != true || !mounted) return;
 
+    await _waitForOverlayToSettle();
+    if (!mounted) return;
+
     setState(() => _actionLoading = true);
 
     final success = await _controller.deleteJob(job.id);
@@ -226,6 +273,147 @@ class _CompanyJobDetailScreenState
     Navigator.of(context).pop(true);
   }
 
+  Future<void> _closeJob() async {
+    if (_actionLoading) return;
+
+    final job = _controller.selectedJob;
+
+    if (job == null || job.status.toLowerCase() != 'published') {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Close Job?'),
+        content: Text(
+          'Close "${job.title}" to new applications? '
+              'Existing applications will remain available for review.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep Open'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Close Job'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await _waitForOverlayToSettle();
+    if (!mounted) return;
+
+    setState(() => _actionLoading = true);
+
+    final closed = await _controller.closeJob(job.id);
+
+    if (!mounted) return;
+
+    setState(() => _actionLoading = false);
+
+    if (closed == null) {
+      _showSnack(
+        _controller.errorMessage ?? 'Unable to close job.',
+        isError: true,
+      );
+      return;
+    }
+
+    _showSnack('Job closed successfully.');
+    await _refresh();
+  }
+
+  Future<void> _cancelJob() async {
+    if (_actionLoading) return;
+
+    final job = _controller.selectedJob;
+
+    if (job == null || job.status.toLowerCase() != 'published') {
+      return;
+    }
+
+    String draftReason = '';
+
+    final reason = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Cancel Job?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cancel "${job.title}" permanently? '
+                    'This stops the job and keeps it in your history as Cancelled.',
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                onChanged: (value) => draftReason = value,
+                maxLength: 2000,
+                minLines: 3,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'Reason (optional)',
+                  hintText: 'Add a cancellation reason...',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Keep Job'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(
+                draftReason.trim(),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+              ),
+              child: const Text('Cancel Job'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (reason == null || !mounted) return;
+
+    await _waitForOverlayToSettle();
+    if (!mounted) return;
+
+    setState(() => _actionLoading = true);
+
+    final cancelled = await _controller.cancelJob(
+      job.id,
+      reason: reason,
+    );
+
+    if (!mounted) return;
+
+    setState(() => _actionLoading = false);
+
+    if (cancelled == null) {
+      _showSnack(
+        _controller.errorMessage ?? 'Unable to cancel job.',
+        isError: true,
+      );
+      return;
+    }
+
+    _showSnack('Job cancelled successfully.');
+    await _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -233,14 +421,14 @@ class _CompanyJobDetailScreenState
       body: SafeArea(
         child: _loading
             ? const Center(
-                child: CircularProgressIndicator(),
-              )
+          child: CircularProgressIndicator(),
+        )
             : _pageError != null
-                ? _ErrorView(
-                    message: _pageError!,
-                    onRetry: _load,
-                  )
-                : _buildContent(),
+            ? _ErrorView(
+          message: _pageError!,
+          onRetry: _load,
+        )
+            : _buildContent(),
       ),
     );
   }
@@ -261,6 +449,8 @@ class _CompanyJobDetailScreenState
                 _hero(job),
                 const SizedBox(height: 14),
                 _overview(job),
+                const SizedBox(height: 14),
+                _managementSection(job),
                 const SizedBox(height: 14),
                 _section(
                   title: 'Description',
@@ -296,14 +486,17 @@ class _CompanyJobDetailScreenState
   }
 
   Widget _topBar(CompanyJobPostingModel job) {
-    final isDraft = job.status.toLowerCase() == 'draft';
+    final status = job.status.toLowerCase();
+    final showMenu = status == 'draft' || status == 'published';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 12, 4),
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _actionLoading
+                ? null
+                : () => Navigator.of(context).pop(),
             icon: const Icon(
               Icons.arrow_back_ios_new_rounded,
               size: 18,
@@ -320,7 +513,7 @@ class _CompanyJobDetailScreenState
               ),
             ),
           ),
-          if (isDraft)
+          if (showMenu)
             PopupMenuButton<String>(
               enabled: !_actionLoading,
               icon: const Icon(
@@ -328,58 +521,299 @@ class _CompanyJobDetailScreenState
                 color: AppColors.navy,
               ),
               onSelected: (value) {
-                if (value == 'edit') {
-                  _edit();
-                } else if (value == 'publish') {
-                  _publish();
-                } else if (value == 'delete') {
-                  _delete();
-                }
+                _handleMenuAction(value);
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 19),
-                      SizedBox(width: 10),
-                      Text('Edit Draft'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'publish',
-                  child: Row(
-                    children: [
-                      Icon(Icons.public_rounded, size: 19),
-                      SizedBox(width: 10),
-                      Text('Publish Job'),
-                    ],
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.delete_outline_rounded,
-                        size: 19,
-                        color: Colors.red,
+              itemBuilder: (_) {
+                if (status == 'draft') {
+                  return const [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 19),
+                          SizedBox(width: 10),
+                          Text('Edit Draft'),
+                        ],
                       ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Delete Draft',
-                        style: TextStyle(color: Colors.red),
+                    ),
+                    PopupMenuItem(
+                      value: 'publish',
+                      child: Row(
+                        children: [
+                          Icon(Icons.public_rounded, size: 19),
+                          SizedBox(width: 10),
+                          Text('Publish Job'),
+                        ],
                       ),
-                    ],
+                    ),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 19,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Delete Draft',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ];
+                }
+
+                return const [
+                  PopupMenuItem(
+                    value: 'close',
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_clock_outlined, size: 19),
+                        SizedBox(width: 10),
+                        Text('Close Applications'),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'cancel',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.cancel_outlined,
+                          size: 19,
+                          color: Colors.red,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Cancel Job',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
+              },
             )
           else
             const SizedBox(width: 48),
         ],
+      ),
+    );
+  }
+
+  Widget _managementSection(CompanyJobPostingModel job) {
+    final status = job.status.toLowerCase();
+
+    String title;
+    String subtitle;
+
+    switch (status) {
+      case 'draft':
+        title = 'Draft Management';
+        subtitle = 'Edit this draft, publish it, or delete it permanently.';
+        break;
+      case 'published':
+        title = 'Published Job Management';
+        subtitle = 'Close applications or cancel this published job.';
+        break;
+      case 'closed':
+        title = 'Job Closed';
+        subtitle = 'This job no longer accepts new applications. Existing applicants remain below.';
+        break;
+      case 'cancelled':
+        title = 'Job Cancelled';
+        subtitle = 'This job is cancelled and cannot be reopened. Existing history remains available.';
+        break;
+      default:
+        title = 'Job Management';
+        subtitle = 'Manage this job according to its current status.';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: status == 'cancelled'
+                      ? Colors.red.withValues(alpha: 0.08)
+                      : AppColors.blueBg,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  status == 'draft'
+                      ? Icons.edit_note_rounded
+                      : status == 'published'
+                      ? Icons.tune_rounded
+                      : status == 'closed'
+                      ? Icons.lock_outline_rounded
+                      : Icons.cancel_outlined,
+                  color: status == 'cancelled'
+                      ? Colors.red.shade700
+                      : AppColors.blue,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 11.8,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_actionLoading) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: const LinearProgressIndicator(
+                minHeight: 3,
+                color: AppColors.blue,
+                backgroundColor: AppColors.blueBg,
+              ),
+            ),
+          ],
+          if (status == 'draft') ...[
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: _managementButton(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit',
+                    onTap: _actionLoading ? null : _edit,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: _managementButton(
+                    icon: Icons.public_rounded,
+                    label: 'Publish',
+                    primary: true,
+                    onTap: _actionLoading ? null : _publish,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            SizedBox(
+              width: double.infinity,
+              child: _managementButton(
+                icon: Icons.delete_outline_rounded,
+                label: 'Delete Draft',
+                danger: true,
+                onTap: _actionLoading ? null : _delete,
+              ),
+            ),
+          ] else if (status == 'published') ...[
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: _managementButton(
+                    icon: Icons.lock_clock_outlined,
+                    label: 'Close',
+                    onTap: _actionLoading ? null : _closeJob,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: _managementButton(
+                    icon: Icons.cancel_outlined,
+                    label: 'Cancel',
+                    danger: true,
+                    onTap: _actionLoading ? null : _cancelJob,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _managementButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+    bool primary = false,
+    bool danger = false,
+  }) {
+    if (primary) {
+      return FilledButton.icon(
+        onPressed: onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.blue,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(46),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        icon: Icon(icon, size: 18),
+        label: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: danger ? Colors.red.shade700 : AppColors.navy,
+        backgroundColor: Colors.white,
+        side: BorderSide(
+          color: danger
+              ? Colors.red.withValues(alpha: 0.22)
+              : AppColors.cardBorder,
+        ),
+        minimumSize: const Size.fromHeight(46),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      icon: Icon(icon, size: 18),
+      label: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -531,60 +965,60 @@ class _CompanyJobDetailScreenState
       title: 'Requirements',
       child: hasAnything
           ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (job.requiredCapabilities.isNotEmpty) ...[
-                  const _SubLabel('Required Capabilities'),
-                  const SizedBox(height: 8),
-                  _chipWrap(
-                    job.requiredCapabilities,
-                    AppColors.greenBg,
-                    AppColors.green,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (job.requiredCertifications.isNotEmpty) ...[
-                  const _SubLabel('Required Certifications'),
-                  const SizedBox(height: 8),
-                  _chipWrap(
-                    job.requiredCertifications,
-                    AppColors.blueBg,
-                    AppColors.blue,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (job.trainingSafetyRequired)
-                  _requirementLine(
-                    Icons.health_and_safety_outlined,
-                    'Safety training required',
-                  ),
-                if (job.ndaRequired)
-                  _requirementLine(
-                    Icons.lock_outline_rounded,
-                    'NDA required',
-                  ),
-                if (job.requirementsNotes.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  const _SubLabel('Other Requirements'),
-                  const SizedBox(height: 6),
-                  Text(
-                    job.requirementsNotes,
-                    style: const TextStyle(
-                      color: AppColors.navy,
-                      fontSize: 13,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ],
-            )
-          : const Text(
-              'No additional requirements.',
-              style: TextStyle(
-                color: AppColors.grey,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (job.requiredCapabilities.isNotEmpty) ...[
+            const _SubLabel('Required Capabilities'),
+            const SizedBox(height: 8),
+            _chipWrap(
+              job.requiredCapabilities,
+              AppColors.greenBg,
+              AppColors.green,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (job.requiredCertifications.isNotEmpty) ...[
+            const _SubLabel('Required Certifications'),
+            const SizedBox(height: 8),
+            _chipWrap(
+              job.requiredCertifications,
+              AppColors.blueBg,
+              AppColors.blue,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (job.trainingSafetyRequired)
+            _requirementLine(
+              Icons.health_and_safety_outlined,
+              'Safety training required',
+            ),
+          if (job.ndaRequired)
+            _requirementLine(
+              Icons.lock_outline_rounded,
+              'NDA required',
+            ),
+          if (job.requirementsNotes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const _SubLabel('Other Requirements'),
+            const SizedBox(height: 6),
+            Text(
+              job.requirementsNotes,
+              style: const TextStyle(
+                color: AppColors.navy,
                 fontSize: 13,
+                height: 1.5,
               ),
             ),
+          ],
+        ],
+      )
+          : const Text(
+        'No additional requirements.',
+        style: TextStyle(
+          color: AppColors.grey,
+          fontSize: 13,
+        ),
+      ),
     );
   }
 
@@ -707,16 +1141,16 @@ class _CompanyJobDetailScreenState
   }
 
   Future<void> _openApplicant(
-    CompanyJobApplicationModel application,
-  ) async {
+      CompanyJobApplicationModel application,
+      ) async {
     final changed =
-        await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) =>
             CompanyApplicantDetailScreen(
-          jobId: widget.jobId,
-          application: application,
-        ),
+              jobId: widget.jobId,
+              application: application,
+            ),
       ),
     );
 
@@ -738,8 +1172,8 @@ class _CompanyJobDetailScreenState
   }
 
   Widget _applicationsSection(
-    CompanyJobPostingModel job,
-  ) {
+      CompanyJobPostingModel job,
+      ) {
     final applicants =
         _controller.applicants;
 
@@ -750,12 +1184,12 @@ class _CompanyJobDetailScreenState
         applicants
             .where(
               (item) => item.isPending,
-            )
+        )
             .length;
 
     return Column(
       crossAxisAlignment:
-          CrossAxisAlignment.start,
+      CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -765,32 +1199,32 @@ class _CompanyJobDetailScreenState
                 color: AppColors.navy,
                 fontSize: 18,
                 fontWeight:
-                    FontWeight.w800,
+                FontWeight.w800,
               ),
             ),
             const SizedBox(width: 8),
             Container(
               padding:
-                  const EdgeInsets.symmetric(
+              const EdgeInsets.symmetric(
                 horizontal: 8,
                 vertical: 4,
               ),
               decoration: BoxDecoration(
                 color: AppColors.blueBg,
                 borderRadius:
-                    BorderRadius.circular(
+                BorderRadius.circular(
                   20,
                 ),
               ),
               child: Text(
                 '${applicants.length}',
                 style:
-                    const TextStyle(
+                const TextStyle(
                   color:
-                      AppColors.blue,
+                  AppColors.blue,
                   fontSize: 11.5,
                   fontWeight:
-                      FontWeight.w800,
+                  FontWeight.w800,
                 ),
               ),
             ),
@@ -798,27 +1232,27 @@ class _CompanyJobDetailScreenState
               const SizedBox(width: 8),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(
+                const EdgeInsets.symmetric(
                   horizontal: 8,
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
                   color:
-                      AppColors.orangeBg,
+                  AppColors.orangeBg,
                   borderRadius:
-                      BorderRadius.circular(
+                  BorderRadius.circular(
                     20,
                   ),
                 ),
                 child: Text(
                   '$pendingCount pending',
                   style:
-                      const TextStyle(
+                  const TextStyle(
                     color:
-                        AppColors.orange,
+                    AppColors.orange,
                     fontSize: 10.5,
                     fontWeight:
-                        FontWeight.w800,
+                    FontWeight.w800,
                   ),
                 ),
               ),
@@ -840,41 +1274,41 @@ class _CompanyJobDetailScreenState
         else if (error != null)
           _applicationsError(error)
         else if (applicants.isEmpty)
-          const _EmptyApplications()
-        else
-          ..._sortedApplicants(applicants).map(
-            (application) =>
-                Padding(
-              padding:
-                  const EdgeInsets.only(
-                bottom: 10,
-              ),
-              child: _ApplicantCard(
-                application:
-                    application,
-                onTap: () =>
-                    _openApplicant(
-                  application,
-                ),
-              ),
+            const _EmptyApplications()
+          else
+            ..._sortedApplicants(applicants).map(
+                  (application) =>
+                  Padding(
+                    padding:
+                    const EdgeInsets.only(
+                      bottom: 10,
+                    ),
+                    child: _ApplicantCard(
+                      application:
+                      application,
+                      onTap: () =>
+                          _openApplicant(
+                            application,
+                          ),
+                    ),
+                  ),
             ),
-          ),
       ],
     );
   }
 
   List<CompanyJobApplicationModel>
-      _sortedApplicants(
-    List<CompanyJobApplicationModel> values,
-  ) {
+  _sortedApplicants(
+      List<CompanyJobApplicationModel> values,
+      ) {
     final result =
-        List<CompanyJobApplicationModel>.from(
+    List<CompanyJobApplicationModel>.from(
       values,
     );
 
     int rank(
-      CompanyJobApplicationModel value,
-    ) {
+        CompanyJobApplicationModel value,
+        ) {
       if (value.isPending) return 0;
       if (value.isAccepted) return 1;
       if (value.isRejected) return 2;
@@ -883,9 +1317,9 @@ class _CompanyJobDetailScreenState
     }
 
     result.sort(
-      (a, b) {
+          (a, b) {
         final statusCompare =
-            rank(a).compareTo(rank(b));
+        rank(a).compareTo(rank(b));
 
         if (statusCompare != 0) {
           return statusCompare;
@@ -1054,34 +1488,34 @@ class _CompanyJobDetailScreenState
   }
 
   Widget _chipWrap(
-    List<String> items,
-    Color background,
-    Color foreground,
-  ) {
+      List<String> items,
+      Color background,
+      Color foreground,
+      ) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: items
           .map(
             (item) => Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 7,
-              ),
-              decoration: BoxDecoration(
-                color: background,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                item,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 7,
+          ),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            item,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
             ),
-          )
+          ),
+        ),
+      )
           .toList(),
     );
   }
@@ -1180,22 +1614,22 @@ class _CompanyJobDetailScreenState
         .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
+      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+    )
         .join(' ');
   }
 
   void _showSnack(
-    String message, {
-    bool isError = false,
-  }) {
+      String message, {
+        bool isError = false,
+      }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor:
-              isError ? Colors.red.shade700 : AppColors.navy,
+          isError ? Colors.red.shade700 : AppColors.navy,
           content: Text(message),
         ),
       );
@@ -1210,7 +1644,7 @@ class _ApplicantCard
   });
 
   final CompanyJobApplicationModel
-      application;
+  application;
 
   final VoidCallback onTap;
 
@@ -1227,36 +1661,36 @@ class _ApplicantCard
             'Pilot #${application.pilotProfileId}';
 
     final initial =
-        pilotName.trim().isEmpty
-            ? 'P'
-            : pilotName
-                .trim()[0]
-                .toUpperCase();
+    pilotName.trim().isEmpty
+        ? 'P'
+        : pilotName
+        .trim()[0]
+        .toUpperCase();
 
     final visual =
-        _applicationVisual(
+    _applicationVisual(
       application.status,
     );
 
     return Material(
       color: Colors.white,
       borderRadius:
-          BorderRadius.circular(17),
+      BorderRadius.circular(17),
       child: InkWell(
         onTap: onTap,
         borderRadius:
-            BorderRadius.circular(17),
+        BorderRadius.circular(17),
         child: Container(
           padding:
-              const EdgeInsets.all(15),
+          const EdgeInsets.all(15),
           decoration: BoxDecoration(
             borderRadius:
-                BorderRadius.circular(
+            BorderRadius.circular(
               17,
             ),
             border: Border.all(
               color:
-                  AppColors.cardBorder,
+              AppColors.cardBorder,
             ),
             boxShadow: [
               BoxShadow(
@@ -1264,66 +1698,66 @@ class _ApplicantCard
                     .withOpacity(0.025),
                 blurRadius: 15,
                 offset:
-                    const Offset(0, 5),
+                const Offset(0, 5),
               ),
             ],
           ),
           child: Column(
             crossAxisAlignment:
-                CrossAxisAlignment.start,
+            CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   CircleAvatar(
                     radius: 22,
                     backgroundColor:
-                        AppColors.blueBg,
+                    AppColors.blueBg,
                     foregroundImage:
-                        pilot?.profilePhoto
-                                    .trim()
-                                    .isNotEmpty ==
-                                true
-                            ? NetworkImage(
-                                pilot!
-                                    .profilePhoto,
-                              )
-                            : null,
+                    pilot?.profilePhoto
+                        .trim()
+                        .isNotEmpty ==
+                        true
+                        ? NetworkImage(
+                      pilot!
+                          .profilePhoto,
+                    )
+                        : null,
                     child: pilot?.profilePhoto
-                                .trim()
-                                .isNotEmpty ==
-                            true
+                        .trim()
+                        .isNotEmpty ==
+                        true
                         ? null
                         : Text(
-                            initial,
-                            style:
-                                const TextStyle(
-                              color:
-                                  AppColors
-                                      .blue,
-                              fontWeight:
-                                  FontWeight
-                                      .w800,
-                            ),
-                          ),
+                      initial,
+                      style:
+                      const TextStyle(
+                        color:
+                        AppColors
+                            .blue,
+                        fontWeight:
+                        FontWeight
+                            .w800,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 11),
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
+                      CrossAxisAlignment
+                          .start,
                       children: [
                         Text(
                           pilotName,
                           style:
-                              const TextStyle(
+                          const TextStyle(
                             color:
-                                AppColors
-                                    .navy,
+                            AppColors
+                                .navy,
                             fontSize: 14,
                             fontWeight:
-                                FontWeight
-                                    .w800,
+                            FontWeight
+                                .w800,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -1333,13 +1767,13 @@ class _ApplicantCard
                           ),
                           maxLines: 1,
                           overflow:
-                              TextOverflow
-                                  .ellipsis,
+                          TextOverflow
+                              .ellipsis,
                           style:
-                              const TextStyle(
+                          const TextStyle(
                             color:
-                                AppColors
-                                    .grey,
+                            AppColors
+                                .grey,
                             fontSize: 11.8,
                           ),
                         ),
@@ -1348,18 +1782,18 @@ class _ApplicantCard
                   ),
                   Container(
                     padding:
-                        const EdgeInsets
-                            .symmetric(
+                    const EdgeInsets
+                        .symmetric(
                       horizontal: 8,
                       vertical: 5,
                     ),
                     decoration:
-                        BoxDecoration(
+                    BoxDecoration(
                       color:
-                          visual.background,
+                      visual.background,
                       borderRadius:
-                          BorderRadius
-                              .circular(
+                      BorderRadius
+                          .circular(
                         20,
                       ),
                     ),
@@ -1368,11 +1802,11 @@ class _ApplicantCard
                           .statusLabel,
                       style: TextStyle(
                         color:
-                            visual.foreground,
+                        visual.foreground,
                         fontSize: 10.5,
                         fontWeight:
-                            FontWeight
-                                .w800,
+                        FontWeight
+                            .w800,
                       ),
                     ),
                   ),
@@ -1385,15 +1819,15 @@ class _ApplicantCard
                 Container(
                   width: double.infinity,
                   padding:
-                      const EdgeInsets.all(
+                  const EdgeInsets.all(
                     12,
                   ),
                   decoration:
-                      BoxDecoration(
+                  BoxDecoration(
                     color: AppColors.bg,
                     borderRadius:
-                        BorderRadius
-                            .circular(
+                    BorderRadius
+                        .circular(
                       12,
                     ),
                   ),
@@ -1402,12 +1836,12 @@ class _ApplicantCard
                         .coverMessage,
                     maxLines: 3,
                     overflow:
-                        TextOverflow
-                            .ellipsis,
+                    TextOverflow
+                        .ellipsis,
                     style:
-                        const TextStyle(
+                    const TextStyle(
                       color:
-                          AppColors.navy,
+                      AppColors.navy,
                       fontSize: 12.2,
                       height: 1.45,
                     ),
@@ -1429,12 +1863,12 @@ class _ApplicantCard
                           'Drone #${application.droneId}',
                       maxLines: 1,
                       overflow:
-                          TextOverflow
-                              .ellipsis,
+                      TextOverflow
+                          .ellipsis,
                       style:
-                          const TextStyle(
+                      const TextStyle(
                         color:
-                            AppColors.grey,
+                        AppColors.grey,
                         fontSize: 11.8,
                       ),
                     ),
@@ -1444,10 +1878,10 @@ class _ApplicantCard
                     'View details',
                     style: TextStyle(
                       color:
-                          AppColors.blue,
+                      AppColors.blue,
                       fontSize: 10.8,
                       fontWeight:
-                          FontWeight.w700,
+                      FontWeight.w700,
                     ),
                   ),
                   const SizedBox(width: 3),
@@ -1456,7 +1890,7 @@ class _ApplicantCard
                         .chevron_right_rounded,
                     size: 18,
                     color:
-                        AppColors.blue,
+                    AppColors.blue,
                   ),
                 ],
               ),
@@ -1468,13 +1902,13 @@ class _ApplicantCard
   }
 
   String _pilotSubtitle(
-    CompanyJobApplicationModel application,
-  ) {
+      CompanyJobApplicationModel application,
+      ) {
     final pilot =
         application.pilotProfile;
 
     final parts =
-        <String>[];
+    <String>[];
 
     if (pilot != null &&
         pilot.location.isNotEmpty) {
@@ -1501,8 +1935,8 @@ class _ApplicantsShimmer
 
   @override
   State<_ApplicantsShimmer>
-      createState() =>
-          _ApplicantsShimmerState();
+  createState() =>
+      _ApplicantsShimmerState();
 }
 
 class _ApplicantsShimmerState
@@ -1510,17 +1944,17 @@ class _ApplicantsShimmerState
     with
         SingleTickerProviderStateMixin {
   late final AnimationController
-      _controller;
+  _controller;
 
   @override
   void initState() {
     super.initState();
 
     _controller =
-        AnimationController(
+    AnimationController(
       vsync: this,
       duration:
-          const Duration(
+      const Duration(
         milliseconds: 1200,
       ),
     )..repeat();
@@ -1542,35 +1976,35 @@ class _ApplicantsShimmerState
 
         return Column(
           children:
-              List.generate(
+          List.generate(
             3,
-            (index) => Padding(
+                (index) => Padding(
               padding:
-                  const EdgeInsets.only(
+              const EdgeInsets.only(
                 bottom: 10,
               ),
               child: Container(
                 height:
-                    index == 0
-                        ? 128
-                        : 104,
+                index == 0
+                    ? 128
+                    : 104,
                 decoration:
-                    BoxDecoration(
+                BoxDecoration(
                   borderRadius:
-                      BorderRadius
-                          .circular(
+                  BorderRadius
+                      .circular(
                     17,
                   ),
                   gradient:
-                      LinearGradient(
+                  LinearGradient(
                     begin:
-                        Alignment(
+                    Alignment(
                       -1.6 +
                           3.2 * t,
                       0,
                     ),
                     end:
-                        Alignment(
+                    Alignment(
                       -0.6 +
                           3.2 * t,
                       0,
@@ -1709,9 +2143,9 @@ class _VisualPair {
   final Color background;
 
   const _VisualPair(
-    this.foreground,
-    this.background,
-  );
+      this.foreground,
+      this.background,
+      );
 }
 
 _VisualPair _statusVisual(String status) {
@@ -1784,7 +2218,7 @@ String _prettyGlobal(String value) {
       .where((part) => part.isNotEmpty)
       .map(
         (part) =>
-            '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-      )
+    '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+  )
       .join(' ');
 }

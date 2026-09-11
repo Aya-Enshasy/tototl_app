@@ -216,7 +216,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     final files = result.files
         .where(
           (file) => file.path != null && file.path!.trim().isNotEmpty,
-        )
+    )
         .take(remaining)
         .toList();
 
@@ -365,7 +365,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       // The job safely remains Draft on the server.
       _showSnack(
         'Job was saved as Draft, but publishing failed: '
-        '${_controller.errorMessage ?? 'Unknown error'}',
+            '${_controller.errorMessage ?? 'Unknown error'}',
         isError: true,
       );
 
@@ -393,7 +393,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           initialIndex: 1,
         ),
       ),
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -403,16 +403,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
   }
 
   void _showSnack(
-    String message, {
-    bool isError = false,
-  }) {
+      String message, {
+        bool isError = false,
+      }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor:
-              isError ? Colors.red.shade700 : AppColors.navy,
+          isError ? Colors.red.shade700 : AppColors.navy,
           content: Text(message),
         ),
       );
@@ -446,12 +446,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     onPressed: _submitting
                         ? null
                         : () {
-                            if (_step == 0) {
-                              Navigator.of(context).pop();
-                            } else {
-                              setState(() => _step--);
-                            }
-                          },
+                      if (_step == 0) {
+                        Navigator.of(context).pop();
+                      } else {
+                        setState(() => _step--);
+                      }
+                    },
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,
@@ -477,7 +477,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               child: Row(
                 children: List.generate(
                   6,
-                  (index) => Expanded(
+                      (index) => Expanded(
                     child: Container(
                       height: 4,
                       margin: EdgeInsets.only(
@@ -497,19 +497,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
             Expanded(
               child: SingleChildScrollView(
                 keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
+                ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                 child: _step == 0
                     ? _basicInfoStep()
                     : _step == 1
-                        ? _locationStep()
-                        : _step == 2
-                            ? _scheduleStep()
-                            : _step == 3
-                                ? _requirementsStep()
-                                : _step == 4
-                                    ? _budgetStep()
-                                    : _attachmentsStep(),
+                    ? _locationStep()
+                    : _step == 2
+                    ? _scheduleStep()
+                    : _step == 3
+                    ? _requirementsStep()
+                    : _step == 4
+                    ? _budgetStep()
+                    : _attachmentsStep(),
               ),
             ),
             Container(
@@ -533,415 +533,415 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // ==========================================================================
 
   Widget _basicInfoStep() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _stepHeader(
-            'Basic Information',
-            'Provide the essential details about your job.',
-          ),
-          _label('Job Title *'),
-          _field(
-            _title,
-            'e.g. Thermal Inspection - Solar Farm',
-          ),
-          _label('Service Category'),
-          _select(
-            value: _serviceCategory,
-            items: const [
-              'inspection',
-              'mapping',
-              'photography',
-              'construction',
-              'surveying',
-              'other',
-            ],
-            labelBuilder: _pretty,
-            onChanged: (value) {
-              setState(() => _serviceCategory = value);
-            },
-          ),
-          _label('Job Description *'),
-          _field(
-            _description,
-            'Describe the mission scope, site conditions, and expected deliverables...',
-            lines: 5,
-          ),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Basic Information',
+        'Provide the essential details about your job.',
+      ),
+      _label('Job Title *'),
+      _field(
+        _title,
+        'e.g. Thermal Inspection - Solar Farm',
+      ),
+      _label('Service Category'),
+      _select(
+        value: _serviceCategory,
+        items: const [
+          'inspection',
+          'mapping',
+          'photography',
+          'construction',
+          'surveying',
+          'other',
         ],
-      );
+        labelBuilder: _pretty,
+        onChanged: (value) {
+          setState(() => _serviceCategory = value);
+        },
+      ),
+      _label('Job Description *'),
+      _field(
+        _description,
+        'Describe the mission scope, site conditions, and expected deliverables...',
+        lines: 5,
+      ),
+    ],
+  );
 
   // ==========================================================================
   // STEP 2
   // ==========================================================================
 
   Widget _locationStep() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _stepHeader(
-            'Location',
-            'Specify where the job will take place.',
-          ),
-          _label('Country *'),
-          _field(_country, 'e.g. United States'),
-          _label('State (optional)'),
-          _field(_state, 'e.g. California'),
-          _label('City (optional)'),
-          _field(_city, 'e.g. Los Angeles'),
-          _label('Region / Area (optional)'),
-          _field(_region, 'e.g. Downtown, Industrial Zone'),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Location',
+        'Specify where the job will take place.',
+      ),
+      _label('Country *'),
+      _field(_country, 'e.g. United States'),
+      _label('State (optional)'),
+      _field(_state, 'e.g. California'),
+      _label('City (optional)'),
+      _field(_city, 'e.g. Los Angeles'),
+      _label('Region / Area (optional)'),
+      _field(_region, 'e.g. Downtown, Industrial Zone'),
+    ],
+  );
 
   // ==========================================================================
   // STEP 3
   // ==========================================================================
 
   Widget _scheduleStep() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _stepHeader(
-            'Schedule',
-            'Choose the job start and end dates.',
-          ),
-          _label('Start Date *'),
-          _dateBox(
-            date: _startDate,
-            hint: 'Select start date',
-            onTap: _pickStartDate,
-          ),
-          _label('End Date *'),
-          _dateBox(
-            date: _endDate,
-            hint: 'Select end date',
-            onTap: _pickEndDate,
-          ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Schedule',
+        'Choose the job start and end dates.',
+      ),
+      _label('Start Date *'),
+      _dateBox(
+        date: _startDate,
+        hint: 'Select start date',
+        onTap: _pickStartDate,
+      ),
+      _label('End Date *'),
+      _dateBox(
+        date: _endDate,
+        hint: 'Select end date',
+        onTap: _pickEndDate,
+      ),
+    ],
+  );
 
   // ==========================================================================
   // STEP 4
   // ==========================================================================
 
   Widget _requirementsStep() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _stepHeader(
-            'Requirements',
-            'Add optional drone and pilot requirements.',
-          ),
-          _label('Drone Size'),
-          _select(
-            value: _droneSize,
-            items: const [
-              'small',
-              'medium',
-              'large',
-              'custom',
-              'specific',
-            ],
-            labelBuilder: _pretty,
-            onChanged: (value) {
-              setState(() => _droneSize = value);
-            },
-          ),
-          _label('Required Capabilities'),
-          _chips(
-            items: const [
-              'Thermal Camera',
-              'RTK',
-              'Zoom',
-              'LiDAR',
-              'Multispectral',
-              'Night Vision',
-              'Spotlight',
-              'Winch',
-            ],
-            selectedItems: _requiredCapabilities,
-            onChanged: (items) {
-              setState(() {
-                _requiredCapabilities
-                  ..clear()
-                  ..addAll(items);
-              });
-            },
-          ),
-          _label('Required Experience'),
-          _select(
-            value: _requiredExperience,
-            items: const [
-              '1+ year',
-              '2+ years',
-              '3+ years',
-              '5+ years',
-              '10+ years',
-            ],
-            onChanged: (value) {
-              setState(() => _requiredExperience = value);
-            },
-          ),
-          _label('Required Certifications'),
-          _chips(
-            items: const [
-              'Part 107 (US)',
-              'CAA (UK)',
-              'EASA (EU)',
-              'Transport Canada',
-              'Other',
-            ],
-            selectedItems: _requiredCertifications,
-            onChanged: (items) {
-              setState(() {
-                _requiredCertifications
-                  ..clear()
-                  ..addAll(items);
-              });
-            },
-          ),
-          const SizedBox(height: 22),
-          _toggle(
-            'Safety Training Required',
-            'Pilot must have completed safety training',
-            _safetyTrainingRequired,
-            (value) {
-              setState(() => _safetyTrainingRequired = value);
-            },
-          ),
-          const SizedBox(height: 10),
-          _toggle(
-            'NDA Required',
-            'Pilot must agree to an NDA for this job',
-            _ndaRequired,
-            (value) {
-              setState(() => _ndaRequired = value);
-            },
-          ),
-          _label('Other Requirements'),
-          _field(
-            _requirementsNotes,
-            'Any additional requirements or notes...',
-            lines: 4,
-          ),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Requirements',
+        'Add optional drone and pilot requirements.',
+      ),
+      _label('Drone Size'),
+      _select(
+        value: _droneSize,
+        items: const [
+          'small',
+          'medium',
+          'large',
+          'custom',
+          'specific',
         ],
-      );
+        labelBuilder: _pretty,
+        onChanged: (value) {
+          setState(() => _droneSize = value);
+        },
+      ),
+      _label('Required Capabilities'),
+      _chips(
+        items: const [
+          'Thermal Camera',
+          'RTK',
+          'Zoom',
+          'LiDAR',
+          'Multispectral',
+          'Night Vision',
+          'Spotlight',
+          'Winch',
+        ],
+        selectedItems: _requiredCapabilities,
+        onChanged: (items) {
+          setState(() {
+            _requiredCapabilities
+              ..clear()
+              ..addAll(items);
+          });
+        },
+      ),
+      _label('Required Experience'),
+      _select(
+        value: _requiredExperience,
+        items: const [
+          '1+ year',
+          '2+ years',
+          '3+ years',
+          '5+ years',
+          '10+ years',
+        ],
+        onChanged: (value) {
+          setState(() => _requiredExperience = value);
+        },
+      ),
+      _label('Required Certifications'),
+      _chips(
+        items: const [
+          'Part 107 (US)',
+          'CAA (UK)',
+          'EASA (EU)',
+          'Transport Canada',
+          'Other',
+        ],
+        selectedItems: _requiredCertifications,
+        onChanged: (items) {
+          setState(() {
+            _requiredCertifications
+              ..clear()
+              ..addAll(items);
+          });
+        },
+      ),
+      const SizedBox(height: 22),
+      _toggle(
+        'Safety Training Required',
+        'Pilot must have completed safety training',
+        _safetyTrainingRequired,
+            (value) {
+          setState(() => _safetyTrainingRequired = value);
+        },
+      ),
+      const SizedBox(height: 10),
+      _toggle(
+        'NDA Required',
+        'Pilot must agree to an NDA for this job',
+        _ndaRequired,
+            (value) {
+          setState(() => _ndaRequired = value);
+        },
+      ),
+      _label('Other Requirements'),
+      _field(
+        _requirementsNotes,
+        'Any additional requirements or notes...',
+        lines: 4,
+      ),
+    ],
+  );
 
   // ==========================================================================
   // STEP 5
   // ==========================================================================
 
   Widget _budgetStep() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _stepHeader(
-            'Budget',
-            'Set the payment details for this job.',
-          ),
-          _label('Payment Type *'),
-          _select(
-            value: _paymentType,
-            items: const [
-              'fixed',
-              'hourly',
-              'daily',
-              'negotiable',
-            ],
-            labelBuilder: _pretty,
-            onChanged: (value) {
-              if (value == null) return;
-
-              setState(() {
-                _paymentType = value;
-
-                if (value == 'negotiable') {
-                  _paymentMin.clear();
-                  _paymentMax.clear();
-                }
-              });
-            },
-          ),
-          if (_paymentType != 'negotiable') ...[
-            _label('Minimum Payment *'),
-            _field(
-              _paymentMin,
-              'e.g. 500',
-              type: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-            ),
-            _label('Maximum Payment (optional)'),
-            _field(
-              _paymentMax,
-              'e.g. 800',
-              type: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.blueBg,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Text(
-                'Payment amount can be empty for a negotiable job.',
-                style: TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 12.5,
-                ),
-              ),
-            ),
-          ],
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Budget',
+        'Set the payment details for this job.',
+      ),
+      _label('Payment Type *'),
+      _select(
+        value: _paymentType,
+        items: const [
+          'fixed',
+          'hourly',
+          'daily',
+          'negotiable',
         ],
-      );
+        labelBuilder: _pretty,
+        onChanged: (value) {
+          if (value == null) return;
+
+          setState(() {
+            _paymentType = value;
+
+            if (value == 'negotiable') {
+              _paymentMin.clear();
+              _paymentMax.clear();
+            }
+          });
+        },
+      ),
+      if (_paymentType != 'negotiable') ...[
+        _label('Minimum Payment *'),
+        _field(
+          _paymentMin,
+          'e.g. 500',
+          type: const TextInputType.numberWithOptions(
+            decimal: true,
+          ),
+        ),
+        _label('Maximum Payment (optional)'),
+        _field(
+          _paymentMax,
+          'e.g. 800',
+          type: const TextInputType.numberWithOptions(
+            decimal: true,
+          ),
+        ),
+      ] else ...[
+        const SizedBox(height: 20),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.blueBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Text(
+            'Payment amount can be empty for a negotiable job.',
+            style: TextStyle(
+              color: AppColors.navy,
+              fontSize: 12.5,
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
 
   // ==========================================================================
   // STEP 6
   // ==========================================================================
 
   Widget _attachmentsStep() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _stepHeader(
-            'Attachments & Publish',
-            'Add up to 10 optional files, then save as Draft or publish now.',
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Attachments & Publish',
+        'Add up to 10 optional files, then save as Draft or publish now.',
+      ),
+      _label('Attachments (optional)'),
+      SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: OutlinedButton.icon(
+          onPressed: _submitting ? null : _pickAttachments,
+          icon: const Icon(Icons.attach_file_rounded),
+          label: Text(
+            _attachments.isEmpty ? 'Choose Files' : 'Add More Files',
           ),
-          _label('Attachments (optional)'),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton.icon(
-              onPressed: _submitting ? null : _pickAttachments,
-              icon: const Icon(Icons.attach_file_rounded),
-              label: Text(
-                _attachments.isEmpty ? 'Choose Files' : 'Add More Files',
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.blue,
-                side: const BorderSide(color: AppColors.cardBorder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.blue,
+            side: const BorderSide(color: AppColors.cardBorder),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
-          if (_attachments.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            ...List.generate(
-              _attachments.length,
+        ),
+      ),
+      if (_attachments.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        ...List.generate(
+          _attachments.length,
               (index) {
-                final file = _attachments[index];
+            final file = _attachments[index];
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 9),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.cardBorder),
+            return Container(
+              margin: const EdgeInsets.only(bottom: 9),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.insert_drive_file_outlined,
+                    color: AppColors.blue,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.insert_drive_file_outlined,
-                        color: AppColors.blue,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      file.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          file.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.navy,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _submitting
-                            ? null
-                            : () {
-                                setState(
-                                  () => _attachments.removeAt(index),
-                                );
-                              },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          size: 18,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                );
-              },
+                  IconButton(
+                    onPressed: _submitting
+                        ? null
+                        : () {
+                      setState(
+                            () => _attachments.removeAt(index),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+      const SizedBox(height: 24),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Job Summary',
+              style: TextStyle(
+                color: AppColors.navy,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ],
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.cardBorder),
+            const SizedBox(height: 16),
+            Text(
+              _title.text.trim(),
+              style: const TextStyle(
+                color: AppColors.navy,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 8),
+            Text(
+              _locationPreview(),
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
               children: [
-                const Text(
-                  'Job Summary',
-                  style: TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: _previewMetric(
+                    'Payment',
+                    _paymentPreview(),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  _title.text.trim(),
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: _previewMetric(
+                    'Start',
+                    _formatDate(_startDate),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _locationPreview(),
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 13,
+                Expanded(
+                  child: _previewMetric(
+                    'End',
+                    _formatDate(_endDate),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _previewMetric(
-                        'Payment',
-                        _paymentPreview(),
-                      ),
-                    ),
-                    Expanded(
-                      child: _previewMetric(
-                        'Start',
-                        _formatDate(_startDate),
-                      ),
-                    ),
-                    Expanded(
-                      child: _previewMetric(
-                        'End',
-                        _formatDate(_endDate),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
-          ),
-        ],
-      );
+          ],
+        ),
+      ),
+    ],
+  );
 
   // ==========================================================================
   // BOTTOM BUTTONS
@@ -984,16 +984,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
               child: _submitting && !_publishingNow
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                      ),
-                    )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                ),
+              )
                   : const Text(
-                      'Save as Draft',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                'Save as Draft',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -1009,17 +1009,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
               ),
               child: _submitting && _publishingNow
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: Colors.white,
-                      ),
-                    )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: Colors.white,
+                ),
+              )
                   : const Text(
-                      'Publish Job',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                'Publish Job',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],
@@ -1032,46 +1032,46 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // ==========================================================================
 
   Widget _stepHeader(String title, String subtitle) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.navy,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 13.5,
-            ),
-          ),
-          const SizedBox(height: 23),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.navy,
+          fontSize: 24,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: 7),
+      Text(
+        subtitle,
+        style: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 13.5,
+        ),
+      ),
+      const SizedBox(height: 23),
+    ],
+  );
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 17),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: AppColors.navy,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8, top: 17),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 
   Widget _field(
-    TextEditingController controller,
-    String hint, {
-    int lines = 1,
-    TextInputType type = TextInputType.text,
-  }) =>
+      TextEditingController controller,
+      String hint, {
+        int lines = 1,
+        TextInputType type = TextInputType.text,
+      }) =>
       TextField(
         controller: controller,
         minLines: lines,
@@ -1093,9 +1093,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
       );
 
   OutlineInputBorder _border(
-    Color color, {
-    double width = 1,
-  }) {
+      Color color, {
+        double width = 1,
+      }) {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
       borderSide: BorderSide(
@@ -1132,16 +1132,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
             items: items
                 .map(
                   (item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(
-                      labelBuilder?.call(item) ?? item,
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 13.5,
-                      ),
-                    ),
+                value: item,
+                child: Text(
+                  labelBuilder?.call(item) ?? item,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 13.5,
                   ),
-                )
+                ),
+              ),
+            )
                 .toList(),
             onChanged: onChanged,
           ),
@@ -1193,11 +1193,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
       );
 
   Widget _toggle(
-    String title,
-    String subtitle,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) =>
+      String title,
+      String subtitle,
+      bool value,
+      ValueChanged<bool> onChanged,
+      ) =>
       Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -1279,28 +1279,28 @@ class _PostJobScreenState extends State<PostJobScreen> {
       );
 
   Widget _previewMetric(String label, String value) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 11.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.navy,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 11.5,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.navy,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ],
+  );
 
   String _pretty(String value) {
     if (value.isEmpty) return value;
@@ -1309,8 +1309,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
         .split('_')
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1)}',
-        )
+      '${part[0].toUpperCase()}${part.substring(1)}',
+    )
         .join(' ');
   }
 

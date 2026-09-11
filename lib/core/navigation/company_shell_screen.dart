@@ -24,7 +24,7 @@ class _CompanyShellScreenState extends State<CompanyShellScreen> {
   final _pages = const [
     CompanyHomeScreen(),
     CompanyJobsScreen(),
-    PilotSearchScreen(),
+    // PilotSearchScreen(),
     CompanyOperationsScreen(),
     CompanyMessagesScreen(),
     CompanyProfileScreen(),
@@ -41,11 +41,11 @@ class _CompanyShellScreenState extends State<CompanyShellScreen> {
       activeIcon: Icons.work_rounded,
       label: 'Jobs',
     ),
-    AppBottomNavItem(
-      icon: Icons.people_outline_rounded,
-      activeIcon: Icons.people_rounded,
-      label: 'Pilots',
-    ),
+    // AppBottomNavItem(
+    //   icon: Icons.people_outline_rounded,
+    //   activeIcon: Icons.people_rounded,
+    //   label: 'Pilots',
+    // ),
     AppBottomNavItem(
       icon: Icons.assignment_outlined,
       activeIcon: Icons.assignment_rounded,

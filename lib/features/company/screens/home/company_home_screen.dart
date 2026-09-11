@@ -1,14 +1,19 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
- import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/storage/user_session_storage.dart';
+ import '../../../pilot/screens/notification/NotificationsScreen.dart';
 import '../../../pilot/services/company_dashboard_service.dart';
-import '../../controllers/company_dashboard_controller.dart';
+ import '../../controllers/company_dashboard_controller.dart';
 import '../../models/company_dashboard_model.dart';
 import '../jobs/company_job_detail_screen.dart';
-import '../jobs/company_jobs_screen.dart';
 import '../jobs/post_job_screen.dart';
 
 class CompanyHomeScreen extends StatefulWidget {
@@ -20,10 +25,22 @@ class CompanyHomeScreen extends StatefulWidget {
 
 class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     with SingleTickerProviderStateMixin {
+  static const FlutterSecureStorage _cacheStorage = FlutterSecureStorage();
+  static const String _dashboardCachePrefix = 'company_home_dashboard_v2_';
+
   late final CompanyDashboardController _controller;
   late final AnimationController _entrance;
 
+  _CompanyDashboardUiSnapshot? _dashboardSnapshot;
+  String? _dashboardCacheKey;
+  String? _dashboardError;
+
+  bool _cacheReadFinished = false;
+  bool _firstNetworkAttemptFinished = false;
+  bool _networkRefreshing = false;
+
   String _companyName = 'Company Account';
+  String _profilePhotoUrl = '';
   bool _verified = false;
 
   @override
@@ -33,34 +50,212 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     _controller = CompanyDashboardController(
       CompanyDashboardService(ApiClient()),
     );
-    _controller.load();
 
     _entrance = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 850),
+      duration: const Duration(milliseconds: 680),
     )..forward();
 
-    _loadCompanyIdentity();
+    // Local-first: paint the previous dashboard immediately, then ask the API
+    // for the newest version without blocking the user on every visit.
+    unawaited(_bootstrap());
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.wait<void>([
+      _loadCompanyIdentity(),
+      _loadCachedDashboard(),
+    ]);
+
+    if (!mounted) return;
+    unawaited(_refreshDashboardFromNetwork(initial: true));
   }
 
   Future<void> _loadCompanyIdentity() async {
     final profile = await UserSessionStorage.getProfile();
     final status = await UserSessionStorage.getStatus();
+    final storedPhoto = await UserSessionStorage.getProfilePhotoUrl();
 
-    final possibleName =
-        profile?['company_name']?.toString().trim() ??
-        profile?['name']?.toString().trim();
+    final profileName = profile?['company_name']?.toString().trim() ?? '';
+    final fallbackName = profile?['name']?.toString().trim() ?? '';
+    final profilePhoto = profile?['profile_photo']?.toString().trim() ?? '';
+    final alternatePhoto =
+        profile?['profile_photo_url']?.toString().trim() ?? '';
+
+    final statusValue = status?.trim().toLowerCase() ?? '';
+    final profileVerified = _asBool(profile?['verified']);
 
     if (!mounted) return;
 
     setState(() {
-      if (possibleName != null && possibleName.isNotEmpty) {
-        _companyName = possibleName;
+      if (profileName.isNotEmpty) {
+        _companyName = profileName;
+      } else if (fallbackName.isNotEmpty) {
+        _companyName = fallbackName;
       }
-      _verified = status?.toLowerCase() == 'active' ||
-          status?.toLowerCase() == 'approved' ||
-          status?.toLowerCase() == 'verified';
+
+      if (profilePhoto.isNotEmpty) {
+        _profilePhotoUrl = profilePhoto;
+      } else if (alternatePhoto.isNotEmpty) {
+        _profilePhotoUrl = alternatePhoto;
+      } else if (storedPhoto != null && storedPhoto.trim().isNotEmpty) {
+        _profilePhotoUrl = storedPhoto.trim();
+      }
+
+      _verified = profileVerified ||
+          statusValue == 'active' ||
+          statusValue == 'approved' ||
+          statusValue == 'verified';
     });
+  }
+
+  Future<void> _loadCachedDashboard() async {
+    try {
+      final userId = await UserSessionStorage.getUserId();
+      final key = '$_dashboardCachePrefix${userId ?? 'unknown'}';
+      _dashboardCacheKey = key;
+
+      final raw = await _cacheStorage.read(key: key);
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          final cached = _CompanyDashboardUiSnapshot.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+
+          if (mounted) {
+            setState(() => _dashboardSnapshot = cached);
+          }
+        }
+      }
+    } catch (_) {
+      // Cache must never prevent the real API request from running.
+    } finally {
+      if (mounted) {
+        setState(() => _cacheReadFinished = true);
+      }
+    }
+  }
+
+  Future<void> _saveDashboardCache(
+      _CompanyDashboardUiSnapshot snapshot,
+      ) async {
+    try {
+      var key = _dashboardCacheKey;
+      if (key == null) {
+        final userId = await UserSessionStorage.getUserId();
+        key = '$_dashboardCachePrefix${userId ?? 'unknown'}';
+        _dashboardCacheKey = key;
+      }
+
+      await _cacheStorage.write(
+        key: key,
+        value: jsonEncode(snapshot.toJson()),
+      );
+    } catch (_) {
+      // A cache write failure should be invisible to the user.
+    }
+  }
+
+  Future<void> _refreshDashboardFromNetwork({
+    bool initial = false,
+  }) async {
+    if (_networkRefreshing) return;
+    _networkRefreshing = true;
+
+    try {
+      if (initial) {
+        await _controller.load();
+      } else {
+        await _controller.refresh();
+      }
+
+      final fresh = _controller.dashboard;
+      if (fresh != null) {
+        final snapshot = _CompanyDashboardUiSnapshot.fromDashboard(fresh);
+
+        if (mounted) {
+          setState(() {
+            _dashboardSnapshot = snapshot;
+            _dashboardError = null;
+          });
+        }
+
+        unawaited(_saveDashboardCache(snapshot));
+      } else if (mounted && _dashboardSnapshot == null) {
+        setState(() {
+          _dashboardError = _controller.errorMessage ??
+              'Unable to load company dashboard.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _dashboardError = _controller.errorMessage ?? e.toString();
+        });
+      }
+    } finally {
+      _networkRefreshing = false;
+
+      if (mounted) {
+        setState(() => _firstNetworkAttemptFinished = true);
+      }
+    }
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait<void>([
+      _refreshDashboardFromNetwork(),
+      _loadCompanyIdentity(),
+    ]);
+  }
+
+  Future<void> _openNotifications() async {
+    HapticFeedback.selectionClick();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PilotNotificationsScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openPostJob() async {
+    HapticFeedback.selectionClick();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PostJobScreen(),
+      ),
+    );
+
+    if (!mounted) return;
+    unawaited(_refreshDashboardFromNetwork());
+  }
+
+  Future<void> _openManageJobs() async {
+    HapticFeedback.selectionClick();
+
+    // Switch to the Jobs tab inside the company bottom navigation instead of
+    // opening CompanyJobsScreen as a separate pushed page. Replacing the
+    // current shell also prevents an extra back-stack entry.
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const CompanyShellScreen(
+          initialIndex: 1,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openJob(int jobId) async {
+    HapticFeedback.selectionClick();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CompanyJobDetailScreen(jobId: jobId),
+      ),
+    );
+
+    if (!mounted) return;
+    unawaited(_refreshDashboardFromNetwork());
   }
 
   @override
@@ -70,14 +265,12 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     super.dispose();
   }
 
-  Future<void> _refresh() => _controller.refresh();
-
   Widget _entry({
     required int index,
     required Widget child,
   }) {
-    final start = (index * 0.07).clamp(0.0, 0.62).toDouble();
-    final end = (start + 0.34).clamp(0.0, 1.0).toDouble();
+    final start = (index * 0.055).clamp(0.0, 0.48).toDouble();
+    final end = (start + 0.48).clamp(0.0, 1.0).toDouble();
 
     final animation = CurvedAnimation(
       parent: _entrance,
@@ -88,7 +281,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
       opacity: animation,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.035),
+          begin: const Offset(0, 0.025),
           end: Offset.zero,
         ).animate(animation),
         child: child,
@@ -98,6 +291,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final dashboard = _dashboardSnapshot;
+    final shouldShowFirstShimmer = dashboard == null &&
+        (!_cacheReadFinished || !_firstNetworkAttemptFinished);
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
@@ -142,200 +339,183 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
             ),
           ),
           SafeArea(
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                if (_controller.isLoading && _controller.dashboard == null) {
-                  return const _CompanyDashboardShimmer();
-                }
-
-                if (_controller.dashboard == null) {
-                  return _DashboardErrorState(
-                    message: _controller.errorMessage ??
-                        'Unable to load company dashboard.',
-                    onRetry: _controller.load,
-                  );
-                }
-
-                final dashboard = _controller.dashboard!;
-
-                return RefreshIndicator(
-                  onRefresh: _refresh,
-                  color: AppColors.blue,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(
-                      parent: BouncingScrollPhysics(),
+            child: shouldShowFirstShimmer
+                ? const _CompanyDashboardShimmer()
+                : dashboard == null
+                ? _DashboardErrorState(
+              message: _dashboardError ??
+                  _controller.errorMessage ??
+                  'Unable to load company dashboard.',
+              onRetry: () => _refreshDashboardFromNetwork(
+                initial: true,
+              ),
+            )
+                : RefreshIndicator(
+              onRefresh: _refresh,
+              color: AppColors.blue,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.fromLTRB(
+                  20,
+                  14,
+                  20,
+                  115,
+                ),
+                children: [
+                  _entry(
+                    index: 0,
+                    child: _CompanyHeader(
+                      companyName: _companyName,
+                      profilePhotoUrl: _profilePhotoUrl,
+                      verified: _verified,
+                      onNotificationsTap: _openNotifications,
                     ),
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 115),
-                    children: [
-                      _entry(
-                        index: 0,
-                        child: _CompanyHeader(
-                          companyName: _companyName,
-                          verified: _verified,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _entry(
-                        index: 1,
-                        child: _DashboardHero(
-                          dashboard: dashboard,
-                        ),
-                      ),
-                      const SizedBox(height: 23),
-                      _entry(
-                        index: 2,
-                        child: const _SectionTitle(
-                          title: 'Job Overview',
-                          subtitle: 'Live status of your company job postings',
-                          icon: Icons.dashboard_customize_outlined,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _entry(
-                        index: 3,
-                        child: _StatusGrid(
-                          status: dashboard.jobsByStatus,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _entry(
-                        index: 4,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: SizedBox(
-                                height: 52,
-                                child: FilledButton.icon(
-                                  onPressed: () {
-                                    HapticFeedback.selectionClick();
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const PostJobScreen(),
-                                      ),
-                                    );
-                                  },
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: AppColors.blue,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.add_circle_outline_rounded,
-                                    size: 19,
-                                  ),
-                                  label: const Text(
-                                    'Post New Job',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                    ),
-                                  ),
+                  ),
+                  const SizedBox(height: 17),
+                  _entry(
+                    index: 1,
+                    child: _DashboardHero(dashboard: dashboard),
+                  ),
+                  const SizedBox(height: 23),
+                  _entry(
+                    index: 2,
+                    child: const _SectionTitle(
+                      title: 'Job Overview',
+                      subtitle:
+                      'Live status of your company job postings',
+                      icon: Icons.dashboard_customize_outlined,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _entry(
+                    index: 3,
+                    child: _StatusGrid(dashboard: dashboard),
+                  ),
+                  const SizedBox(height: 18),
+                  _entry(
+                    index: 4,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: FilledButton.icon(
+                              onPressed: _openPostJob,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.blue,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                  BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 19,
+                              ),
+                              label: const Text(
+                                'Post New Job',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: SizedBox(
-                                height: 52,
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    HapticFeedback.selectionClick();
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const CompanyJobsScreen(),
-                                      ),
-                                    );
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.navy,
-                                    backgroundColor: Colors.white,
-                                    side: BorderSide(
-                                      color: AppColors.cardBorder,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.work_outline_rounded,
-                                    size: 18,
-                                  ),
-                                  label: const Text(
-                                    'Manage Jobs',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                    ),
-                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton.icon(
+                              onPressed: _openManageJobs,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.navy,
+                                backgroundColor: Colors.white,
+                                side: BorderSide(
+                                  color: AppColors.cardBorder,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                  BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.work_outline_rounded,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Manage Jobs',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      _entry(
-                        index: 5,
-                        child: _SectionTitle(
-                          title: 'Recent Applicants',
-                          subtitle: dashboard.recentApplicants.isEmpty
-                              ? 'No recent applications yet'
-                              : 'Latest pilots across your job postings',
-                          icon: Icons.people_alt_outlined,
-                          trailing: dashboard.recentApplicants.isEmpty
-                              ? null
-                              : _CountBadge(
-                                  count: dashboard.recentApplicants.length,
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (dashboard.recentApplicants.isEmpty)
-                        _entry(
-                          index: 6,
-                          child: const _EmptyApplicantsCard(),
-                        )
-                      else
-                        ...dashboard.recentApplicants.take(5).toList().asMap().entries.map(
-                          (entry) {
-                            final application = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _entry(
-                                index: 6 + entry.key,
-                                child: _RecentApplicantCard(
-                                  application: application,
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => CompanyJobDetailScreen(
-                                          jobId: application.jobPostingId,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      if (_controller.errorMessage != null) ...[
-                        const SizedBox(height: 8),
-                        _InlineRefreshWarning(
-                          message: _controller.errorMessage!,
-                          onRetry: _refresh,
+                          ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                );
-              },
+                  const SizedBox(height: 28),
+                  _entry(
+                    index: 5,
+                    child: _SectionTitle(
+                      title: 'Recent Applicants',
+                      subtitle: dashboard.recentApplicants.isEmpty
+                          ? 'No recent applications yet'
+                          : 'Latest pilots across your job postings',
+                      icon: Icons.people_alt_outlined,
+                      trailing: dashboard.recentApplicants.isEmpty
+                          ? null
+                          : _CountBadge(
+                        count:
+                        dashboard.recentApplicants.length,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (dashboard.recentApplicants.isEmpty)
+                    _entry(
+                      index: 6,
+                      child: const _EmptyApplicantsCard(),
+                    )
+                  else
+                    ...dashboard.recentApplicants
+                        .take(5)
+                        .toList()
+                        .asMap()
+                        .entries
+                        .map((entry) {
+                      final application = entry.value;
+                      return Padding(
+                        padding:
+                        const EdgeInsets.only(bottom: 10),
+                        child: _entry(
+                          index: 6 + entry.key,
+                          child: _RecentApplicantCard(
+                            application: application,
+                            onTap: () => _openJob(
+                              application.jobPostingId,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  if (_dashboardError != null ||
+                      _controller.errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    _InlineRefreshWarning(
+                      message: _dashboardError ??
+                          _controller.errorMessage ??
+                          'Could not refresh the latest data.',
+                      onRetry: _refresh,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
@@ -347,42 +527,83 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 class _CompanyHeader extends StatelessWidget {
   const _CompanyHeader({
     required this.companyName,
+    required this.profilePhotoUrl,
     required this.verified,
+    required this.onNotificationsTap,
   });
 
   final String companyName;
+  final String profilePhotoUrl;
   final bool verified;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
+    final hasPhoto = profilePhotoUrl.trim().isNotEmpty;
+
     return Row(
       children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF0C819B),
-                Color(0xFF18BDBB),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(17),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blue.withOpacity(0.16),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.navy.withOpacity(0.09),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: const Icon(
-            Icons.apartment_rounded,
-            color: Colors.white,
-            size: 25,
-          ),
+              clipBehavior: Clip.antiAlias,
+              child: hasPhoto
+                  ? Image.network(
+                profilePhotoUrl.trim(),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _CompanyAvatarFallback(
+                  companyName: companyName,
+                ),
+              )
+                  : _CompanyAvatarFallback(companyName: companyName),
+            ),
+            if (verified)
+              Positioned(
+                right: -2,
+                bottom: -1,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.green,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.bg,
+                      width: 2.4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.green.withOpacity(0.24),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(width: 13),
         Expanded(
@@ -392,8 +613,8 @@ class _CompanyHeader extends StatelessWidget {
               Text(
                 'Company Dashboard',
                 style: TextStyle(
-                  color: AppColors.grey.withOpacity(0.9),
-                  fontSize: 11.5,
+                  color: AppColors.grey.withOpacity(0.90),
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -404,9 +625,9 @@ class _CompanyHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppColors.navy,
-                  fontSize: 19,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -0.35,
+                  letterSpacing: -0.25,
                 ),
               ),
               const SizedBox(height: 3),
@@ -424,7 +645,7 @@ class _CompanyHeader extends StatelessWidget {
                     verified ? 'Verified company' : 'Company account',
                     style: TextStyle(
                       color: verified ? AppColors.green : AppColors.grey,
-                      fontSize: 10.5,
+                      fontSize: 10.2,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -433,7 +654,90 @@ class _CompanyHeader extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(width: 10),
+        Material(
+          color: Colors.white.withOpacity(0.96),
+          borderRadius: BorderRadius.circular(15),
+          child: InkWell(
+            onTap: onNotificationsTap,
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.navy.withOpacity(0.035),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.navy,
+                    size: 22,
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: AppColors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 1.4,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _CompanyAvatarFallback extends StatelessWidget {
+  const _CompanyAvatarFallback({required this.companyName});
+
+  final String companyName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFE9FBFB),
+            Color(0xFFD4F3F4),
+            Color(0xFFC4E8ED),
+          ],
+        ),
+      ),
+      child: Text(
+        _initials(companyName),
+        style: const TextStyle(
+          color: AppColors.navy,
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.4,
+        ),
+      ),
     );
   }
 }
@@ -441,7 +745,7 @@ class _CompanyHeader extends StatelessWidget {
 class _DashboardHero extends StatelessWidget {
   const _DashboardHero({required this.dashboard});
 
-  final CompanyDashboardModel dashboard;
+  final _CompanyDashboardUiSnapshot dashboard;
 
   @override
   Widget build(BuildContext context) {
@@ -525,9 +829,9 @@ class _DashboardHero extends StatelessWidget {
                 'Your marketplace at a glance',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -0.45,
+                  letterSpacing: -0.30,
                 ),
               ),
               const SizedBox(height: 5),
@@ -637,9 +941,9 @@ class _HeroMetric extends StatelessWidget {
 }
 
 class _StatusGrid extends StatelessWidget {
-  const _StatusGrid({required this.status});
+  const _StatusGrid({required this.dashboard});
 
-  final CompanyJobsByStatus status;
+  final _CompanyDashboardUiSnapshot dashboard;
 
   @override
   Widget build(BuildContext context) {
@@ -655,7 +959,7 @@ class _StatusGrid extends StatelessWidget {
               width: width,
               child: _StatusCard(
                 label: 'Draft',
-                value: status.draft,
+                value: dashboard.draftJobs,
                 icon: Icons.edit_note_rounded,
                 accent: AppColors.orange,
                 soft: AppColors.orangeBg,
@@ -665,7 +969,7 @@ class _StatusGrid extends StatelessWidget {
               width: width,
               child: _StatusCard(
                 label: 'Published',
-                value: status.published,
+                value: dashboard.publishedJobs,
                 icon: Icons.public_rounded,
                 accent: AppColors.green,
                 soft: AppColors.greenBg,
@@ -675,7 +979,7 @@ class _StatusGrid extends StatelessWidget {
               width: width,
               child: _StatusCard(
                 label: 'Closed',
-                value: status.closed,
+                value: dashboard.closedJobs,
                 icon: Icons.lock_outline_rounded,
                 accent: AppColors.blue,
                 soft: AppColors.blueBg,
@@ -685,7 +989,7 @@ class _StatusGrid extends StatelessWidget {
               width: width,
               child: _StatusCard(
                 label: 'Cancelled',
-                value: status.cancelled,
+                value: dashboard.cancelledJobs,
                 icon: Icons.cancel_outlined,
                 accent: const Color(0xFFE45252),
                 soft: const Color(0xFFFFF1F1),
@@ -859,15 +1163,26 @@ class _RecentApplicantCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final CompanyDashboardApplicant application;
+  final _CompanyDashboardApplicantSnapshot application;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final pilot = application.pilotProfile;
-    final job = application.jobPosting;
-    final drone = application.drone;
     final statusStyle = _statusStyle(application.status);
+    final location = application.pilotLocation.trim().isEmpty
+        ? 'Location not specified'
+        : application.pilotLocation.trim();
+    final jobTitle = application.jobTitle.trim().isEmpty
+        ? 'Job #${application.jobPostingId}'
+        : application.jobTitle.trim();
+    final hasDrone = application.droneName.trim().isNotEmpty ||
+        application.droneCapabilities.isNotEmpty;
+    final capabilities = application.droneCapabilities.isEmpty
+        ? 'No capabilities listed'
+        : application.droneCapabilities.join(', ');
+    final droneLine = application.droneName.trim().isEmpty
+        ? capabilities
+        : '${application.droneName.trim()} · $capabilities';
 
     return Material(
       color: Colors.transparent,
@@ -931,9 +1246,7 @@ class _RecentApplicantCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          pilot == null
-                              ? 'Professional profile'
-                              : '${pilot.experienceYears ?? 0} yrs experience · ${pilot.location}',
+                          '${application.experienceYears} yrs experience · $location',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -988,7 +1301,7 @@ class _RecentApplicantCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            job?.title ?? 'Job #${application.jobPostingId}',
+                            jobTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -997,10 +1310,10 @@ class _RecentApplicantCard extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          if (drone != null) ...[
+                          if (hasDrone) ...[
                             const SizedBox(height: 2),
                             Text(
-                              '${drone.displayName} · ${drone.capabilities.isEmpty ? 'No capabilities listed' : drone.capabilities.join(', ')}',
+                              droneLine,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -1210,7 +1523,7 @@ class _CompanyDashboardShimmerState extends State<_CompanyDashboardShimmer>
     super.initState();
     _animation = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1250),
+      duration: const Duration(milliseconds: 1350),
     )..repeat();
   }
 
@@ -1225,10 +1538,10 @@ class _CompanyDashboardShimmerState extends State<_CompanyDashboardShimmer>
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, _) {
-        Widget box({
+        Widget shimmerBox({
           required double height,
           double? width,
-          double radius = 16,
+          double radius = 14,
         }) {
           final t = _animation.value;
           return Container(
@@ -1237,69 +1550,376 @@ class _CompanyDashboardShimmerState extends State<_CompanyDashboardShimmer>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
               gradient: LinearGradient(
-                begin: Alignment(-1.6 + (3.2 * t), 0),
-                end: Alignment(-0.6 + (3.2 * t), 0),
-                colors: [
-                  Colors.grey.shade100,
-                  Colors.grey.shade200,
-                  Colors.grey.shade100,
+                begin: Alignment(-1.65 + (3.3 * t), 0),
+                end: Alignment(-0.65 + (3.3 * t), 0),
+                colors: const [
+                  Color(0xFFF1F5F7),
+                  Color(0xFFE3ECEF),
+                  Color(0xFFF1F5F7),
                 ],
               ),
             ),
           );
         }
 
-        return ListView(
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 110),
-          children: [
-            Row(
+        Widget sectionHeader({double titleWidth = 120}) {
+          return Row(
+            children: [
+              shimmerBox(height: 36, width: 36, radius: 11),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    shimmerBox(height: 13, width: titleWidth, radius: 7),
+                    const SizedBox(height: 6),
+                    shimmerBox(height: 8, width: 165, radius: 6),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        Widget statusCard() {
+          return Container(
+            height: 76,
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.94),
+              borderRadius: BorderRadius.circular(19),
+              border: Border.all(color: const Color(0xFFE8EEF1)),
+            ),
+            child: Row(
               children: [
-                box(height: 52, width: 52, radius: 17),
-                const SizedBox(width: 12),
+                shimmerBox(height: 39, width: 39, radius: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      box(height: 10, width: 110, radius: 6),
-                      const SizedBox(height: 8),
-                      box(height: 17, width: 190, radius: 7),
+                      shimmerBox(height: 14, width: 34, radius: 6),
+                      const SizedBox(height: 7),
+                      shimmerBox(height: 8, width: 62, radius: 6),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 22),
-            box(height: 175, radius: 25),
+          );
+        }
+
+        Widget applicantCard() {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE8EEF1)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    shimmerBox(height: 46, width: 46, radius: 14),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          shimmerBox(height: 12, width: 115, radius: 6),
+                          const SizedBox(height: 8),
+                          shimmerBox(height: 8, width: 170, radius: 6),
+                        ],
+                      ),
+                    ),
+                    shimmerBox(height: 25, width: 58, radius: 13),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                shimmerBox(height: 44, radius: 14),
+              ],
+            ),
+          );
+        }
+
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
+          children: [
+            Row(
+              children: [
+                shimmerBox(height: 54, width: 54, radius: 27),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      shimmerBox(height: 8, width: 105, radius: 6),
+                      const SizedBox(height: 7),
+                      shimmerBox(height: 14, width: 160, radius: 7),
+                      const SizedBox(height: 7),
+                      shimmerBox(height: 8, width: 96, radius: 6),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                shimmerBox(height: 44, width: 44, radius: 15),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A3C57).withOpacity(0.10),
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  shimmerBox(height: 24, width: 105, radius: 13),
+                  const SizedBox(height: 19),
+                  shimmerBox(height: 14, width: 220, radius: 7),
+                  const SizedBox(height: 8),
+                  shimmerBox(height: 8, width: 260, radius: 6),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      shimmerBox(height: 39, width: 39, radius: 12),
+                      const SizedBox(width: 9),
+                      shimmerBox(height: 30, width: 80, radius: 8),
+                      const Spacer(),
+                      shimmerBox(height: 39, width: 39, radius: 12),
+                      const SizedBox(width: 9),
+                      shimmerBox(height: 30, width: 88, radius: 8),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
-            box(height: 35, width: 150, radius: 10),
+            sectionHeader(titleWidth: 104),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: box(height: 72, radius: 19)),
+                Expanded(child: statusCard()),
                 const SizedBox(width: 10),
-                Expanded(child: box(height: 72, radius: 19)),
+                Expanded(child: statusCard()),
               ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: box(height: 72, radius: 19)),
+                Expanded(child: statusCard()),
                 const SizedBox(width: 10),
-                Expanded(child: box(height: 72, radius: 19)),
+                Expanded(child: statusCard()),
               ],
             ),
-            const SizedBox(height: 26),
-            box(height: 35, width: 175, radius: 10),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(child: shimmerBox(height: 52, radius: 16)),
+                const SizedBox(width: 10),
+                Expanded(child: shimmerBox(height: 52, radius: 16)),
+              ],
+            ),
+            const SizedBox(height: 28),
+            sectionHeader(titleWidth: 130),
             const SizedBox(height: 12),
-            box(height: 118, radius: 20),
+            applicantCard(),
             const SizedBox(height: 10),
-            box(height: 118, radius: 20),
+            applicantCard(),
           ],
         );
       },
     );
   }
+}
+
+class _CompanyDashboardUiSnapshot {
+  const _CompanyDashboardUiSnapshot({
+    required this.draftJobs,
+    required this.publishedJobs,
+    required this.closedJobs,
+    required this.cancelledJobs,
+    required this.incomingApplicationsCount,
+    required this.recentApplicants,
+  });
+
+  final int draftJobs;
+  final int publishedJobs;
+  final int closedJobs;
+  final int cancelledJobs;
+  final int incomingApplicationsCount;
+  final List<_CompanyDashboardApplicantSnapshot> recentApplicants;
+
+  int get totalJobs =>
+      draftJobs + publishedJobs + closedJobs + cancelledJobs;
+
+  factory _CompanyDashboardUiSnapshot.fromDashboard(
+      CompanyDashboardModel dashboard,
+      ) {
+    return _CompanyDashboardUiSnapshot(
+      draftJobs: dashboard.jobsByStatus.draft,
+      publishedJobs: dashboard.jobsByStatus.published,
+      closedJobs: dashboard.jobsByStatus.closed,
+      cancelledJobs: dashboard.jobsByStatus.cancelled,
+      incomingApplicationsCount: dashboard.incomingApplicationsCount,
+      recentApplicants: dashboard.recentApplicants
+          .map(_CompanyDashboardApplicantSnapshot.fromDashboardApplicant)
+          .toList(growable: false),
+    );
+  }
+
+  factory _CompanyDashboardUiSnapshot.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    final rawApplicants = json['recent_applicants'];
+    final applicants = <_CompanyDashboardApplicantSnapshot>[];
+
+    if (rawApplicants is List) {
+      for (final raw in rawApplicants) {
+        if (raw is Map) {
+          applicants.add(
+            _CompanyDashboardApplicantSnapshot.fromJson(
+              Map<String, dynamic>.from(raw),
+            ),
+          );
+        }
+      }
+    }
+
+    return _CompanyDashboardUiSnapshot(
+      draftJobs: _asInt(json['draft_jobs']),
+      publishedJobs: _asInt(json['published_jobs']),
+      closedJobs: _asInt(json['closed_jobs']),
+      cancelledJobs: _asInt(json['cancelled_jobs']),
+      incomingApplicationsCount:
+      _asInt(json['incoming_applications_count']),
+      recentApplicants: applicants,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'draft_jobs': draftJobs,
+      'published_jobs': publishedJobs,
+      'closed_jobs': closedJobs,
+      'cancelled_jobs': cancelledJobs,
+      'incoming_applications_count': incomingApplicationsCount,
+      'recent_applicants':
+      recentApplicants.map((item) => item.toJson()).toList(),
+    };
+  }
+}
+
+class _CompanyDashboardApplicantSnapshot {
+  const _CompanyDashboardApplicantSnapshot({
+    required this.pilotProfileId,
+    required this.jobPostingId,
+    required this.status,
+    required this.experienceYears,
+    required this.pilotLocation,
+    required this.jobTitle,
+    required this.droneName,
+    required this.droneCapabilities,
+  });
+
+  final int pilotProfileId;
+  final int jobPostingId;
+  final String status;
+  final int experienceYears;
+  final String pilotLocation;
+  final String jobTitle;
+  final String droneName;
+  final List<String> droneCapabilities;
+
+  factory _CompanyDashboardApplicantSnapshot.fromDashboardApplicant(
+      CompanyDashboardApplicant application,
+      ) {
+    final pilot = application.pilotProfile;
+    final job = application.jobPosting;
+    final drone = application.drone;
+
+    return _CompanyDashboardApplicantSnapshot(
+      pilotProfileId: application.pilotProfileId,
+      jobPostingId: application.jobPostingId,
+      status: application.status,
+      experienceYears: pilot?.experienceYears ?? 0,
+      pilotLocation: pilot?.location ?? '',
+      jobTitle: job?.title ?? '',
+      droneName: drone?.displayName ?? '',
+      droneCapabilities:
+      List<String>.from(drone?.capabilities ?? const <String>[]),
+    );
+  }
+
+  factory _CompanyDashboardApplicantSnapshot.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    final capabilities = <String>[];
+    final rawCapabilities = json['drone_capabilities'];
+
+    if (rawCapabilities is List) {
+      for (final value in rawCapabilities) {
+        final clean = value?.toString().trim() ?? '';
+        if (clean.isNotEmpty) capabilities.add(clean);
+      }
+    }
+
+    return _CompanyDashboardApplicantSnapshot(
+      pilotProfileId: _asInt(json['pilot_profile_id']),
+      jobPostingId: _asInt(json['job_posting_id']),
+      status: json['status']?.toString() ?? 'pending',
+      experienceYears: _asInt(json['experience_years']),
+      pilotLocation: json['pilot_location']?.toString() ?? '',
+      jobTitle: json['job_title']?.toString() ?? '',
+      droneName: json['drone_name']?.toString() ?? '',
+      droneCapabilities: capabilities,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'pilot_profile_id': pilotProfileId,
+      'job_posting_id': jobPostingId,
+      'status': status,
+      'experience_years': experienceYears,
+      'pilot_location': pilotLocation,
+      'job_title': jobTitle,
+      'drone_name': droneName,
+      'drone_capabilities': droneCapabilities,
+    };
+  }
+}
+
+int _asInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+bool _asBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  return text == 'true' || text == '1' || text == 'yes';
+}
+
+String _initials(String value) {
+  final parts = value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((item) => item.isNotEmpty)
+      .toList();
+
+  if (parts.isEmpty) return 'C';
+  if (parts.length == 1) {
+    return parts.first.substring(0, 1).toUpperCase();
+  }
+
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }
 
 class _StatusStyle {

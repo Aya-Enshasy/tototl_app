@@ -137,8 +137,8 @@ class CompanyJobService {
   // ==========================================================================
 
   Future<List<CompanyJobApplicationModel>> getApplicants(
-    int jobId,
-  ) async {
+      int jobId,
+      ) async {
     final token = await _getToken();
 
     try {
@@ -167,9 +167,9 @@ class CompanyJobService {
           .whereType<Map>()
           .map(
             (item) => CompanyJobApplicationModel.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
-          )
+          Map<String, dynamic>.from(item),
+        ),
+      )
           .toList();
     } on DioException catch (e) {
       throw CompanyJobException(
@@ -223,13 +223,13 @@ class CompanyJobService {
       }
 
       final result =
-          CompanyJobApplicationModel.fromJson(
+      CompanyJobApplicationModel.fromJson(
         Map<String, dynamic>.from(rawData),
       );
 
       print(
         'ACCEPT APPLICANT PARSED: '
-        'application=${result.id}, status=${result.status}',
+            'application=${result.id}, status=${result.status}',
       );
       print('================ ACCEPT APPLICANT SUCCESS ================');
 
@@ -283,17 +283,17 @@ class CompanyJobService {
         data: cleanReason.isEmpty
             ? null
             : <String, dynamic>{
-                'reason': cleanReason,
-              },
+          'reason': cleanReason,
+        },
         options: cleanReason.isEmpty
             ? _authOptions(token)
             : Options(
-                headers: {
-                  'Accept': 'application/json',
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer $token',
-                },
-              ),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
       );
 
       print('REJECT APPLICANT STATUS: ${response.statusCode}');
@@ -315,13 +315,13 @@ class CompanyJobService {
       }
 
       final result =
-          CompanyJobApplicationModel.fromJson(
+      CompanyJobApplicationModel.fromJson(
         Map<String, dynamic>.from(rawData),
       );
 
       print(
         'REJECT APPLICANT PARSED: '
-        'application=${result.id}, status=${result.status}',
+            'application=${result.id}, status=${result.status}',
       );
       print('================ REJECT APPLICANT SUCCESS ================');
 
@@ -346,8 +346,8 @@ class CompanyJobService {
   // ==========================================================================
 
   Future<CompanyJobPostingModel> createJob(
-    CompanyCreateJobRequest request,
-  ) async {
+      CompanyCreateJobRequest request,
+      ) async {
     final token = await _getToken();
 
     try {
@@ -373,16 +373,26 @@ class CompanyJobService {
 
       addField(
         'start_date',
-        request.startDate.toUtc().toIso8601String(),
+        _apiDateTimeForDateOnly(request.startDate),
       );
       addField(
         'end_date',
-        request.endDate.toUtc().toIso8601String(),
+        _apiDateTimeForDateOnly(request.endDate),
       );
 
       addField('payment_type', request.paymentType);
-      addField('payment_min', request.paymentMin);
-      addField('payment_max', request.paymentMax);
+
+      if (request.paymentType != 'negotiable') {
+        final paymentMin = request.paymentMin;
+        if (paymentMin == null) {
+          throw const CompanyJobException(
+            'Minimum payment is required for this payment type.',
+          );
+        }
+
+        addField('payment_min', paymentMin);
+        addField('payment_max', request.paymentMax);
+      }
 
       for (var i = 0; i < request.requiredCapabilities.length; i++) {
         addField(
@@ -453,6 +463,15 @@ class CompanyJobService {
         );
       }
 
+      print(
+        'CREATE JOB REQUEST FIELDS: '
+            '${formData.fields.map((e) => '${e.key}=${e.value}').toList()}',
+      );
+      print(
+        'CREATE JOB ATTACHMENTS: '
+            '${formData.files.map((e) => e.key).toList()}',
+      );
+
       final response = await apiClient.post(
         _jobsBase,
         data: formData,
@@ -500,9 +519,9 @@ class CompanyJobService {
   // ==========================================================================
 
   Future<CompanyJobPostingModel> updateJob(
-    int jobId,
-    CompanyUpdateJobRequest request,
-  ) async {
+      int jobId,
+      CompanyUpdateJobRequest request,
+      ) async {
     final token = await _getToken();
 
     try {
@@ -533,11 +552,11 @@ class CompanyJobService {
 
       addRequired(
         'start_date',
-        request.startDate.toUtc().toIso8601String(),
+        _apiDateTimeForDateOnly(request.startDate),
       );
       addRequired(
         'end_date',
-        request.endDate.toUtc().toIso8601String(),
+        _apiDateTimeForDateOnly(request.endDate),
       );
 
       addRequired('payment_type', request.paymentType);
@@ -706,6 +725,116 @@ class CompanyJobService {
   }
 
   // ==========================================================================
+  // CLOSE PUBLISHED JOB
+  // POST /company/job-postings/{id}/close
+  // ==========================================================================
+
+  Future<CompanyJobPostingModel> closeJob(int jobId) async {
+    final token = await _getToken();
+
+    try {
+      final response = await apiClient.post(
+        '$_jobsBase/$jobId/close',
+        options: _authOptions(token),
+      );
+
+      print('CLOSE JOB RESPONSE [$jobId]: ${response.data}');
+
+      final body = _parseBody(response.data);
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to close job posting.',
+      );
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw const CompanyJobException(
+          'Closed job data is missing.',
+        );
+      }
+
+      return CompanyJobPostingModel.fromJson(
+        Map<String, dynamic>.from(rawData),
+      );
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to close job posting.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // CANCEL JOB
+  // POST /company/job-postings/{id}/cancel
+  // Optional JSON body: {"reason": "..."}, max 2000 chars.
+  // ==========================================================================
+
+  Future<CompanyJobPostingModel> cancelJob(
+      int jobId, {
+        String? reason,
+      }) async {
+    final token = await _getToken();
+    final cleanReason = reason?.trim() ?? '';
+
+    if (cleanReason.length > 2000) {
+      throw const CompanyJobException(
+        'Cancellation reason cannot exceed 2000 characters.',
+      );
+    }
+
+    try {
+      final response = await apiClient.post(
+        '$_jobsBase/$jobId/cancel',
+        data: cleanReason.isEmpty
+            ? null
+            : <String, dynamic>{
+          'reason': cleanReason,
+        },
+        options: cleanReason.isEmpty
+            ? _authOptions(token)
+            : Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      print('CANCEL JOB RESPONSE [$jobId]: ${response.data}');
+
+      final body = _parseBody(response.data);
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to cancel job posting.',
+      );
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw const CompanyJobException(
+          'Cancelled job data is missing.',
+        );
+      }
+
+      return CompanyJobPostingModel.fromJson(
+        Map<String, dynamic>.from(rawData),
+      );
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to cancel job posting.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
   // TOKEN / HELPERS
   // ==========================================================================
 
@@ -730,6 +859,18 @@ class CompanyJobService {
     );
   }
 
+  /// Converts the date-only value selected by the UI to the exact
+  /// ISO-8601 date-time shape used by the web/Postman request.
+  ///
+  /// Example: 2026-09-12 -> 2026-09-12T00:00:00.000Z
+  String _apiDateTimeForDateOnly(DateTime value) {
+    return DateTime.utc(
+      value.year,
+      value.month,
+      value.day,
+    ).toIso8601String();
+  }
+
   int? _asInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -747,9 +888,9 @@ class CompanyJobService {
   }
 
   void _ensureSuccess(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     if (body['success'] == true) return;
 
     throw CompanyJobException(
@@ -761,9 +902,9 @@ class CompanyJobService {
   }
 
   String _messageFromBody(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     final errors = body['errors'];
 
     if (errors is Map) {
@@ -796,9 +937,9 @@ class CompanyJobService {
   }
 
   String _dioErrorMessage(
-    DioException error, {
-    required String fallback,
-  }) {
+      DioException error, {
+        required String fallback,
+      }) {
     final raw = error.response?.data;
 
     if (raw is Map) {
