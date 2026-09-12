@@ -11,6 +11,7 @@ class DroneModel {
   final List<String> capabilities;
 
   final int? flightTimePerBatteryMinutes;
+  final int? chargingTimeMinutes;
   final int? totalBatteries;
   final String batteryType;
   final double? batteryUsageFee;
@@ -34,6 +35,7 @@ class DroneModel {
     this.weightKg,
     this.capabilities = const [],
     this.flightTimePerBatteryMinutes,
+    this.chargingTimeMinutes,
     this.totalBatteries,
     this.batteryType = '',
     this.batteryUsageFee,
@@ -106,6 +108,8 @@ class DroneModel {
         json['flight_time'] ??
             json['flight_time_per_battery_minutes'],
       ),
+      chargingTimeMinutes:
+      _asInt(json['charging_time']),
       totalBatteries:
       _asInt(json['total_batteries']),
       batteryType:
@@ -141,6 +145,7 @@ class DroneModel {
       'capabilities': capabilities,
       'flight_time':
       flightTimePerBatteryMinutes,
+      'charging_time': chargingTimeMinutes,
       'total_batteries': totalBatteries,
       'battery_type': batteryType,
       'battery_usage_fee': batteryUsageFee,
@@ -200,6 +205,14 @@ class DroneModel {
     }
 
     return '$flightTimePerBatteryMinutes min';
+  }
+
+  String get chargingTimeLabel {
+    if (chargingTimeMinutes == null) {
+      return 'Not specified';
+    }
+
+    return '$chargingTimeMinutes min';
   }
 
   String get batteriesLabel {

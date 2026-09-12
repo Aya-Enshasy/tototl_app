@@ -11,7 +11,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../controllers/company_job_controller.dart';
  import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
-import '../jobs/company_applicant_detail_screen.dart';
+import 'company_applicant_detail_screen.dart';
 import 'company_applicant_list_item.dart';
 
 class CompanyApplicationsScreen extends StatefulWidget {
@@ -345,14 +345,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: AppColors.grey,
-                        fontSize: 11.8,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+
                   ],
                 ),
               ),

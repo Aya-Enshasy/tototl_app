@@ -5,6 +5,7 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 
 import '../../controllers/pilot_application_controller.dart';
 import '../../models/pilot_application_model.dart';
+import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
 import '../../services/pilot_job_service.dart';
 import 'application_details_screen.dart';
@@ -33,6 +34,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     _controller = PilotApplicationController(
       PilotApplicationService(apiClient),
       jobService: PilotJobService(apiClient),
+      droneService: DroneService(apiClient),
     );
 
     _controller.load();
@@ -186,6 +188,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                   pending: _controller.pendingCount,
                   accepted: _controller.acceptedCount,
                   rejected: _controller.rejectedCount,
+                  withdrawn: _controller.withdrawnCount,
                   refreshing: _controller.isRefreshing,
                   onRefresh: _controller.isRefreshing ? null : _refresh,
                 ),
@@ -310,6 +313,7 @@ class _Header extends StatelessWidget {
     required this.pending,
     required this.accepted,
     required this.rejected,
+    required this.withdrawn,
     required this.refreshing,
     required this.onRefresh,
   });
@@ -318,6 +322,7 @@ class _Header extends StatelessWidget {
   final int pending;
   final int accepted;
   final int rejected;
+  final int withdrawn;
   final bool refreshing;
   final VoidCallback? onRefresh;
 
@@ -365,13 +370,21 @@ class _Header extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
+                    Text(
+                      'APPLICATIONS',
+                      style: TextStyle(
+                        color: AppColors.logoTurquoiseDark,
+                        fontSize: 8.6,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.25,
+                      ),
+                    ),
                     SizedBox(height: 3),
                     Text(
                       'Mission Pipeline',
                       style: TextStyle(
                         color: AppColors.navy,
-                        fontSize: 16,
+                        fontSize: 21.5,
                         height: 1.05,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.55,
@@ -404,6 +417,7 @@ class _Header extends StatelessWidget {
             pending: pending,
             accepted: accepted,
             rejected: rejected,
+            withdrawn: withdrawn,
           ),
         ],
       ),
@@ -417,12 +431,14 @@ class _PipelineHero extends StatelessWidget {
     required this.pending,
     required this.accepted,
     required this.rejected,
+    required this.withdrawn,
   });
 
   final int total;
   final int pending;
   final int accepted;
   final int rejected;
+  final int withdrawn;
 
   @override
   Widget build(BuildContext context) {
@@ -553,6 +569,15 @@ class _PipelineHero extends StatelessWidget {
                         label: 'Rejected',
                         icon: Icons.cancel_outlined,
                         tint: const Color(0xFFFFA0A0),
+                      ),
+                    ),
+                    const _HeroDivider(),
+                    Expanded(
+                      child: _HeroMetric(
+                        value: '$withdrawn',
+                        label: 'Withdrawn',
+                        icon: Icons.undo_rounded,
+                        tint: const Color(0xFFC6D0DB),
                       ),
                     ),
                   ],
@@ -733,7 +758,7 @@ class _PulseDotsState extends State<_PulseDots>
       builder: (context, _) {
         return Row(
           mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
+          children: List.generate(4, (index) {
             final phase = (_controller.value + (index * 0.22)) % 1.0;
             final opacity = 0.28 + (0.72 * (1 - (phase - 0.5).abs() * 2));
 
@@ -1342,7 +1367,7 @@ class _EmptyApplications extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.navy,
-            fontSize: 16,
+            fontSize: 17.5,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -1514,7 +1539,7 @@ class _HeroShimmer extends StatelessWidget {
               return Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(
-                    right: index == 2 ? 0 : 16,
+                    right: index == 3 ? 0 : 12,
                   ),
                   child: Column(
                     children: [

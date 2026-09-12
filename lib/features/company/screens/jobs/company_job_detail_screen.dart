@@ -14,7 +14,7 @@ import '../../models/company_job_application_model.dart';
 import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
 
-import 'company_applicant_detail_screen.dart';
+import '../operations/company_applicant_detail_screen.dart';
 import 'edit_company_job_screen.dart';
 
 class CompanyJobDetailScreen extends StatefulWidget {
@@ -723,10 +723,10 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                   const SizedBox(height: 12),
                   _attachments(job),
                 ],
-                if (job.company != null) ...[
-                  const SizedBox(height: 12),
-                  _companyCard(job.company!),
-                ],
+                // if (job.company != null) ...[
+                //   const SizedBox(height: 12),
+                //   _companyCard(job.company!),
+                // ],
                 const SizedBox(height: 18),
                 _applicationsSection(),
               ],
@@ -1324,90 +1324,90 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     );
   }
 
-  Widget _companyCard(_CompanySnapshot company) {
-    final name = company.companyName.isEmpty
-        ? 'Company #${company.id}'
-        : company.companyName;
-
-    return _section(
-      icon: Icons.business_rounded,
-      title: 'Company',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.blue, Color(0xFF0D8AA5)],
-              ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              _initials(name),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (company.industryType.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    company.industryType,
-                    style: const TextStyle(
-                      color: AppColors.grey,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-                if (company.address.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        color: AppColors.blue,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          company.address,
-                          style: const TextStyle(
-                            color: AppColors.text,
-                            fontSize: 11.8,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _companyCard(_CompanySnapshot company) {
+  //   final name = company.companyName.isEmpty
+  //       ? 'Company #${company.id}'
+  //       : company.companyName;
+  //
+  //   return _section(
+  //     icon: Icons.business_rounded,
+  //     title: 'Company',
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Container(
+  //           width: 46,
+  //           height: 46,
+  //           alignment: Alignment.center,
+  //           decoration: BoxDecoration(
+  //             gradient: const LinearGradient(
+  //               colors: [AppColors.blue, Color(0xFF0D8AA5)],
+  //             ),
+  //             borderRadius: BorderRadius.circular(14),
+  //           ),
+  //           child: Text(
+  //             _initials(name),
+  //             style: const TextStyle(
+  //               color: Colors.white,
+  //               fontSize: 14,
+  //               fontWeight: FontWeight.w900,
+  //             ),
+  //           ),
+  //         ),
+  //         const SizedBox(width: 11),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 name,
+  //                 style: const TextStyle(
+  //                   color: AppColors.navy,
+  //                   fontSize: 14.5,
+  //                   fontWeight: FontWeight.w800,
+  //                 ),
+  //               ),
+  //               if (company.industryType.isNotEmpty) ...[
+  //                 const SizedBox(height: 3),
+  //                 Text(
+  //                   company.industryType,
+  //                   style: const TextStyle(
+  //                     color: AppColors.grey,
+  //                     fontSize: 11.5,
+  //                   ),
+  //                 ),
+  //               ],
+  //               if (company.address.isNotEmpty) ...[
+  //                 const SizedBox(height: 8),
+  //                 Row(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: [
+  //                     const Icon(
+  //                       Icons.location_on_outlined,
+  //                       color: AppColors.blue,
+  //                       size: 14,
+  //                     ),
+  //                     const SizedBox(width: 5),
+  //                     Expanded(
+  //                       child: Text(
+  //                         company.address,
+  //                         style: const TextStyle(
+  //                           color: AppColors.text,
+  //                           fontSize: 11.8,
+  //                           height: 1.35,
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ],
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _applicationsSection() {
     final pendingCount =

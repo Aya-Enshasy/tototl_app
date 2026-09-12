@@ -14,11 +14,9 @@ class CompanyJobApplicationModel {
 
   final String rejectionReason;
 
-  /// GET /company/job-postings/{id}/applicants is documented as returning
-  /// the applicant with pilot profile + committed drone.
-  ///
-  /// The generated schema still references JobApplication, so both relations
-  /// remain nullable and are parsed defensively.
+  /// Applicants endpoints return the application plus a nested pilot profile
+  /// and the drone committed to this application. Both are parsed defensively
+  /// because older responses may omit one of the relations.
   final CompanyApplicantPilotModel? pilotProfile;
   final CompanyApplicantDroneModel? drone;
 
@@ -39,55 +37,52 @@ class CompanyJobApplicationModel {
   });
 
   factory CompanyJobApplicationModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+      Map<String, dynamic> json,
+      ) {
     final pilotRaw =
-        json['pilot_profile'] ??
-        json['pilot'] ??
-        json['profile'];
-
-    final droneRaw =
-        json['drone'] ??
-        json['committed_drone'];
+        json['pilot_profile'] ?? json['pilot'] ?? json['profile'];
+    final droneRaw = json['drone'] ?? json['committed_drone'];
 
     return CompanyJobApplicationModel(
       id: _asInt(json['id']) ?? 0,
-      jobPostingId:
-          _asInt(json['job_posting_id']) ?? 0,
-      pilotProfileId:
-          _asInt(json['pilot_profile_id']) ?? 0,
-      droneId:
-          _asInt(json['drone_id']) ?? 0,
-      coverMessage:
-          _asString(json['cover_message']),
-      status:
-          _asString(json['status']),
-      decidedAt:
-          _asDate(json['decided_at']),
-      withdrawnAt:
-          _asDate(json['withdrawn_at']),
-      createdAt:
-          _asDate(json['created_at']),
-      updatedAt:
-          _asDate(json['updated_at']),
-      rejectionReason:
-          _asString(json['rejection_reason']),
+      jobPostingId: _asInt(json['job_posting_id']) ?? 0,
+      pilotProfileId: _asInt(json['pilot_profile_id']) ?? 0,
+      droneId: _asInt(json['drone_id']) ?? 0,
+      coverMessage: _asString(json['cover_message']),
+      status: _asString(json['status']),
+      decidedAt: _asDate(json['decided_at']),
+      withdrawnAt: _asDate(json['withdrawn_at']),
+      createdAt: _asDate(json['created_at']),
+      updatedAt: _asDate(json['updated_at']),
+      rejectionReason: _asString(json['rejection_reason']),
       pilotProfile: pilotRaw is Map
           ? CompanyApplicantPilotModel.fromJson(
-              Map<String, dynamic>.from(
-                pilotRaw,
-              ),
-            )
+        Map<String, dynamic>.from(pilotRaw),
+      )
           : null,
       drone: droneRaw is Map
           ? CompanyApplicantDroneModel.fromJson(
-              Map<String, dynamic>.from(
-                droneRaw,
-              ),
-            )
+        Map<String, dynamic>.from(droneRaw),
+      )
           : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'job_posting_id': jobPostingId,
+    'pilot_profile_id': pilotProfileId,
+    'drone_id': droneId,
+    'cover_message': coverMessage,
+    'status': status,
+    'decided_at': decidedAt?.toIso8601String(),
+    'withdrawn_at': withdrawnAt?.toIso8601String(),
+    'created_at': createdAt?.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+    'rejection_reason': rejectionReason,
+    'pilot_profile': pilotProfile?.toJson(),
+    'drone': drone?.toJson(),
+  };
 
   CompanyJobApplicationModel copyWith({
     String? coverMessage,
@@ -105,41 +100,24 @@ class CompanyJobApplicationModel {
       jobPostingId: jobPostingId,
       pilotProfileId: pilotProfileId,
       droneId: droneId,
-      coverMessage:
-          coverMessage ?? this.coverMessage,
-      status:
-          status ?? this.status,
-      decidedAt:
-          decidedAt ?? this.decidedAt,
-      withdrawnAt:
-          withdrawnAt ?? this.withdrawnAt,
-      createdAt:
-          createdAt ?? this.createdAt,
-      updatedAt:
-          updatedAt ?? this.updatedAt,
-      rejectionReason:
-          rejectionReason ?? this.rejectionReason,
-      pilotProfile:
-          pilotProfile ?? this.pilotProfile,
-      drone:
-          drone ?? this.drone,
+      coverMessage: coverMessage ?? this.coverMessage,
+      status: status ?? this.status,
+      decidedAt: decidedAt ?? this.decidedAt,
+      withdrawnAt: withdrawnAt ?? this.withdrawnAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      pilotProfile: pilotProfile ?? this.pilotProfile,
+      drone: drone ?? this.drone,
     );
   }
 
-  bool get isPending =>
-      status.trim().toLowerCase() == 'pending';
+  bool get isPending => status.trim().toLowerCase() == 'pending';
+  bool get isAccepted => status.trim().toLowerCase() == 'accepted';
+  bool get isRejected => status.trim().toLowerCase() == 'rejected';
+  bool get isWithdrawn => status.trim().toLowerCase() == 'withdrawn';
 
-  bool get isAccepted =>
-      status.trim().toLowerCase() == 'accepted';
-
-  bool get isRejected =>
-      status.trim().toLowerCase() == 'rejected';
-
-  bool get isWithdrawn =>
-      status.trim().toLowerCase() == 'withdrawn';
-
-  String get statusLabel =>
-      _pretty(status.isEmpty ? 'pending' : status);
+  String get statusLabel => _pretty(status.isEmpty ? 'pending' : status);
 }
 
 class CompanyApplicantPilotModel {
@@ -148,6 +126,7 @@ class CompanyApplicantPilotModel {
 
   final String name;
   final String profilePhoto;
+  final bool? verified;
 
   final String bio;
   final int? experienceYears;
@@ -160,12 +139,14 @@ class CompanyApplicantPilotModel {
   final String country;
   final String state;
   final String city;
+  final List<CompanyPilotWorkRegionModel> workRegions;
 
   const CompanyApplicantPilotModel({
     required this.id,
     this.userId,
     this.name = '',
     this.profilePhoto = '',
+    this.verified,
     this.bio = '',
     this.experienceYears,
     this.nationality = '',
@@ -176,13 +157,13 @@ class CompanyApplicantPilotModel {
     this.country = '',
     this.state = '',
     this.city = '',
+    this.workRegions = const [],
   });
 
   factory CompanyApplicantPilotModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+      Map<String, dynamic> json,
+      ) {
     final userRaw = json['user'];
-
     final user = userRaw is Map
         ? Map<String, dynamic>.from(userRaw)
         : const <String, dynamic>{};
@@ -195,12 +176,9 @@ class CompanyApplicantPilotModel {
     ]);
 
     final rawPhoto =
-        json['profile_photo'] ??
-        json['photo'] ??
-        user['profile_photo'];
+        json['profile_photo'] ?? json['photo'] ?? user['profile_photo'];
 
     String photo = '';
-
     if (rawPhoto is String) {
       photo = rawPhoto.trim();
     } else if (rawPhoto is Map) {
@@ -212,79 +190,144 @@ class CompanyApplicantPilotModel {
     }
 
     return CompanyApplicantPilotModel(
-      id:
-          _asInt(json['id']) ?? 0,
-      userId:
-          _asInt(json['user_id'] ?? user['id']),
-      name:
-          resolvedName,
-      profilePhoto:
-          photo,
-      bio:
-          _asString(json['bio']),
-      experienceYears:
-          _asInt(
-        json['experience_years'] ??
-            json['years_experience'],
+      id: _asInt(json['id']) ?? 0,
+      userId: _asInt(json['user_id'] ?? user['id']),
+      name: resolvedName,
+      profilePhoto: photo,
+      verified: _asNullableBool(
+        json['verified'] ?? user['verified'],
       ),
-      nationality:
-          _asString(json['nationality']),
-      dateOfBirth:
-          _asDate(json['date_of_birth']),
-      linkedinUrl:
-          _asString(json['linkedin_url']),
-      previousCompany:
-          _asString(json['previous_company']),
-      languages:
-          _asStringList(json['languages']),
-      country:
-          _asString(
-        json['current_country'] ??
-            json['country'],
+      bio: _asString(json['bio']),
+      experienceYears: _asInt(
+        json['experience_years'] ?? json['years_experience'],
       ),
-      state:
-          _asString(
-        json['current_state'] ??
-            json['state'],
+      nationality: _asString(json['nationality']),
+      dateOfBirth: _asDate(json['date_of_birth']),
+      linkedinUrl: _asString(json['linkedin_url']),
+      previousCompany: _asString(json['previous_company']),
+      languages: _asStringList(json['languages']),
+      country: _asString(
+        json['current_country'] ?? json['country'],
       ),
-      city:
-          _asString(
-        json['current_city'] ??
-            json['city'],
+      state: _asString(
+        json['current_state'] ?? json['state'],
       ),
+      city: _asString(
+        json['current_city'] ?? json['city'],
+      ),
+      workRegions: _asMapList(json['work_regions'])
+          .map(CompanyPilotWorkRegionModel.fromJson)
+          .toList(growable: false),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'user_id': userId,
+    'name': name,
+    'profile_photo': profilePhoto,
+    'verified': verified,
+    'bio': bio,
+    'experience_years': experienceYears,
+    'nationality': nationality,
+    'date_of_birth': dateOfBirth?.toIso8601String(),
+    'linkedin_url': linkedinUrl,
+    'previous_company': previousCompany,
+    'languages': languages,
+    'current_country': country,
+    'current_state': state,
+    'current_city': city,
+    'work_regions': workRegions.map((e) => e.toJson()).toList(),
+  };
+
+  CompanyApplicantPilotModel mergeWith(
+      CompanyApplicantPilotModel other,
+      ) {
+    return CompanyApplicantPilotModel(
+      id: other.id > 0 ? other.id : id,
+      userId: other.userId ?? userId,
+      name: other.name.trim().isNotEmpty ? other.name : name,
+      profilePhoto: other.profilePhoto.trim().isNotEmpty
+          ? other.profilePhoto
+          : profilePhoto,
+      verified: other.verified ?? verified,
+      bio: other.bio.trim().isNotEmpty ? other.bio : bio,
+      experienceYears: other.experienceYears ?? experienceYears,
+      nationality: other.nationality.trim().isNotEmpty
+          ? other.nationality
+          : nationality,
+      dateOfBirth: other.dateOfBirth ?? dateOfBirth,
+      linkedinUrl: other.linkedinUrl.trim().isNotEmpty
+          ? other.linkedinUrl
+          : linkedinUrl,
+      previousCompany: other.previousCompany.trim().isNotEmpty
+          ? other.previousCompany
+          : previousCompany,
+      languages: other.languages.isNotEmpty ? other.languages : languages,
+      country: other.country.trim().isNotEmpty ? other.country : country,
+      state: other.state.trim().isNotEmpty ? other.state : state,
+      city: other.city.trim().isNotEmpty ? other.city : city,
+      workRegions:
+      other.workRegions.isNotEmpty ? other.workRegions : workRegions,
     );
   }
 
   String get displayName {
     final clean = name.trim();
-
-    return clean.isNotEmpty
-        ? clean
-        : 'Pilot #$id';
+    return clean.isNotEmpty ? clean : 'Pilot #$id';
   }
 
   String get location {
-    final parts = <String>[
-      city,
-      state,
-      country,
-    ]
-        .where(
-          (item) =>
-              item.trim().isNotEmpty,
-        )
+    final parts = <String>[city, state, country]
+        .where((item) => item.trim().isNotEmpty)
         .toList();
-
     return parts.join(', ');
   }
 
   String get experienceLabel {
-    if (experienceYears == null) {
-      return '';
-    }
+    if (experienceYears == null) return '';
+    return '$experienceYears year${experienceYears == 1 ? '' : 's'} experience';
+  }
+}
 
-    return '$experienceYears year'
-        '${experienceYears == 1 ? '' : 's'} experience';
+class CompanyPilotWorkRegionModel {
+  final int id;
+  final int? pilotProfileId;
+  final String country;
+  final String state;
+  final String city;
+
+  const CompanyPilotWorkRegionModel({
+    this.id = 0,
+    this.pilotProfileId,
+    this.country = '',
+    this.state = '',
+    this.city = '',
+  });
+
+  factory CompanyPilotWorkRegionModel.fromJson(Map<String, dynamic> json) {
+    return CompanyPilotWorkRegionModel(
+      id: _asInt(json['id']) ?? 0,
+      pilotProfileId: _asInt(json['pilot_profile_id']),
+      country: _asString(json['country']),
+      state: _asString(json['state']),
+      city: _asString(json['city']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'pilot_profile_id': pilotProfileId,
+    'country': country,
+    'state': state,
+    'city': city,
+  };
+
+  String get label {
+    final parts = <String>[city, state, country]
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
+    return parts.join(', ');
   }
 }
 
@@ -300,7 +343,9 @@ class CompanyApplicantDroneModel {
 
   final List<String> capabilities;
 
+  /// Backend field: flight_time (minutes per battery).
   final int? flightTimePerBatteryMinutes;
+  final int? chargingTimeMinutes;
   final int? totalBatteries;
   final String batteryType;
 
@@ -321,6 +366,7 @@ class CompanyApplicantDroneModel {
     this.weightKg,
     this.capabilities = const [],
     this.flightTimePerBatteryMinutes,
+    this.chargingTimeMinutes,
     this.totalBatteries,
     this.batteryType = '',
     this.batteryUsageFee,
@@ -331,15 +377,11 @@ class CompanyApplicantDroneModel {
   });
 
   factory CompanyApplicantDroneModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+      Map<String, dynamic> json,
+      ) {
     String image = '';
 
-    final rawImage =
-        json['image'] ??
-        json['image_url'] ??
-        json['photo'];
-
+    final rawImage = json['image'] ?? json['image_url'] ?? json['photo'];
     if (rawImage is String) {
       image = rawImage.trim();
     } else if (rawImage is Map) {
@@ -350,7 +392,6 @@ class CompanyApplicantDroneModel {
     }
 
     final rawMedia = json['media'];
-
     if (image.isEmpty && rawMedia is List) {
       for (final item in rawMedia) {
         if (item is Map) {
@@ -358,7 +399,6 @@ class CompanyApplicantDroneModel {
             _asString(item['url']),
             _asString(item['original_url']),
           ]);
-
           if (value.isNotEmpty) {
             image = value;
             break;
@@ -368,127 +408,246 @@ class CompanyApplicantDroneModel {
     }
 
     return CompanyApplicantDroneModel(
-      id:
-          _asInt(json['id']) ?? 0,
-      pilotProfileId:
-          _asInt(json['pilot_profile_id']),
-      make:
-          _asString(json['make']),
-      model:
-          _asString(json['model']),
-      manufactureYear:
-          _asInt(json['manufacture_year']),
-      serialNumber:
-          _asString(json['serial_number']),
-      weightKg:
-          _asDouble(json['weight_kg']),
-      capabilities:
-          _asStringList(json['capabilities']),
-      flightTimePerBatteryMinutes:
-          _asInt(
-        json['flight_time_per_battery_minutes'],
+      id: _asInt(json['id']) ?? 0,
+      pilotProfileId: _asInt(json['pilot_profile_id']),
+      make: _asString(json['make']),
+      model: _asString(json['model']),
+      manufactureYear: _asInt(json['manufacture_year']),
+      serialNumber: _asString(json['serial_number']),
+      weightKg: _asDouble(json['weight_kg']),
+      capabilities: _asStringList(json['capabilities']),
+      flightTimePerBatteryMinutes: _asInt(
+        json['flight_time_per_battery_minutes'] ?? json['flight_time'],
       ),
-      totalBatteries:
-          _asInt(json['total_batteries']),
-      batteryType:
-          _asString(json['battery_type']),
-      batteryUsageFee:
-          _asDouble(json['battery_usage_fee']),
-      hourlyRate:
-          _asDouble(json['hourly_rate']),
-      dailyRate:
-          _asDouble(json['daily_rate']),
-      emergencyCalloutFee:
-          _asDouble(json['emergency_callout_fee']),
-      imageUrl:
-          image,
+      chargingTimeMinutes: _asInt(json['charging_time']),
+      totalBatteries: _asInt(json['total_batteries']),
+      batteryType: _asString(json['battery_type']),
+      batteryUsageFee: _asDouble(json['battery_usage_fee']),
+      hourlyRate: _asDouble(json['hourly_rate']),
+      dailyRate: _asDouble(json['daily_rate']),
+      emergencyCalloutFee: _asDouble(json['emergency_callout_fee']),
+      imageUrl: image,
     );
   }
 
-  String get displayName {
-    final value = <String>[
-      make,
-      model,
-    ]
-        .where(
-          (item) =>
-              item.trim().isNotEmpty,
-        )
-        .join(' ');
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'pilot_profile_id': pilotProfileId,
+    'make': make,
+    'model': model,
+    'manufacture_year': manufactureYear,
+    'serial_number': serialNumber,
+    'weight_kg': weightKg,
+    'capabilities': capabilities,
+    'flight_time': flightTimePerBatteryMinutes,
+    'charging_time': chargingTimeMinutes,
+    'total_batteries': totalBatteries,
+    'battery_type': batteryType,
+    'battery_usage_fee': batteryUsageFee,
+    'hourly_rate': hourlyRate,
+    'daily_rate': dailyRate,
+    'emergency_callout_fee': emergencyCalloutFee,
+    if (imageUrl.isNotEmpty)
+      'media': [
+        {
+          'collection_name': 'image',
+          'url': imageUrl,
+        }
+      ],
+  };
 
-    return value.isEmpty
-        ? 'Drone #$id'
-        : value;
+  String get displayName {
+    final value = <String>[make, model]
+        .where((item) => item.trim().isNotEmpty)
+        .join(' ');
+    return value.isEmpty ? 'Drone #$id' : value;
   }
 }
 
-String _firstNonEmpty(
-  List<String> values,
-) {
-  for (final value in values) {
-    if (value.trim().isNotEmpty) {
-      return value.trim();
+class CompanyPilotCredentialModel {
+  final int id;
+  final int pilotProfileId;
+  final String licenseType;
+  final String licenseNumber;
+  final String issuingAuthority;
+  final DateTime? expiresAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final List<CompanyPilotMediaModel> media;
+
+  const CompanyPilotCredentialModel({
+    required this.id,
+    required this.pilotProfileId,
+    this.licenseType = '',
+    this.licenseNumber = '',
+    this.issuingAuthority = '',
+    this.expiresAt,
+    this.createdAt,
+    this.updatedAt,
+    this.media = const [],
+  });
+
+  factory CompanyPilotCredentialModel.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    return CompanyPilotCredentialModel(
+      id: _asInt(json['id']) ?? 0,
+      pilotProfileId: _asInt(json['pilot_profile_id']) ?? 0,
+      licenseType: _asString(json['license_type']),
+      licenseNumber: _asString(json['license_number']),
+      issuingAuthority: _asString(json['issuing_authority']),
+      expiresAt: _asDate(json['expires_at']),
+      createdAt: _asDate(json['created_at']),
+      updatedAt: _asDate(json['updated_at']),
+      media: _asMapList(json['media'])
+          .map(CompanyPilotMediaModel.fromJson)
+          .toList(growable: false),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'pilot_profile_id': pilotProfileId,
+    'license_type': licenseType,
+    'license_number': licenseNumber,
+    'issuing_authority': issuingAuthority,
+    'expires_at': expiresAt?.toIso8601String(),
+    'created_at': createdAt?.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+    'media': media.map((e) => e.toJson()).toList(),
+  };
+
+  bool get isExpired {
+    final expiry = expiresAt;
+    if (expiry == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(expiry.year, expiry.month, expiry.day);
+    return date.isBefore(today);
+  }
+
+  List<CompanyPilotMediaModel> get licenseDocuments => media
+      .where((item) => item.collectionName == 'license_document')
+      .toList(growable: false);
+
+  List<CompanyPilotMediaModel> get permitOrInsuranceDocuments => media
+      .where(
+        (item) => item.collectionName == 'permit_or_insurance_document',
+  )
+      .toList(growable: false);
+}
+
+class CompanyPilotMediaModel {
+  final int id;
+  final String collectionName;
+  final String fileName;
+  final String mimeType;
+  final int? size;
+  final String url;
+  final String downloadUrl;
+  final DateTime? createdAt;
+
+  const CompanyPilotMediaModel({
+    required this.id,
+    this.collectionName = '',
+    this.fileName = '',
+    this.mimeType = '',
+    this.size,
+    this.url = '',
+    this.downloadUrl = '',
+    this.createdAt,
+  });
+
+  factory CompanyPilotMediaModel.fromJson(Map<String, dynamic> json) {
+    return CompanyPilotMediaModel(
+      id: _asInt(json['id']) ?? 0,
+      collectionName: _asString(json['collection_name']),
+      fileName: _asString(json['file_name']),
+      mimeType: _asString(json['mime_type']),
+      size: _asInt(json['size']),
+      url: _asString(json['url']),
+      downloadUrl: _asString(json['download_url']),
+      createdAt: _asDate(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'collection_name': collectionName,
+    'file_name': fileName,
+    'mime_type': mimeType,
+    'size': size,
+    'url': url,
+    'download_url': downloadUrl,
+    'created_at': createdAt?.toIso8601String(),
+  };
+
+  String get bestDownloadUrl =>
+      downloadUrl.trim().isNotEmpty ? downloadUrl.trim() : url.trim();
+
+  String get displayLabel {
+    switch (collectionName.trim().toLowerCase()) {
+      case 'license_document':
+        return 'License document';
+      case 'permit_or_insurance_document':
+        return 'Permit / insurance';
+      default:
+        return 'Document';
     }
   }
 
+  bool get isPdf => mimeType.toLowerCase() == 'application/pdf' ||
+      fileName.toLowerCase().endsWith('.pdf');
+}
+
+String _firstNonEmpty(List<String> values) {
+  for (final value in values) {
+    if (value.trim().isNotEmpty) return value.trim();
+  }
   return '';
 }
 
 String _asString(dynamic value) =>
-    value == null
-        ? ''
-        : value.toString().trim();
+    value == null ? '' : value.toString().trim();
 
 int? _asInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
-
-  return int.tryParse(
-    value.toString(),
-  );
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 double? _asDouble(dynamic value) {
   if (value == null) return null;
-  if (value is num) {
-    return value.toDouble();
-  }
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
+}
 
-  return double.tryParse(
-    value.toString(),
-  );
+bool? _asNullableBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final text = value.toString().trim().toLowerCase();
+  if (text == 'true' || text == '1' || text == 'yes') return true;
+  if (text == 'false' || text == '0' || text == 'no') return false;
+  return null;
 }
 
 DateTime? _asDate(dynamic value) {
   if (value == null) return null;
-
-  final text =
-      value.toString().trim();
-
+  final text = value.toString().trim();
   if (text.isEmpty) return null;
-
   return DateTime.tryParse(text);
 }
 
-List<String> _asStringList(
-  dynamic value,
-) {
-  if (value == null) {
-    return const [];
-  }
-
+List<String> _asStringList(dynamic value) {
+  if (value == null) return const [];
   if (value is List) {
     return value
-        .map(
-          (item) =>
-              item?.toString().trim() ?? '',
-        )
-        .where(
-          (item) => item.isNotEmpty,
-        )
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.isNotEmpty)
         .toList();
   }
-
   return value
       .toString()
       .split(',')
@@ -497,24 +656,23 @@ List<String> _asStringList(
       .toList();
 }
 
+List<Map<String, dynamic>> _asMapList(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList(growable: false);
+}
+
 String _pretty(String value) {
   final clean = value.trim();
-
-  if (clean.isEmpty) {
-    return '';
-  }
-
+  if (clean.isEmpty) return '';
   return clean
-      .split(
-        RegExp(r'[_\s-]+'),
-      )
-      .where(
-        (part) => part.isNotEmpty,
-      )
+      .split(RegExp(r'[_\s-]+'))
+      .where((part) => part.isNotEmpty)
       .map(
         (part) =>
-            '${part[0].toUpperCase()}'
-            '${part.substring(1).toLowerCase()}',
-      )
+    '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+  )
       .join(' ');
 }

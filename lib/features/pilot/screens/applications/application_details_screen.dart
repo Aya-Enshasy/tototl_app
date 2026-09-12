@@ -1547,6 +1547,16 @@ class _JobContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = job.detailedLocationLabel.trim();
+    final description = job.description.trim();
+    final notes = job.requirementsNotes.trim();
+    final certifications = job.requiredCertifications
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    final capabilities = job.requiredCapabilities
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1599,9 +1609,388 @@ class _JobContent extends StatelessWidget {
             ),
           ],
         ),
+        if (description.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MissionTextBlock(
+            label: 'DESCRIPTION',
+            icon: Icons.notes_rounded,
+            text: description,
+          ),
+        ],
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = (constraints.maxWidth - 8) / 2;
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: width,
+                  child: _MissionRequirementTile(
+                    icon: Icons.category_outlined,
+                    label: 'Service',
+                    value: job.serviceCategory.trim().isEmpty
+                        ? 'Not specified'
+                        : job.categoryLabel,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _MissionRequirementTile(
+                    icon: Icons.workspace_premium_outlined,
+                    label: 'Experience',
+                    value: job.requiredExperience.trim().isEmpty
+                        ? 'Not specified'
+                        : job.requiredExperience.trim(),
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _MissionRequirementTile(
+                    icon: Icons.flight_outlined,
+                    label: 'Drone Size',
+                    value: job.droneSize.trim().isEmpty
+                        ? 'Not specified'
+                        : _humanizeDetailValue(job.droneSize),
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _MissionRequirementTile(
+                    icon: Icons.health_and_safety_outlined,
+                    label: 'Safety Training',
+                    value: job.trainingSafetyRequired
+                        ? 'Required'
+                        : 'Not required',
+                    positive: job.trainingSafetyRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _MissionRequirementTile(
+                    icon: Icons.policy_outlined,
+                    label: 'NDA',
+                    value: job.ndaRequired ? 'Required' : 'Not required',
+                    positive: job.ndaRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _MissionRequirementTile(
+                    icon: Icons.attach_file_rounded,
+                    label: 'Attachments',
+                    value: job.attachments.isEmpty
+                        ? 'None'
+                        : '${job.attachments.length} file${job.attachments.length == 1 ? '' : 's'}',
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        if (certifications.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MissionTagGroup(
+            label: 'REQUIRED CERTIFICATIONS',
+            icon: Icons.verified_user_outlined,
+            values: certifications,
+          ),
+        ],
+        if (capabilities.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _MissionTagGroup(
+            label: 'REQUIRED CAPABILITIES',
+            icon: Icons.tune_rounded,
+            values: capabilities,
+          ),
+        ],
+        if (notes.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _MissionTextBlock(
+            label: 'REQUIREMENTS NOTES',
+            icon: Icons.info_outline_rounded,
+            text: notes,
+          ),
+        ],
+        if (job.attachments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Column(
+            children: job.attachments
+                .map(
+                  (attachment) => Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: _MissionAttachmentRow(attachment: attachment),
+              ),
+            )
+                .toList(growable: false),
+          ),
+        ],
       ],
     );
   }
+}
+
+class _MissionRequirementTile extends StatelessWidget {
+  const _MissionRequirementTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.positive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool positive;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = positive ? AppColors.green : AppColors.logoTurquoiseDark;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 67),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tint.withOpacity(0.035),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tint.withOpacity(0.09)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 29,
+            height: 29,
+            decoration: BoxDecoration(
+              color: tint.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: tint, size: 14),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.lightGrey,
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 9.5,
+                    height: 1.25,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionTagGroup extends StatelessWidget {
+  const _MissionTagGroup({
+    required this.label,
+    required this.icon,
+    required this.values,
+  });
+
+  final String label;
+  final IconData icon;
+  final List<String> values;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 13, color: AppColors.logoTurquoiseDark),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.lightGrey,
+                fontSize: 7.8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.45,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: values
+              .map(
+                (value) => Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF8F8),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.logoTurquoiseDark.withOpacity(0.10),
+                ),
+              ),
+              child: Text(
+                _humanizeDetailValue(value),
+                style: const TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 8.7,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          )
+              .toList(growable: false),
+        ),
+      ],
+    );
+  }
+}
+
+class _MissionTextBlock extends StatelessWidget {
+  const _MissionTextBlock({
+    required this.label,
+    required this.icon,
+    required this.text,
+  });
+
+  final String label;
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.cardBorder.withOpacity(0.8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 13, color: AppColors.logoTurquoiseDark),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.lightGrey,
+                  fontSize: 7.8,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.45,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            text,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.4,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionAttachmentRow extends StatelessWidget {
+  const _MissionAttachmentRow({required this.attachment});
+
+  final PilotJobAttachmentModel attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = attachment.size <= 0
+        ? ''
+        : ' · ${_formatBytes(attachment.size)}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            attachment.isImage
+                ? Icons.image_outlined
+                : Icons.description_outlined,
+            size: 15,
+            color: AppColors.logoTurquoiseDark,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${attachment.name.trim().isEmpty ? 'Attachment' : attachment.name.trim()}$size',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.navy,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _humanizeDetailValue(String value) {
+  final clean = value.trim();
+  if (clean.isEmpty) return '';
+
+  return clean
+      .split(RegExp(r'[_\s-]+'))
+      .where((part) => part.isNotEmpty)
+      .map(
+        (part) => part.length == 1
+        ? part.toUpperCase()
+        : '${part[0].toUpperCase()}${part.substring(1)}',
+  )
+      .join(' ');
+}
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 class _InfoLine extends StatelessWidget {
@@ -1715,64 +2104,320 @@ class _DroneContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final capabilities = drone.capabilities
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: AppColors.cardBorder.withOpacity(0.8)),
+          ),
+          child: Row(
+            children: [
+              _DroneThumb(drone: drone),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      drone.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 15,
+                        height: 1.18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 5,
+                      children: [
+                        if (drone.yearLabel.trim().isNotEmpty)
+                          _MicroChip(
+                            icon: Icons.calendar_today_outlined,
+                            label: drone.yearLabel,
+                          ),
+                        if (drone.flightTimePerBatteryMinutes != null)
+                          _MicroChip(
+                            icon: Icons.timer_outlined,
+                            label: drone.flightTimeLabel,
+                          ),
+                        if (drone.totalBatteries != null)
+                          _MicroChip(
+                            icon: Icons.battery_full_rounded,
+                            label: '${drone.batteriesLabel} batteries',
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                width: 31,
+                height: 31,
+                decoration: const BoxDecoration(
+                  color: AppColors.greenBg,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: AppColors.green,
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = (constraints.maxWidth - 8) / 2;
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.scale_outlined,
+                    label: 'Weight',
+                    value: drone.weightLabel,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.timer_outlined,
+                    label: 'Flight Time',
+                    value: drone.flightTimeLabel,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.battery_charging_full_rounded,
+                    label: 'Charging Time',
+                    value: drone.chargingTimeLabel,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.battery_6_bar_rounded,
+                    label: 'Batteries',
+                    value: drone.batteriesLabel,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.battery_unknown_outlined,
+                    label: 'Battery Type',
+                    value: drone.batteryType.trim().isEmpty
+                        ? 'Not specified'
+                        : drone.batteryType.trim(),
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.payments_outlined,
+                    label: 'Battery Fee',
+                    value: drone.batteryUsageFeeLabel,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.schedule_rounded,
+                    label: 'Hourly Rate',
+                    value: drone.hourlyRateLabel,
+                    accent: AppColors.green,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.today_outlined,
+                    label: 'Daily Rate',
+                    value: drone.dailyRateLabel,
+                    accent: AppColors.green,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.emergency_outlined,
+                    label: 'Emergency Fee',
+                    value: drone.emergencyRateLabel,
+                    accent: const Color(0xFFE99A18),
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: _DroneDetailTile(
+                    icon: Icons.tag_rounded,
+                    label: 'Drone ID',
+                    value: '#${drone.id}',
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        if (drone.serialNumber.trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _DroneWideInfo(
+            icon: Icons.qr_code_2_rounded,
+            label: 'SERIAL NUMBER',
+            value: drone.serialNumber.trim(),
+          ),
+        ],
+        if (capabilities.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _MissionTagGroup(
+            label: 'DRONE CAPABILITIES',
+            icon: Icons.auto_awesome_outlined,
+            values: capabilities,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DroneDetailTile extends StatelessWidget {
+  const _DroneDetailTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.accent = AppColors.logoTurquoiseDark,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.bg,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: AppColors.cardBorder.withOpacity(0.8)),
+        color: accent.withOpacity(0.035),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withOpacity(0.09)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DroneThumb(drone: drone),
-          const SizedBox(width: 12),
+          Container(
+            width: 29,
+            height: 29,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.09),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: accent, size: 14),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  drone.title,
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.lightGrey,
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.navy,
-                    fontSize: 15,
-                    height: 1.18,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 9.6,
+                    height: 1.25,
+                    fontWeight: FontWeight.w800,
                   ),
-                ),
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 5,
-                  children: [
-                    if (drone.yearLabel.trim().isNotEmpty)
-                      _MicroChip(
-                        icon: Icons.calendar_today_outlined,
-                        label: drone.yearLabel,
-                      ),
-                    if (drone.flightTimeLabel.trim().isNotEmpty)
-                      _MicroChip(
-                        icon: Icons.timer_outlined,
-                        label: drone.flightTimeLabel,
-                      ),
-                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          Container(
-            width: 31,
-            height: 31,
-            decoration: const BoxDecoration(
-              color: AppColors.greenBg,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: AppColors.green,
-              size: 16,
+        ],
+      ),
+    );
+  }
+}
+
+class _DroneWideInfo extends StatelessWidget {
+  const _DroneWideInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: AppColors.logoTurquoiseDark),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.lightGrey,
+                    fontSize: 7.6,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 9.6,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -1,15 +1,22 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../shared/screens/profile/account_settings_screen.dart';
 import '../../controllers/company_profile_controller.dart';
+import '../../models/company_document_model.dart';
 import '../../models/company_profile_model.dart';
+ import '../../services/company_document_service.dart';
 import '../../services/company_profile_service.dart';
+import 'company_document_viewer_screen.dart';
 import 'company_edit_profile_screen.dart';
 
 class CompanyProfileScreen extends StatefulWidget {
@@ -20,22 +27,43 @@ class CompanyProfileScreen extends StatefulWidget {
 }
 
 class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
+  static const FlutterSecureStorage _documentStorage =
+  FlutterSecureStorage();
+  static const String _documentCachePrefix =
+      'company_profile_documents_v1_';
+
   late final CompanyProfileController _controller;
+  late final CompanyDocumentService _documentService;
+
   final ImagePicker _imagePicker = ImagePicker();
 
   CompanyProfileViewData? _data;
+  List<CompanyDocumentModel> _documents = const [];
+
+  String? _documentCacheKey;
+  String? _errorMessage;
+
   bool _loading = true;
   bool _refreshing = false;
   bool _uploadingPhoto = false;
-  String? _errorMessage;
+  bool _documentsCacheLoading = true;
+  bool _uploadingDocument = false;
+
+  int? _documentActionId;
+  int? _openingDocumentId;
 
   @override
   void initState() {
     super.initState();
+    final apiClient = ApiClient();
+
     _controller = CompanyProfileController(
-      CompanyProfileService(ApiClient()),
+      CompanyProfileService(apiClient),
     );
+    _documentService = CompanyDocumentService(apiClient);
+
     unawaited(_loadProfile());
+    unawaited(_loadDocumentCache());
   }
 
   Future<void> _loadProfile() async {
@@ -272,6 +300,371 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     }
   }
 
+
+  Future<String?> _resolveDocumentCacheKey() async {
+    final existing = _documentCacheKey;
+    if (existing != null) return existing;
+
+    final userId = await UserSessionStorage.getUserId();
+    if (userId == null) return null;
+
+    final key = '$_documentCachePrefix$userId';
+    _documentCacheKey = key;
+    return key;
+  }
+
+  Future<void> _loadDocumentCache() async {
+    try {
+      final cached = <CompanyDocumentModel>[];
+      final key = await _resolveDocumentCacheKey();
+
+      if (key != null) {
+        final raw = await _documentStorage.read(key: key);
+        if (raw != null && raw.trim().isNotEmpty) {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            final list = decoded['documents'];
+            if (list is List) {
+              for (final item in list) {
+                if (item is Map) {
+                  final document = CompanyDocumentModel.fromJson(
+                    Map<String, dynamic>.from(item),
+                  );
+                  if (document.id > 0) cached.add(document);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Future-proof: if /me or another login payload ever includes the official
+      // company_documents collection, merge it into the local cache without
+      // depending on an undocumented GET endpoint.
+      final profile = await UserSessionStorage.getProfile();
+      if (profile != null) {
+        final candidates = <dynamic>[
+          profile['company_documents'],
+          profile['documents'],
+          profile['media'],
+        ];
+
+        for (final candidate in candidates) {
+          if (candidate is! List) continue;
+
+          for (final item in candidate) {
+            if (item is! Map) continue;
+
+            final map = Map<String, dynamic>.from(item);
+            final collection =
+                map['collection_name']?.toString().trim().toLowerCase() ?? '';
+
+            if (collection.isNotEmpty && collection != 'company_documents') {
+              continue;
+            }
+
+            final document = CompanyDocumentModel.fromJson(map);
+            if (document.id > 0) {
+              final index = cached.indexWhere((e) => e.id == document.id);
+              if (index == -1) {
+                cached.add(document);
+              } else {
+                cached[index] = document;
+              }
+            }
+          }
+        }
+      }
+
+      cached.sort((a, b) {
+        final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _documents = List<CompanyDocumentModel>.unmodifiable(cached);
+        _documentsCacheLoading = false;
+      });
+
+      unawaited(_saveDocumentCache());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _documentsCacheLoading = false);
+    }
+  }
+
+  Future<void> _saveDocumentCache() async {
+    try {
+      final key = await _resolveDocumentCacheKey();
+      if (key == null) return;
+
+      await _documentStorage.write(
+        key: key,
+        value: jsonEncode({
+          'version': 1,
+          'saved_at': DateTime.now().toIso8601String(),
+          'documents': _documents.map((item) => item.toJson()).toList(),
+        }),
+      );
+    } catch (_) {
+      // Local cache failure must never block document actions.
+    }
+  }
+
+  Future<String?> _pickCompanyDocument() async {
+    HapticFeedback.selectionClick();
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowMultiple: false,
+      allowedExtensions: const [
+        'pdf',
+        'jpg',
+        'jpeg',
+        'png',
+        'webp',
+      ],
+    );
+
+    if (result == null || result.files.isEmpty || !mounted) return null;
+
+    final file = result.files.single;
+    final path = file.path?.trim() ?? '';
+
+    if (path.isEmpty) {
+      _showSnack(
+        'Unable to access the selected document.',
+        isError: true,
+      );
+      return null;
+    }
+
+    if (file.size > CompanyDocumentService.maxFileBytes) {
+      _showSnack(
+        'Company document must be 10 MB or smaller.',
+        isError: true,
+      );
+      return null;
+    }
+
+    return path;
+  }
+
+  Future<void> _addCompanyDocument() async {
+    if (_uploadingDocument || _documentActionId != null) return;
+
+    final path = await _pickCompanyDocument();
+    if (path == null || !mounted) return;
+
+    setState(() => _uploadingDocument = true);
+
+    try {
+      final uploaded = await _documentService.uploadCompanyDocument(
+        filePath: path,
+      );
+
+      if (!mounted) return;
+
+      final next = <CompanyDocumentModel>[
+        uploaded,
+        ..._documents.where((item) => item.id != uploaded.id),
+      ];
+
+      setState(() {
+        _documents = List<CompanyDocumentModel>.unmodifiable(next);
+        _uploadingDocument = false;
+      });
+
+      unawaited(_saveDocumentCache());
+      HapticFeedback.mediumImpact();
+      _showSnack('Company document uploaded.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploadingDocument = false);
+      _showSnack(e.toString(), isError: true);
+    }
+  }
+
+  Future<void> _replaceCompanyDocument(
+      CompanyDocumentModel existing,
+      ) async {
+    if (_uploadingDocument || _documentActionId != null) return;
+
+    final path = await _pickCompanyDocument();
+    if (path == null || !mounted) return;
+
+    setState(() => _documentActionId = existing.id);
+
+    CompanyDocumentModel? uploaded;
+
+    try {
+      // There is no PATCH document endpoint. Replacement is therefore atomic
+      // from the user's point of view: upload the new file first, and only then
+      // remove the old one.
+      uploaded = await _documentService.uploadCompanyDocument(
+        filePath: path,
+      );
+
+      await _documentService.deleteCompanyDocument(existing.id);
+
+      if (!mounted) return;
+
+      final next = _documents
+          .map((item) => item.id == existing.id ? uploaded! : item)
+          .where((item) => item.id > 0)
+          .toList();
+
+      if (!next.any((item) => item.id == uploaded!.id)) {
+        next.insert(0, uploaded!);
+      }
+
+      setState(() {
+        _documents = List<CompanyDocumentModel>.unmodifiable(next);
+        _documentActionId = null;
+      });
+
+      unawaited(_saveDocumentCache());
+      HapticFeedback.mediumImpact();
+      _showSnack('Company document replaced.');
+    } catch (e) {
+      if (!mounted) return;
+
+      // If the new upload succeeded but deleting the previous file failed, both
+      // files exist on the server. Keep both locally so the UI does not lie.
+      if (uploaded != null) {
+        final next = <CompanyDocumentModel>[
+          uploaded,
+          ..._documents.where((item) => item.id != uploaded!.id),
+        ];
+
+        setState(() {
+          _documents = List<CompanyDocumentModel>.unmodifiable(next);
+          _documentActionId = null;
+        });
+
+        unawaited(_saveDocumentCache());
+        _showSnack(
+          'New document uploaded, but the previous file could not be removed.',
+          isError: true,
+        );
+        return;
+      }
+
+      setState(() => _documentActionId = null);
+      _showSnack(e.toString(), isError: true);
+    }
+  }
+
+  Future<void> _deleteCompanyDocument(
+      CompanyDocumentModel document,
+      ) async {
+    if (_uploadingDocument || _documentActionId != null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Delete document?',
+            style: TextStyle(
+              color: AppColors.navy,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: Text(
+            'Remove "${document.displayName}" from the company profile?',
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 12.5,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.red,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _documentActionId = document.id);
+
+    try {
+      await _documentService.deleteCompanyDocument(document.id);
+
+      if (!mounted) return;
+
+      setState(() {
+        _documents = List<CompanyDocumentModel>.unmodifiable(
+          _documents.where((item) => item.id != document.id),
+        );
+        _documentActionId = null;
+      });
+
+      unawaited(_saveDocumentCache());
+      HapticFeedback.mediumImpact();
+      _showSnack('Company document deleted.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _documentActionId = null);
+      _showSnack(e.toString(), isError: true);
+    }
+  }
+
+  Future<void> _openCompanyDocument(
+      CompanyDocumentModel document,
+      ) async {
+    if (_openingDocumentId != null || _documentActionId != null) return;
+
+    setState(() => _openingDocumentId = document.id);
+    HapticFeedback.selectionClick();
+
+    try {
+      final localPath = await _documentService.downloadPrivateDocument(
+        mediaId: document.id,
+        downloadUrl: document.downloadUrl,
+        fileName: document.displayName,
+        mimeType: document.mimeType,
+      );
+
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CompanyDocumentViewerScreen(
+            filePath: localPath,
+            fileName: document.displayName,
+            mimeType: document.mimeType,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(e.toString(), isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _openingDocumentId = null);
+      }
+    }
+  }
+
   void _showSnack(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -448,6 +841,18 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                       )
                           .toList(),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  _CompanyDocumentsSection(
+                    documents: _documents,
+                    loading: _documentsCacheLoading,
+                    uploading: _uploadingDocument,
+                    actionDocumentId: _documentActionId,
+                    openingDocumentId: _openingDocumentId,
+                    onAdd: _addCompanyDocument,
+                    onOpen: _openCompanyDocument,
+                    onReplace: _replaceCompanyDocument,
+                    onDelete: _deleteCompanyDocument,
                   ),
                   const SizedBox(height: 12),
                   _Section(
@@ -698,14 +1103,7 @@ class _CompanyPhoto extends StatelessWidget {
                     Container(
                       color: AppColors.navy.withOpacity(.42),
                       alignment: Alignment.center,
-                      child: const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: const _UploadPulseIcon(),
                     ),
                 ],
               ),
@@ -812,6 +1210,570 @@ class _StatusChip extends StatelessWidget {
       ),
     );
   }
+}
+
+
+class _CompanyDocumentsSection extends StatelessWidget {
+  const _CompanyDocumentsSection({
+    required this.documents,
+    required this.loading,
+    required this.uploading,
+    required this.actionDocumentId,
+    required this.openingDocumentId,
+    required this.onAdd,
+    required this.onOpen,
+    required this.onReplace,
+    required this.onDelete,
+  });
+
+  final List<CompanyDocumentModel> documents;
+  final bool loading;
+  final bool uploading;
+  final int? actionDocumentId;
+  final int? openingDocumentId;
+
+  final VoidCallback onAdd;
+  final ValueChanged<CompanyDocumentModel> onOpen;
+  final ValueChanged<CompanyDocumentModel> onReplace;
+  final ValueChanged<CompanyDocumentModel> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = uploading || actionDocumentId != null || openingDocumentId != null;
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(.018),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 31,
+                height: 31,
+                decoration: BoxDecoration(
+                  color: AppColors.blue.withOpacity(.07),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_outlined,
+                  color: AppColors.blue,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 9),
+              const Expanded(
+                child: Text(
+                  'Company Documents',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (!loading && documents.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.blueBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${documents.length}',
+                    style: const TextStyle(
+                      color: AppColors.blue,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 7),
+              Material(
+                color: AppColors.blue,
+                borderRadius: BorderRadius.circular(11),
+                child: InkWell(
+                  onTap: locked ? null : onAdd,
+                  borderRadius: BorderRadius.circular(11),
+                  child: SizedBox(
+                    width: 35,
+                    height: 35,
+                    child: Center(
+                      child: uploading
+                          ? const _SmallBusyMark(light: true)
+                          : const Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 19,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Official company files · PDF or image · up to 10 MB',
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.5,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 13),
+          if (loading)
+            const Column(
+              children: [
+                _DocumentShimmerCard(),
+                SizedBox(height: 9),
+                _DocumentShimmerCard(),
+              ],
+            )
+          else if (documents.isEmpty)
+            _EmptyDocuments(onAdd: locked ? null : onAdd)
+          else
+            ...documents.map(
+                  (document) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: _CompanyDocumentCard(
+                  document: document,
+                  busy: actionDocumentId == document.id,
+                  opening: openingDocumentId == document.id,
+                  locked: locked,
+                  onOpen: () => onOpen(document),
+                  onReplace: () => onReplace(document),
+                  onDelete: () => onDelete(document),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompanyDocumentCard extends StatelessWidget {
+  const _CompanyDocumentCard({
+    required this.document,
+    required this.busy,
+    required this.opening,
+    required this.locked,
+    required this.onOpen,
+    required this.onReplace,
+    required this.onDelete,
+  });
+
+  final CompanyDocumentModel document;
+  final bool busy;
+  final bool opening;
+  final bool locked;
+  final VoidCallback onOpen;
+  final VoidCallback onReplace;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = document.isPdf ? AppColors.red : AppColors.blue;
+    final soft = document.isPdf
+        ? AppColors.red.withOpacity(.07)
+        : AppColors.blue.withOpacity(.07);
+
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: soft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  document.isPdf
+                      ? Icons.picture_as_pdf_outlined
+                      : document.isImage
+                      ? Icons.image_outlined
+                      : Icons.description_outlined,
+                  color: accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      document.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 12.3,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _documentMeta(document),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 10.3,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (busy || opening)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: _SmallBusyMark(),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _DocumentActionButton(
+                  label: opening ? 'Opening' : 'View',
+                  icon: Icons.visibility_outlined,
+                  onTap: locked || opening ? null : onOpen,
+                  filled: true,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _DocumentActionButton(
+                  label: 'Replace',
+                  icon: Icons.swap_horiz_rounded,
+                  onTap: locked ? null : onReplace,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: locked ? null : onDelete,
+                  borderRadius: BorderRadius.circular(11),
+                  child: Container(
+                    width: 39,
+                    height: 37,
+                    decoration: BoxDecoration(
+                      color: AppColors.red.withOpacity(.055),
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(
+                        color: AppColors.red.withOpacity(.16),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 17,
+                      color: locked
+                          ? AppColors.lightGrey
+                          : AppColors.red,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentActionButton extends StatelessWidget {
+  const _DocumentActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.filled = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+
+    return Material(
+      color: filled
+          ? (enabled ? AppColors.blue : AppColors.blue.withOpacity(.35))
+          : Colors.white,
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          height: 37,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: filled
+                  ? Colors.transparent
+                  : AppColors.cardBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: filled
+                    ? Colors.white
+                    : enabled
+                    ? AppColors.navy
+                    : AppColors.lightGrey,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: filled
+                        ? Colors.white
+                        : enabled
+                        ? AppColors.navy
+                        : AppColors.lightGrey,
+                    fontSize: 10.7,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyDocuments extends StatelessWidget {
+  const _EmptyDocuments({required this.onAdd});
+
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(15, 17, 15, 15),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: AppColors.blueBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.verified_user_outlined,
+              color: AppColors.blue,
+              size: 21,
+            ),
+          ),
+          const SizedBox(height: 9),
+          const Text(
+            'No company documents yet',
+            style: TextStyle(
+              color: AppColors.navy,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Add official records, permits, insurance or business documents.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.8,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 11),
+          TextButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: const Text(
+              'Add document',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentShimmerCard extends StatelessWidget {
+  const _DocumentShimmerCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: const Row(
+        children: [
+          _Bone(width: 42, height: 42, radius: 12),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Bone(width: 170, height: 11),
+                SizedBox(height: 7),
+                _Bone(width: 120, height: 9),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SmallBusyMark extends StatefulWidget {
+  const _SmallBusyMark({this.light = false});
+
+  final bool light;
+
+  @override
+  State<_SmallBusyMark> createState() => _SmallBusyMarkState();
+}
+
+class _SmallBusyMarkState extends State<_SmallBusyMark>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+      lowerBound: .35,
+      upperBound: 1,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _pulse,
+      child: Icon(
+        Icons.hourglass_top_rounded,
+        size: 16,
+        color: widget.light ? Colors.white : AppColors.blue,
+      ),
+    );
+  }
+}
+
+class _UploadPulseIcon extends StatelessWidget {
+  const _UploadPulseIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _SmallBusyMark(light: true);
+  }
+}
+
+String _documentMeta(CompanyDocumentModel document) {
+  final parts = <String>[];
+
+  final type = document.isPdf
+      ? 'PDF'
+      : document.isImage
+      ? 'Image'
+      : document.extension.isNotEmpty
+      ? document.extension.toUpperCase()
+      : 'File';
+
+  parts.add(type);
+
+  if (document.size > 0) {
+    parts.add(_formatFileSize(document.size));
+  }
+
+  final date = document.createdAt;
+  if (date != null) {
+    final local = date.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    parts.add('${local.year}-$month-$day');
+  }
+
+  return parts.join(' · ');
+}
+
+String _formatFileSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+
+  final kb = bytes / 1024;
+  if (kb < 1024) {
+    return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
+  }
+
+  final mb = kb / 1024;
+  return '${mb.toStringAsFixed(mb >= 10 ? 1 : 2)} MB';
 }
 
 class _Section extends StatelessWidget {
@@ -1056,7 +2018,7 @@ class _CompanyProfileSkeletonState extends State<_CompanyProfileSkeleton>
               ),
               const SizedBox(height: 12),
               ...List.generate(
-                3,
+                4,
                     (_) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(

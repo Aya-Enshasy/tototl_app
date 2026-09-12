@@ -6,6 +6,7 @@ import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/pilot/screens/applications/apply_for_job_screen.dart';
 import 'package:tototl_app/features/pilot/screens/applications/application_details_screen.dart';
+import 'package:tototl_app/features/pilot/screens/jobs/pilot_company_profile_screen.dart';
 
 import '../../models/pilot_job_model.dart';
 import '../../services/pilot_job_service.dart';
@@ -478,6 +479,14 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
               index: 8,
               child: _CompanyPreviewCard(
                 company: job.company!,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PilotCompanyProfileScreen(company: job.company!),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -1601,9 +1610,11 @@ class _AttachmentsCard extends StatelessWidget {
 class _CompanyPreviewCard extends StatelessWidget {
   const _CompanyPreviewCard({
     required this.company,
+    required this.onTap,
   });
 
   final PilotJobCompanySummary company;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1611,133 +1622,159 @@ class _CompanyPreviewCard extends StatelessWidget {
         ? 'Hiring Company'
         : company.displayName.trim();
 
-    return _PremiumSurface(
-      padding: EdgeInsets.zero,
-      child: ClipRRect(
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(23),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(23),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -42,
-              top: -48,
-              child: Container(
-                width: 145,
-                height: 145,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.logoTurquoise.withOpacity(0.09),
-                      Colors.transparent,
+        child: _PremiumSurface(
+          padding: EdgeInsets.zero,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(23),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -42,
+                  top: -48,
+                  child: Container(
+                    width: 145,
+                    height: 145,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          AppColors.logoTurquoise.withOpacity(0.09),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFE8FBFB),
+                              Color(0xFFD9F1F6),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: company.hasProfilePhoto
+                            ? Image.network(
+                          company.profilePhoto,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(
+                              _initials(name),
+                              style: const TextStyle(
+                                color: AppColors.navy,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                        )
+                            : Center(
+                          child: Text(
+                            _initials(name),
+                            style: const TextStyle(
+                              color: AppColors.navy,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'HIRING COMPANY',
+                              style: TextStyle(
+                                color: AppColors.grey,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.9,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.navy,
+                                      fontSize: 15.2,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.25,
+                                    ),
+                                  ),
+                                ),
+                                if (company.verified) ...[
+                                  const SizedBox(width: 5),
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    color: AppColors.logoTurquoise,
+                                    size: 16,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              company.verified
+                                  ? 'Verified company on TOTOTL'
+                                  : 'Company on TOTOTL',
+                              style: const TextStyle(
+                                color: AppColors.grey,
+                                fontSize: 10.2,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: AppColors.blue.withOpacity(0.045),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_outward_rounded,
+                          color: AppColors.blue,
+                          size: 16,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFE8FBFB),
-                          Color(0xFFD9F1F6),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
-                      ),
-                    ),
-                    child: Text(
-                      _initials(name),
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'HIRING COMPANY',
-                          style: TextStyle(
-                            color: AppColors.grey,
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.9,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.navy,
-                                  fontSize: 15.2,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.25,
-                                ),
-                              ),
-                            ),
-                            if (company.verified) ...[
-                              const SizedBox(width: 5),
-                              const Icon(
-                                Icons.verified_rounded,
-                                color: AppColors.logoTurquoise,
-                                size: 16,
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          company.verified
-                              ? 'Verified company on TOTOTL'
-                              : 'Company on TOTOTL',
-                          style: const TextStyle(
-                            color: AppColors.grey,
-                            fontSize: 10.2,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.blue.withOpacity(0.045),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.business_rounded,
-                      color: AppColors.blue,
-                      size: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

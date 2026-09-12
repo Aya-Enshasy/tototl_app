@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -6,11 +7,11 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
- import '../models/company_create_job_request.dart';
+import '../screens/operations/company_applicant_list_item.dart';
+import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
 import '../models/company_job_posting_model.dart';
 import '../models/company_update_job_request.dart';
-import '../screens/operations/company_applicant_list_item.dart';
 
 class CompanyJobService {
   final ApiClient apiClient;
@@ -263,6 +264,261 @@ class CompanyJobService {
           e,
           fallback: 'Unable to load job applicants.',
         ),
+      );
+    }
+  }
+
+
+  // ==========================================================================
+  // COMPANY VIEW OF PILOT PROFILE
+  // GET /company/pilots/{pilotProfile}
+  // ==========================================================================
+
+  Future<CompanyApplicantPilotModel> getCompanyPilotProfile(
+      int pilotProfileId,
+      ) async {
+    final token = await _getToken();
+
+    try {
+      final response = await apiClient.get(
+        '/company/pilots/$pilotProfileId',
+        options: _authOptions(token),
+      );
+
+      print(
+        'COMPANY PILOT PROFILE RESPONSE [$pilotProfileId]: ${response.data}',
+      );
+
+      final body = _parseBody(response.data);
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to load pilot profile.',
+      );
+
+      final rawData = body['data'];
+      if (rawData is! Map) {
+        throw const CompanyJobException(
+          'Pilot profile data is missing.',
+        );
+      }
+
+      return CompanyApplicantPilotModel.fromJson(
+        Map<String, dynamic>.from(rawData),
+      );
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to load pilot profile.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // PILOT CREDENTIALS VISIBLE TO COMPANY
+  // GET /company/pilots/{pilotProfile}/credentials
+  // ==========================================================================
+
+  Future<List<CompanyPilotCredentialModel>> getCompanyPilotCredentials(
+      int pilotProfileId,
+      ) async {
+    final token = await _getToken();
+
+    try {
+      final response = await apiClient.get(
+        '/company/pilots/$pilotProfileId/credentials',
+        options: _authOptions(token),
+      );
+
+      print(
+        'COMPANY PILOT CREDENTIALS RESPONSE [$pilotProfileId]: '
+            '${response.data}',
+      );
+
+      final body = _parseBody(response.data);
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to load pilot credentials.',
+      );
+
+      final rawData = body['data'];
+      if (rawData is! List) {
+        throw const CompanyJobException(
+          'Pilot credentials data is missing.',
+        );
+      }
+
+      return rawData
+          .whereType<Map>()
+          .map(
+            (item) => CompanyPilotCredentialModel.fromJson(
+          Map<String, dynamic>.from(item),
+        ),
+      )
+          .toList(growable: false);
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to load pilot credentials.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // PILOT DRONES VISIBLE TO COMPANY
+  // GET /company/pilots/{pilotProfile}/drones
+  // ==========================================================================
+
+  Future<List<CompanyApplicantDroneModel>> getCompanyPilotDrones(
+      int pilotProfileId,
+      ) async {
+    final token = await _getToken();
+
+    try {
+      final response = await apiClient.get(
+        '/company/pilots/$pilotProfileId/drones',
+        options: _authOptions(token),
+      );
+
+      print(
+        'COMPANY PILOT DRONES RESPONSE [$pilotProfileId]: ${response.data}',
+      );
+
+      final body = _parseBody(response.data);
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to load pilot drones.',
+      );
+
+      final rawData = body['data'];
+      if (rawData is! List) {
+        throw const CompanyJobException(
+          'Pilot drones data is missing.',
+        );
+      }
+
+      return rawData
+          .whereType<Map>()
+          .map(
+            (item) => CompanyApplicantDroneModel.fromJson(
+          Map<String, dynamic>.from(item),
+        ),
+      )
+          .toList(growable: false);
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to load pilot drones.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // PRIVATE CREDENTIAL DOCUMENT
+  // GET /media/{media}/download
+  // ==========================================================================
+
+  Future<String> downloadCompanyPilotDocument({
+    required int mediaId,
+    required String downloadUrl,
+    required String fileName,
+    String mimeType = '',
+  }) async {
+    final token = await _getToken();
+    final cleanUrl = downloadUrl.trim();
+
+    if (cleanUrl.isEmpty && mediaId <= 0) {
+      throw const CompanyJobException(
+        'Document download link is missing.',
+      );
+    }
+
+    try {
+      dynamic raw;
+
+      if (cleanUrl.startsWith('http://') ||
+          cleanUrl.startsWith('https://')) {
+        final response = await Dio().get<dynamic>(
+          cleanUrl,
+          options: Options(
+            responseType: ResponseType.bytes,
+            followRedirects: true,
+            headers: {
+              'Accept': '*/*',
+              'Authorization': 'Bearer $token',
+            },
+          ),
+        );
+        raw = response.data;
+      } else {
+        final endpoint = cleanUrl.isNotEmpty
+            ? cleanUrl
+            : '/media/$mediaId/download';
+
+        final response = await apiClient.get(
+          endpoint,
+          options: Options(
+            responseType: ResponseType.bytes,
+            followRedirects: true,
+            headers: {
+              'Accept': '*/*',
+              'Authorization': 'Bearer $token',
+            },
+          ),
+        );
+        raw = response.data;
+      }
+
+      final bytes = _asBytes(raw);
+      if (bytes.isEmpty) {
+        throw const CompanyJobException(
+          'The downloaded document is empty.',
+        );
+      }
+
+      final directory = Directory(
+        '${Directory.systemTemp.path}'
+            '${Platform.pathSeparator}tototl_company_private_media',
+      );
+
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+
+      final safeName = _resolvePrivateFileName(
+        fileName: fileName,
+        mimeType: mimeType,
+        mediaId: mediaId,
+      );
+
+      final file = File(
+        '${directory.path}${Platform.pathSeparator}'
+            '${mediaId > 0 ? '${mediaId}_' : ''}$safeName',
+      );
+
+      await file.writeAsBytes(bytes, flush: true);
+      return file.path;
+    } on CompanyJobException {
+      rethrow;
+    } on DioException catch (e) {
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to open this document.',
+        ),
+      );
+    } on FileSystemException {
+      throw const CompanyJobException(
+        'Unable to prepare this document on the device.',
+      );
+    } catch (_) {
+      throw const CompanyJobException(
+        'Unable to open this document.',
       );
     }
   }
@@ -917,6 +1173,66 @@ class CompanyJobService {
           fallback: 'Unable to cancel job posting.',
         ),
       );
+    }
+  }
+
+
+  Uint8List _asBytes(dynamic raw) {
+    if (raw is Uint8List) return raw;
+    if (raw is List<int>) return Uint8List.fromList(raw);
+
+    if (raw is List) {
+      try {
+        return Uint8List.fromList(
+          raw.map((value) => value as int).toList(),
+        );
+      } catch (_) {
+        return Uint8List(0);
+      }
+    }
+
+    return Uint8List(0);
+  }
+
+  String _resolvePrivateFileName({
+    required String fileName,
+    required String mimeType,
+    required int mediaId,
+  }) {
+    var value = fileName.trim();
+
+    if (value.isEmpty) {
+      value = mediaId > 0 ? 'document_$mediaId' : 'document';
+    }
+
+    value = value.replaceAll(
+      RegExp(r'[\\/:*?"<>|]'),
+      '_',
+    );
+
+    if (!value.contains('.')) {
+      final extension = _extensionFromMime(mimeType);
+      if (extension.isNotEmpty) {
+        value = '$value.$extension';
+      }
+    }
+
+    return value;
+  }
+
+  String _extensionFromMime(String mimeType) {
+    switch (mimeType.trim().toLowerCase()) {
+      case 'application/pdf':
+        return 'pdf';
+      case 'image/png':
+        return 'png';
+      case 'image/jpeg':
+      case 'image/jpg':
+        return 'jpg';
+      case 'image/webp':
+        return 'webp';
+      default:
+        return '';
     }
   }
 

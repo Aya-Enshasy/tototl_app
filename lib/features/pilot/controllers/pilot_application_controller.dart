@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/drone_model.dart';
 import '../models/pilot_application_model.dart';
 import '../models/pilot_job_model.dart';
+import '../services/drone_service.dart';
 import '../services/pilot_application_service.dart';
 import '../services/pilot_job_service.dart';
 
@@ -12,16 +14,18 @@ import '../services/pilot_job_service.dart';
 /// Important UI contract:
 /// - The first visible snapshot is ALWAYS built from a fresh network response.
 /// - Cached/list snapshots are never painted first and then replaced.
-/// - Job relations are hydrated off-screen before the list is published.
+/// - Missing job/drone relations are hydrated off-screen before the list is published.
 /// - Refresh keeps the last authoritative snapshot visible and swaps atomically.
 class PilotApplicationController extends ChangeNotifier {
   PilotApplicationController(
       this.service, {
         this.jobService,
+        this.droneService,
       });
 
   final PilotApplicationService service;
   final PilotJobService? jobService;
+  final DroneService? droneService;
 
   final List<PilotApplicationModel> _applications =
   <PilotApplicationModel>[];
@@ -71,7 +75,7 @@ class PilotApplicationController extends ChangeNotifier {
 
     try {
       final network = await service.getMyApplications();
-      final hydrated = await _hydrateJobs(network);
+      final hydrated = await _hydrateRelations(network);
 
       if (!_isCurrent(serial)) return;
 
@@ -109,7 +113,7 @@ class PilotApplicationController extends ChangeNotifier {
 
     try {
       final network = await service.getMyApplications();
-      final hydrated = await _hydrateJobs(network);
+      final hydrated = await _hydrateRelations(network);
 
       if (!_isCurrent(serial)) return false;
 
@@ -138,53 +142,88 @@ class PilotApplicationController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // HYDRATE JOB RELATIONS BEFORE PUBLISHING THE LIST
+  // HYDRATE MISSING JOB / DRONE RELATIONS BEFORE PUBLISHING THE LIST
   // ---------------------------------------------------------------------------
 
-  Future<List<PilotApplicationModel>> _hydrateJobs(
+  Future<List<PilotApplicationModel>> _hydrateRelations(
       List<PilotApplicationModel> applications,
       ) async {
-    final loader = jobService;
-
-    if (loader == null || applications.isEmpty) {
-      return List<PilotApplicationModel>.from(applications);
+    if (applications.isEmpty) {
+      return <PilotApplicationModel>[];
     }
 
-    final futures = <int, Future<PilotJobModel?>>{};
+    final jobLoader = jobService;
+    final droneLoader = droneService;
+
+    // The current /applications response already includes job_posting + drone.
+    // These requests are only fallbacks for older/partial responses.
+    final jobFutures = <int, Future<PilotJobModel?>>{};
+    final droneFutures = <int, Future<DroneModel?>>{};
 
     for (final application in applications) {
-      if (application.job != null || application.jobPostingId <= 0) {
-        continue;
+      if (jobLoader != null &&
+          application.job == null &&
+          application.jobPostingId > 0) {
+        jobFutures.putIfAbsent(
+          application.jobPostingId,
+              () => _safeLoadJob(jobLoader, application.jobPostingId),
+        );
       }
 
-      futures.putIfAbsent(
-        application.jobPostingId,
-            () => _safeLoadJob(loader, application.jobPostingId),
-      );
+      if (droneLoader != null &&
+          application.drone == null &&
+          application.droneId > 0) {
+        droneFutures.putIfAbsent(
+          application.droneId,
+              () => _safeLoadDrone(droneLoader, application.droneId),
+        );
+      }
     }
 
-    if (futures.isEmpty) {
+    if (jobFutures.isEmpty && droneFutures.isEmpty) {
       return List<PilotApplicationModel>.from(applications);
     }
 
-    final entries = futures.entries.toList(growable: false);
-    final values = await Future.wait<PilotJobModel?>(
-      entries.map((entry) => entry.value),
-    );
+    final jobEntries = jobFutures.entries.toList(growable: false);
+    final droneEntries = droneFutures.entries.toList(growable: false);
 
     final jobsById = <int, PilotJobModel?>{};
-    for (var index = 0; index < entries.length; index++) {
-      jobsById[entries[index].key] = values[index];
-    }
+    final dronesById = <int, DroneModel?>{};
+
+    await Future.wait<void>([
+          () async {
+        final values = await Future.wait<PilotJobModel?>(
+          jobEntries.map((entry) => entry.value),
+        );
+        for (var index = 0; index < jobEntries.length; index++) {
+          jobsById[jobEntries[index].key] = values[index];
+        }
+      }(),
+          () async {
+        final values = await Future.wait<DroneModel?>(
+          droneEntries.map((entry) => entry.value),
+        );
+        for (var index = 0; index < droneEntries.length; index++) {
+          dronesById[droneEntries[index].key] = values[index];
+        }
+      }(),
+    ]);
 
     return applications.map((application) {
-      final existing = application.job;
-      if (existing != null) return application;
+      final job =
+          application.job ?? jobsById[application.jobPostingId];
+      final drone =
+          application.drone ?? dronesById[application.droneId];
 
-      final job = jobsById[application.jobPostingId];
-      if (job == null) return application;
+      if (identical(job, application.job) &&
+          identical(drone, application.drone)) {
+        return application;
+      }
 
-      return application.copyWith(job: job);
+      return application.copyWith(
+        job: job,
+        drone: drone,
+      );
     }).toList(growable: false);
   }
 
@@ -196,8 +235,20 @@ class PilotApplicationController extends ChangeNotifier {
       return await loader.getJobDetails(jobId);
     } catch (_) {
       // Published-job details may legitimately be unavailable for an old
-      // application whose job was closed/cancelled. Never invent replacement
-      // values; the UI will render the real application IDs/status instead.
+      // application whose job was closed/cancelled.
+      return null;
+    }
+  }
+
+  Future<DroneModel?> _safeLoadDrone(
+      DroneService loader,
+      int droneId,
+      ) async {
+    try {
+      return await loader.getDrone(droneId);
+    } catch (_) {
+      // Keep the real application even when a related drone can no longer be
+      // fetched separately. The list/detail response remains authoritative.
       return null;
     }
   }

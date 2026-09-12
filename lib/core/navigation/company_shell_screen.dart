@@ -48,7 +48,7 @@ class _CompanyShellScreenState extends State<CompanyShellScreen> {
     AppBottomNavItem(
       icon: Icons.assignment_outlined,
       activeIcon: Icons.assignment_rounded,
-      label: 'Operations',
+      label: 'Applications',
     ),
     AppBottomNavItem(
       icon: Icons.messenger_outline_rounded,

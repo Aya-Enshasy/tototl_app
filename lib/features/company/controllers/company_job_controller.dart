@@ -1,8 +1,8 @@
- import '../models/company_create_job_request.dart';
+import '../screens/operations/company_applicant_list_item.dart';
+import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
 import '../models/company_job_posting_model.dart';
 import '../models/company_update_job_request.dart';
-import '../screens/operations/company_applicant_list_item.dart';
 import '../services/company_job_service.dart';
 
 class CompanyJobController {
@@ -18,6 +18,10 @@ class CompanyJobController {
   bool isLoadingDetail = false;
   bool isLoadingApplicants = false;
   bool isLoadingCompanyApplicants = false;
+  bool isLoadingApplicantPilotProfile = false;
+  bool isLoadingApplicantCredentials = false;
+  bool isLoadingApplicantDrones = false;
+  bool isDownloadingApplicantDocument = false;
   bool isUpdating = false;
   bool isDeleting = false;
   bool isAcceptingApplicant = false;
@@ -27,11 +31,20 @@ class CompanyJobController {
   String? errorMessage;
   String? applicantsErrorMessage;
   String? companyApplicantsErrorMessage;
+  String? applicantPilotProfileErrorMessage;
+  String? applicantCredentialsErrorMessage;
+  String? applicantDronesErrorMessage;
+  String? applicantDocumentErrorMessage;
 
   List<CompanyJobPostingModel> jobs = const [];
   CompanyJobPostingModel? selectedJob;
   List<CompanyJobApplicationModel> applicants = const [];
   List<CompanyApplicantListItem> companyApplicants = const [];
+
+  CompanyApplicantPilotModel? applicantPilotProfile;
+  List<CompanyPilotCredentialModel> applicantCredentials = const [];
+  List<CompanyApplicantDroneModel> applicantDrones = const [];
+  CompanyApplicantDroneModel? committedApplicantDrone;
 
   Future<bool> loadMyJobs() async {
     if (isLoadingJobs) return false;
@@ -106,6 +119,102 @@ class CompanyJobController {
       return false;
     } finally {
       isLoadingApplicants = false;
+    }
+  }
+
+
+  Future<bool> loadApplicantPilotProfile(
+      int pilotProfileId,
+      ) async {
+    if (isLoadingApplicantPilotProfile) return false;
+
+    isLoadingApplicantPilotProfile = true;
+    applicantPilotProfileErrorMessage = null;
+
+    try {
+      applicantPilotProfile =
+      await service.getCompanyPilotProfile(pilotProfileId);
+      return true;
+    } catch (e) {
+      applicantPilotProfileErrorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingApplicantPilotProfile = false;
+    }
+  }
+
+  Future<bool> loadApplicantCredentials(
+      int pilotProfileId,
+      ) async {
+    if (isLoadingApplicantCredentials) return false;
+
+    isLoadingApplicantCredentials = true;
+    applicantCredentialsErrorMessage = null;
+
+    try {
+      applicantCredentials =
+      await service.getCompanyPilotCredentials(pilotProfileId);
+      return true;
+    } catch (e) {
+      applicantCredentialsErrorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingApplicantCredentials = false;
+    }
+  }
+
+  Future<bool> loadApplicantDrones({
+    required int pilotProfileId,
+    required int committedDroneId,
+  }) async {
+    if (isLoadingApplicantDrones) return false;
+
+    isLoadingApplicantDrones = true;
+    applicantDronesErrorMessage = null;
+
+    try {
+      final loaded =
+      await service.getCompanyPilotDrones(pilotProfileId);
+      applicantDrones = loaded;
+
+      CompanyApplicantDroneModel? committed;
+      for (final drone in loaded) {
+        if (drone.id == committedDroneId) {
+          committed = drone;
+          break;
+        }
+      }
+
+      committedApplicantDrone = committed;
+      return true;
+    } catch (e) {
+      applicantDronesErrorMessage = e.toString();
+      return false;
+    } finally {
+      isLoadingApplicantDrones = false;
+    }
+  }
+
+  Future<String?> downloadApplicantDocument({
+    required CompanyPilotMediaModel document,
+  }) async {
+    if (isDownloadingApplicantDocument) return null;
+
+    isDownloadingApplicantDocument = true;
+    applicantDocumentErrorMessage = null;
+
+    try {
+      return await service.downloadCompanyPilotDocument(
+        mediaId: document.id,
+        downloadUrl: document.bestDownloadUrl,
+        fileName: document.fileName,
+        mimeType: document.mimeType,
+      );
+    } catch (e) {
+      applicantDocumentErrorMessage = e.toString();
+      return null;
+    } finally {
+      isDownloadingApplicantDocument = false;
     }
   }
 

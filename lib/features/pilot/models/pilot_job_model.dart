@@ -105,13 +105,13 @@ class PilotJobModel {
       attachments: _asAttachments(json['attachments']),
       company: rawCompany is Map
           ? PilotJobCompanySummary.fromJson(
-              Map<String, dynamic>.from(rawCompany),
-            )
+        Map<String, dynamic>.from(rawCompany),
+      )
           : null,
       application: rawApplication is Map
           ? PilotJobApplicationSummary.fromJson(
-              Map<String, dynamic>.from(rawApplication),
-            )
+        Map<String, dynamic>.from(rawApplication),
+      )
           : null,
     );
   }
@@ -128,11 +128,26 @@ class PilotJobModel {
   }
 
   String get detailedLocationLabel {
+    final cleanRegion = region.trim();
+    final cleanCity = city.trim();
+    final cleanState = state.trim();
+    final cleanCountry = country.trim();
+
+    final regionDuplicatesCity = cleanRegion.isNotEmpty &&
+        cleanCity.isNotEmpty &&
+        cleanRegion.toLowerCase() == cleanCity.toLowerCase();
+    final regionDuplicatesState = cleanRegion.isNotEmpty &&
+        cleanState.isNotEmpty &&
+        cleanRegion.toLowerCase() == cleanState.toLowerCase();
+
     final parts = <String>[
-      if (region.isNotEmpty) region,
-      if (city.isNotEmpty) city,
-      if (state.isNotEmpty) state,
-      if (country.isNotEmpty) country,
+      if (cleanRegion.isNotEmpty &&
+          !regionDuplicatesCity &&
+          !regionDuplicatesState)
+        cleanRegion,
+      if (cleanCity.isNotEmpty) cleanCity,
+      if (cleanState.isNotEmpty) cleanState,
+      if (cleanCountry.isNotEmpty) cleanCountry,
     ];
 
     return parts.isEmpty ? 'Location not specified' : parts.join(', ');
@@ -216,24 +231,112 @@ class PilotJobModel {
 
 class PilotJobCompanySummary {
   final int id;
+
+  /// Real auth user id for the company account.
+  /// Use this id for user-to-user features such as chat, never [id].
+  final int? userId;
+
   final String name;
+  final String industryType;
+  final String description;
+  final String country;
+  final String state;
+  final String city;
+  final String address;
+  final String website;
+  final String profilePhoto;
   final bool verified;
+  final List<PilotCompanyWorkRegion> workRegions;
 
   const PilotJobCompanySummary({
     required this.id,
+    this.userId,
     this.name = '',
+    this.industryType = '',
+    this.description = '',
+    this.country = '',
+    this.state = '',
+    this.city = '',
+    this.address = '',
+    this.website = '',
+    this.profilePhoto = '',
     this.verified = false,
+    this.workRegions = const [],
   });
 
   factory PilotJobCompanySummary.fromJson(Map<String, dynamic> json) {
+    final companyName = _asString(json['company_name']);
+    final summaryName = _asString(json['name']);
+
     return PilotJobCompanySummary(
       id: _asInt(json['id']) ?? 0,
-      name: _asString(json['name']),
+      userId: _asInt(json['user_id']),
+      // GET /jobs may return `name`, while GET /jobs/{id} returns
+      // `company_name`. Supporting both keeps list/detail compatible.
+      name: companyName.isNotEmpty ? companyName : summaryName,
+      industryType: _asString(json['industry_type']),
+      description: _asString(json['description']),
+      country: _asString(json['country']),
+      state: _asString(json['state']),
+      city: _asString(json['city']),
+      address: _asString(json['address']),
+      website: _asString(json['website']),
+      profilePhoto: _asString(json['profile_photo']),
       verified: _asBool(json['verified']),
+      workRegions: _asCompanyWorkRegions(json['work_regions']),
     );
   }
 
   String get displayName => name.isEmpty ? 'Company #$id' : name;
+
+  bool get hasProfilePhoto => profilePhoto.trim().isNotEmpty;
+
+  String get locationLabel {
+    final parts = <String>[];
+    final seen = <String>{};
+
+    void add(String value) {
+      final clean = value.trim();
+      if (clean.isEmpty) return;
+
+      final key = clean.toLowerCase();
+      if (seen.add(key)) {
+        parts.add(clean);
+      }
+    }
+
+    add(city);
+    add(state);
+    add(country);
+
+    return parts.isEmpty ? 'Location not specified' : parts.join(', ');
+  }
+}
+
+class PilotCompanyWorkRegion {
+  final int? id;
+  final int? companyProfileId;
+  final String country;
+  final String state;
+  final String city;
+
+  const PilotCompanyWorkRegion({
+    this.id,
+    this.companyProfileId,
+    this.country = '',
+    this.state = '',
+    this.city = '',
+  });
+
+  factory PilotCompanyWorkRegion.fromJson(Map<String, dynamic> json) {
+    return PilotCompanyWorkRegion(
+      id: _asInt(json['id']),
+      companyProfileId: _asInt(json['company_profile_id']),
+      country: _asString(json['country']),
+      state: _asString(json['state']),
+      city: _asString(json['city']),
+    );
+  }
 }
 
 class PilotJobApplicationSummary {
@@ -344,9 +447,9 @@ List<PilotJobAttachmentModel> _asAttachments(dynamic value) {
         .whereType<Map>()
         .map(
           (item) => PilotJobAttachmentModel.fromJson(
-            Map<String, dynamic>.from(item),
-          ),
-        )
+        Map<String, dynamic>.from(item),
+      ),
+    )
         .toList();
   }
 
@@ -361,6 +464,20 @@ List<PilotJobAttachmentModel> _asAttachments(dynamic value) {
   ];
 }
 
+
+List<PilotCompanyWorkRegion> _asCompanyWorkRegions(dynamic value) {
+  if (value is! List) return const [];
+
+  return value
+      .whereType<Map>()
+      .map(
+        (item) => PilotCompanyWorkRegion.fromJson(
+      Map<String, dynamic>.from(item),
+    ),
+  )
+      .toList(growable: false);
+}
+
 String _pretty(String value, {String fallback = ''}) {
   final clean = value.trim();
   if (clean.isEmpty) return fallback;
@@ -370,8 +487,8 @@ String _pretty(String value, {String fallback = ''}) {
       .where((part) => part.isNotEmpty)
       .map(
         (part) =>
-            '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-      )
+    '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+  )
       .join(' ');
 }
 
