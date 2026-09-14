@@ -69,6 +69,7 @@ class _CompanyApplicantDetailScreenState
     _application = widget.application;
     _pilot = widget.application.pilotProfile;
     _committedDrone = widget.application.drone;
+    _credentials = widget.application.pilotProfile?.licenses ?? const [];
 
     unawaited(_bootstrap());
   }
@@ -150,6 +151,9 @@ class _CompanyApplicantDetailScreenState
 
           if (cachedCredentialModels.isNotEmpty) {
             _credentials = cachedCredentialModels;
+          } else if (_credentials.isEmpty &&
+              cachedPilot?.licenses.isNotEmpty == true) {
+            _credentials = cachedPilot!.licenses;
           }
 
           _cacheReadFinished = true;
@@ -198,123 +202,131 @@ class _CompanyApplicantDetailScreenState
       setState(() => _backgroundError = null);
     }
 
-    final applicationFuture = _controller.loadApplicants(widget.jobId);
-    final pilotFuture = _controller.loadApplicantPilotProfile(
-      _application.pilotProfileId,
-    );
-    final credentialFuture = _controller.loadApplicantCredentials(
-      _application.pilotProfileId,
-    );
-    final droneFuture = _controller.loadApplicantDrones(
-      pilotProfileId: _application.pilotProfileId,
-      committedDroneId: _application.droneId,
-    );
+    try {
+      // The applicants endpoint now returns the pilot name/photo, licenses and
+      // committed drone. Use that response first, then call the older support
+      // endpoints only when a relation is actually missing.
+      final applicationSuccess = await _controller.loadApplicants(widget.jobId);
+      if (!mounted) return;
 
-    final results = await Future.wait<bool>([
-      applicationFuture,
-      pilotFuture,
-      credentialFuture,
-      droneFuture,
-    ]);
-
-    if (!mounted) return;
-
-    final applicationSuccess = results[0];
-    final pilotSuccess = results[1];
-    final credentialsSuccess = results[2];
-    final dronesSuccess = results[3];
-
-    CompanyJobApplicationModel? freshApplication;
-    if (applicationSuccess) {
-      for (final item in _controller.applicants) {
-        if (item.id == _application.id) {
-          freshApplication = item;
-          break;
+      CompanyJobApplicationModel? freshApplication;
+      if (applicationSuccess) {
+        for (final item in _controller.applicants) {
+          if (item.id == _application.id) {
+            freshApplication = item;
+            break;
+          }
         }
       }
-    }
 
-    final freshPilot = pilotSuccess
-        ? _controller.applicantPilotProfile
-        : null;
-    final nestedPilot = freshApplication?.pilotProfile;
+      final nestedPilot = freshApplication?.pilotProfile;
+      CompanyApplicantPilotModel? resolvedPilot = _pilot;
+      if (nestedPilot != null) {
+        resolvedPilot = resolvedPilot == null
+            ? nestedPilot
+            : resolvedPilot.mergeWith(nestedPilot);
+      }
 
-    CompanyApplicantPilotModel? resolvedPilot = _pilot;
-    if (nestedPilot != null) {
-      resolvedPilot = resolvedPilot == null
-          ? nestedPilot
-          : resolvedPilot.mergeWith(nestedPilot);
-    }
-    if (freshPilot != null) {
-      resolvedPilot = resolvedPilot == null
-          ? freshPilot
-          : resolvedPilot.mergeWith(freshPilot);
-    }
+      var resolvedCredentials = <CompanyPilotCredentialModel>[
+        ..._credentials,
+      ];
+      if (nestedPilot?.licenses.isNotEmpty == true) {
+        resolvedCredentials = nestedPilot!.licenses;
+      } else if (resolvedCredentials.isEmpty &&
+          resolvedPilot?.licenses.isNotEmpty == true) {
+        resolvedCredentials = resolvedPilot!.licenses;
+      }
 
-    final nestedDrone = freshApplication?.drone;
-    final fullCommittedDrone = dronesSuccess
-        ? _controller.committedApplicantDrone
-        : null;
+      var resolvedDrone = _preferRicherDrone(
+        current: _committedDrone,
+        incoming: freshApplication?.drone,
+      );
 
-    var resolvedDrone = _preferRicherDrone(
-      current: _committedDrone,
-      incoming: nestedDrone,
-    );
-    resolvedDrone = _preferRicherDrone(
-      current: resolvedDrone,
-      incoming: fullCommittedDrone,
-    );
+      final errorParts = <String>[];
+      if (!applicationSuccess) {
+        final value = _controller.applicantsErrorMessage?.trim() ?? '';
+        if (value.isNotEmpty) errorParts.add(value);
+      }
 
-    final errorParts = <String>[];
-    if (!applicationSuccess) {
-      final value = _controller.applicantsErrorMessage?.trim() ?? '';
-      if (value.isNotEmpty) errorParts.add(value);
-    }
-    if (!pilotSuccess && resolvedPilot == null) {
-      final value =
-          _controller.applicantPilotProfileErrorMessage?.trim() ?? '';
-      if (value.isNotEmpty) errorParts.add(value);
-    }
-    if (!credentialsSuccess && _credentials.isEmpty) {
-      final value =
-          _controller.applicantCredentialsErrorMessage?.trim() ?? '';
-      if (value.isNotEmpty) errorParts.add(value);
-    }
-    if (!dronesSuccess && resolvedDrone == null) {
-      final value = _controller.applicantDronesErrorMessage?.trim() ?? '';
-      if (value.isNotEmpty) errorParts.add(value);
-    }
+      if (resolvedPilot == null) {
+        final pilotSuccess = await _controller.loadApplicantPilotProfile(
+          _application.pilotProfileId,
+        );
+        if (!mounted) return;
 
-    setState(() {
-      if (freshApplication != null) {
-        _application = freshApplication!.copyWith(
+        final freshPilot = pilotSuccess
+            ? _controller.applicantPilotProfile
+            : null;
+        if (freshPilot != null) {
+          resolvedPilot = freshPilot;
+          if (resolvedCredentials.isEmpty && freshPilot.licenses.isNotEmpty) {
+            resolvedCredentials = freshPilot.licenses;
+          }
+        } else if (!pilotSuccess) {
+          final value =
+              _controller.applicantPilotProfileErrorMessage?.trim() ?? '';
+          if (value.isNotEmpty) errorParts.add(value);
+        }
+      }
+
+      if (resolvedCredentials.isEmpty) {
+        final credentialsSuccess = await _controller.loadApplicantCredentials(
+          _application.pilotProfileId,
+        );
+        if (!mounted) return;
+
+        if (credentialsSuccess) {
+          resolvedCredentials = _controller.applicantCredentials;
+        } else {
+          final value =
+              _controller.applicantCredentialsErrorMessage?.trim() ?? '';
+          if (value.isNotEmpty) errorParts.add(value);
+        }
+      }
+
+      if (resolvedDrone == null) {
+        final dronesSuccess = await _controller.loadApplicantDrones(
+          pilotProfileId: _application.pilotProfileId,
+          committedDroneId: _application.droneId,
+        );
+        if (!mounted) return;
+
+        if (dronesSuccess) {
+          resolvedDrone = _preferRicherDrone(
+            current: resolvedDrone,
+            incoming: _controller.committedApplicantDrone,
+          );
+        } else {
+          final value =
+              _controller.applicantDronesErrorMessage?.trim() ?? '';
+          if (value.isNotEmpty) errorParts.add(value);
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        final baseApplication = freshApplication ?? _application;
+        _application = baseApplication.copyWith(
           pilotProfile: resolvedPilot,
           drone: resolvedDrone,
         );
-      } else {
-        _application = _application.copyWith(
-          pilotProfile: resolvedPilot,
-          drone: resolvedDrone,
-        );
-      }
 
-      _pilot = resolvedPilot;
-      _committedDrone = resolvedDrone;
+        _pilot = resolvedPilot;
+        _committedDrone = resolvedDrone;
+        _credentials = resolvedCredentials;
 
-      if (credentialsSuccess) {
-        _credentials = _controller.applicantCredentials;
-      }
+        _backgroundError = errorParts.isEmpty
+            ? null
+            : 'Some applicant details could not be refreshed.';
+      });
 
-      _backgroundError = errorParts.isEmpty
-          ? null
-          : 'Some applicant details could not be refreshed.';
-    });
-
-    _backgroundRefreshing = false;
-    _supportLoadedOnce = true;
-    unawaited(_saveCache());
-
-    if (mounted) setState(() {});
+      unawaited(_saveCache());
+    } finally {
+      _backgroundRefreshing = false;
+      _supportLoadedOnce = true;
+      if (mounted) setState(() {});
+    }
   }
 
   CompanyApplicantDroneModel? _preferRicherDrone({
@@ -1036,6 +1048,14 @@ class _CompanyApplicantDetailScreenState
               ),
             ],
           ),
+          if (pilot.dateOfBirth != null) ...[
+            const SizedBox(height: 10),
+            _infoRow(
+              'Date of birth',
+              _formatDate(pilot.dateOfBirth),
+              Icons.cake_outlined,
+            ),
+          ],
           if (pilot.nationality.isNotEmpty) ...[
             const SizedBox(height: 10),
             _infoRow(

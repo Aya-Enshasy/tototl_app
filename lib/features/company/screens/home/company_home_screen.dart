@@ -13,8 +13,10 @@ import '../../../../core/storage/user_session_storage.dart';
 import '../../../pilot/services/company_dashboard_service.dart';
  import '../../controllers/company_dashboard_controller.dart';
 import '../../models/company_dashboard_model.dart';
-import '../jobs/company_job_detail_screen.dart';
+import '../../services/company_job_service.dart';
+ import '../jobs/company_job_detail_screen.dart';
 import '../jobs/post_job_screen.dart';
+import '../operations/company_applicant_detail_screen.dart';
 
 class CompanyHomeScreen extends StatefulWidget {
   const CompanyHomeScreen({super.key});
@@ -258,6 +260,58 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     unawaited(_refreshDashboardFromNetwork());
   }
 
+  Future<void> _openApplicant(
+      _CompanyDashboardApplicantSnapshot application,
+      ) async {
+    HapticFeedback.selectionClick();
+
+    try {
+      final applicants = await CompanyJobService(ApiClient()).getApplicants(
+        application.jobPostingId,
+      );
+
+      final matches = applicants.where(
+            (item) => item.pilotProfileId == application.pilotProfileId,
+      );
+
+      if (!mounted) return;
+
+      if (matches.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Applicant details are no longer available.'),
+          ),
+        );
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CompanyApplicantDetailScreen(
+            jobId: application.jobPostingId,
+            application: matches.first,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      unawaited(_refreshDashboardFromNetwork());
+    } catch (e) {
+      if (!mounted) return;
+
+      final message = e.toString().trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message.isEmpty
+                ? 'Unable to load applicant details.'
+                : message,
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -497,9 +551,8 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                           index: 6 + entry.key,
                           child: _RecentApplicantCard(
                             application: application,
-                            onTap: () => _openJob(
-                              application.jobPostingId,
-                            ),
+                            onTap: () =>
+                                _openApplicant(application),
                           ),
                         ),
                       );
@@ -568,7 +621,7 @@ class _CompanyHeader extends StatelessWidget {
               child: hasPhoto
                   ? Image.network(
                 profilePhotoUrl.trim(),
-                fit: BoxFit.fill,
+                fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _CompanyAvatarFallback(
                   companyName: companyName,
                 ),
@@ -1169,6 +1222,10 @@ class _RecentApplicantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusStyle = _statusStyle(application.status);
+    final pilotName = application.pilotName.trim().isEmpty
+        ? 'Pilot #${application.pilotProfileId}'
+        : application.pilotName.trim();
+    final pilotPhoto = application.pilotPhoto.trim();
     final location = application.pilotLocation.trim().isEmpty
         ? 'Location not specified'
         : application.pilotLocation.trim();
@@ -1207,27 +1264,46 @@ class _RecentApplicantCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.blue.withOpacity(0.13),
-                          AppColors.green.withOpacity(0.10),
-                        ],
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.blue.withOpacity(0.13),
+                            AppColors.green.withOpacity(0.10),
+                          ],
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '#${application.pilotProfileId}',
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
+                      alignment: Alignment.center,
+                      child: pilotPhoto.isNotEmpty
+                          ? Image.network(
+                        pilotPhoto,
+                        width: 46,
+                        height: 46,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Text(
+                            _initials(pilotName),
+                            style: const TextStyle(
+                              color: AppColors.navy,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      )
+                          : Text(
+                        _initials(pilotName),
+                        style: const TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
@@ -1237,7 +1313,7 @@ class _RecentApplicantCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pilot #${application.pilotProfileId}',
+                          pilotName,
                           style: const TextStyle(
                             color: AppColors.navy,
                             fontSize: 13.5,
@@ -1818,6 +1894,8 @@ class _CompanyDashboardApplicantSnapshot {
   const _CompanyDashboardApplicantSnapshot({
     required this.pilotProfileId,
     required this.jobPostingId,
+    required this.pilotName,
+    required this.pilotPhoto,
     required this.status,
     required this.experienceYears,
     required this.pilotLocation,
@@ -1828,6 +1906,8 @@ class _CompanyDashboardApplicantSnapshot {
 
   final int pilotProfileId;
   final int jobPostingId;
+  final String pilotName;
+  final String pilotPhoto;
   final String status;
   final int experienceYears;
   final String pilotLocation;
@@ -1845,6 +1925,8 @@ class _CompanyDashboardApplicantSnapshot {
     return _CompanyDashboardApplicantSnapshot(
       pilotProfileId: application.pilotProfileId,
       jobPostingId: application.jobPostingId,
+      pilotName: pilot?.name ?? '',
+      pilotPhoto: pilot?.profilePhoto ?? '',
       status: application.status,
       experienceYears: pilot?.experienceYears ?? 0,
       pilotLocation: pilot?.location ?? '',
@@ -1871,6 +1953,8 @@ class _CompanyDashboardApplicantSnapshot {
     return _CompanyDashboardApplicantSnapshot(
       pilotProfileId: _asInt(json['pilot_profile_id']),
       jobPostingId: _asInt(json['job_posting_id']),
+      pilotName: json['pilot_name']?.toString() ?? '',
+      pilotPhoto: json['pilot_photo']?.toString() ?? '',
       status: json['status']?.toString() ?? 'pending',
       experienceYears: _asInt(json['experience_years']),
       pilotLocation: json['pilot_location']?.toString() ?? '',
@@ -1884,6 +1968,8 @@ class _CompanyDashboardApplicantSnapshot {
     return {
       'pilot_profile_id': pilotProfileId,
       'job_posting_id': jobPostingId,
+      'pilot_name': pilotName,
+      'pilot_photo': pilotPhoto,
       'status': status,
       'experience_years': experienceYears,
       'pilot_location': pilotLocation,

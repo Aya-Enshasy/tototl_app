@@ -12,11 +12,62 @@ import '../models/pilot_application_model.dart';
 class PilotApplicationDetailsResult {
   final PilotApplicationModel application;
   final ApplicationCompanyChatTarget? companyChatTarget;
+  final ApplicationPilotIdentity? pilotIdentity;
 
   const PilotApplicationDetailsResult({
     required this.application,
     this.companyChatTarget,
+    this.pilotIdentity,
   });
+}
+
+class ApplicationPilotIdentity {
+  final int id;
+  final int? userId;
+  final String name;
+  final String photoUrl;
+  final int? experienceYears;
+  final String country;
+  final String state;
+  final String city;
+
+  const ApplicationPilotIdentity({
+    required this.id,
+    this.userId,
+    this.name = '',
+    this.photoUrl = '',
+    this.experienceYears,
+    this.country = '',
+    this.state = '',
+    this.city = '',
+  });
+
+  String get displayName => name.trim().isEmpty ? 'Pilot #$id' : name.trim();
+
+  String get locationLabel {
+    final parts = <String>[];
+    final seen = <String>{};
+
+    void add(String value) {
+      final clean = value.trim();
+      if (clean.isEmpty) return;
+      final key = clean.toLowerCase();
+      if (seen.add(key)) parts.add(clean);
+    }
+
+    add(city);
+    add(state);
+    add(country);
+    return parts.join(', ');
+  }
+
+  String get experienceLabel {
+    final years = experienceYears;
+    if (years == null) return '';
+    if (years <= 0) return 'New pilot';
+    if (years == 1) return '1 year experience';
+    return '$years years experience';
+  }
 }
 
 class ApplicationCompanyChatTarget {
@@ -278,6 +329,7 @@ class PilotApplicationService {
       final chatTarget = _extractCompanyChatTargetFromApplication(
         rawApplication,
       );
+      final pilotIdentity = _extractPilotIdentity(rawApplication);
 
       unawaited(
         _rememberNetworkApplication(
@@ -289,6 +341,7 @@ class PilotApplicationService {
       return PilotApplicationDetailsResult(
         application: application,
         companyChatTarget: chatTarget,
+        pilotIdentity: pilotIdentity,
       );
     } on DioException catch (e) {
       throw PilotApplicationException(
@@ -594,6 +647,56 @@ class PilotApplicationService {
   Map<String, dynamic>? _applicationMap(dynamic raw) {
     if (raw is! Map) return null;
     return Map<String, dynamic>.from(raw);
+  }
+
+  ApplicationPilotIdentity? _extractPilotIdentity(
+      Map<String, dynamic>? application,
+      ) {
+    if (application == null) return null;
+
+    final pilot = _mapOf(application['pilot_profile']) ??
+        _mapOf(application['pilotProfile']) ??
+        _mapOf(application['pilot']);
+    if (pilot == null) return null;
+
+    final id = _asInt(pilot['id']) ?? _asInt(application['pilot_profile_id']);
+    if (id == null || id <= 0) return null;
+
+    final photoMedia = _mapOf(pilot['profile_photo']) ??
+        _mapOf(pilot['photo']);
+
+    return ApplicationPilotIdentity(
+      id: id,
+      userId: _asInt(pilot['user_id']),
+      name: _firstNonEmpty([
+        pilot['name'],
+        pilot['full_name'],
+        pilot['username'],
+      ]),
+      photoUrl: pilot['profile_photo'] is String
+          ? pilot['profile_photo'].toString().trim()
+          : _firstNonEmpty([
+        pilot['profile_photo_url'],
+        pilot['photo_url'],
+        photoMedia?['original_url'],
+        photoMedia?['url'],
+      ]),
+      experienceYears: _asInt(
+        pilot['experience_years'] ?? pilot['years_experience'],
+      ),
+      country: _firstNonEmpty([
+        pilot['current_country'],
+        pilot['country'],
+      ]),
+      state: _firstNonEmpty([
+        pilot['current_state'],
+        pilot['state'],
+      ]),
+      city: _firstNonEmpty([
+        pilot['current_city'],
+        pilot['city'],
+      ]),
+    );
   }
 
   ApplicationCompanyChatTarget? _extractCompanyChatTargetFromApplication(

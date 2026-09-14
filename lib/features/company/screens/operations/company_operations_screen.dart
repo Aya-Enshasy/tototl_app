@@ -11,7 +11,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../controllers/company_job_controller.dart';
  import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
-import 'company_applicant_detail_screen.dart';
+ import 'company_applicant_detail_screen.dart';
 import 'company_applicant_list_item.dart';
 
 class CompanyApplicationsScreen extends StatefulWidget {
@@ -33,8 +33,8 @@ class CompanyOperationsScreen extends StatelessWidget {
 
 class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_all_applications_v1_';
-  static const int _perPage = 26;
+  static const String _cachePrefix = 'company_all_applications_v2_';
+  static const int _perPage = 50;
 
   late final CompanyJobController _controller;
 
@@ -345,7 +345,14 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 5),
-
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -604,20 +611,21 @@ class _ApplicationCard extends StatelessWidget {
                           color: AppColors.blue.withOpacity(0.12),
                         ),
                       ),
-                      child: CircleAvatar(
-                        backgroundColor: AppColors.blueBg,
-                        foregroundImage: pilotPhoto.isNotEmpty
-                            ? NetworkImage(pilotPhoto)
-                            : null,
+                      child: ClipOval(
                         child: pilotPhoto.isNotEmpty
-                            ? null
-                            : Text(
-                          _initials(pilotName),
-                          style: const TextStyle(
-                            color: AppColors.blue,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                          ),
+                            ? Image.network(
+                          pilotPhoto,
+                          fit: BoxFit.cover,
+                          width: 38,
+                          height: 38,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _PilotAvatarFallback(
+                              initials: _initials(pilotName),
+                            );
+                          },
+                        )
+                            : _PilotAvatarFallback(
+                          initials: _initials(pilotName),
                         ),
                       ),
                     ),
@@ -869,6 +877,31 @@ class _FilterChip extends StatelessWidget {
         fontWeight: FontWeight.w800,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+    );
+  }
+}
+
+
+class _PilotAvatarFallback extends StatelessWidget {
+  const _PilotAvatarFallback({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      alignment: Alignment.center,
+      color: AppColors.blueBg,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: AppColors.blue,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

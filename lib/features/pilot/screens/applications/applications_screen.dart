@@ -5,7 +5,6 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 
 import '../../controllers/pilot_application_controller.dart';
 import '../../models/pilot_application_model.dart';
-import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
 import '../../services/pilot_job_service.dart';
 import 'application_details_screen.dart';
@@ -34,7 +33,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     _controller = PilotApplicationController(
       PilotApplicationService(apiClient),
       jobService: PilotJobService(apiClient),
-      droneService: DroneService(apiClient),
     );
 
     _controller.load();
@@ -188,7 +186,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                   pending: _controller.pendingCount,
                   accepted: _controller.acceptedCount,
                   rejected: _controller.rejectedCount,
-                  withdrawn: _controller.withdrawnCount,
                   refreshing: _controller.isRefreshing,
                   onRefresh: _controller.isRefreshing ? null : _refresh,
                 ),
@@ -313,7 +310,6 @@ class _Header extends StatelessWidget {
     required this.pending,
     required this.accepted,
     required this.rejected,
-    required this.withdrawn,
     required this.refreshing,
     required this.onRefresh,
   });
@@ -322,7 +318,6 @@ class _Header extends StatelessWidget {
   final int pending;
   final int accepted;
   final int rejected;
-  final int withdrawn;
   final bool refreshing;
   final VoidCallback? onRefresh;
 
@@ -417,7 +412,6 @@ class _Header extends StatelessWidget {
             pending: pending,
             accepted: accepted,
             rejected: rejected,
-            withdrawn: withdrawn,
           ),
         ],
       ),
@@ -431,14 +425,12 @@ class _PipelineHero extends StatelessWidget {
     required this.pending,
     required this.accepted,
     required this.rejected,
-    required this.withdrawn,
   });
 
   final int total;
   final int pending;
   final int accepted;
   final int rejected;
-  final int withdrawn;
 
   @override
   Widget build(BuildContext context) {
@@ -569,15 +561,6 @@ class _PipelineHero extends StatelessWidget {
                         label: 'Rejected',
                         icon: Icons.cancel_outlined,
                         tint: const Color(0xFFFFA0A0),
-                      ),
-                    ),
-                    const _HeroDivider(),
-                    Expanded(
-                      child: _HeroMetric(
-                        value: '$withdrawn',
-                        label: 'Withdrawn',
-                        icon: Icons.undo_rounded,
-                        tint: const Color(0xFFC6D0DB),
                       ),
                     ),
                   ],
@@ -758,7 +741,7 @@ class _PulseDotsState extends State<_PulseDots>
       builder: (context, _) {
         return Row(
           mainAxisSize: MainAxisSize.min,
-          children: List.generate(4, (index) {
+          children: List.generate(3, (index) {
             final phase = (_controller.value + (index * 0.22)) % 1.0;
             final opacity = 0.28 + (0.72 * (1 - (phase - 0.5).abs() * 2));
 
@@ -799,6 +782,7 @@ class _ApplicationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visual = _statusVisual(application.status);
     final job = application.job;
+    final company = job?.company;
 
     final realTitle = job?.title.trim() ?? '';
     final title = realTitle.isNotEmpty
@@ -872,23 +856,11 @@ class _ApplicationCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            width: compact ? 38 : 41,
-                            height: compact ? 38 : 41,
-                            decoration: BoxDecoration(
-                              color: visual.background,
-                              borderRadius: BorderRadius.circular(
-                                compact ? 12 : 13,
-                              ),
-                              border: Border.all(
-                                color: visual.foreground.withOpacity(0.09),
-                              ),
-                            ),
-                            child: Icon(
-                              visual.icon,
-                              color: visual.foreground,
-                              size: compact ? 18 : 19,
-                            ),
+                          _CompanyLogo(
+                            photoUrl: company?.profilePhoto.trim() ?? '',
+                            compact: compact,
+                            fallbackColor: visual.background,
+                            fallbackIconColor: visual.foreground,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -923,7 +895,13 @@ class _ApplicationCard extends StatelessWidget {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: _MetaLine(
+                                      child: company != null
+                                          ? _CompanyMeta(
+                                        name: company.displayName,
+                                        verified: company.verified,
+                                        compact: true,
+                                      )
+                                          : _MetaLine(
                                         icon: realCompany.isNotEmpty
                                             ? Icons.business_outlined
                                             : Icons.tag_rounded,
@@ -1054,6 +1032,151 @@ class _StatusPill extends StatelessWidget {
               color: visual.foreground,
               fontSize: compact ? 8.2 : 8.8,
               fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompanyLogo extends StatelessWidget {
+  const _CompanyLogo({
+    required this.photoUrl,
+    required this.compact,
+    required this.fallbackColor,
+    required this.fallbackIconColor,
+  });
+
+  final String photoUrl;
+  final bool compact;
+  final Color fallbackColor;
+  final Color fallbackIconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = compact ? 38.0 : 41.0;
+    final radius = compact ? 12.0 : 13.0;
+
+    Widget fallback() {
+      return Container(
+        color: fallbackColor,
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.business_rounded,
+          color: fallbackIconColor,
+          size: compact ? 18 : 19,
+        ),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: fallbackColor,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: fallbackIconColor.withOpacity(0.09),
+        ),
+      ),
+      child: photoUrl.isEmpty
+          ? fallback()
+          : Image.network(
+        photoUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      ),
+    );
+  }
+}
+
+class _CompanyMeta extends StatelessWidget {
+  const _CompanyMeta({
+    required this.name,
+    required this.verified,
+    this.compact = false,
+  });
+
+  final String name;
+  final bool verified;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          Icons.business_outlined,
+          color: AppColors.grey,
+          size: compact ? 11 : 12,
+        ),
+        SizedBox(width: compact ? 4 : 5),
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.grey,
+              fontSize: compact ? 9.2 : 10.2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        _CompanyVerificationBadge(
+          verified: verified,
+          compact: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _CompanyVerificationBadge extends StatelessWidget {
+  const _CompanyVerificationBadge({
+    required this.verified,
+    this.compact = false,
+  });
+
+  final bool verified;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = verified ? AppColors.green : AppColors.grey;
+    final background = verified
+        ? AppColors.green.withOpacity(0.09)
+        : AppColors.grey.withOpacity(0.07);
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 5 : 7,
+        vertical: compact ? 2.5 : 3.5,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: foreground.withOpacity(0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            verified ? Icons.verified_rounded : Icons.info_outline_rounded,
+            size: compact ? 9 : 11,
+            color: foreground,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            verified ? 'Verified' : 'Not verified',
+            style: TextStyle(
+              color: foreground,
+              fontSize: compact ? 7.2 : 8.4,
+              height: 1,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -1539,7 +1662,7 @@ class _HeroShimmer extends StatelessWidget {
               return Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(
-                    right: index == 3 ? 0 : 12,
+                    right: index == 2 ? 0 : 16,
                   ),
                   child: Column(
                     children: [

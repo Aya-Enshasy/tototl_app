@@ -28,9 +28,9 @@ class AdminService {
         .whereType<Map>()
         .map(
           (item) => AdminPendingPilotModel.fromJson(
-            Map<String, dynamic>.from(item),
-          ),
-        )
+        Map<String, dynamic>.from(item),
+      ),
+    )
         .toList();
   }
 
@@ -48,10 +48,80 @@ class AdminService {
         .whereType<Map>()
         .map(
           (item) => AdminPendingCompanyModel.fromJson(
-            Map<String, dynamic>.from(item),
-          ),
-        )
+        Map<String, dynamic>.from(item),
+      ),
+    )
         .toList();
+  }
+
+  // ==========================================================================
+  // ALL COMPANIES DIRECTORY
+  // GET /admin/companies?search=&status=&per_page=&page=
+  //
+  // The endpoint is paginated. This method loads every page so the existing
+  // Accounts Directory can keep filtering locally without changing its UI.
+  // ==========================================================================
+
+  Future<List<AdminPendingCompanyModel>> getCompanies({
+    String? search,
+    String? status,
+    int perPage = 50,
+  }) async {
+    final cleanSearch = search?.trim() ?? '';
+    final cleanStatus = status?.trim() ?? '';
+    final safePerPage = perPage <= 0 ? 50 : perPage;
+
+    final companies = <AdminPendingCompanyModel>[];
+    var page = 1;
+    var lastPage = 1;
+
+    do {
+      final endpoint = _adminCompaniesEndpoint(
+        page: page,
+        perPage: safePerPage,
+        search: cleanSearch,
+        status: cleanStatus,
+      );
+
+      final response = await _authorizedGet(endpoint);
+      final body = _body(response.data);
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw AdminException(
+          _messageFromBody(
+            body,
+            fallback: 'Companies directory is unavailable.',
+          ),
+        );
+      }
+
+      final pageMap = Map<String, dynamic>.from(rawData);
+      final rawCompanies = pageMap['data'];
+
+      if (rawCompanies is List) {
+        companies.addAll(
+          rawCompanies
+              .whereType<Map>()
+              .map(
+                (item) => AdminPendingCompanyModel.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          ),
+        );
+      }
+
+      lastPage = _positiveInt(pageMap['last_page']) ?? page;
+
+      // Defensive stop for malformed pagination responses.
+      if (rawCompanies is! List || rawCompanies.isEmpty) {
+        break;
+      }
+
+      page++;
+    } while (page <= lastPage);
+
+    return companies;
   }
 
   Future<AdminUserModel> approveUser(int userId) async {
@@ -111,7 +181,7 @@ class AdminService {
   }
 
   Future<List<AdminVerificationHistoryModel>>
-      getVerificationHistory(int userId) async {
+  getVerificationHistory(int userId) async {
     final response = await _authorizedGet(
       ApiEndpoints.adminVerificationHistory(userId),
     );
@@ -134,10 +204,35 @@ class AdminService {
         .whereType<Map>()
         .map(
           (item) => AdminVerificationHistoryModel.fromJson(
-            Map<String, dynamic>.from(item),
-          ),
-        )
+        Map<String, dynamic>.from(item),
+      ),
+    )
         .toList();
+  }
+
+  String _adminCompaniesEndpoint({
+    required int page,
+    required int perPage,
+    required String search,
+    required String status,
+  }) {
+    final params = <String, String>{
+      'per_page': '$perPage',
+      'page': '$page',
+    };
+
+    if (search.isNotEmpty) {
+      params['search'] = search;
+    }
+
+    if (status.isNotEmpty && status.toLowerCase() != 'all') {
+      params['status'] = status;
+    }
+
+    return Uri(
+      path: ApiEndpoints.adminCompanies,
+      queryParameters: params,
+    ).toString();
   }
 
   Future<Response<dynamic>> _authorizedGet(String path) async {
@@ -161,9 +256,9 @@ class AdminService {
   }
 
   Future<Response<dynamic>> _authorizedPost(
-    String path, {
-    Object? data,
-  }) async {
+      String path, {
+        Object? data,
+      }) async {
     final token = await _token();
 
     try {
@@ -186,9 +281,9 @@ class AdminService {
   }
 
   AdminUserModel _parseActionUser(
-    Response<dynamic> response, {
-    required String fallback,
-  }) {
+      Response<dynamic> response, {
+        required String fallback,
+      }) {
     final body = _body(response.data);
     final raw = body['data'];
 
@@ -253,9 +348,9 @@ class AdminService {
   }
 
   String _messageFromBody(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     final errors = body['errors'];
 
     if (errors is Map) {
@@ -276,6 +371,17 @@ class AdminService {
     if (message != null && message.isNotEmpty) return message;
 
     return fallback;
+  }
+
+  int? _positiveInt(dynamic value) {
+    if (value == null) return null;
+
+    final parsed = value is int
+        ? value
+        : int.tryParse(value.toString().trim());
+
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
   }
 }
 

@@ -15,6 +15,7 @@ class ApiEndpoints {
   static const String profileDocuments = '/profile/documents';
   static const String companyProfile = '/company/profile';
   static const String fcmTokenRefresh = '/fcm-token/refresh';
+
   // Password
   static const String forgotPassword = '/auth/password/forgot';
 
@@ -49,6 +50,10 @@ class ApiEndpoints {
 
   static const String adminPendingCompanies = '/admin/companies/pending';
 
+  /// GET /admin/companies
+  /// Supports: search, status, per_page, page
+  static const String adminCompanies = '/admin/companies';
+
   // ==========================================================================
   // ADMIN - VERIFICATION ACTIONS
   // ==========================================================================
@@ -73,12 +78,12 @@ class ApiEndpoints {
     return '/admin/users/$userId/verification-history';
   }
 
-  static const String pilotLicenses =
-      '/pilot-licenses';
+  static const String pilotLicenses = '/pilot-licenses';
 
   static String pilotLicense(int licenseId) {
     return '/pilot-licenses/$licenseId';
   }
+
   static const String pilotDashboard = '/dashboard';
   static const String companyDashboard = '/company/dashboard';
 }

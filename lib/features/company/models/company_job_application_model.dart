@@ -140,6 +140,7 @@ class CompanyApplicantPilotModel {
   final String state;
   final String city;
   final List<CompanyPilotWorkRegionModel> workRegions;
+  final List<CompanyPilotCredentialModel> licenses;
 
   const CompanyApplicantPilotModel({
     required this.id,
@@ -158,6 +159,7 @@ class CompanyApplicantPilotModel {
     this.state = '',
     this.city = '',
     this.workRegions = const [],
+    this.licenses = const [],
   });
 
   factory CompanyApplicantPilotModel.fromJson(
@@ -218,6 +220,9 @@ class CompanyApplicantPilotModel {
       workRegions: _asMapList(json['work_regions'])
           .map(CompanyPilotWorkRegionModel.fromJson)
           .toList(growable: false),
+      licenses: _asMapList(json['licenses'])
+          .map(CompanyPilotCredentialModel.fromJson)
+          .toList(growable: false),
     );
   }
 
@@ -238,6 +243,7 @@ class CompanyApplicantPilotModel {
     'current_state': state,
     'current_city': city,
     'work_regions': workRegions.map((e) => e.toJson()).toList(),
+    'licenses': licenses.map((e) => e.toJson()).toList(),
   };
 
   CompanyApplicantPilotModel mergeWith(
@@ -269,6 +275,7 @@ class CompanyApplicantPilotModel {
       city: other.city.trim().isNotEmpty ? other.city : city,
       workRegions:
       other.workRegions.isNotEmpty ? other.workRegions : workRegions,
+      licenses: other.licenses.isNotEmpty ? other.licenses : licenses,
     );
   }
 

@@ -70,7 +70,7 @@ class PilotJobModel {
   });
 
   factory PilotJobModel.fromJson(Map<String, dynamic> json) {
-    final rawCompany = json['company'];
+    final rawCompany = json['company_profile'] ?? json['company'];
     final rawApplication = json['application'];
 
     return PilotJobModel(
@@ -271,8 +271,8 @@ class PilotJobCompanySummary {
     return PilotJobCompanySummary(
       id: _asInt(json['id']) ?? 0,
       userId: _asInt(json['user_id']),
-      // GET /jobs may return `name`, while GET /jobs/{id} returns
-      // `company_name`. Supporting both keeps list/detail compatible.
+      // GET /jobs returns `name`, while GET /jobs/{id} returns `company_name`.
+      // Supporting both keeps list and detail responses compatible.
       name: companyName.isNotEmpty ? companyName : summaryName,
       industryType: _asString(json['industry_type']),
       description: _asString(json['description']),
@@ -298,11 +298,8 @@ class PilotJobCompanySummary {
     void add(String value) {
       final clean = value.trim();
       if (clean.isEmpty) return;
-
       final key = clean.toLowerCase();
-      if (seen.add(key)) {
-        parts.add(clean);
-      }
+      if (seen.add(key)) parts.add(clean);
     }
 
     add(city);
@@ -336,6 +333,24 @@ class PilotCompanyWorkRegion {
       state: _asString(json['state']),
       city: _asString(json['city']),
     );
+  }
+
+  String get locationLabel {
+    final parts = <String>[];
+    final seen = <String>{};
+
+    void add(String value) {
+      final clean = value.trim();
+      if (clean.isEmpty) return;
+      final key = clean.toLowerCase();
+      if (seen.add(key)) parts.add(clean);
+    }
+
+    add(city);
+    add(state);
+    add(country);
+
+    return parts.isEmpty ? 'Region not specified' : parts.join(', ');
   }
 }
 
@@ -441,6 +456,19 @@ List<String> _asStringList(dynamic value) {
       .toList();
 }
 
+List<PilotCompanyWorkRegion> _asCompanyWorkRegions(dynamic value) {
+  if (value is! List) return const [];
+
+  return value
+      .whereType<Map>()
+      .map(
+        (item) => PilotCompanyWorkRegion.fromJson(
+      Map<String, dynamic>.from(item),
+    ),
+  )
+      .toList();
+}
+
 List<PilotJobAttachmentModel> _asAttachments(dynamic value) {
   if (value is List) {
     return value
@@ -462,20 +490,6 @@ List<PilotJobAttachmentModel> _asAttachments(dynamic value) {
       url: text,
     ),
   ];
-}
-
-
-List<PilotCompanyWorkRegion> _asCompanyWorkRegions(dynamic value) {
-  if (value is! List) return const [];
-
-  return value
-      .whereType<Map>()
-      .map(
-        (item) => PilotCompanyWorkRegion.fromJson(
-      Map<String, dynamic>.from(item),
-    ),
-  )
-      .toList(growable: false);
 }
 
 String _pretty(String value, {String fallback = ''}) {
