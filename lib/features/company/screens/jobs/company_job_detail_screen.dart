@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
@@ -18,16 +19,12 @@ import '../operations/company_applicant_detail_screen.dart';
 import 'edit_company_job_screen.dart';
 
 class CompanyJobDetailScreen extends StatefulWidget {
-  const CompanyJobDetailScreen({
-    super.key,
-    required this.jobId,
-  });
+  const CompanyJobDetailScreen({super.key, required this.jobId});
 
   final int jobId;
 
   @override
-  State<CompanyJobDetailScreen> createState() =>
-      _CompanyJobDetailScreenState();
+  State<CompanyJobDetailScreen> createState() => _CompanyJobDetailScreenState();
 }
 
 class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
@@ -56,9 +53,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   void initState() {
     super.initState();
 
-    _controller = CompanyJobController(
-      CompanyJobService(ApiClient()),
-    );
+    _controller = CompanyJobController(CompanyJobService(ApiClient()));
 
     unawaited(_bootstrap());
   }
@@ -110,9 +105,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         for (final value in rawApplicants) {
           if (value is Map) {
             cachedApplicants.add(
-              _ApplicantSnapshot.fromJson(
-                Map<String, dynamic>.from(value),
-              ),
+              _ApplicantSnapshot.fromJson(Map<String, dynamic>.from(value)),
             );
           }
         }
@@ -143,10 +136,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     };
 
     try {
-      await _storage.write(
-        key: key,
-        value: jsonEncode(payload),
-      );
+      await _storage.write(key: key, value: jsonEncode(payload));
     } catch (_) {
       // Cache failure must never block the real screen.
     }
@@ -171,8 +161,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     }
 
     try {
-      final detailSuccess =
-      await _controller.loadJobDetails(widget.jobId);
+      final detailSuccess = await _controller.loadJobDetails(widget.jobId);
 
       if (!mounted) return;
 
@@ -186,8 +175,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         return;
       }
 
-      final freshJob =
-      _JobDetailSnapshot.fromModel(_controller.selectedJob!);
+      final freshJob = _JobDetailSnapshot.fromModel(_controller.selectedJob!);
 
       setState(() {
         _job = freshJob;
@@ -293,9 +281,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (job == null || job.status.toLowerCase() != 'draft') return;
 
     final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => EditCompanyJobScreen(job: job),
-      ),
+      MaterialPageRoute(builder: (_) => EditCompanyJobScreen(job: job)),
     );
 
     if (!mounted) return;
@@ -311,9 +297,10 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (job == null || job.status.toLowerCase() != 'draft') return;
 
     final confirmed = await _confirmDialog(
-      title: 'Publish Job?',
-      message:
-      'Once published, pilots can see this job and submit applications. Editing and deleting are only available while the job is Draft.',
+      title: AppLanguage.text('Publish Job?'),
+      message: AppLanguage.text(
+        'Once published, pilots can see this job and submit applications. Editing and deleting are only available while the job is Draft.',
+      ),
       confirmText: 'Publish',
       icon: Icons.public_rounded,
     );
@@ -348,7 +335,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (job == null || job.status.toLowerCase() != 'draft') return;
 
     final confirmed = await _confirmDialog(
-      title: 'Delete Draft?',
+      title: AppLanguage.text('Delete Draft?'),
       message: 'Delete "${job.title}" permanently? This cannot be undone.',
       confirmText: 'Delete',
       danger: true,
@@ -386,9 +373,9 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (job == null || job.status.toLowerCase() != 'published') return;
 
     final confirmed = await _confirmDialog(
-      title: 'Close Applications?',
+      title: AppLanguage.text('Close Applications?'),
       message:
-      'Close "${job.title}" to new applications? Existing applications will stay available for review.',
+          'Close "${job.title}" to new applications? Existing applications will stay available for review.',
       confirmText: 'Close Job',
       icon: Icons.lock_clock_outlined,
     );
@@ -430,8 +417,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          title: const Text(
-            'Cancel Job?',
+          title: Text(
+            AppLanguage.text('Cancel Job?'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -458,20 +445,16 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 maxLines: 5,
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: 'Reason (optional)',
+                  hintText: AppLanguage.text('Reason (optional)'),
                   filled: true,
                   fillColor: AppColors.bg,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: AppColors.cardBorder,
-                    ),
+                    borderSide: const BorderSide(color: AppColors.cardBorder),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: AppColors.cardBorder,
-                    ),
+                    borderSide: const BorderSide(color: AppColors.cardBorder),
                   ),
                 ),
               ),
@@ -480,16 +463,15 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Keep Job'),
+              child: Text(AppLanguage.text('Keep Job')),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(
-                draftReason.trim(),
-              ),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(draftReason.trim()),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red.shade700,
               ),
-              child: const Text('Cancel Job'),
+              child: Text(AppLanguage.text('Cancel Job')),
             ),
           ],
         );
@@ -503,10 +485,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     setState(() => _actionLoading = true);
     HapticFeedback.mediumImpact();
 
-    final cancelled = await _controller.cancelJob(
-      job.id,
-      reason: reason,
-    );
+    final cancelled = await _controller.cancelJob(job.id, reason: reason);
 
     if (!mounted) return;
     setState(() => _actionLoading = false);
@@ -579,13 +558,12 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(AppLanguage.text('Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: FilledButton.styleFrom(
-                backgroundColor:
-                danger ? Colors.red.shade700 : AppColors.blue,
+                backgroundColor: danger ? Colors.red.shade700 : AppColors.blue,
               ),
               child: Text(confirmText),
             ),
@@ -656,7 +634,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
 
   bool get _showInitialShimmer =>
       !_cacheReadFinished ||
-          (_job == null && !_firstNetworkAttemptFinished && _pageError == null);
+      (_job == null && !_firstNetworkAttemptFinished && _pageError == null);
 
   @override
   Widget build(BuildContext context) {
@@ -670,9 +648,9 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 ? const _JobDetailsPageShimmer()
                 : _job == null
                 ? _ErrorView(
-              message: _pageError ?? 'Unable to load job details.',
-              onRetry: () => _refreshFromNetwork(),
-            )
+                    message: _pageError ?? 'Unable to load job details.',
+                    onRetry: () => _refreshFromNetwork(),
+                  )
                 : _buildContent(),
           ),
         ],
@@ -705,7 +683,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 const SizedBox(height: 12),
                 _section(
                   icon: Icons.notes_rounded,
-                  title: 'Description',
+                  title: AppLanguage.text('Description'),
                   child: Text(
                     job.description.isEmpty
                         ? 'No description provided.'
@@ -739,7 +717,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
 
   Widget _topBar(_JobDetailSnapshot job) {
     final status = job.status.toLowerCase();
-    final showMenu = _hasLiveJob &&
+    final showMenu =
+        _hasLiveJob &&
         !_actionLoading &&
         (status == 'draft' || status == 'published');
 
@@ -751,9 +730,9 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             icon: Icons.arrow_back_ios_new_rounded,
             onTap: _actionLoading ? null : () => Navigator.of(context).pop(),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Job Details',
+              AppLanguage.text('Job Details'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.navy,
@@ -767,64 +746,64 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             height: 44,
             child: showMenu
                 ? PopupMenuButton<String>(
-              tooltip: 'Job actions',
-              icon: const Icon(
-                Icons.more_horiz_rounded,
-                color: AppColors.navy,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              onSelected: _handleMenuAction,
-              itemBuilder: (_) {
-                if (status == 'draft') {
-                  return const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: _MenuRow(
-                        icon: Icons.edit_outlined,
-                        label: 'Edit Draft',
-                      ),
+                    tooltip: 'Job actions',
+                    icon: const Icon(
+                      Icons.more_horiz_rounded,
+                      color: AppColors.navy,
                     ),
-                    PopupMenuItem(
-                      value: 'publish',
-                      child: _MenuRow(
-                        icon: Icons.public_rounded,
-                        label: 'Publish Job',
-                      ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: _MenuRow(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Delete Draft',
-                        danger: true,
-                      ),
-                    ),
-                  ];
-                }
+                    onSelected: _handleMenuAction,
+                    itemBuilder: (_) {
+                      if (status == 'draft') {
+                        return [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: _MenuRow(
+                              icon: Icons.edit_outlined,
+                              label: AppLanguage.text('Edit Draft'),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'publish',
+                            child: _MenuRow(
+                              icon: Icons.public_rounded,
+                              label: AppLanguage.text('Publish Job'),
+                            ),
+                          ),
+                          PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: _MenuRow(
+                              icon: Icons.delete_outline_rounded,
+                              label: AppLanguage.text('Delete Draft'),
+                              danger: true,
+                            ),
+                          ),
+                        ];
+                      }
 
-                return const [
-                  PopupMenuItem(
-                    value: 'close',
-                    child: _MenuRow(
-                      icon: Icons.lock_clock_outlined,
-                      label: 'Close Applications',
-                    ),
-                  ),
-                  PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'cancel',
-                    child: _MenuRow(
-                      icon: Icons.cancel_outlined,
-                      label: 'Cancel Job',
-                      danger: true,
-                    ),
-                  ),
-                ];
-              },
-            )
+                      return [
+                        PopupMenuItem(
+                          value: 'close',
+                          child: _MenuRow(
+                            icon: Icons.lock_clock_outlined,
+                            label: AppLanguage.text('Close Applications'),
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'cancel',
+                          child: _MenuRow(
+                            icon: Icons.cancel_outlined,
+                            label: AppLanguage.text('Cancel Job'),
+                            danger: true,
+                          ),
+                        ),
+                      ];
+                    },
+                  )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -841,11 +820,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF102A3A),
-            Color(0xFF0C4655),
-            Color(0xFF0D8AA5),
-          ],
+          colors: [Color(0xFF102A3A), Color(0xFF0C4655), Color(0xFF0D8AA5)],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -913,7 +888,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 ),
               ),
               if (_networkRefreshing)
-                const _SyncPill(label: 'Updating'),
+                _SyncPill(label: AppLanguage.text('Updating')),
             ],
           ),
           const SizedBox(height: 15),
@@ -939,7 +914,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   Widget _overview(_JobDetailSnapshot job) {
     return _section(
       icon: Icons.dashboard_customize_outlined,
-      title: 'Job Overview',
+      title: AppLanguage.text('Job Overview'),
       child: Column(
         children: [
           Row(
@@ -947,7 +922,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               Expanded(
                 child: _OverviewTile(
                   icon: Icons.event_available_outlined,
-                  label: 'Start',
+                  label: AppLanguage.text('Start'),
                   value: _formatDate(job.startDate),
                 ),
               ),
@@ -955,7 +930,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               Expanded(
                 child: _OverviewTile(
                   icon: Icons.event_busy_outlined,
-                  label: 'End',
+                  label: AppLanguage.text('End'),
                   value: _formatDate(job.endDate),
                 ),
               ),
@@ -967,7 +942,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               Expanded(
                 child: _OverviewTile(
                   icon: Icons.flight_outlined,
-                  label: 'Drone',
+                  label: AppLanguage.text('Drone'),
                   value: job.droneSize.isEmpty
                       ? 'Not specified'
                       : _pretty(job.droneSize),
@@ -977,7 +952,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               Expanded(
                 child: _OverviewTile(
                   icon: Icons.workspace_premium_outlined,
-                  label: 'Experience',
+                  label: AppLanguage.text('Experience'),
                   value: job.requiredExperience.isEmpty
                       ? 'Not specified'
                       : job.requiredExperience,
@@ -1119,12 +1094,11 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             ),
             if (!_hasLiveJob) ...[
               const SizedBox(height: 7),
-              const Text(
-                'Showing saved data while the latest job state syncs.',
-                style: TextStyle(
-                  color: AppColors.grey,
-                  fontSize: 10.8,
+              Text(
+                AppLanguage.text(
+                  'Showing saved data while the latest job state syncs.',
                 ),
+                style: TextStyle(color: AppColors.grey, fontSize: 10.8),
               ),
             ],
           ],
@@ -1135,7 +1109,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.edit_outlined,
-                    label: 'Edit',
+                    label: AppLanguage.text('Edit'),
                     onTap: canAct ? _edit : null,
                   ),
                 ),
@@ -1143,7 +1117,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.public_rounded,
-                    label: 'Publish',
+                    label: AppLanguage.text('Publish'),
                     primary: true,
                     onTap: canAct ? _publish : null,
                   ),
@@ -1155,7 +1129,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               width: double.infinity,
               child: _ActionButton(
                 icon: Icons.delete_outline_rounded,
-                label: 'Delete Draft',
+                label: AppLanguage.text('Delete Draft'),
                 danger: true,
                 onTap: canAct ? _delete : null,
               ),
@@ -1167,7 +1141,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.lock_clock_outlined,
-                    label: 'Close',
+                    label: AppLanguage.text('Close'),
                     onTap: canAct ? _closeJob : null,
                   ),
                 ),
@@ -1175,7 +1149,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.cancel_outlined,
-                    label: 'Cancel',
+                    label: AppLanguage.text('Cancel'),
                     danger: true,
                     onTap: canAct ? _cancelJob : null,
                   ),
@@ -1191,70 +1165,64 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   Widget _requirements(_JobDetailSnapshot job) {
     final hasAnything =
         job.requiredCapabilities.isNotEmpty ||
-            job.requiredCertifications.isNotEmpty ||
-            job.trainingSafetyRequired ||
-            job.ndaRequired ||
-            job.requirementsNotes.isNotEmpty;
+        job.requiredCertifications.isNotEmpty ||
+        job.trainingSafetyRequired ||
+        job.ndaRequired ||
+        job.requirementsNotes.isNotEmpty;
 
     return _section(
       icon: Icons.fact_check_outlined,
-      title: 'Requirements',
+      title: AppLanguage.text('Requirements'),
       child: hasAnything
           ? Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (job.requiredCapabilities.isNotEmpty) ...[
-            const _SubLabel('Required capabilities'),
-            const SizedBox(height: 8),
-            _chipWrap(
-              job.requiredCapabilities,
-              AppColors.greenBg,
-              AppColors.green,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (job.requiredCapabilities.isNotEmpty) ...[
+                  const _SubLabel('Required capabilities'),
+                  const SizedBox(height: 8),
+                  _chipWrap(
+                    job.requiredCapabilities,
+                    AppColors.greenBg,
+                    AppColors.green,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (job.requiredCertifications.isNotEmpty) ...[
+                  const _SubLabel('Required certifications'),
+                  const SizedBox(height: 8),
+                  _chipWrap(
+                    job.requiredCertifications,
+                    AppColors.blueBg,
+                    AppColors.blue,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (job.trainingSafetyRequired)
+                  _requirementLine(
+                    Icons.health_and_safety_outlined,
+                    'Safety training required',
+                  ),
+                if (job.ndaRequired)
+                  _requirementLine(Icons.lock_outline_rounded, 'NDA required'),
+                if (job.requirementsNotes.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  const _SubLabel('Other requirements'),
+                  const SizedBox(height: 6),
+                  Text(
+                    job.requirementsNotes,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 12.5,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ],
+            )
+          : Text(
+              AppLanguage.text('No additional requirements.'),
+              style: TextStyle(color: AppColors.grey, fontSize: 12.5),
             ),
-            const SizedBox(height: 14),
-          ],
-          if (job.requiredCertifications.isNotEmpty) ...[
-            const _SubLabel('Required certifications'),
-            const SizedBox(height: 8),
-            _chipWrap(
-              job.requiredCertifications,
-              AppColors.blueBg,
-              AppColors.blue,
-            ),
-            const SizedBox(height: 14),
-          ],
-          if (job.trainingSafetyRequired)
-            _requirementLine(
-              Icons.health_and_safety_outlined,
-              'Safety training required',
-            ),
-          if (job.ndaRequired)
-            _requirementLine(
-              Icons.lock_outline_rounded,
-              'NDA required',
-            ),
-          if (job.requirementsNotes.isNotEmpty) ...[
-            const SizedBox(height: 7),
-            const _SubLabel('Other requirements'),
-            const SizedBox(height: 6),
-            Text(
-              job.requirementsNotes,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontSize: 12.5,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ],
-      )
-          : const Text(
-        'No additional requirements.',
-        style: TextStyle(
-          color: AppColors.grey,
-          fontSize: 12.5,
-        ),
-      ),
     );
   }
 
@@ -1331,7 +1299,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   //
   //   return _section(
   //     icon: Icons.business_rounded,
-  //     title: 'Company',
+  //     title: AppLanguage.text('Company'),
   //     child: Row(
   //       crossAxisAlignment: CrossAxisAlignment.start,
   //       children: [
@@ -1410,16 +1378,17 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   // }
 
   Widget _applicationsSection() {
-    final pendingCount =
-        _applicants.where((item) => item.status == 'pending').length;
+    final pendingCount = _applicants
+        .where((item) => item.status == 'pending')
+        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text(
-              'Applications',
+            Text(
+              AppLanguage.text('Applications'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 16,
@@ -1441,22 +1410,21 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               ),
             ],
             const Spacer(),
-            if (_applicantsRefreshing) const _SyncPill(label: 'Syncing'),
+            if (_applicantsRefreshing)
+              _SyncPill(label: AppLanguage.text('Syncing')),
           ],
         ),
         const SizedBox(height: 5),
-        const Text(
-          'Review pilot profile, drone and message before deciding.',
-          style: TextStyle(
-            color: AppColors.grey,
-            fontSize: 11.3,
-            height: 1.4,
+        Text(
+          AppLanguage.text(
+            'Review pilot profile, drone and message before deciding.',
           ),
+          style: TextStyle(color: AppColors.grey, fontSize: 11.3, height: 1.4),
         ),
         const SizedBox(height: 11),
         if (_applicants.isNotEmpty)
           ..._sortedApplicants(_applicants).map(
-                (application) => Padding(
+            (application) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _ApplicantCardSnapshot(
                 application: application,
@@ -1467,16 +1435,14 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         else if (_applicantsRefreshing)
           const _ApplicantsShimmer()
         else if (_applicantsError != null)
-            _applicationsError(_applicantsError!)
-          else
-            const _EmptyApplications(),
+          _applicationsError(_applicantsError!)
+        else
+          const _EmptyApplications(),
       ],
     );
   }
 
-  List<_ApplicantSnapshot> _sortedApplicants(
-      List<_ApplicantSnapshot> values,
-      ) {
+  List<_ApplicantSnapshot> _sortedApplicants(List<_ApplicantSnapshot> values) {
     final result = List<_ApplicantSnapshot>.from(values);
 
     int rank(_ApplicantSnapshot value) {
@@ -1516,26 +1482,19 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            color: AppColors.grey,
-            size: 20,
-          ),
+          const Icon(Icons.cloud_off_rounded, color: AppColors.grey, size: 20),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               message,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 11.5,
-              ),
+              style: const TextStyle(color: AppColors.grey, fontSize: 11.5),
             ),
           ),
           TextButton(
             onPressed: _refreshApplicantsFromNetwork,
-            child: const Text('Retry'),
+            child: Text(AppLanguage.text('Retry')),
           ),
         ],
       ),
@@ -1574,11 +1533,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                   color: AppColors.blueBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppColors.blue,
-                  size: 16,
-                ),
+                child: Icon(icon, color: AppColors.blue, size: 16),
               ),
               const SizedBox(width: 9),
               Expanded(
@@ -1612,10 +1567,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             width: 74,
             child: Text(
               label,
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 11.3,
-              ),
+              style: const TextStyle(color: AppColors.grey, fontSize: 11.3),
             ),
           ),
           Expanded(
@@ -1664,35 +1616,28 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     );
   }
 
-  Widget _chipWrap(
-      List<String> items,
-      Color background,
-      Color foreground,
-      ) {
+  Widget _chipWrap(List<String> items, Color background, Color foreground) {
     return Wrap(
       spacing: 7,
       runSpacing: 7,
       children: items
           .map(
             (item) => Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 9,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            item,
-            style: TextStyle(
-              color: foreground,
-              fontSize: 10.8,
-              fontWeight: FontWeight.w700,
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                item,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 10.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-        ),
-      )
+          )
           .toList(),
     );
   }
@@ -1736,9 +1681,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (job.paymentMax == null || job.paymentMax == job.paymentMin) {
       return type.isEmpty ? '\$$min' : '$type · \$$min';
     }
-    return type.isEmpty
-        ? '\$$min - \$$max'
-        : '$type · \$$min - \$$max';
+    return type.isEmpty ? '\$$min - \$$max' : '$type · \$$min - \$$max';
   }
 
   String _money(double? value) {
@@ -1781,8 +1724,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-    )
+              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
         .join(' ');
   }
 
@@ -1792,8 +1735,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          backgroundColor:
-          isError ? Colors.red.shade700 : AppColors.navy,
+          backgroundColor: isError ? Colors.red.shade700 : AppColors.navy,
           content: Text(message),
         ),
       );
@@ -1872,8 +1814,7 @@ class _JobDetailSnapshot {
       paymentMin: job.paymentMin,
       paymentMax: job.paymentMax,
       requiredCapabilities: List<String>.from(job.requiredCapabilities),
-      requiredCertifications:
-      List<String>.from(job.requiredCertifications),
+      requiredCertifications: List<String>.from(job.requiredCertifications),
       requiredExperience: job.requiredExperience,
       droneSize: job.droneSize,
       trainingSafetyRequired: job.trainingSafetyRequired,
@@ -2185,13 +2126,13 @@ class _ApplicantCardSnapshot extends StatelessWidget {
                         : null,
                     child: application.pilotPhoto.trim().isEmpty
                         ? Text(
-                      _initials(name),
-                      style: const TextStyle(
-                        color: AppColors.blue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    )
+                            _initials(name),
+                            style: const TextStyle(
+                              color: AppColors.blue,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          )
                         : null,
                   ),
                   const SizedBox(width: 10),
@@ -2277,8 +2218,8 @@ class _ApplicantCardSnapshot extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Text(
-                    'Open',
+                  Text(
+                    AppLanguage.text('Open'),
                     style: TextStyle(
                       color: AppColors.blue,
                       fontSize: 10.8,
@@ -2327,10 +2268,7 @@ class _OverviewTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 10.5,
-            ),
+            style: const TextStyle(color: AppColors.grey, fontSize: 10.5),
           ),
           const SizedBox(height: 2),
           Text(
@@ -2382,10 +2320,7 @@ class _ActionButton extends StatelessWidget {
         icon: Icon(icon, size: 17),
         label: Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
         ),
       );
     }
@@ -2396,22 +2331,15 @@ class _ActionButton extends StatelessWidget {
         foregroundColor: danger ? Colors.red.shade700 : AppColors.navy,
         backgroundColor: Colors.white,
         side: BorderSide(
-          color: danger
-              ? Colors.red.withOpacity(0.22)
-              : AppColors.cardBorder,
+          color: danger ? Colors.red.withOpacity(0.22) : AppColors.cardBorder,
         ),
         minimumSize: const Size.fromHeight(44),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(13),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
       ),
       icon: Icon(icon, size: 17),
       label: Text(
         label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -2511,10 +2439,7 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _HeroMiniPill extends StatelessWidget {
-  const _HeroMiniPill({
-    required this.icon,
-    required this.text,
-  });
+  const _HeroMiniPill({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -2585,10 +2510,7 @@ class _SyncPill extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _RoundIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback? onTap;
@@ -2646,7 +2568,7 @@ class _EmptyApplications extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(
             Icons.people_outline_rounded,
@@ -2655,7 +2577,7 @@ class _EmptyApplications extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'No applications yet',
+            AppLanguage.text('No applications yet'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 13.5,
@@ -2664,12 +2586,11 @@ class _EmptyApplications extends StatelessWidget {
           ),
           SizedBox(height: 4),
           Text(
-            'Pilot applications for this job will appear here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.grey,
-              fontSize: 11.5,
+            AppLanguage.text(
+              'Pilot applications for this job will appear here.',
             ),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.grey, fontSize: 11.5),
           ),
         ],
       ),
@@ -2678,10 +2599,7 @@ class _EmptyApplications extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorView({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -2726,7 +2644,7 @@ class _ErrorView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text('Try Again'),
+              child: Text(AppLanguage.text('Try Again')),
             ),
           ],
         ),
@@ -2892,7 +2810,7 @@ class _SectionShimmer extends StatelessWidget {
           const SizedBox(height: 14),
           ...List.generate(
             rows,
-                (index) => const Padding(
+            (index) => const Padding(
               padding: EdgeInsets.only(bottom: 9),
               child: _ShimmerBox(height: 34, radius: 10),
             ),
@@ -3018,11 +2936,7 @@ class _ShimmerAnimatorState extends State<_ShimmerAnimator>
 }
 
 class _ShimmerBox extends StatelessWidget {
-  const _ShimmerBox({
-    this.width,
-    required this.height,
-    this.radius = 8,
-  });
+  const _ShimmerBox({this.width, required this.height, this.radius = 8});
 
   final double? width;
   final double height;
@@ -3173,9 +3087,8 @@ String _titleCase(String value) {
       .split(RegExp(r'[_\s-]+'))
       .where((part) => part.isNotEmpty)
       .map(
-        (part) =>
-    '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-  )
+        (part) => '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
       .join(' ');
 }
 

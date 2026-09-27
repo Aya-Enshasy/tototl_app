@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../core/theme/app_colors.dart';
 import 'operation_store.dart';
@@ -32,9 +33,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               ),
-              const Expanded(
-                child: Text(
-                  'Mission Details',
+              Expanded(
+                child: Text(AppLanguage.text('Mission Details'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.navy,
@@ -70,21 +70,21 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                     Expanded(
                       child: _Metric(
                         icon: Icons.calendar_today_outlined,
-                        label: 'Date',
+                        label: AppLanguage.text('Date'),
                         value: job.date,
                       ),
                     ),
                     Expanded(
                       child: _Metric(
                         icon: Icons.payments_outlined,
-                        label: 'Rate',
+                        label: AppLanguage.text('Rate'),
                         value: job.pay,
                       ),
                     ),
                     Expanded(
                       child: _Metric(
                         icon: Icons.flight_rounded,
-                        label: 'Drone',
+                        label: AppLanguage.text('Drone'),
                         value: widget.mission.application.drone.name,
                       ),
                     ),
@@ -98,8 +98,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Site location',
+                Text(AppLanguage.text('Site location'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -153,7 +152,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 const SizedBox(height: 10),
                 Text(
                   job.address == null || job.address!.isEmpty
-                      ? 'Exact address is shared after approval.'
+                      ? AppLanguage.text('Exact address is shared after approval.')
                       : job.address!,
                   style: const TextStyle(color: AppColors.grey, fontSize: 11.5),
                 ),
@@ -165,8 +164,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Job Description',
+                Text(AppLanguage.text('Job Description'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -190,8 +188,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Requirements',
+                Text(AppLanguage.text('Requirements'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -231,8 +228,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Site files & attachments',
+                Text(AppLanguage.text('Site files & attachments'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -242,7 +238,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 const SizedBox(height: 12),
                 _FileRow(
                   icon: Icons.description_outlined,
-                  title: widget.mission.contractFileName ?? 'Service contract',
+                  title: widget.mission.contractFileName ?? AppLanguage.text('Service contract'),
                   detail: widget.mission.contractFileName == null
                       ? 'Not uploaded yet'
                       : 'Available',
@@ -257,8 +253,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 ),
                 _FileRow(
                   icon: Icons.image_outlined,
-                  title: 'Site reference images',
-                  detail: 'Available after approval',
+                  title: AppLanguage.text('Site reference images'),
+                  detail: AppLanguage.text('Available after approval'),
                 ),
               ],
             ),
@@ -267,15 +263,14 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
           OutlinedButton.icon(
             onPressed: () => _openRequestSheet(context),
             icon: const Icon(Icons.edit_calendar_outlined),
-            label: const Text('Request schedule or rate change'),
+            label: Text(AppLanguage.text('Request schedule or rate change')),
           ),
           TextButton.icon(
             onPressed: () => _showCancelDialog(
               context,
             ),
             icon: const Icon(Icons.cancel_outlined, color: AppColors.red),
-            label: const Text(
-              'Cancel Job',
+            label: Text(AppLanguage.text('Cancel Job'),
               style: TextStyle(color: AppColors.red),
             ),
           ),
@@ -286,8 +281,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               'Tell us what happened and keep all mission evidence in the conversation.',
             ),
             icon: const Icon(Icons.flag_outlined, color: AppColors.orange),
-            label: const Text(
-              'Open a dispute',
+            label: Text(AppLanguage.text('Open a dispute'),
               style: TextStyle(color: AppColors.orange),
             ),
           ),
@@ -310,8 +304,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Request a change',
+          Text(AppLanguage.text('Request a change'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 19,
@@ -319,17 +312,17 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          const TextField(
+          TextField(
             decoration: InputDecoration(
-              labelText: 'New date, hours, or rate',
+              labelText: AppLanguage.text('New date, hours, or rate'),
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
-          const TextField(
+          TextField(
             maxLines: 3,
             decoration: InputDecoration(
-              labelText: 'Reason',
+              labelText: AppLanguage.text('Reason'),
               border: OutlineInputBorder(),
             ),
           ),
@@ -340,12 +333,12 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
               onPressed: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Change request sent for review.'),
+                  SnackBar(
+                    content: Text(AppLanguage.text('Change request sent for review.')),
                   ),
                 );
               },
-              child: const Text('Send Request'),
+              child: Text(AppLanguage.text('Send Request')),
             ),
           ),
         ],
@@ -361,7 +354,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(AppLanguage.text('Close')),
             ),
             FilledButton(
               onPressed: () {
@@ -370,7 +363,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                   context,
                 ).showSnackBar(SnackBar(content: Text('$title request sent.')));
               },
-              child: const Text('Continue'),
+              child: Text(AppLanguage.text('Continue')),
             ),
           ],
         ),
@@ -379,14 +372,13 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
   void _showCancelDialog(BuildContext context) => showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Cancel Job'),
-          content: const Text(
-            'This will cancel the job workflow for both sides.',
+          title: Text(AppLanguage.text('Cancel Job')),
+          content: Text(AppLanguage.text('This will cancel the job workflow for both sides.'),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(AppLanguage.text('Close')),
             ),
             FilledButton(
               onPressed: () {
@@ -394,11 +386,11 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> {
                 Navigator.pop(context);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Job cancelled.')),
+                  SnackBar(content: Text(AppLanguage.text('Job cancelled.'))),
                 );
               },
               style: FilledButton.styleFrom(backgroundColor: AppColors.red),
-              child: const Text('Cancel Job'),
+              child: Text(AppLanguage.text('Cancel Job')),
             ),
           ],
         ),

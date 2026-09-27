@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import '../../core/theme/app_colors.dart';
 import 'operation_store.dart';
 
@@ -10,7 +11,7 @@ class PilotWalletScreen extends StatelessWidget {
     builder: (_, _) {
       final balance = OperationStore.instance.pilotAvailableBalance;
       return _FinanceScaffold(
-        title: 'Wallet & Earnings',
+        title: AppLanguage.text('Wallet & Earnings'),
         balanceLabel: 'Available balance',
         balance: balance,
         items: OperationStore.instance.missions
@@ -18,13 +19,13 @@ class PilotWalletScreen extends StatelessWidget {
             .map(
               (mission) => _FinanceItem(
                 title: mission.application.job.title,
-                detail: 'Funds released',
+                detail: AppLanguage.text('Funds released'),
                 amount: mission.amount,
                 positive: true,
               ),
             )
             .toList(),
-        empty: 'Completed missions will appear in your earnings.',
+        empty: AppLanguage.text('Completed missions will appear in your earnings.'),
       );
     },
   );
@@ -38,7 +39,7 @@ class CompanyPaymentsScreen extends StatelessWidget {
     builder: (_, _) {
       final held = OperationStore.instance.companyEscrowBalance;
       return _FinanceScaffold(
-        title: 'Payments & Invoices',
+        title: AppLanguage.text('Payments & Invoices'),
         balanceLabel: 'Funds held in escrow',
         balance: held,
         items: OperationStore.instance.missions
@@ -51,14 +52,14 @@ class CompanyPaymentsScreen extends StatelessWidget {
               (mission) => _FinanceItem(
                 title: mission.application.job.title,
                 detail: mission.stage == MissionStage.completed
-                    ? 'Paid to pilot'
-                    : 'Secured for mission',
+                    ? AppLanguage.text('Paid to pilot')
+                    : AppLanguage.text('Secured for mission'),
                 amount: mission.amount,
                 positive: false,
               ),
             )
             .toList(),
-        empty: 'Funded missions and invoices will appear here.',
+        empty: AppLanguage.text('Funded missions and invoices will appear here.'),
       );
     },
   );
@@ -131,16 +132,14 @@ class _FinanceScaffold extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'All financial actions are recorded in your transaction history.',
+                Text(AppLanguage.text('All financial actions are recorded in your transaction history.'),
                   style: TextStyle(color: Color(0xFFC8D5EC), fontSize: 11.5),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 22),
-          const Text(
-            'Transaction history',
+          Text(AppLanguage.text('Transaction history'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 17,

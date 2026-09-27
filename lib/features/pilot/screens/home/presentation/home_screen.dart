@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import 'package:tototl_app/features/pilot/services/pilot_availability_local_stor
 import '../../../services/drone_service.dart';
 import '../../drones/my_drones_screen.dart';
 import '../../notification/NotificationsScreen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -406,8 +408,8 @@ class _HomeErrorCard extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
-              'Retry',
+            child: Text(
+              AppLanguage.text('Retry'),
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
@@ -419,3 +421,4 @@ class _HomeErrorCard extends StatelessWidget {
     );
   }
 }
+

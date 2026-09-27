@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../models/pilot_job_model.dart';
 import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
 import 'application_details_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class ApplyForJobScreen extends StatefulWidget {
   const ApplyForJobScreen({
@@ -277,12 +279,12 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
                 : () => Navigator.of(context).pop(),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Apply for Job',
+                  AppLanguage.text('Apply for Job'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -293,7 +295,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
                 ),
                 SizedBox(height: 3),
                 Text(
-                  'Choose your aircraft and send your application',
+                  AppLanguage.text('Choose your aircraft and send your application'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 9.8,
@@ -319,9 +321,9 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         const SizedBox(height: 20),
         _StepHeader(
           number: '01',
-          title: 'Select your aircraft',
+          title: AppLanguage.text('Select your aircraft'),
           subtitle:
-          'Choose the registered drone you will use for this mission.',
+          AppLanguage.text('Choose the registered drone you will use for this mission.'),
           icon: Icons.flight_takeoff_rounded,
           trailing: _refreshingFleet ? 'Updating fleet' : null,
         ),
@@ -344,11 +346,11 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
             ),
           ),
         const SizedBox(height: 10),
-        const _StepHeader(
+        _StepHeader(
           number: '02',
-          title: 'Add a cover message',
+          title: AppLanguage.text('Add a cover message'),
           subtitle:
-          'Optional — briefly explain why you are a strong fit for the mission.',
+          AppLanguage.text('Optional — briefly explain why you are a strong fit for the mission.'),
           icon: Icons.chat_bubble_outline_rounded,
         ),
         const SizedBox(height: 12),
@@ -537,7 +539,7 @@ class _SyncPill extends StatelessWidget {
         color: const Color(0xFFE9FAFA),
         borderRadius: BorderRadius.circular(30),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -547,7 +549,7 @@ class _SyncPill extends StatelessWidget {
           ),
           SizedBox(width: 4),
           Text(
-            'Updating',
+            AppLanguage.text('Updating'),
             style: TextStyle(
               color: AppColors.logoTurquoiseDark,
               fontSize: 8.8,
@@ -1135,7 +1137,7 @@ class _CoverMessageCard extends StatelessWidget {
         ),
         decoration: InputDecoration(
           hintText:
-          'Tell the company about your experience, equipment, or approach to this mission...',
+          AppLanguage.text('Tell the company about your experience, equipment, or approach to this mission...'),
           hintStyle: TextStyle(
             color: AppColors.grey.withOpacity(0.62),
             fontSize: 11.5,
@@ -1184,7 +1186,7 @@ class _PrivacyNote extends StatelessWidget {
           color: const Color(0xFF16C6C7).withOpacity(0.09),
         ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
@@ -1195,7 +1197,7 @@ class _PrivacyNote extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Your selected registered aircraft will be attached to this application for the company to review.',
+              AppLanguage.text('Your selected registered aircraft will be attached to this application for the company to review.'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 10.2,
@@ -1226,7 +1228,7 @@ class _NoDrones extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(
             Icons.flight_takeoff_rounded,
@@ -1235,7 +1237,7 @@ class _NoDrones extends StatelessWidget {
           ),
           SizedBox(height: 10),
           Text(
-            'No registered drones yet',
+            AppLanguage.text('No registered drones yet'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 13.5,
@@ -1244,7 +1246,7 @@ class _NoDrones extends StatelessWidget {
           ),
           SizedBox(height: 5),
           Text(
-            'Add a drone to your fleet before applying to this job.',
+            AppLanguage.text('Add a drone to your fleet before applying to this job.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.grey,
@@ -1289,8 +1291,8 @@ class _LoadError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 15),
-            const Text(
-              'Unable to load your fleet',
+            Text(
+              AppLanguage.text('Unable to load your fleet'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 15.5,
@@ -1318,8 +1320,8 @@ class _LoadError extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 17),
-              label: const Text(
-                'Try Again',
+              label: Text(
+                AppLanguage.text('Try Again'),
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -1515,3 +1517,4 @@ class _PageShimmerState extends State<_PageShimmer>
     );
   }
 }
+

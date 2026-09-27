@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_three_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import '../../../models/PilotRegisterRequestModel.dart';
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
@@ -503,7 +504,7 @@ class _PilotRegisterStepTwoScreenState
 
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -660,8 +661,8 @@ class _PilotRegisterStepTwoScreenState
                             _animatedEntry(
                               index: 2,
                               child:
-                              const Text(
-                                'Pilot Experience',
+                              Text(
+                                AppLanguage.text('Pilot Experience'),
                                 style:
                                 TextStyle(
                                   fontSize: 27,
@@ -684,8 +685,8 @@ class _PilotRegisterStepTwoScreenState
                             _animatedEntry(
                               index: 3,
                               child:
-                              const Text(
-                                'Tell us about your experience, skills, location and preferred work regions.',
+                              Text(
+                                AppLanguage.text('Tell us about your experience, skills, location and preferred work regions.'),
                                 style:
                                 TextStyle(
                                   fontSize: 13.5,
@@ -1235,8 +1236,8 @@ class _PilotRegisterStepTwoScreenState
                 ),
               ),
 
-              child: const Text(
-                'STEP 2 OF 4',
+              child: Text(
+                AppLanguage.text('STEP 2 OF 4'),
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 0.5,
@@ -1332,7 +1333,7 @@ class _PilotRegisterStepTwoScreenState
         BorderRadius.circular(20),
       ),
 
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -1345,7 +1346,7 @@ class _PilotRegisterStepTwoScreenState
           SizedBox(width: 6),
 
           Text(
-            'PROFESSIONAL PROFILE',
+            AppLanguage.text('PROFESSIONAL PROFILE'),
             style: TextStyle(
               color: kPrimary,
               fontSize: 10,
@@ -1398,7 +1399,7 @@ class _PilotRegisterStepTwoScreenState
 
             children: [
               Text(
-                title,
+                AppLanguage.text(title),
                 style: const TextStyle(
                   color: kTextDark,
                   fontSize: 15,
@@ -1410,7 +1411,7 @@ class _PilotRegisterStepTwoScreenState
               const SizedBox(height: 2),
 
               Text(
-                subtitle,
+                AppLanguage.text(subtitle),
                 maxLines: 2,
                 overflow:
                 TextOverflow.ellipsis,
@@ -1431,7 +1432,7 @@ class _PilotRegisterStepTwoScreenState
       String text,
       ) {
     return Text(
-      text,
+      AppLanguage.text(text),
       style: const TextStyle(
         fontSize: 12.5,
         fontWeight: FontWeight.w700,
@@ -1777,8 +1778,8 @@ class _PilotRegisterStepTwoScreenState
 
                     Expanded(
                       child: Text(
-                        value ??
-                            hintText,
+                        AppLanguage.text(value ??
+                            hintText),
 
                         maxLines: 1,
 
@@ -1828,7 +1829,7 @@ class _PilotRegisterStepTwoScreenState
                     ),
 
                     child: Text(
-                      state.errorText!,
+                      AppLanguage.text(state.errorText!),
 
                       style:
                       const TextStyle(
@@ -1895,7 +1896,7 @@ class _PilotRegisterStepTwoScreenState
                       children: [
                         Expanded(
                           child: Text(
-                            title,
+                            AppLanguage.text(title),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
@@ -2013,7 +2014,7 @@ class _PilotRegisterStepTwoScreenState
 
                                   Expanded(
                                     child: Text(
-                                      item,
+                                      AppLanguage.text(item),
                                       style: TextStyle(
                                         fontSize: 13.5,
                                         fontWeight:
@@ -2186,7 +2187,7 @@ class _PilotRegisterStepTwoScreenState
                   ),
 
                   Text(
-                    item,
+                    AppLanguage.text(item),
 
                     style: TextStyle(
                       fontSize: 12.5,
@@ -2281,8 +2282,8 @@ class _PilotRegisterStepTwoScreenState
 
             Expanded(
               child: !hasRegions
-                  ? const Text(
-                'Select country and regions',
+                  ? Text(
+                AppLanguage.text('Select country and regions'),
                 style: TextStyle(
                   color: kHint,
                   fontSize: 13,
@@ -2297,8 +2298,8 @@ class _PilotRegisterStepTwoScreenState
                   if (_selectedCountry !=
                       null)
                     Text(
-                      _selectedCountry!
-                          .name,
+                      AppLanguage.text(_selectedCountry!
+                          .name),
 
                       maxLines: 1,
 
@@ -2365,7 +2366,7 @@ class _PilotRegisterStepTwoScreenState
                           ),
 
                           child: Text(
-                            '+${_selectedWillingRegions.length - 3}',
+                            AppLanguage.text('+${_selectedWillingRegions.length - 3}'),
 
                             style:
                             const TextStyle(
@@ -2426,7 +2427,7 @@ class _PilotRegisterStepTwoScreenState
       ),
 
       child: Text(
-        region,
+        AppLanguage.text(region),
 
         maxLines: 1,
 
@@ -2555,7 +2556,7 @@ class _PilotRegisterStepTwoScreenState
 
                         child: Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment:
                                 CrossAxisAlignment
@@ -2563,7 +2564,7 @@ class _PilotRegisterStepTwoScreenState
 
                                 children: [
                                   Text(
-                                    'Work Regions',
+                                    AppLanguage.text('Work Regions'),
 
                                     style:
                                     TextStyle(
@@ -2584,7 +2585,7 @@ class _PilotRegisterStepTwoScreenState
                                   ),
 
                                   Text(
-                                    'Choose a country and the cities you can work in',
+                                    AppLanguage.text('Choose a country and the cities you can work in'),
 
                                     style:
                                     TextStyle(
@@ -2725,7 +2726,7 @@ class _PilotRegisterStepTwoScreenState
                                 value: country,
 
                                 child: Text(
-                                  country.name,
+                                  AppLanguage.text(country.name),
 
                                   maxLines: 1,
 
@@ -2888,7 +2889,7 @@ class _PilotRegisterStepTwoScreenState
                               Row(
                                 children: [
                                   Text(
-                                    '${filteredCities.length} cities',
+                                    AppLanguage.text('${filteredCities.length} cities'),
 
                                     style:
                                     const TextStyle(
@@ -2933,7 +2934,7 @@ class _PilotRegisterStepTwoScreenState
 
                                     child:
                                     Text(
-                                      '${tempSelectedCities.length} selected',
+                                      AppLanguage.text('${tempSelectedCities.length} selected'),
 
                                       style:
                                       TextStyle(
@@ -2960,10 +2961,10 @@ class _PilotRegisterStepTwoScreenState
                             Expanded(
                               child: filteredCities
                                   .isEmpty
-                                  ? const Center(
+                                  ? Center(
                                 child:
                                 Text(
-                                  'No cities found',
+                                  AppLanguage.text('No cities found'),
 
                                   style:
                                   TextStyle(
@@ -3105,7 +3106,7 @@ class _PilotRegisterStepTwoScreenState
                                           Expanded(
                                             child:
                                             Text(
-                                              city,
+                                              AppLanguage.text(city),
 
                                               style:
                                               TextStyle(
@@ -3205,10 +3206,10 @@ class _PilotRegisterStepTwoScreenState
                             ),
 
                             child: Text(
-                              tempSelectedCities
+                              AppLanguage.text(tempSelectedCities
                                   .isEmpty
                                   ? 'Done'
-                                  : 'Done • ${tempSelectedCities.length} Selected',
+                                  : 'Done • ${tempSelectedCities.length} Selected'),
 
                               style:
                               const TextStyle(
@@ -3274,7 +3275,7 @@ class _PilotRegisterStepTwoScreenState
             ),
 
             Text(
-              title,
+              AppLanguage.text(title),
 
               textAlign:
               TextAlign.center,
@@ -3294,7 +3295,7 @@ class _PilotRegisterStepTwoScreenState
             ),
 
             Text(
-              subtitle,
+              AppLanguage.text(subtitle),
 
               textAlign:
               TextAlign.center,
@@ -3454,7 +3455,7 @@ class _PilotRegisterStepTwoScreenState
                 children: [
                   Flexible(
                     child: Text(
-                      text,
+                      AppLanguage.text(text),
 
                       overflow:
                       TextOverflow
@@ -3501,7 +3502,7 @@ class _PilotRegisterStepTwoScreenState
   // ==========================================================================
 
   Widget _buildBottomNote() {
-    return const Center(
+    return Center(
       child: Row(
         mainAxisSize:
         MainAxisSize.min,
@@ -3519,7 +3520,7 @@ class _PilotRegisterStepTwoScreenState
 
           Flexible(
             child: Text(
-              'You can update these details later from your profile.',
+              AppLanguage.text('You can update these details later from your profile.'),
 
               textAlign:
               TextAlign.center,

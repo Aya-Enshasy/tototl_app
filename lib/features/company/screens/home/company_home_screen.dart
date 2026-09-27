@@ -4,17 +4,18 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/storage/user_session_storage.dart';
- import '../../../pilot/screens/notification/NotificationsScreen.dart';
+import '../../../pilot/screens/notification/NotificationsScreen.dart';
 import '../../../pilot/services/company_dashboard_service.dart';
- import '../../controllers/company_dashboard_controller.dart';
+import '../../controllers/company_dashboard_controller.dart';
 import '../../models/company_dashboard_model.dart';
 import '../../services/company_job_service.dart';
- import '../jobs/company_job_detail_screen.dart';
+import '../jobs/company_job_detail_screen.dart';
 import '../jobs/post_job_screen.dart';
 import '../operations/company_applicant_detail_screen.dart';
 
@@ -225,7 +226,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     HapticFeedback.selectionClick();
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PostJobScreen(),
+        builder: (_) =>   PostJobScreen(),
       ),
     );
 
@@ -278,8 +279,8 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
       if (matches.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Applicant details are no longer available.'),
+          SnackBar(
+            content: Text(AppLanguage.text('Applicant details are no longer available.')),
           ),
         );
         return;
@@ -435,10 +436,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                   const SizedBox(height: 23),
                   _entry(
                     index: 2,
-                    child: const _SectionTitle(
-                      title: 'Job Overview',
+                    child: _SectionTitle(
+                      title: AppLanguage.text('Job Overview'),
                       subtitle:
-                      'Live status of your company job postings',
+                      AppLanguage.text('Live status of your company job postings'),
                       icon: Icons.dashboard_customize_outlined,
                     ),
                   ),
@@ -469,8 +470,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                                 Icons.add_circle_outline_rounded,
                                 size: 19,
                               ),
-                              label: const Text(
-                                'Post New Job',
+                              label: Text(AppLanguage.text('Post New Job'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13,
@@ -500,8 +500,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                                 Icons.work_outline_rounded,
                                 size: 18,
                               ),
-                              label: const Text(
-                                'Manage Jobs',
+                              label: Text(AppLanguage.text('Manage Jobs'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13,
@@ -517,7 +516,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                   _entry(
                     index: 5,
                     child: _SectionTitle(
-                      title: 'Recent Applicants',
+                      title: AppLanguage.text('Recent Applicants'),
                       subtitle: dashboard.recentApplicants.isEmpty
                           ? 'No recent applications yet'
                           : 'Latest pilots across your job postings',
@@ -663,8 +662,7 @@ class _CompanyHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Company Dashboard',
+              Text(AppLanguage.text('Company Dashboard'),
                 style: TextStyle(
                   color: AppColors.grey.withOpacity(0.90),
                   fontSize: 10.5,
@@ -854,7 +852,7 @@ class _DashboardHero extends StatelessWidget {
                         color: Colors.white.withOpacity(0.08),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
@@ -863,8 +861,7 @@ class _DashboardHero extends StatelessWidget {
                           size: 14,
                         ),
                         SizedBox(width: 5),
-                        Text(
-                          'LIVE OVERVIEW',
+                        Text(AppLanguage.text('LIVE OVERVIEW'),
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 8.5,
@@ -878,8 +875,7 @@ class _DashboardHero extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Your marketplace at a glance',
+              Text(AppLanguage.text('Your marketplace at a glance'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -904,7 +900,7 @@ class _DashboardHero extends StatelessWidget {
                   Expanded(
                     child: _HeroMetric(
                       value: '${dashboard.totalJobs}',
-                      label: 'Total Jobs',
+                      label: AppLanguage.text('Total Jobs'),
                       icon: Icons.work_outline_rounded,
                     ),
                   ),
@@ -916,7 +912,7 @@ class _DashboardHero extends StatelessWidget {
                   Expanded(
                     child: _HeroMetric(
                       value: '$incoming',
-                      label: 'Awaiting Decision',
+                      label: AppLanguage.text('Awaiting Decision'),
                       icon: Icons.mark_email_unread_outlined,
                     ),
                   ),
@@ -1011,7 +1007,7 @@ class _StatusGrid extends StatelessWidget {
             SizedBox(
               width: width,
               child: _StatusCard(
-                label: 'Draft',
+                label: AppLanguage.text('Draft'),
                 value: dashboard.draftJobs,
                 icon: Icons.edit_note_rounded,
                 accent: AppColors.orange,
@@ -1021,7 +1017,7 @@ class _StatusGrid extends StatelessWidget {
             SizedBox(
               width: width,
               child: _StatusCard(
-                label: 'Published',
+                label: AppLanguage.text('Published'),
                 value: dashboard.publishedJobs,
                 icon: Icons.public_rounded,
                 accent: AppColors.green,
@@ -1031,7 +1027,7 @@ class _StatusGrid extends StatelessWidget {
             SizedBox(
               width: width,
               child: _StatusCard(
-                label: 'Closed',
+                label: AppLanguage.text('Closed'),
                 value: dashboard.closedJobs,
                 icon: Icons.lock_outline_rounded,
                 accent: AppColors.blue,
@@ -1041,7 +1037,7 @@ class _StatusGrid extends StatelessWidget {
             SizedBox(
               width: width,
               child: _StatusCard(
-                label: 'Cancelled',
+                label: AppLanguage.text('Cancelled'),
                 value: dashboard.cancelledJobs,
                 icon: Icons.cancel_outlined,
                 accent: const Color(0xFFE45252),
@@ -1447,8 +1443,7 @@ class _EmptyApplicantsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'No recent applicants',
+          Text(AppLanguage.text('No recent applicants'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 13,
@@ -1456,8 +1451,7 @@ class _EmptyApplicantsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'New pilot applications will appear here automatically.',
+          Text(AppLanguage.text('New pilot applications will appear here automatically.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.grey,
@@ -1509,8 +1503,7 @@ class _InlineRefreshWarning extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
-              'Retry',
+            child: Text(AppLanguage.text('Retry'),
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -1550,8 +1543,7 @@ class _DashboardErrorState extends StatelessWidget {
                 size: 33,
               ),
               const SizedBox(height: 11),
-              const Text(
-                'Dashboard unavailable',
+              Text(AppLanguage.text('Dashboard unavailable'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 16,
@@ -1572,7 +1564,7 @@ class _DashboardErrorState extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 17),
-                label: const Text('Try Again'),
+                label: Text(AppLanguage.text('Try Again')),
               ),
             ],
           ),

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../../model/Country.dart';
 import 'company_register_step_tow_screen.dart';
@@ -515,12 +516,12 @@ class _CompanyRegisterStepOneScreenState
                   20,
                 ),
 
-                const Align(
+                Align(
                   alignment:
                   Alignment.centerLeft,
                   child:
                   Text(
-                    'Company Logo',
+                    AppLanguage.text('Company Logo'),
                     style:
                     TextStyle(
                       fontSize:
@@ -538,12 +539,12 @@ class _CompanyRegisterStepOneScreenState
                   4,
                 ),
 
-                const Align(
+                Align(
                   alignment:
                   Alignment.centerLeft,
                   child:
                   Text(
-                    'Add your official company logo.',
+                    AppLanguage.text('Add your official company logo.'),
                     style:
                     TextStyle(
                       fontSize:
@@ -722,7 +723,7 @@ class _CompanyRegisterStepOneScreenState
                   CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      AppLanguage.text(title),
                       style:
                       TextStyle(
                         fontSize:
@@ -740,7 +741,7 @@ class _CompanyRegisterStepOneScreenState
                       2,
                     ),
                     Text(
-                      subtitle,
+                      AppLanguage.text(subtitle),
                       style:
                       const TextStyle(
                         color:
@@ -998,10 +999,10 @@ class _CompanyRegisterStepOneScreenState
             ),
 
             Text(
-              _companyLogo ==
+              AppLanguage.text(_companyLogo ==
                   null
                   ? 'Add company logo'
-                  : 'Change company logo',
+                  : 'Change company logo'),
               style:
               const TextStyle(
                 fontSize:
@@ -1201,7 +1202,7 @@ class _CompanyRegisterStepOneScreenState
               Expanded(
                 child:
                 Text(
-                  message,
+                  AppLanguage.text(message),
                   style:
                   const TextStyle(
                     color:
@@ -1388,8 +1389,8 @@ class _CompanyRegisterStepOneScreenState
                               index:
                               2,
                               child:
-                              const Text(
-                                'Create Company Account',
+                              Text(
+                                AppLanguage.text('Create Company Account'),
                                 style:
                                 TextStyle(
                                   fontSize:
@@ -1415,8 +1416,8 @@ class _CompanyRegisterStepOneScreenState
                               index:
                               3,
                               child:
-                              const Text(
-                                'Complete your company information to start connecting with professional drone pilots.',
+                              Text(
+                                AppLanguage.text('Complete your company information to start connecting with professional drone pilots.'),
                                 style:
                                 TextStyle(
                                   fontSize:
@@ -1852,8 +1853,8 @@ class _CompanyRegisterStepOneScreenState
                 ),
               ),
               child:
-              const Text(
-                'STEP 1 OF 3',
+              Text(
+                AppLanguage.text('STEP 1 OF 3'),
                 style:
                 TextStyle(
                   fontSize:
@@ -1961,7 +1962,7 @@ class _CompanyRegisterStepOneScreenState
         ),
       ),
       child:
-      const Row(
+      Row(
         mainAxisSize:
         MainAxisSize.min,
         children: [
@@ -1979,7 +1980,7 @@ class _CompanyRegisterStepOneScreenState
           ),
 
           Text(
-            'COMPANY ONBOARDING',
+            AppLanguage.text('COMPANY ONBOARDING'),
             style:
             TextStyle(
               color:
@@ -2035,14 +2036,14 @@ class _CompanyRegisterStepOneScreenState
           10,
         ),
 
-        const Expanded(
+        Expanded(
           child:
           Column(
             crossAxisAlignment:
             CrossAxisAlignment.start,
             children: [
               Text(
-                'Company Details',
+                AppLanguage.text('Company Details'),
                 style:
                 TextStyle(
                   fontSize:
@@ -2060,7 +2061,7 @@ class _CompanyRegisterStepOneScreenState
               ),
 
               Text(
-                'Complete your company account information',
+                AppLanguage.text('Complete your company account information'),
                 style:
                 TextStyle(
                   fontSize:
@@ -2439,8 +2440,8 @@ class _CompanyRegisterStepOneScreenState
                     MainAxisSize.min,
                     children: [
                       Text(
-                        _selectedCountry?.dialCode ??
-                            '+970',
+                        AppLanguage.text(_selectedCountry?.dialCode ??
+                            '+970'),
                         style:
                         const TextStyle(
                           color:
@@ -2679,14 +2680,14 @@ class _CompanyRegisterStepOneScreenState
                         child:
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child:
                               Column(
                                 crossAxisAlignment:
                                 CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Country Code',
+                                    AppLanguage.text('Country Code'),
                                     style:
                                     TextStyle(
                                       fontSize:
@@ -2704,7 +2705,7 @@ class _CompanyRegisterStepOneScreenState
                                   ),
 
                                   Text(
-                                    'Select your company calling code',
+                                    AppLanguage.text('Select your company calling code'),
                                     style:
                                     TextStyle(
                                       fontSize:
@@ -2870,7 +2871,7 @@ class _CompanyRegisterStepOneScreenState
                                     Expanded(
                                       child:
                                       Text(
-                                        country.name,
+                                        AppLanguage.text(country.name),
                                         overflow:
                                         TextOverflow.ellipsis,
                                         style:
@@ -2895,7 +2896,7 @@ class _CompanyRegisterStepOneScreenState
                                     ),
 
                                     Text(
-                                      country.dialCode,
+                                      AppLanguage.text(country.dialCode),
                                       style:
                                       TextStyle(
                                         fontSize:
@@ -3048,8 +3049,8 @@ class _CompanyRegisterStepOneScreenState
                     Expanded(
                       child:
                       Text(
-                        _selectedCompanyType ??
-                            'Industry Type',
+                        AppLanguage.text(_selectedCompanyType ??
+                            'Industry Type'),
                         style:
                         TextStyle(
                           fontSize:
@@ -3087,7 +3088,7 @@ class _CompanyRegisterStepOneScreenState
                     ),
                     child:
                     Text(
-                      state.errorText!,
+                      AppLanguage.text(state.errorText!),
                       style:
                       const TextStyle(
                         color:
@@ -3172,7 +3173,7 @@ class _CompanyRegisterStepOneScreenState
                   20,
                 ),
 
-                const Row(
+                Row(
                   children: [
                     Expanded(
                       child:
@@ -3181,7 +3182,7 @@ class _CompanyRegisterStepOneScreenState
                         CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Industry Type',
+                            AppLanguage.text('Industry Type'),
                             style:
                             TextStyle(
                               color:
@@ -3199,7 +3200,7 @@ class _CompanyRegisterStepOneScreenState
                           ),
 
                           Text(
-                            'Choose the category that best describes your company',
+                            AppLanguage.text('Choose the category that best describes your company'),
                             style:
                             TextStyle(
                               color:
@@ -3329,7 +3330,7 @@ class _CompanyRegisterStepOneScreenState
                                 Expanded(
                                   child:
                                   Text(
-                                    item,
+                                    AppLanguage.text(item),
                                     style:
                                     TextStyle(
                                       color:
@@ -3541,7 +3542,7 @@ class _CompanyRegisterStepOneScreenState
                 MainAxisAlignment.center,
                 children: [
                   Text(
-                    text,
+                    AppLanguage.text(text),
                     style:
                     const TextStyle(
                       color:
@@ -3579,7 +3580,7 @@ class _CompanyRegisterStepOneScreenState
   // ==========================================================================
 
   Widget _buildBottomNote() {
-    return const Center(
+    return Center(
       child:
       Row(
         mainAxisSize:
@@ -3601,7 +3602,7 @@ class _CompanyRegisterStepOneScreenState
           Flexible(
             child:
             Text(
-              'Your company information is securely protected',
+              AppLanguage.text('Your company information is securely protected'),
               textAlign:
               TextAlign.center,
               style:

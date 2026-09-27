@@ -1,5 +1,3 @@
-
-
 import '../../models/company_job_application_model.dart';
 import '../../models/company_job_posting_model.dart';
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import '../../core/theme/app_colors.dart';
 
 class NotificationCenterScreen extends StatelessWidget {
@@ -16,9 +17,8 @@ class NotificationCenterScreen extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               ),
-              const Expanded(
-                child: Text(
-                  'Notifications',
+              Expanded(
+                child: Text(AppLanguage.text('Notifications'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.navy,
@@ -27,29 +27,29 @@ class NotificationCenterScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              TextButton(onPressed: () {}, child: const Text('Mark all read')),
+              TextButton(onPressed: () {}, child: Text(AppLanguage.text('Mark all read'))),
             ],
           ),
           const SizedBox(height: 12),
-          const _Notice(
+          _Notice(
             icon: Icons.work_outline_rounded,
             color: AppColors.blue,
-            title: 'New application received',
-            detail: 'Marcus applied for Thermal Inspection - Solar Farm Array',
+            title: AppLanguage.text('New application received'),
+            detail: AppLanguage.text('Marcus applied for Thermal Inspection - Solar Farm Array'),
             time: '2h',
           ),
-          const _Notice(
+          _Notice(
             icon: Icons.chat_bubble_outline_rounded,
             color: AppColors.green,
-            title: 'New mission message',
-            detail: 'Aisha sent you a message about the site schedule',
+            title: AppLanguage.text('New mission message'),
+            detail: AppLanguage.text('Aisha sent you a message about the site schedule'),
             time: 'Yesterday',
           ),
-          const _Notice(
+          _Notice(
             icon: Icons.account_balance_wallet_outlined,
             color: AppColors.orange,
-            title: 'Escrow funding required',
-            detail: 'Fund the mission after the pilot accepts your offer.',
+            title: AppLanguage.text('Escrow funding required'),
+            detail: AppLanguage.text('Fund the mission after the pilot accepts your offer.'),
             time: 'Yesterday',
           ),
         ],

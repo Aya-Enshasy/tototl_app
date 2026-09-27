@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -489,8 +490,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                         const SizedBox(height: 13),
                         _sectionCard(
                           icon: Icons.description_outlined,
-                          title: 'Basic information',
-                          subtitle: 'Core mission details',
+                          title: AppLanguage.text('Basic information'),
+                          subtitle: AppLanguage.text('Core mission details'),
                           child: Column(
                             children: [
                               _label('Job title *'),
@@ -526,8 +527,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                         const SizedBox(height: 13),
                         _sectionCard(
                           icon: Icons.location_on_outlined,
-                          title: 'Location',
-                          subtitle: 'Where the mission takes place',
+                          title: AppLanguage.text('Location'),
+                          subtitle: AppLanguage.text('Where the mission takes place'),
                           child: Column(
                             children: [
                               _label('Country *'),
@@ -569,13 +570,13 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                         const SizedBox(height: 13),
                         _sectionCard(
                           icon: Icons.calendar_month_outlined,
-                          title: 'Schedule',
-                          subtitle: 'Mission date range',
+                          title: AppLanguage.text('Schedule'),
+                          subtitle: AppLanguage.text('Mission date range'),
                           child: Row(
                             children: [
                               Expanded(
                                 child: _dateBox(
-                                  label: 'Start',
+                                  label: AppLanguage.text('Start'),
                                   date: _startDate,
                                   onTap: _pickStartDate,
                                 ),
@@ -583,7 +584,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _dateBox(
-                                  label: 'End',
+                                  label: AppLanguage.text('End'),
                                   date: _endDate,
                                   onTap: _pickEndDate,
                                 ),
@@ -594,8 +595,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                         const SizedBox(height: 13),
                         _sectionCard(
                           icon: Icons.flight_outlined,
-                          title: 'Requirements',
-                          subtitle: 'Drone and pilot requirements',
+                          title: AppLanguage.text('Requirements'),
+                          subtitle: AppLanguage.text('Drone and pilot requirements'),
                           child: Column(
                             children: [
                               _label('Drone size'),
@@ -612,10 +613,9 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                                 onChanged: _onDroneSizeChanged,
                               ),
                               const SizedBox(height: 7),
-                              const Align(
+                              Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'Sent as readable text. For Custom, use unfolded dimensions; max weight is optional.',
+                                child: Text(AppLanguage.text('Sent as readable text. For Custom, use unfolded dimensions; max weight is optional.'),
                                   style: TextStyle(
                                     color: AppColors.grey,
                                     fontSize: 10.8,
@@ -683,8 +683,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                               const SizedBox(height: 14),
                               _toggle(
                                 icon: Icons.health_and_safety_outlined,
-                                title: 'Safety training',
-                                subtitle: 'Pilot must have completed safety training',
+                                title: AppLanguage.text('Safety training'),
+                                subtitle: AppLanguage.text('Pilot must have completed safety training'),
                                 value: _trainingSafetyRequired,
                                 onChanged: (value) => setState(
                                       () => _trainingSafetyRequired = value,
@@ -693,8 +693,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                               const SizedBox(height: 9),
                               _toggle(
                                 icon: Icons.lock_outline_rounded,
-                                title: 'NDA required',
-                                subtitle: 'Pilot must agree to an NDA',
+                                title: AppLanguage.text('NDA required'),
+                                subtitle: AppLanguage.text('Pilot must agree to an NDA'),
                                 value: _ndaRequired,
                                 onChanged: (value) =>
                                     setState(() => _ndaRequired = value),
@@ -712,8 +712,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                         const SizedBox(height: 13),
                         _sectionCard(
                           icon: Icons.payments_outlined,
-                          title: 'Budget',
-                          subtitle: 'Payment structure and range',
+                          title: AppLanguage.text('Budget'),
+                          subtitle: AppLanguage.text('Payment structure and range'),
                           child: Column(
                             children: [
                               _label('Payment type *'),
@@ -791,8 +791,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                           const SizedBox(height: 13),
                           _sectionCard(
                             icon: Icons.attach_file_rounded,
-                            title: 'Existing attachments',
-                            subtitle: 'Files already linked to this job',
+                            title: AppLanguage.text('Existing attachments'),
+                            subtitle: AppLanguage.text('Files already linked to this job'),
                             child: _infoStrip(
                               icon: Icons.insert_drive_file_outlined,
                               text:
@@ -819,7 +819,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
       child: Row(
         children: [
           IconButton(
-            tooltip: 'Back',
+            tooltip: AppLanguage.text('Back'),
             onPressed: _saving ? null : () => Navigator.of(context).pop(),
             icon: const Icon(
               Icons.arrow_back_ios_new_rounded,
@@ -827,9 +827,8 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
               color: AppColors.navy,
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Edit job',
+          Expanded(
+            child: Text(AppLanguage.text('Edit job'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.navy,
@@ -917,8 +916,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Update only what changed. Your existing job data stays intact.',
+                Text(AppLanguage.text('Update only what changed. Your existing job data stays intact.'),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.64),
                     fontSize: 10.8,
@@ -1167,8 +1165,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
         enabledBorder: _border(AppColors.cardBorder),
         focusedBorder: _border(AppColors.blue, width: 1.25),
       ),
-      hint: const Text(
-        'Select...',
+      hint: Text(AppLanguage.text('Select...'),
         style: TextStyle(
           color: AppColors.lightGrey,
           fontSize: 11.8,
@@ -1382,7 +1379,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.straighten_rounded,
@@ -1390,8 +1387,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
                 color: AppColors.blue,
               ),
               SizedBox(width: 7),
-              Text(
-                'Custom dimensions',
+              Text(AppLanguage.text('Custom dimensions'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 12.2,
@@ -1401,8 +1397,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Length × width describe the physical size. Height and maximum weight make the requirement more precise.',
+          Text(AppLanguage.text('Length × width describe the physical size. Height and maximum weight make the requirement more precise.'),
             style: TextStyle(
               color: AppColors.grey,
               fontSize: 10.3,
@@ -1437,7 +1432,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneLength,
-                  label: 'Length',
+                  label: AppLanguage.text('Length'),
                   suffix: 'cm',
                   hint: '60',
                 ),
@@ -1446,7 +1441,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneWidth,
-                  label: 'Width',
+                  label: AppLanguage.text('Width'),
                   suffix: 'cm',
                   hint: '50',
                 ),
@@ -1459,7 +1454,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneHeight,
-                  label: 'Height',
+                  label: AppLanguage.text('Height'),
                   suffix: 'cm',
                   hint: '20',
                 ),
@@ -1468,7 +1463,7 @@ class _EditCompanyJobScreenState extends State<EditCompanyJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneWeight,
-                  label: 'Max weight',
+                  label: AppLanguage.text('Max weight'),
                   suffix: 'kg',
                   hint: '4.5',
                 ),

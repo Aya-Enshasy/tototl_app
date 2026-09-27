@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/pilot/models/pilot_home_snapshot.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class RecentApplicationsSection extends StatelessWidget {
   const RecentApplicationsSection({
@@ -83,12 +85,12 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Recent Applications',
+                AppLanguage.text('Recent Applications'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 16,
@@ -98,7 +100,7 @@ class _Header extends StatelessWidget {
               ),
               SizedBox(height: 2),
               Text(
-                'Your latest job activity',
+                AppLanguage.text('Your latest job activity'),
                 style: TextStyle(
                   color: AppColors.grey,
                   fontSize: 10.5,
@@ -114,12 +116,12 @@ class _Header extends StatelessWidget {
             child: InkWell(
               onTap: onSeeAll,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                 child: Row(
                   children: [
                     Text(
-                      'View all',
+                      AppLanguage.text('View all'),
                       style: TextStyle(
                         color: AppColors.blue,
                         fontSize: 11.5,
@@ -264,8 +266,8 @@ class _ApplicationCardState extends State<_ApplicationCard> {
                               ),
                             ),
                           ] else
-                            const Text(
-                              'Company',
+                            Text(
+                              AppLanguage.text('Company'),
                               style: TextStyle(
                                 color: AppColors.grey,
                                 fontSize: 10.8,
@@ -392,8 +394,8 @@ class _ApplicationsError extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
-              'Retry',
+            child: Text(
+              AppLanguage.text('Retry'),
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
@@ -473,8 +475,8 @@ class _EmptyApplications extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'No applications yet',
+          Text(
+            AppLanguage.text('No applications yet'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 14,
@@ -484,7 +486,7 @@ class _EmptyApplications extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'Explore published missions and send your first application when the right job appears.',
+            AppLanguage.text('Explore published missions and send your first application when the right job appears.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.grey.withOpacity(0.9),
@@ -506,8 +508,8 @@ class _EmptyApplications extends StatelessWidget {
               ),
             ),
             icon: const Icon(Icons.explore_outlined, size: 16),
-            label: const Text(
-              'Explore jobs',
+            label: Text(
+              AppLanguage.text('Explore jobs'),
               style: TextStyle(
                 fontSize: 11.2,
                 fontWeight: FontWeight.w800,
@@ -669,3 +671,4 @@ class _StatusVisual {
   final Color background;
   final IconData icon;
 }
+

@@ -1,7 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({
@@ -87,9 +89,9 @@ class _HomeHeaderState extends State<HomeHeader>
 
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return AppLanguage.text('Good morning');
+    if (hour < 17) return AppLanguage.text('Good afternoon');
+    return AppLanguage.text('Good evening');
   }
 
   bool get _isVerified {
@@ -610,3 +612,4 @@ class _HeaderData {
     return int.tryParse(value.toString());
   }
 }
+

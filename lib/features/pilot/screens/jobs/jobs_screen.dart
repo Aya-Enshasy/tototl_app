@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../models/pilot_job_filters.dart';
 import '../../models/pilot_job_model.dart';
 import '../../services/pilot_job_service.dart';
 import 'job_details.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class FindDroneJobsScreen extends StatefulWidget {
   const FindDroneJobsScreen({super.key});
@@ -301,12 +303,12 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Find Drone Jobs',
+                AppLanguage.text('Find Drone Jobs'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 16,
@@ -317,7 +319,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
               ),
               SizedBox(height: 4),
               Text(
-                'Published opportunities ready for pilots',
+                AppLanguage.text('Published opportunities ready for pilots'),
                 style: TextStyle(
                   color: AppColors.grey,
                   fontSize: 11.5,
@@ -356,7 +358,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
-                hintText: 'Search job title or description...',
+                hintText: AppLanguage.text('Search job title or description...'),
                 hintStyle: TextStyle(
                   color: AppColors.grey.withOpacity(0.78),
                   fontSize: 12.2,
@@ -376,7 +378,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
-                  tooltip: 'Clear search',
+                  tooltip: AppLanguage.text('Clear search'),
                   onPressed: () {
                     HapticFeedback.selectionClick();
                     _searchDebounce?.cancel();
@@ -518,8 +520,8 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 7),
             ),
-            child: const Text(
-              'Clear',
+            child: Text(
+              AppLanguage.text('Clear'),
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
@@ -978,8 +980,8 @@ class _NoResults extends StatelessWidget {
           size: 50,
         ),
         const SizedBox(height: 14),
-        const Text(
-          'No jobs match your search',
+        Text(
+          AppLanguage.text('No jobs match your search'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.navy,
@@ -988,8 +990,8 @@ class _NoResults extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Try changing the search or clearing the filters.',
+        Text(
+          AppLanguage.text('Try changing the search or clearing the filters.'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.grey,
@@ -1002,7 +1004,7 @@ class _NoResults extends StatelessWidget {
           child: TextButton.icon(
             onPressed: onClear,
             icon: const Icon(Icons.refresh_rounded, size: 17),
-            label: const Text('Clear search & filters'),
+            label: Text(AppLanguage.text('Clear search & filters')),
           ),
         ),
       ],
@@ -1033,8 +1035,8 @@ class _JobsError extends StatelessWidget {
               size: 46,
             ),
             const SizedBox(height: 13),
-            const Text(
-              'Couldn’t load jobs',
+            Text(
+              AppLanguage.text('Couldn’t load jobs'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 15,
@@ -1056,7 +1058,7 @@ class _JobsError extends StatelessWidget {
               onPressed: onRetry,
               style: FilledButton.styleFrom(backgroundColor: AppColors.blue),
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Try Again'),
+              label: Text(AppLanguage.text('Try Again')),
             ),
           ],
         ),
@@ -1365,12 +1367,12 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Refine Jobs',
+                      AppLanguage.text('Refine Jobs'),
                       style: TextStyle(
                         color: AppColors.navy,
                         fontSize: 18,
@@ -1380,7 +1382,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'Narrow opportunities to the missions that fit you',
+                      AppLanguage.text('Narrow opportunities to the missions that fit you'),
                       style: TextStyle(
                         color: AppColors.grey,
                         fontSize: 9.8,
@@ -1392,8 +1394,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
               ),
               TextButton(
                 onPressed: _reset,
-                child: const Text(
-                  'Reset',
+                child: Text(
+                  AppLanguage.text('Reset'),
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                   ),
@@ -1527,8 +1529,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Mission window',
+                                Text(
+                                  AppLanguage.text('Mission window'),
                                   style: TextStyle(
                                     color: AppColors.grey,
                                     fontSize: 9,
@@ -1553,7 +1555,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                           ),
                           if (_dateFrom != null)
                             IconButton(
-                              tooltip: 'Clear dates',
+                              tooltip: AppLanguage.text('Clear dates'),
                               visualDensity: VisualDensity.compact,
                               onPressed: () {
                                 setState(() {
@@ -1626,7 +1628,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Add capability...',
+                          hintText: AppLanguage.text('Add capability...'),
                           counterText: '',
                           hintStyle: const TextStyle(
                             color: AppColors.grey,
@@ -1703,8 +1705,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                   ),
                 ],
                 const SizedBox(height: 11),
-                const Text(
-                  'Quick suggestions',
+                Text(
+                  AppLanguage.text('Quick suggestions'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 9.3,
@@ -1786,7 +1788,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                   borderRadius: BorderRadius.circular(17),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
@@ -1795,7 +1797,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                   ),
                   SizedBox(width: 8),
                   Text(
-                    'Apply Filters',
+                    AppLanguage.text('Apply Filters'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
@@ -2192,3 +2194,4 @@ class _ShimmerJobCard extends StatelessWidget {
     );
   }
 }
+

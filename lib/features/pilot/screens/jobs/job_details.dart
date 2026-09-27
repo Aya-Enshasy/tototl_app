@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:tototl_app/features/pilot/screens/jobs/pilot_company_profile_scr
 
 import '../../models/pilot_job_model.dart';
 import '../../services/pilot_job_service.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class JobDetailsScreen extends StatefulWidget {
   const JobDetailsScreen({
@@ -266,8 +268,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Application',
+                            Text(
+                              AppLanguage.text('Application'),
                               style: TextStyle(
                                 color: AppColors.grey,
                                 fontSize: 9.5,
@@ -326,8 +328,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                       Icons.arrow_outward_rounded,
                       size: 16,
                     ),
-                    label: const Text(
-                      'View',
+                    label: Text(
+                      AppLanguage.text('View'),
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -384,11 +386,11 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
               ),
               elevation: 0,
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Apply for this mission',
+                  AppLanguage.text('Apply for this mission'),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
@@ -591,17 +593,17 @@ class _TopBar extends StatelessWidget {
       child: Row(
         children: [
           _TopCircleButton(
-            tooltip: 'Back',
+            tooltip: AppLanguage.text('Back'),
             icon: Icons.arrow_back_ios_new_rounded,
             onTap: onBack,
           ),
           const SizedBox(width: 11),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mission Details',
+                  AppLanguage.text('Mission Details'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16.5,
@@ -612,7 +614,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 SizedBox(height: 5),
                 Text(
-                  'Review the opportunity before you apply',
+                  AppLanguage.text('Review the opportunity before you apply'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -637,7 +639,7 @@ class _TopBar extends StatelessWidget {
                 color: AppColors.blue.withOpacity(0.055),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
@@ -647,7 +649,7 @@ class _TopBar extends StatelessWidget {
                   ),
                   SizedBox(width: 4),
                   Text(
-                    'Updating',
+                    AppLanguage.text('Updating'),
                     style: TextStyle(
                       color: AppColors.blue,
                       fontSize: 9.5,
@@ -858,7 +860,7 @@ class _MissionHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'MISSION VALUE',
+                            AppLanguage.text('MISSION VALUE'),
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.52),
                               fontSize: 8.4,
@@ -964,7 +966,7 @@ class _VerifiedHeroChip extends StatelessWidget {
         color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(30),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -974,7 +976,7 @@ class _VerifiedHeroChip extends StatelessWidget {
           ),
           SizedBox(width: 4),
           Text(
-            'Verified',
+            AppLanguage.text('Verified'),
             style: TextStyle(
               color: Colors.white,
               fontSize: 9.3,
@@ -1053,9 +1055,9 @@ class _MissionSnapshot extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeading(
+          _SectionHeading(
             eyebrow: 'AT A GLANCE',
-            title: 'Mission snapshot',
+            title: AppLanguage.text('Mission snapshot'),
           ),
           const SizedBox(height: 15),
           Row(
@@ -1063,7 +1065,7 @@ class _MissionSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotMetric(
                   icon: Icons.payments_outlined,
-                  label: 'Budget',
+                  label: AppLanguage.text('Budget'),
                   value: job.payLabel,
                   accent: AppColors.green,
                 ),
@@ -1072,7 +1074,7 @@ class _MissionSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotMetric(
                   icon: Icons.calendar_today_outlined,
-                  label: 'Mission',
+                  label: AppLanguage.text('Mission'),
                   value: job.dateLabel,
                 ),
               ),
@@ -1080,7 +1082,7 @@ class _MissionSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotMetric(
                   icon: Icons.flight_takeoff_rounded,
-                  label: 'Service',
+                  label: AppLanguage.text('Service'),
                   value: job.categoryLabel,
                 ),
               ),
@@ -1185,10 +1187,10 @@ class _MissionBriefCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardHeader(
+          _CardHeader(
             icon: Icons.notes_rounded,
-            title: 'Mission Brief',
-            subtitle: 'Scope and expectations from the company',
+            title: AppLanguage.text('Mission Brief'),
+            subtitle: AppLanguage.text('Scope and expectations from the company'),
           ),
           const SizedBox(height: 14),
           Text(
@@ -1225,27 +1227,27 @@ class _MissionLogisticsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardHeader(
+          _CardHeader(
             icon: Icons.route_outlined,
-            title: 'Mission Logistics',
-            subtitle: 'Where, when and how the mission is funded',
+            title: AppLanguage.text('Mission Logistics'),
+            subtitle: AppLanguage.text('Where, when and how the mission is funded'),
           ),
           const SizedBox(height: 14),
           _LogisticsTile(
             icon: Icons.location_on_outlined,
-            label: 'Location',
+            label: AppLanguage.text('Location'),
             value: _location(job),
           ),
           const _SoftDivider(),
           _LogisticsTile(
             icon: Icons.calendar_month_outlined,
-            label: 'Schedule',
+            label: AppLanguage.text('Schedule'),
             value: _schedule(job),
           ),
           const _SoftDivider(),
           _LogisticsTile(
             icon: Icons.payments_outlined,
-            label: 'Payment',
+            label: AppLanguage.text('Payment'),
             value: '${job.paymentTypeLabel} • ${job.payLabel}',
             valueColor: AppColors.green,
           ),
@@ -1373,10 +1375,10 @@ class _RequirementsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardHeader(
+          _CardHeader(
             icon: Icons.fact_check_outlined,
-            title: 'Pilot Requirements',
-            subtitle: 'What the company expects from the selected pilot',
+            title: AppLanguage.text('Pilot Requirements'),
+            subtitle: AppLanguage.text('What the company expects from the selected pilot'),
           ),
           const SizedBox(height: 14),
           ...job.requirementLines.map(
@@ -1440,10 +1442,10 @@ class _CapabilitiesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardHeader(
+          _CardHeader(
             icon: Icons.memory_rounded,
-            title: 'Aircraft Match',
-            subtitle: 'Drone capabilities requested for this mission',
+            title: AppLanguage.text('Aircraft Match'),
+            subtitle: AppLanguage.text('Drone capabilities requested for this mission'),
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -1524,7 +1526,7 @@ class _AttachmentsCard extends StatelessWidget {
         children: [
           _CardHeader(
             icon: Icons.attach_file_rounded,
-            title: 'Mission Files',
+            title: AppLanguage.text('Mission Files'),
             subtitle:
             '${attachments.length} ${attachments.length == 1 ? 'attachment' : 'attachments'} shared by the company',
           ),
@@ -1707,8 +1709,8 @@ class _CompanyPreviewCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'HIRING COMPANY',
+                            Text(
+                              AppLanguage.text('HIRING COMPANY'),
                               style: TextStyle(
                                 color: AppColors.grey,
                                 fontSize: 8.5,
@@ -1825,8 +1827,8 @@ class _ApplicationStatusBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Your application',
+                Text(
+                  AppLanguage.text('Your application'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 11.7,
@@ -2479,8 +2481,8 @@ class _DetailError extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Couldn’t load this mission',
+              Text(
+                AppLanguage.text('Couldn’t load this mission'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.navy,
@@ -2512,8 +2514,8 @@ class _DetailError extends StatelessWidget {
                   Icons.refresh_rounded,
                   size: 17,
                 ),
-                label: const Text(
-                  'Try Again',
+                label: Text(
+                  AppLanguage.text('Try Again'),
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                   ),
@@ -2638,3 +2640,4 @@ String _initials(String value) {
 
   return parts.map((part) => part[0].toUpperCase()).join();
 }
+

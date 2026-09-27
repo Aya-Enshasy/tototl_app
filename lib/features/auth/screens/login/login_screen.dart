@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import '../../../admin/screens/admin_shell_screen.dart';
 import '../../../../core/navigation/bottom_navbar.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -349,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -577,8 +578,8 @@ class _LoginScreenState extends State<LoginScreen>
 
                       const SizedBox(height: 4),
 
-                      const Text(
-                        'TOTOTL',
+                      Text(
+                        AppLanguage.text('TOTOTL'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 36,
@@ -588,8 +589,8 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
 
-                      const Text(
-                        'I N T G R X',
+                      Text(
+                        AppLanguage.text('I N T G R X'),
                         style: TextStyle(
                           color:
                           AppColors.logoTurquoiseLight,
@@ -610,12 +611,12 @@ class _LoginScreenState extends State<LoginScreen>
                             height: 1,
                             color: Colors.white38,
                           ),
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: 8,
                             ),
                             child: Text(
-                              'DRONE PILOT & COMPANY PLATFORM',
+                              AppLanguage.text('DRONE PILOT & COMPANY PLATFORM'),
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -689,9 +690,9 @@ class _LoginScreenState extends State<LoginScreen>
                           // TITLE
                           // ====================================
 
-                          const Center(
+                          Center(
                             child: Text(
-                              'Welcome Back',
+                              AppLanguage.text('Welcome Back'),
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight:
@@ -704,9 +705,9 @@ class _LoginScreenState extends State<LoginScreen>
 
                           const SizedBox(height: 6),
 
-                          const Center(
+                          Center(
                             child: Text(
-                              'Sign in to continue your journey',
+                              AppLanguage.text('Sign in to continue your journey'),
                               style: TextStyle(
                                 fontSize: 13.5,
                                 color: AppColors.grey,
@@ -722,8 +723,8 @@ class _LoginScreenState extends State<LoginScreen>
                           // EMAIL
                           // ====================================
 
-                          const Text(
-                            'Email',
+                          Text(
+                            AppLanguage.text('Email'),
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight:
@@ -760,8 +761,8 @@ class _LoginScreenState extends State<LoginScreen>
                           // PASSWORD
                           // ====================================
 
-                          const Text(
-                            'Password',
+                          Text(
+                            AppLanguage.text('Password'),
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight:
@@ -857,8 +858,8 @@ class _LoginScreenState extends State<LoginScreen>
                                 MaterialTapTargetSize
                                     .shrinkWrap,
                               ),
-                              child: const Text(
-                                'Forgot Password?',
+                              child: Text(
+                                AppLanguage.text('Forgot Password?'),
                                 style: TextStyle(
                                   color: Color(
                                     0xFF0EC0BC,
@@ -1021,7 +1022,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     },
                                     child:
                                     _loginSuccess
-                                        ? const Row(
+                                        ? Row(
                                       key: ValueKey(
                                         'success',
                                       ),
@@ -1042,7 +1043,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           9,
                                         ),
                                         Text(
-                                          'Welcome!',
+                                          AppLanguage.text('Welcome!'),
                                           style:
                                           TextStyle(
                                             color:
@@ -1075,7 +1076,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
                                     )
-                                        : const Row(
+                                        : Row(
                                       key:
                                       ValueKey(
                                         'normal',
@@ -1092,7 +1093,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           width: 10,
                                         ),
                                         Text(
-                                          'Sign In',
+                                          AppLanguage.text('Sign In'),
                                           style:
                                           TextStyle(
                                             color: Colors.white,
@@ -1114,7 +1115,7 @@ class _LoginScreenState extends State<LoginScreen>
                           // OR
                           // ====================================
 
-                          const Row(
+                          Row(
                             children: [
                               Expanded(
                                 child: Divider(
@@ -1129,7 +1130,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   horizontal: 14,
                                 ),
                                 child: Text(
-                                  'OR',
+                                  AppLanguage.text('OR'),
                                   style: TextStyle(
                                     color:
                                     AppColors.grey,
@@ -1157,8 +1158,8 @@ class _LoginScreenState extends State<LoginScreen>
                             mainAxisAlignment:
                             MainAxisAlignment.center,
                             children: [
-                              const Text(
-                                "Don't have an account? ",
+                              Text(
+                                AppLanguage.text("Don't have an account? "),
                                 style: TextStyle(
                                   color:
                                   AppColors.grey,
@@ -1185,9 +1186,9 @@ class _LoginScreenState extends State<LoginScreen>
                                           _,
                                           __,
                                           ) =>
-                                              ChooseAccountTypeScreen(
-                                                authController: widget.authController,
-                                              ),
+                                          ChooseAccountTypeScreen(
+                                            authController: widget.authController,
+                                          ),
                                       transitionsBuilder:
                                           (
                                           context,
@@ -1227,8 +1228,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   );
                                 },
-                                child: const Text(
-                                  'Create Account',
+                                child: Text(
+                                  AppLanguage.text('Create Account'),
                                   style: TextStyle(
                                     color: AppColors
                                         .primary,

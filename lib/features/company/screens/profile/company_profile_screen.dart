@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
@@ -14,7 +15,7 @@ import '../../../shared/screens/profile/account_settings_screen.dart';
 import '../../controllers/company_profile_controller.dart';
 import '../../models/company_document_model.dart';
 import '../../models/company_profile_model.dart';
- import '../../services/company_document_service.dart';
+import '../../services/company_document_service.dart';
 import '../../services/company_profile_service.dart';
 import 'company_document_viewer_screen.dart';
 import 'company_edit_profile_screen.dart';
@@ -190,8 +191,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Change Company Photo',
+                Text(AppLanguage.text('Change Company Photo'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -199,8 +199,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Text(
-                  'Use a clear logo or company profile image.',
+                Text(AppLanguage.text('Use a clear logo or company profile image.'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 11.5,
@@ -212,7 +211,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                     Expanded(
                       child: _PhotoSourceButton(
                         icon: Icons.camera_alt_outlined,
-                        title: 'Camera',
+                        title: AppLanguage.text('Camera'),
                         onTap: () => Navigator.pop(
                           sheetContext,
                           ImageSource.camera,
@@ -223,7 +222,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                     Expanded(
                       child: _PhotoSourceButton(
                         icon: Icons.photo_library_outlined,
-                        title: 'Gallery',
+                        title: AppLanguage.text('Gallery'),
                         onTap: () => Navigator.pop(
                           sheetContext,
                           ImageSource.gallery,
@@ -569,8 +568,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          title: const Text(
-            'Delete document?',
+          title: Text(AppLanguage.text('Delete document?'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 16,
@@ -588,14 +586,14 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(AppLanguage.text('Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.red,
               ),
-              child: const Text('Delete'),
+              child: Text(AppLanguage.text('Delete')),
             ),
           ],
         );
@@ -745,7 +743,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   const SizedBox(height: 12),
                   _Section(
                     icon: Icons.notes_rounded,
-                    title: 'About',
+                    title: AppLanguage.text('About'),
                     child: Text(
                       profile.description.trim().isEmpty
                           ? 'No company description added yet.'
@@ -760,30 +758,30 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   const SizedBox(height: 12),
                   _Section(
                     icon: Icons.business_center_outlined,
-                    title: 'Company Information',
+                    title: AppLanguage.text('Company Information'),
                     child: Column(
                       children: [
                         _InfoRow(
                           icon: Icons.business_outlined,
-                          label: 'Industry',
+                          label: AppLanguage.text('Industry'),
                           value: _display(profile.industryType),
                         ),
                         const _SoftDivider(),
                         _InfoRow(
                           icon: Icons.location_on_outlined,
-                          label: 'Location',
+                          label: AppLanguage.text('Location'),
                           value: profile.locationLabel,
                         ),
                         const _SoftDivider(),
                         _InfoRow(
                           icon: Icons.home_work_outlined,
-                          label: 'Address',
+                          label: AppLanguage.text('Address'),
                           value: _display(profile.address),
                         ),
                         const _SoftDivider(),
                         _InfoRow(
                           icon: Icons.language_rounded,
-                          label: 'Website',
+                          label: AppLanguage.text('Website'),
                           value: _display(profile.website),
                         ),
                       ],
@@ -792,10 +790,9 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   const SizedBox(height: 12),
                   _Section(
                     icon: Icons.travel_explore_rounded,
-                    title: 'Operating Regions',
+                    title: AppLanguage.text('Operating Regions'),
                     child: profile.workRegions.isEmpty
-                        ? const Text(
-                      'No operating regions added yet.',
+                        ? Text(AppLanguage.text('No operating regions added yet.'),
                       style: TextStyle(
                         color: AppColors.grey,
                         fontSize: 12,
@@ -857,30 +854,30 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                   const SizedBox(height: 12),
                   _Section(
                     icon: Icons.badge_outlined,
-                    title: 'Account',
+                    title: AppLanguage.text('Account'),
                     child: Column(
                       children: [
                         _InfoRow(
                           icon: Icons.person_outline_rounded,
-                          label: 'Account name',
+                          label: AppLanguage.text('Account name'),
                           value: _display(account.name),
                         ),
                         const _SoftDivider(),
                         _InfoRow(
                           icon: Icons.alternate_email_rounded,
-                          label: 'Username',
+                          label: AppLanguage.text('Username'),
                           value: _display(account.displayUsername),
                         ),
                         const _SoftDivider(),
                         _InfoRow(
                           icon: Icons.email_outlined,
-                          label: 'Email',
+                          label: AppLanguage.text('Email'),
                           value: _display(account.email),
                         ),
                         const _SoftDivider(),
                         _InfoRow(
                           icon: Icons.phone_outlined,
-                          label: 'Phone',
+                          label: AppLanguage.text('Phone'),
                           value: _display(account.phone),
                         ),
                       ],
@@ -904,9 +901,8 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
-          child: Text(
-            'Company Profile',
+        Expanded(
+          child: Text(AppLanguage.text('Company Profile'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 16,
@@ -1030,8 +1026,7 @@ class _ProfileHero extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onEditTap,
               icon: const Icon(Icons.edit_outlined, size: 16),
-              label: const Text(
-                'Edit Company Details',
+              label: Text(AppLanguage.text('Edit Company Details'),
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
@@ -1274,9 +1269,8 @@ class _CompanyDocumentsSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
-              const Expanded(
-                child: Text(
-                  'Company Documents',
+              Expanded(
+                child: Text(AppLanguage.text('Company Documents'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 15.5,
@@ -1328,8 +1322,7 @@ class _CompanyDocumentsSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Official company files · PDF or image · up to 10 MB',
+          Text(AppLanguage.text('Official company files · PDF or image · up to 10 MB'),
             style: TextStyle(
               color: AppColors.grey,
               fontSize: 10.5,
@@ -1474,7 +1467,7 @@ class _CompanyDocumentCard extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: _DocumentActionButton(
-                  label: 'Replace',
+                  label: AppLanguage.text('Replace'),
                   icon: Icons.swap_horiz_rounded,
                   onTap: locked ? null : onReplace,
                 ),
@@ -1616,8 +1609,7 @@ class _EmptyDocuments extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 9),
-          const Text(
-            'No company documents yet',
+          Text(AppLanguage.text('No company documents yet'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 13,
@@ -1625,8 +1617,7 @@ class _EmptyDocuments extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Add official records, permits, insurance or business documents.',
+          Text(AppLanguage.text('Add official records, permits, insurance or business documents.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.grey,
@@ -1638,8 +1629,7 @@ class _EmptyDocuments extends StatelessWidget {
           TextButton.icon(
             onPressed: onAdd,
             icon: const Icon(Icons.add_rounded, size: 16),
-            label: const Text(
-              'Add document',
+            label: Text(AppLanguage.text('Add document'),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
@@ -2116,8 +2106,7 @@ class _ErrorView extends StatelessWidget {
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: onRetry,
-                  child: const Text(
-                    'Try Again',
+                  child: Text(AppLanguage.text('Try Again'),
                     style: TextStyle(fontSize: 12.5),
                   ),
                 ),

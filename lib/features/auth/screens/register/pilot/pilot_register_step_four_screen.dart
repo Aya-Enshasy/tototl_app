@@ -8,6 +8,7 @@ import '../../../../../core/navigation/bottom_navbar.dart';
 import '../../../../../core/session/account_role_store.dart';
 import '../../../../../core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../models/PilotRegisterRequestModel.dart';
 
@@ -678,9 +679,9 @@ class _PilotRegisterStepFourScreenState
 
                         children: [
                           Text(
-                            _documentTitle(
+                            AppLanguage.text(_documentTitle(
                               document,
-                            ),
+                            )),
 
                             style:
                             const TextStyle(
@@ -701,9 +702,9 @@ class _PilotRegisterStepFourScreenState
                           ),
 
                           Text(
-                            _documentDescription(
+                            AppLanguage.text(_documentDescription(
                               document,
-                            ),
+                            )),
 
                             style:
                             const TextStyle(
@@ -940,7 +941,7 @@ class _PilotRegisterStepFourScreenState
 
                   children: [
                     Text(
-                      title,
+                      AppLanguage.text(title),
 
                       style:
                       TextStyle(
@@ -962,7 +963,7 @@ class _PilotRegisterStepFourScreenState
                     ),
 
                     Text(
-                      subtitle,
+                      AppLanguage.text(subtitle),
 
                       style:
                       const TextStyle(
@@ -1155,7 +1156,7 @@ class _PilotRegisterStepFourScreenState
                       children: [
                         Expanded(
                           child: Text(
-                            title,
+                            AppLanguage.text(title),
 
                             style:
                             const TextStyle(
@@ -1343,7 +1344,7 @@ class _PilotRegisterStepFourScreenState
                                   Expanded(
                                     child:
                                     Text(
-                                      item,
+                                      AppLanguage.text(item),
 
                                       maxLines:
                                       2,
@@ -1838,8 +1839,8 @@ class _PilotRegisterStepFourScreenState
                         height: 22,
                       ),
 
-                      const Text(
-                        'Registration Submitted!',
+                      Text(
+                        AppLanguage.text('Registration Submitted!'),
 
                         textAlign:
                         TextAlign.center,
@@ -1864,8 +1865,8 @@ class _PilotRegisterStepFourScreenState
                         height: 9,
                       ),
 
-                      const Text(
-                        'Your pilot profile and documents have been submitted for verification.',
+                      Text(
+                        AppLanguage.text('Your pilot profile and documents have been submitted for verification.'),
 
                         textAlign:
                         TextAlign.center,
@@ -1924,7 +1925,7 @@ class _PilotRegisterStepFourScreenState
                         ),
 
                         child:
-                        const Row(
+                        Row(
                           children: [
                             Icon(
                               Icons
@@ -1944,7 +1945,7 @@ class _PilotRegisterStepFourScreenState
                             Expanded(
                               child:
                               Text(
-                                'Status: Pending verification',
+                                AppLanguage.text('Status: Pending verification'),
 
                                 style:
                                 TextStyle(
@@ -2061,14 +2062,14 @@ class _PilotRegisterStepFourScreenState
                           ),
 
                           child:
-                          const Row(
+                          Row(
                             mainAxisAlignment:
                             MainAxisAlignment
                                 .center,
 
                             children: [
                               Text(
-                                'Done',
+                                AppLanguage.text('Done'),
 
                                 style:
                                 TextStyle(
@@ -2192,7 +2193,7 @@ class _PilotRegisterStepFourScreenState
 
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
 
                   style:
                   const TextStyle(
@@ -2376,8 +2377,8 @@ class _PilotRegisterStepFourScreenState
                               index: 2,
 
                               child:
-                              const Text(
-                                'Certifications &\nDocuments',
+                              Text(
+                                AppLanguage.text('Certifications &\nDocuments'),
 
                                 style:
                                 TextStyle(
@@ -2408,8 +2409,8 @@ class _PilotRegisterStepFourScreenState
                               index: 3,
 
                               child:
-                              const Text(
-                                'Add your pilot certification details and upload the required documents for verification.',
+                              Text(
+                                AppLanguage.text('Add your pilot certification details and upload the required documents for verification.'),
 
                                 style:
                                 TextStyle(
@@ -2817,8 +2818,8 @@ class _PilotRegisterStepFourScreenState
                 ),
               ),
 
-              child: const Text(
-                'STEP 4 OF 4',
+              child: Text(
+                AppLanguage.text('STEP 4 OF 4'),
 
                 style: TextStyle(
                   fontSize: 10,
@@ -2933,7 +2934,7 @@ class _PilotRegisterStepFourScreenState
         ),
       ),
 
-      child: const Row(
+      child: Row(
         mainAxisSize:
         MainAxisSize.min,
 
@@ -2955,7 +2956,7 @@ class _PilotRegisterStepFourScreenState
           ),
 
           Text(
-            'FINAL VERIFICATION',
+            AppLanguage.text('FINAL VERIFICATION'),
 
             style: TextStyle(
               color:
@@ -3027,7 +3028,7 @@ class _PilotRegisterStepFourScreenState
 
             children: [
               Text(
-                title,
+                AppLanguage.text(title),
 
                 style:
                 const TextStyle(
@@ -3048,7 +3049,7 @@ class _PilotRegisterStepFourScreenState
               ),
 
               Text(
-                subtitle,
+                AppLanguage.text(subtitle),
 
                 maxLines:
                 2,
@@ -3073,7 +3074,7 @@ class _PilotRegisterStepFourScreenState
       String label,
       ) {
     return Text(
-      label,
+      AppLanguage.text(label),
 
       style:
       const TextStyle(
@@ -3113,7 +3114,7 @@ class _PilotRegisterStepFourScreenState
 
         Expanded(
           child: Text(
-            title,
+            AppLanguage.text(title),
 
             style:
             const TextStyle(
@@ -3154,8 +3155,8 @@ class _PilotRegisterStepFourScreenState
             ),
 
             child:
-            const Text(
-              'Required',
+            Text(
+              AppLanguage.text('Required'),
 
               style:
               TextStyle(
@@ -3428,7 +3429,7 @@ class _PilotRegisterStepFourScreenState
             ),
 
             Text(
-              'Tap to upload document',
+              AppLanguage.text('Tap to upload document'),
 
               style:
               TextStyle(
@@ -3449,8 +3450,8 @@ class _PilotRegisterStepFourScreenState
               3,
             ),
 
-            const Text(
-              'Camera, Gallery or File',
+            Text(
+              AppLanguage.text('Camera, Gallery or File'),
 
               style:
               TextStyle(
@@ -3467,8 +3468,8 @@ class _PilotRegisterStepFourScreenState
               2,
             ),
 
-            const Text(
-              'JPG, PNG or PDF · Max 10 MB',
+            Text(
+              AppLanguage.text('JPG, PNG or PDF · Max 10 MB'),
 
               style:
               TextStyle(
@@ -3486,8 +3487,8 @@ class _PilotRegisterStepFourScreenState
                 8,
               ),
 
-              const Text(
-                'This document is required',
+              Text(
+                AppLanguage.text('This document is required'),
 
                 style:
                 TextStyle(
@@ -3584,11 +3585,11 @@ class _PilotRegisterStepFourScreenState
 
                 children: [
                   Text(
-                    isPicking
+                    AppLanguage.text(isPicking
                         ? 'Preparing file...'
                         : file!.path
                         .split('/')
-                        .last,
+                        .last),
 
                     maxLines:
                     1,
@@ -3650,7 +3651,7 @@ class _PilotRegisterStepFourScreenState
                         ),
 
                         Text(
-                          'Uploading ${(progress * 100).round()}%',
+                          AppLanguage.text('Uploading ${(progress * 100).round()}%'),
 
                           style:
                           const TextStyle(
@@ -3664,7 +3665,7 @@ class _PilotRegisterStepFourScreenState
                       ],
                     )
                   else if (!isPicking)
-                    const Row(
+                    Row(
                       children: [
                         Icon(
                           Icons
@@ -3683,7 +3684,7 @@ class _PilotRegisterStepFourScreenState
                         ),
 
                         Text(
-                          'Uploaded',
+                          AppLanguage.text('Uploaded'),
 
                           style:
                           TextStyle(
@@ -4087,8 +4088,8 @@ class _PilotRegisterStepFourScreenState
 
                     Expanded(
                       child: Text(
-                        value ??
-                            hintText,
+                        AppLanguage.text(value ??
+                            hintText),
 
                         maxLines:
                         2,
@@ -4137,7 +4138,7 @@ class _PilotRegisterStepFourScreenState
                     ),
 
                     child: Text(
-                      state.errorText!,
+                      AppLanguage.text(state.errorText!),
 
                       style:
                       const TextStyle(
@@ -4324,7 +4325,7 @@ class _PilotRegisterStepFourScreenState
                   Flexible(
                     child:
                     Text(
-                      text,
+                      AppLanguage.text(text),
 
                       maxLines:
                       1,
@@ -4375,7 +4376,7 @@ class _PilotRegisterStepFourScreenState
   // ==========================================================================
 
   Widget _buildBottomNote() {
-    return const Center(
+    return Center(
       child: Row(
         mainAxisSize:
         MainAxisSize.min,
@@ -4399,7 +4400,7 @@ class _PilotRegisterStepFourScreenState
 
           Flexible(
             child: Text(
-              'Your documents are used for account verification.',
+              AppLanguage.text('Your documents are used for account verification.'),
 
               textAlign:
               TextAlign.center,

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/features/auth/models/country_model.dart';
 import 'package:tototl_app/features/auth/services/location_service.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../controllers/company_profile_controller.dart';
 import '../../models/company_profile_model.dart';
@@ -414,7 +415,7 @@ class _CompanyEditProfileScreenState
       backgroundColor: Colors.transparent,
       builder: (context) {
         return _SimpleSelectionSheet(
-          title: 'Company Industry',
+          title: AppLanguage.text('Company Industry'),
           selected: _industryType,
           values: values,
           icon: Icons.apartment_rounded,
@@ -436,7 +437,7 @@ class _CompanyEditProfileScreenState
   Future<void> _selectCountry() async {
     final selected =
     await _showCountryPicker(
-      title: 'Company Country',
+      title: AppLanguage.text('Company Country'),
       selectedName: _country,
     );
 
@@ -811,8 +812,7 @@ class _CompanyEditProfileScreenState
                               CrossAxisAlignment
                                   .start,
                               children: [
-                                const Text(
-                                  'Select City',
+                                Text(AppLanguage.text('Select City'),
                                   style:
                                   TextStyle(
                                     color: _text,
@@ -865,9 +865,8 @@ class _CompanyEditProfileScreenState
                     const SizedBox(height: 8),
                     Expanded(
                       child: cities.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No cities found.',
+                          ? Center(
+                        child: Text(AppLanguage.text('No cities found.'),
                           style: TextStyle(
                             color: _textMuted,
                           ),
@@ -1111,27 +1110,27 @@ class _CompanyEditProfileScreenState
           28,
         ),
         children: [
-          const _IntroCard(
+          _IntroCard(
             icon: Icons.apartment_rounded,
             eyebrow: 'COMPANY PROFILE',
             title:
-            'Keep your business identity current.',
+            AppLanguage.text('Keep your business identity current.'),
             subtitle:
-            'Update the information pilots see when they review your company.',
+            AppLanguage.text('Update the information pilots see when they review your company.'),
           ),
           const SizedBox(height: 14),
           _SectionCard(
             icon:
             Icons.business_center_outlined,
-            title: 'Company details',
+            title: AppLanguage.text('Company details'),
             subtitle:
-            'Public business information',
+            AppLanguage.text('Public business information'),
             child: Column(
               children: [
                 _FormField(
                   controller:
                   _companyNameController,
-                  label: 'Company name',
+                  label: AppLanguage.text('Company name'),
                   hint:
                   'Enter company name',
                   icon:
@@ -1149,7 +1148,7 @@ class _CompanyEditProfileScreenState
                 ),
                 const SizedBox(height: 13),
                 _PickerField(
-                  label: 'Industry',
+                  label: AppLanguage.text('Industry'),
                   value: _industryType,
                   hint:
                   'Select company industry',
@@ -1162,7 +1161,7 @@ class _CompanyEditProfileScreenState
                   controller:
                   _descriptionController,
                   label:
-                  'Company description',
+                  AppLanguage.text('Company description'),
                   hint:
                   'Tell pilots what your company does...',
                   icon:
@@ -1210,25 +1209,25 @@ class _CompanyEditProfileScreenState
           28,
         ),
         children: [
-          const _IntroCard(
+          _IntroCard(
             icon: Icons.public_rounded,
             eyebrow: 'OPERATING AREA',
             title:
-            'Show pilots where you operate.',
+            AppLanguage.text('Show pilots where you operate.'),
             subtitle:
-            'Your company location and operating regions help match the right pilots to your jobs.',
+            AppLanguage.text('Your company location and operating regions help match the right pilots to your jobs.'),
           ),
           const SizedBox(height: 14),
           _SectionCard(
             icon:
             Icons.location_on_outlined,
-            title: 'Company location',
+            title: AppLanguage.text('Company location'),
             subtitle:
-            'Main business location',
+            AppLanguage.text('Main business location'),
             child: Column(
               children: [
                 _PickerField(
-                  label: 'Country',
+                  label: AppLanguage.text('Country'),
                   value: _country,
                   hint: 'Select country',
                   icon:
@@ -1240,7 +1239,7 @@ class _CompanyEditProfileScreenState
                   controller:
                   _stateController,
                   label:
-                  'State / Region',
+                  AppLanguage.text('State / Region'),
                   hint:
                   'Optional state or region',
                   icon:
@@ -1250,7 +1249,7 @@ class _CompanyEditProfileScreenState
                 ),
                 const SizedBox(height: 13),
                 _PickerField(
-                  label: 'City',
+                  label: AppLanguage.text('City'),
                   value: _city,
                   hint:
                   _country.trim().isEmpty
@@ -1264,7 +1263,7 @@ class _CompanyEditProfileScreenState
                 _FormField(
                   controller:
                   _addressController,
-                  label: 'Address',
+                  label: AppLanguage.text('Address'),
                   hint:
                   'Business address',
                   icon:
@@ -1276,7 +1275,7 @@ class _CompanyEditProfileScreenState
                 _FormField(
                   controller:
                   _websiteController,
-                  label: 'Website',
+                  label: AppLanguage.text('Website'),
                   hint:
                   'https://company.com',
                   icon:
@@ -1295,9 +1294,9 @@ class _CompanyEditProfileScreenState
           _SectionCard(
             icon:
             Icons.travel_explore_rounded,
-            title: 'Operating regions',
+            title: AppLanguage.text('Operating regions'),
             subtitle:
-            'Areas where your company manages work',
+            AppLanguage.text('Areas where your company manages work'),
             trailing: _CountPill(
               count: _workRegions.length,
             ),
@@ -1374,8 +1373,7 @@ class _CompanyEditProfileScreenState
                       Icons.add_rounded,
                       size: 18,
                     ),
-                    label: const Text(
-                      'Add Operating Region',
+                    label: Text(AppLanguage.text('Add Operating Region'),
                       style: TextStyle(
                         fontWeight:
                         FontWeight.w700,
@@ -1448,8 +1446,7 @@ class _TopBar extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Edit Company Profile',
+                Text(AppLanguage.text('Edit Company Profile'),
                   style: TextStyle(
                     color: _text,
                     fontSize: 19,
@@ -1839,13 +1836,12 @@ class _LockedAccountCard
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Account details',
+                    Text(AppLanguage.text('Account details'),
                       style:
                       TextStyle(
                         color: _text,
@@ -1855,8 +1851,7 @@ class _LockedAccountCard
                       ),
                     ),
                     SizedBox(height: 2),
-                    Text(
-                      'These fields are managed by your account and cannot be edited here.',
+                    Text(AppLanguage.text('These fields are managed by your account and cannot be edited here.'),
                       style:
                       TextStyle(
                         color: _textMuted,
@@ -1873,7 +1868,7 @@ class _LockedAccountCard
           _DisabledInfo(
             icon:
             Icons.person_outline_rounded,
-            label: 'Account name',
+            label: AppLanguage.text('Account name'),
             value: _display(
               account.name,
             ),
@@ -1882,7 +1877,7 @@ class _LockedAccountCard
           _DisabledInfo(
             icon:
             Icons.alternate_email_rounded,
-            label: 'Username',
+            label: AppLanguage.text('Username'),
             value: _display(
               account.displayUsername,
             ),
@@ -1890,7 +1885,7 @@ class _LockedAccountCard
           const SizedBox(height: 8),
           _DisabledInfo(
             icon: Icons.email_outlined,
-            label: 'Email',
+            label: AppLanguage.text('Email'),
             value: _display(
               account.email,
             ),
@@ -1898,7 +1893,7 @@ class _LockedAccountCard
           const SizedBox(height: 8),
           _DisabledInfo(
             icon: Icons.phone_outlined,
-            label: 'Phone',
+            label: AppLanguage.text('Phone'),
             value: _display(
               account.phone,
             ),
@@ -2334,7 +2329,7 @@ class _EmptyRegions extends StatelessWidget {
           color: _border,
         ),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(
             Icons.travel_explore_outlined,
@@ -2342,8 +2337,7 @@ class _EmptyRegions extends StatelessWidget {
             size: 24,
           ),
           SizedBox(height: 6),
-          Text(
-            'No operating regions selected',
+          Text(AppLanguage.text('No operating regions selected'),
             style: TextStyle(
               color: _textMuted,
               fontSize: 10.5,
@@ -2459,8 +2453,7 @@ class _BottomBar extends StatelessWidget {
                     BorderRadius.circular(17),
                   ),
                 ),
-                child: const Text(
-                  'Back',
+                child: Text(AppLanguage.text('Back'),
                   style: TextStyle(
                     fontWeight:
                     FontWeight.w700,
@@ -2781,7 +2774,7 @@ class _WorkRegionEditorSheetState
                   children: [
                     const SizedBox(height: 10),
                     const _SheetHandle(),
-                    const Padding(
+                    Padding(
                       padding:
                       EdgeInsets.fromLTRB(
                         20,
@@ -2792,8 +2785,7 @@ class _WorkRegionEditorSheetState
                       child: Align(
                         alignment:
                         Alignment.centerLeft,
-                        child: Text(
-                          'Operating Country',
+                        child: Text(AppLanguage.text('Operating Country'),
                           style:
                           TextStyle(
                             color: _text,
@@ -2988,9 +2980,8 @@ class _WorkRegionEditorSheetState
                     const SizedBox(height: 8),
                     Expanded(
                       child: cities.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No cities found.',
+                          ? Center(
+                        child: Text(AppLanguage.text('No cities found.'),
                           style: TextStyle(
                             color: _textMuted,
                           ),
@@ -3055,9 +3046,8 @@ class _WorkRegionEditorSheetState
     if (_country.trim().isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Country is required.',
+        SnackBar(
+          content: Text(AppLanguage.text('Country is required.'),
           ),
         ),
       );
@@ -3128,8 +3118,7 @@ class _WorkRegionEditorSheetState
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Choose the area where your company operates.',
+                Text(AppLanguage.text('Choose the area where your company operates.'),
                   style: TextStyle(
                     color: _textMuted,
                     fontSize: 10.5,
@@ -3137,7 +3126,7 @@ class _WorkRegionEditorSheetState
                 ),
                 const SizedBox(height: 18),
                 _PickerField(
-                  label: 'Country',
+                  label: AppLanguage.text('Country'),
                   value: _country,
                   hint: 'Select country',
                   icon:
@@ -3148,7 +3137,7 @@ class _WorkRegionEditorSheetState
                 _FormField(
                   controller:
                   _stateController,
-                  label: 'State / Region',
+                  label: AppLanguage.text('State / Region'),
                   hint: 'Optional',
                   icon: Icons.map_outlined,
                   textCapitalization:
@@ -3156,7 +3145,7 @@ class _WorkRegionEditorSheetState
                 ),
                 const SizedBox(height: 13),
                 _PickerField(
-                  label: 'City',
+                  label: AppLanguage.text('City'),
                   value: _city,
                   hint:
                   _country.trim().isEmpty

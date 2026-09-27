@@ -1,4 +1,4 @@
- import 'package:tototl_app/features/pilot/models/pilot_application_model.dart';
+import 'package:tototl_app/features/pilot/models/pilot_application_model.dart';
 
 import '../../../models/drone_model.dart';
 

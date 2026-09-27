@@ -1,0 +1,443 @@
+ • 
+\$${balance.toStringAsFixed(2)}
+#${_application.id}
+#${application.id}
+#${drone.id}
+#${job.id}
++${_selectedWillingRegions.length - 3}
++${selectedItems.length - 3}
+${_drone.title} will be removed from your profile.
+${_greeting()},
+${_jobs.length} postings · $_publishedCount published
+${_step + 1}/6
+${application.experienceYears} yrs experience · $location
+${documents.length}
+${drone.manufactureYear}
+${filteredCities.length} cities
+${index + 1}
+${number.trim().isEmpty ? 
+${positive ? 
+${step + 1} / 2
+${tempSelected.length} selected
+${tempSelectedCities.length} selected
+$badge
+$completedCount of $totalCount
+$count
+$count ${count == 1 ? 
+$count jobs found
+$count recent
+$pending pending
+$title request sent.
+$total total
+$total total application${total == 1 ? 
+$value
+1.0.0
+4.8 company rating
+Accept
+Account Created!
+Account details
+Account identity protected
+Add
+Add a clear photo for your pilot profile.
+Add a clear photo of your aircraft.
+Add a drone so companies can see your equipment.
+Add a drone to your fleet before applying to this job.
+Add a valid date, duration, and amount.
+Add at least one photo or the final report before submitting.
+Add document
+Add Drone
+Add language
+Add official records, permits, insurance or business documents.
+Add Operating Region
+Add photos or video
+Add profile photo
+Add the agreed site photos, files, and final report before submission.
+Add the drones you operate so companies can review your equipment before assigning a mission.
+Add Work Region
+Add your aircraft details, flight capabilities and services rates.
+Add your first drone
+Add your official company logo.
+Add your pilot certification details and upload the required documents for verification.
+Add your professional pilot credentials.
+Admin #${item.adminId}
+Admin Control Center
+Admin Overview
+ADMIN WORKSPACE
+ADMINISTRATOR
+AIRCRAFT PROFILE
+All day
+All financial actions are recorded in your transaction history.
+APP #${application.id}
+Applicant Details
+Applicant details are no longer available.
+Application
+Application Details
+Application for Job #${_application.jobPostingId}
+APPLICATION JOURNEY
+Applications
+Applications from pilots will appear here as soon as they apply to your jobs.
+Applied ${_formatDateTime(application.createdAt)}
+Apply Filters
+Apply for Job
+Apply for this mission
+Approve
+Attach PDF report
+Available Accessories
+Available Plans
+Available Times
+Back
+Back to Sign In
+Build your fleet
+Build your fleet profile
+Camera, Gallery or File
+Cancel
+Cancel 
+Cancel Job
+Cancel Job?
+Capabilities
+Certifications &\nDocuments
+Change Company Photo
+Change Profile Photo
+Change request sent for review.
+Chat
+Check Your Inbox
+Choose a country and cities where your company operates
+Choose a country and the cities you can work in
+Choose a new professional photo
+Choose another reaction to replace the current one, or tap the same reaction to remove it.
+Choose Custom dimensions when you need an exact physical size.
+Choose payment method
+Choose the area where your company operates.
+Choose the availability date range first.
+Choose the category that best describes your company
+Choose where you are available to accept missions.
+Choose which activity you want highlighted on this device.
+Choose your account type
+Choose your aircraft and send your application
+Choose Your Plan
+City • ${country.name}
+Clear
+Clear search & filters
+Close
+Company
+Company alerts
+Company Dashboard
+Company Details
+Company Documents
+Company information for this mission
+Company Logo
+COMPANY ONBOARDING
+Company Profile
+COMPANY SUBSCRIPTION
+Complete all required information
+Complete your basic information to create your pilot account.
+Complete your company account information
+Complete your company information to start connecting with professional drone pilots.
+Connect API
+Continue
+Could not forward the message.
+Could not load applications
+Could not load conversations.
+Could not load messages.
+Couldn’t load jobs
+Couldn’t load this application
+Couldn’t load this mission
+Couldn’t open chat
+Country Code
+Country is required.
+Create Account
+Create Company Account
+Create Offer
+Create Pilot Account
+Credential Center
+Current: $_existingCustomDroneSize
+Custom dimensions
+Dashboard unavailable
+Delete
+Delete document?
+Delete license?
+Delete message?
+Delete this license?
+Deliverables
+Details
+DIRECT COMMUNICATION
+Document Preview
+Don
+Done
+Drone #${_application.droneId}
+Drone ${index + 1}
+Drone photo
+DRONE PILOT & COMPANY PLATFORM
+Drone profile
+Edit
+Edit Company Details
+Edit Company Profile
+Edit job
+Edit License
+Edit Pilot Profile
+Email
+Email Address
+End this admin session securely
+End time must be after start time.
+Enter the email address linked to your account. We’ll send you instructions to securely reset your password.
+Explore jobs
+Explore published missions and send your first application when the right job appears.
+FINAL VERIFICATION
+Find Drone Jobs
+Forgot Password?
+Forward message
+HIRING COMPANY
+I agree to the 
+I N T G R X
+I Understand
+Identity and business records verified
+If an account exists for\n${_emailController.text.trim()}\nwe’ve sent password reset instructions.
+Image unavailable
+Industry Type
+It will be replaced with “Message deleted” for both users.
+Job #${application.jobPostingId}
+Job cancelled.
+Job Description
+Job Details
+Job matches, application decisions and important account updates will appear here.
+Job summary
+Job, application and message updates will stay organized here as activity happens.
+JPG, PNG or PDF · Max 10 MB
+Keep Application
+Keep every account\ntrusted & ready.
+Keep every license current and ready for company review.
+Keep Job
+Languages
+Length × width are required. Height and maximum weight are optional.
+Length × width describe the physical size. Height and maximum weight make the requirement more precise.
+License Details
+License unavailable
+LinkedIn
+LIVE
+LIVE OVERVIEW
+LIVE PIPELINE
+Locked
+Log out
+Log out of Admin?
+Make sure your aircraft information is accurate.
+Manage
+Manage Jobs
+Manage your aircraft fleet
+Manage your professional credentials
+Mark all read
+Message Company
+Message deleted
+Message forwarded.
+Message Pilot
+Mission Details
+Mission Pipeline
+Mission Progress
+MISSION VALUE
+Mission window
+Monitor verification and keep TOTOTL moving.
+My Drones
+My Fleet
+My Jobs
+Narrow opportunities to the missions that fit you
+Nationality
+New pilot applications will appear here automatically.
+No additional company information was provided.
+No additional requirements.
+No applications yet
+No cities found
+No cities found.
+No company documents yet
+No conversations found.
+No countries found
+No files added yet.
+No jobs match your search
+No licenses added yet
+No operating regions added yet.
+No operating regions selected
+No recent applicants
+No registered drones yet
+No results found
+No work regions selected
+No work regions were listed by this company.
+Not available
+Not linked yet
+Notifications
+Official company files · PDF or image · up to 10 MB
+Once you apply to a published mission, its real application status will appear here.
+Open
+Open a dispute
+Open aircraft details
+Open the email and follow the reset instructions. Check your spam folder if you don’t see it.
+Operating Country
+Operating Regions
+OR
+Password
+Personal Details
+Photo unavailable
+Pilot #${_application.pilotProfileId}
+Pilot applications for this job will appear here.
+Pilot Experience
+Pilot fleet
+Pilot Information
+Pilot Licenses
+PILOT ONBOARDING
+Pilot Profile
+Plan and billing controls will live here.
+Post a job
+Post Job
+Post New Job
+Preparing your workspace...
+Private conversation
+Professional details & working preferences
+PROFESSIONAL PROFILE
+Profile Photo
+PROFILE PREVIEW
+Profile unavailable
+Publish
+Published opportunities ready for pilots
+Pull down to refresh or create a new job posting.
+Quick suggestions
+Rate Company
+Rate Pilot
+React
+Reactivate Account
+READY TO FLY
+Recent Applications
+Refine Jobs
+Registration Submitted!
+Reject
+Reject Applicant?
+Remove
+Remove 
+Remove this drone?
+Renewable Energy · Mojave Desert, CA
+Request a change
+Request schedule or rate change
+Required
+Requirements
+Resend Reset Email
+Reset
+Retry
+Review pilot profile, drone and message before deciding.
+Review the opportunity before you apply
+Save availability
+Save draft
+Securely manage the current administrator session.
+Select all equipment available with your drone
+Select at least one available weekday.
+Select City
+Select country and operating regions
+Select country and regions
+Select your calling code
+Select your company calling code
+Select your nationality
+Select...
+Selected plan
+Send a photo
+Send Offer
+Send photo
+Send Rating
+Send Request
+Send your first message to $partnerName.
+Sent as readable text. For Custom, use unfolded dimensions; max weight is optional.
+Session & Security
+Set one availability window, then choose the days and hours that repeat inside it.
+Show companies the aircraft you can operate.
+Showing saved data while the latest job state syncs.
+Sign In
+Sign in to continue your journey
+Signing out...
+Site files & attachments
+Site location
+SN $serialNumber
+Start a conversation
+Start the conversation about this mission.
+Status: Pending verification
+STEP 1 OF 3
+STEP 1 OF 4
+STEP 2 OF 3
+STEP 2 OF 4
+STEP 3 OF 3
+STEP 3 OF 4
+STEP 4 OF 4
+Submit Deliverables
+Submit Rating
+SunTech Energy delivers large-scale solar operations, inspections, and field intelligence across California. Every field mission is planned with safety and deliverable quality in mind.
+SunTech Energy Ltd.
+Suspend Account
+SYNCING
+Tap to choose or replace • max 10 MB
+Tap to upload document
+Tell us about your experience, skills, location and preferred work regions.
+Tell us where your company operates and provide a short professional overview.
+Terms & Conditions
+The amount is held securely after the pilot accepts and is released only after work confirmation.
+The interface is ready, but no subscription endpoint is currently connected. No plan, price, or billing status is being fabricated locally.
+These choices are saved locally on this device. Server-side notification preference endpoints can be linked later without changing this screen.
+These fields are managed by your account and cannot be edited here.
+This document is required
+This pending application will be withdrawn and can no longer move forward.
+This pilot has been selected for the job. Mission setup actions can be added here in the next workflow stage.
+This will cancel the job workflow for both sides.
+This will permanently remove ${license.licenseType.isEmpty ? 
+TOTOTL
+TOTOTL  ·  ADMIN CONTROL
+Track every application and decision.
+Transaction history
+Try Again
+Try changing the search or clearing the filters.
+Unable to display this PDF: $error
+Unable to load your fleet
+Update only what changed. Your existing job data stays intact.
+Updates that need your attention
+Updating
+Updating account...
+Uploaded
+Uploading ${(progress * 100).round()}%
+Uploading media...
+Use a clear logo or company profile image.
+Use a different email
+Use at least 8 characters to keep your account secure.
+User Agreement
+User Contract Agreement
+User Contract Agreement & Terms
+Verification History
+Verified
+Verified application record
+Verified Pilot
+View
+View all
+View all ${_controller.drones.length}
+View and manage your pilot credential
+View every admin action on this account
+We could not load your pilot profile.
+Welcome Back
+Welcome!
+Withdraw
+Withdraw Application
+Withdraw application?
+Withdrawing...
+Work availability
+Work Regions
+Years of Experience
+You can add a rejection reason or leave it empty.
+You can change your subscription later
+You can choose or change your subscription later.
+You can update these details later from your profile.
+You’re all caught up
+Your accepted application can now move into coordination.
+Your application
+Your company account is ready. Choose a plan now or skip and continue to your dashboard.
+Your company information is securely protected
+Your current administrative session will end and you will return to the sign-in screen.
+Your current selection
+Your documents are used for account verification.
+Your Drone
+Your latest job activity
+Your marketplace at a glance
+Your mission pipeline starts here
+Your pilot profile and documents have been submitted for verification.
+Your preferred work window
+Your registered aircraft
+Your selected registered aircraft will be attached to this application for the company to review.
+Your Steps

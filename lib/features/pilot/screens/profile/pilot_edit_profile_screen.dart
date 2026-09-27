@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import 'package:tototl_app/core/network/api_client.dart';
 
@@ -706,7 +707,7 @@ class _PilotEditProfileScreenState
 
                 _SheetHandle(),
 
-                const Padding(
+                Padding(
                   padding:
                   EdgeInsets.fromLTRB(
                     20,
@@ -719,8 +720,7 @@ class _PilotEditProfileScreenState
                     alignment:
                     Alignment.centerLeft,
 
-                    child: Text(
-                      'Years of Experience',
+                    child: Text(AppLanguage.text('Years of Experience'),
 
                       style:
                       TextStyle(
@@ -843,7 +843,7 @@ class _PilotEditProfileScreenState
     final selected =
     await _showCountryPicker(
       title:
-      'Select Nationality',
+      AppLanguage.text('Select Nationality'),
 
       selectedName:
       _nationalityController
@@ -869,7 +869,7 @@ class _PilotEditProfileScreenState
     final selected =
     await _showCountryPicker(
       title:
-      'Current Country',
+      AppLanguage.text('Current Country'),
 
       selectedName:
       _currentCountryController
@@ -1090,7 +1090,7 @@ class _PilotEditProfileScreenState
                         decoration:
                         InputDecoration(
                           hintText:
-                          'Search country...',
+                          AppLanguage.text('Search country...'),
 
                           prefixIcon:
                           const Icon(
@@ -1363,8 +1363,7 @@ class _PilotEditProfileScreenState
                                   .start,
 
                               children: [
-                                const Text(
-                                  'Select City',
+                                Text(AppLanguage.text('Select City'),
 
                                   style:
                                   TextStyle(
@@ -1436,7 +1435,7 @@ class _PilotEditProfileScreenState
                         decoration:
                         InputDecoration(
                           hintText:
-                          'Search city...',
+                          AppLanguage.text('Search city...'),
 
                           prefixIcon:
                           const Icon(
@@ -1624,8 +1623,7 @@ class _PilotEditProfileScreenState
             ),
           ),
 
-          title: const Text(
-            'Add Language',
+          title: Text(AppLanguage.text('Add Language'),
             style: TextStyle(
               color: _text,
               fontWeight: FontWeight.w800,
@@ -1642,7 +1640,7 @@ class _PilotEditProfileScreenState
             },
 
             decoration: InputDecoration(
-              hintText: 'Language',
+              hintText: AppLanguage.text('Language'),
 
               filled: true,
               fillColor: _surfaceSoft,
@@ -1670,8 +1668,7 @@ class _PilotEditProfileScreenState
                   dialogContext,
                 );
               },
-              child: const Text(
-                'Cancel',
+              child: Text(AppLanguage.text('Cancel'),
               ),
             ),
 
@@ -1693,8 +1690,7 @@ class _PilotEditProfileScreenState
                   value,
                 );
               },
-              child: const Text(
-                'Add',
+              child: Text(AppLanguage.text('Add'),
               ),
             ),
           ],
@@ -1823,8 +1819,7 @@ class _PilotEditProfileScreenState
                         height: 5,
                       ),
 
-                      const Text(
-                        'Choose where you are available to accept missions.',
+                      Text(AppLanguage.text('Choose where you are available to accept missions.'),
 
                         style:
                         TextStyle(
@@ -1845,7 +1840,7 @@ class _PilotEditProfileScreenState
 
                       _SheetSelectField(
                         label:
-                        'Country',
+                        AppLanguage.text('Country'),
 
                         value:
                         country,
@@ -1860,7 +1855,7 @@ class _PilotEditProfileScreenState
                           final selected =
                           await _showCountryPicker(
                             title:
-                            'Work Country',
+                            AppLanguage.text('Work Country'),
 
                             selectedName:
                             country,
@@ -1890,7 +1885,7 @@ class _PilotEditProfileScreenState
 
                       _RegionTextField(
                         label:
-                        'State / Province / Region',
+                        AppLanguage.text('State / Province / Region'),
 
                         value:
                         state,
@@ -1916,7 +1911,7 @@ class _PilotEditProfileScreenState
 
                       _SheetSelectField(
                         label:
-                        'City',
+                        AppLanguage.text('City'),
 
                         value:
                         city,
@@ -2271,10 +2266,10 @@ class _PilotEditProfileScreenState
               Icons.lock_outline_rounded,
 
               title:
-              'Account Information',
+              AppLanguage.text('Account Information'),
 
               subtitle:
-              'Managed by your account and cannot be changed here',
+              AppLanguage.text('Managed by your account and cannot be changed here'),
 
               trailing:
               const _LockedPill(),
@@ -2287,7 +2282,7 @@ class _PilotEditProfileScreenState
                         .person_outline_rounded,
 
                     label:
-                    'Full Name',
+                    AppLanguage.text('Full Name'),
 
                     value:
                     _display(
@@ -2305,7 +2300,7 @@ class _PilotEditProfileScreenState
                         .alternate_email_rounded,
 
                     label:
-                    'Username',
+                    AppLanguage.text('Username'),
 
                     value:
                     _display(
@@ -2323,7 +2318,7 @@ class _PilotEditProfileScreenState
                         .mail_outline_rounded,
 
                     label:
-                    'Email Address',
+                    AppLanguage.text('Email Address'),
 
                     value:
                     _display(
@@ -2340,7 +2335,7 @@ class _PilotEditProfileScreenState
                     Icons.phone_outlined,
 
                     label:
-                    'Phone Number',
+                    AppLanguage.text('Phone Number'),
 
                     value:
                     _display(
@@ -2358,7 +2353,7 @@ class _PilotEditProfileScreenState
                         .verified_user_outlined,
 
                     label:
-                    'Account Status',
+                    AppLanguage.text('Account Status'),
 
                     value:
                     _statusText(
@@ -2383,10 +2378,10 @@ class _PilotEditProfileScreenState
                   .edit,
 
               title:
-              'Personal Details',
+              AppLanguage.text('Personal Details'),
 
               subtitle:
-              'Information displayed on your pilot profile',
+              AppLanguage.text('Information displayed on your pilot profile'),
 
               child: Column(
                 children: [
@@ -2395,7 +2390,7 @@ class _PilotEditProfileScreenState
                     _dateController,
 
                     label:
-                    'Date of Birth',
+                    AppLanguage.text('Date of Birth'),
 
                     hint:
                     'Select date',
@@ -2420,7 +2415,7 @@ class _PilotEditProfileScreenState
                     _nationalityController,
 
                     label:
-                    'Nationality',
+                    AppLanguage.text('Nationality'),
 
                     hint:
                     'Select nationality',
@@ -2444,7 +2439,7 @@ class _PilotEditProfileScreenState
                     _linkedinController,
 
                     label:
-                    'LinkedIn Profile',
+                    AppLanguage.text('LinkedIn Profile'),
 
                     hint:
                     'https://linkedin.com/in/...',
@@ -2541,10 +2536,10 @@ class _PilotEditProfileScreenState
                   .workspace_premium_outlined,
 
               title:
-              'Experience & Languages',
+              AppLanguage.text('Experience & Languages'),
 
               subtitle:
-              'Your professional experience and communication skills',
+              AppLanguage.text('Your professional experience and communication skills'),
 
               child: Column(
                 crossAxisAlignment:
@@ -2553,7 +2548,7 @@ class _PilotEditProfileScreenState
                 children: [
                   _TapFormField(
                     label:
-                    'Years of Experience',
+                    AppLanguage.text('Years of Experience'),
 
                     value:
                     _experienceLabel(
@@ -2572,8 +2567,7 @@ class _PilotEditProfileScreenState
                     height: 18,
                   ),
 
-                  const Text(
-                    'Languages',
+                  Text(AppLanguage.text('Languages'),
 
                     style:
                     TextStyle(
@@ -2647,10 +2641,10 @@ class _PilotEditProfileScreenState
                   .my_location_rounded,
 
               title:
-              'Current Location',
+              AppLanguage.text('Current Location'),
 
               subtitle:
-              'Where you are currently based',
+              AppLanguage.text('Where you are currently based'),
 
               child: Column(
                 children: [
@@ -2659,7 +2653,7 @@ class _PilotEditProfileScreenState
                     _currentCountryController,
 
                     label:
-                    'Country',
+                    AppLanguage.text('Country'),
 
                     hint:
                     'Select country',
@@ -2683,7 +2677,7 @@ class _PilotEditProfileScreenState
                     _currentStateController,
 
                     label:
-                    'State / Province / Region',
+                    AppLanguage.text('State / Province / Region'),
 
                     hint:
                     'Optional',
@@ -2704,7 +2698,7 @@ class _PilotEditProfileScreenState
                     _currentCityController,
 
                     label:
-                    'City',
+                    AppLanguage.text('City'),
 
                     hint:
                     'Select city',
@@ -2737,10 +2731,10 @@ class _PilotEditProfileScreenState
                   .travel_explore_rounded,
 
               title:
-              'Work Availability',
+              AppLanguage.text('Work Availability'),
 
               subtitle:
-              'Regions where you are available for missions',
+              AppLanguage.text('Regions where you are available for missions'),
 
               trailing:
               _CountPill(
@@ -2818,8 +2812,7 @@ class _PilotEditProfileScreenState
                       ),
 
                       label:
-                      const Text(
-                        'Add Work Region',
+                      Text(AppLanguage.text('Add Work Region'),
                       ),
 
                       style:
@@ -2880,10 +2873,10 @@ class _PilotEditProfileScreenState
                   .business_center_outlined,
 
               title:
-              'Professional Background',
+              AppLanguage.text('Professional Background'),
 
               subtitle:
-              'Help companies understand your experience',
+              AppLanguage.text('Help companies understand your experience'),
 
               child: Column(
                 children: [
@@ -2892,7 +2885,7 @@ class _PilotEditProfileScreenState
                     _previousCompanyController,
 
                     label:
-                    'Previous Company',
+                    AppLanguage.text('Previous Company'),
 
                     hint:
                     'Optional',
@@ -2913,7 +2906,7 @@ class _PilotEditProfileScreenState
                     _bioController,
 
                     label:
-                    'Professional Summary',
+                    AppLanguage.text('Professional Summary'),
 
                     hint:
                     'Tell companies about your experience, specialties and the type of missions you are interested in...',
@@ -3071,8 +3064,7 @@ class _TopBar extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Edit Pilot Profile',
+                Text(AppLanguage.text('Edit Pilot Profile'),
                   style: TextStyle(
                     color: _text,
                     fontSize: 19,
@@ -3148,7 +3140,7 @@ class _StepIndicator
             0,
 
             title:
-            'Personal',
+            AppLanguage.text('Personal'),
 
             currentStep:
             currentStep,
@@ -3172,7 +3164,7 @@ class _StepIndicator
             1,
 
             title:
-            'Work',
+            AppLanguage.text('Work'),
 
             currentStep:
             currentStep,
@@ -3536,7 +3528,7 @@ class _AccountHero
                   ),
 
                   child:
-                  const Row(
+                  Row(
                     mainAxisSize:
                     MainAxisSize.min,
 
@@ -3557,8 +3549,7 @@ class _AccountHero
                         5,
                       ),
 
-                      Text(
-                        'Account identity protected',
+                      Text(AppLanguage.text('Account identity protected'),
 
                         style:
                         TextStyle(
@@ -3914,7 +3905,7 @@ class _LockedPill
       ),
 
       child:
-      const Row(
+      Row(
         mainAxisSize:
         MainAxisSize.min,
 
@@ -3932,8 +3923,7 @@ class _LockedPill
             width: 4,
           ),
 
-          Text(
-            'Locked',
+          Text(AppLanguage.text('Locked'),
 
             style:
             TextStyle(
@@ -4485,7 +4475,7 @@ class _AddChip
         ),
 
         child:
-        const Row(
+        Row(
           mainAxisSize:
           MainAxisSize.min,
 
@@ -4503,8 +4493,7 @@ class _AddChip
               width: 5,
             ),
 
-            Text(
-              'Add language',
+            Text(AppLanguage.text('Add language'),
 
               style:
               TextStyle(
@@ -4969,7 +4958,7 @@ class _EmptyRegions
       ),
 
       child:
-      const Column(
+      Column(
         children: [
           Icon(
             Icons
@@ -4985,8 +4974,7 @@ class _EmptyRegions
             height: 6,
           ),
 
-          Text(
-            'No work regions selected',
+          Text(AppLanguage.text('No work regions selected'),
 
             style:
             TextStyle(
@@ -5158,8 +5146,7 @@ class _BottomBar
                 ),
 
                 child:
-                const Text(
-                  'Back',
+                Text(AppLanguage.text('Back'),
 
                   style:
                   TextStyle(
@@ -5488,3 +5475,4 @@ String _initials(
   return '${parts.first[0]}${parts.last[0]}'
       .toUpperCase();
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../theme/app_colors.dart';
 
@@ -355,7 +356,7 @@ class _BottomNavButton extends StatelessWidget {
                         height: 1.1,
                       ),
                       child: Text(
-                        item.label,
+                        AppLanguage.text(item.label),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

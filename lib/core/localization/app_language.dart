@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'generated_ui_translations.dart';
+
 class AppLanguage {
   AppLanguage._();
 
@@ -9,18 +11,61 @@ class AppLanguage {
 
   static Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    locale.value = Locale(prefs.getString('app_language') ?? 'en');
+    final saved = prefs.getString('app_language') ?? 'en';
+    locale.value = Locale(supportedCodes.contains(saved) ? saved : 'en');
   }
 
   static Future<void> set(String code) async {
-    locale.value = Locale(code);
+    final safeCode = supportedCodes.contains(code) ? code : 'en';
+    locale.value = Locale(safeCode);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('app_language', code);
+    await prefs.setString('app_language', safeCode);
   }
 
   static String t(String key) => _values[locale.value.languageCode]?[key] ??
       _values['en']![key] ??
       key;
+
+  /// Translates static interface copy while retaining English as the source
+  /// language and a safe fallback for content received from the server.
+  static String text(String source) {
+    final code = locale.value.languageCode;
+    if (code == 'en' || source.trim().isEmpty) return source;
+
+    final exact = generatedUiTranslations[code]?[source];
+    if (exact != null) return exact;
+
+    // Small dynamic UI patterns used by registration pickers/progress labels.
+    final years = RegExp(r'^(\d+) years?$').firstMatch(source);
+    if (years != null) {
+      final n = years.group(1)!;
+      if (code == 'ar') return '$n سنة';
+      if (code == 'de') return '$n ${n == '1' ? 'Jahr' : 'Jahre'}';
+    }
+
+    final selected = RegExp(r'^(\d+) selected$', caseSensitive: false).firstMatch(source);
+    if (selected != null) {
+      final n = selected.group(1)!;
+      if (code == 'ar') return 'تم اختيار $n';
+      if (code == 'de') return '$n ausgewählt';
+    }
+
+    final cities = RegExp(r'^(\d+) cities$', caseSensitive: false).firstMatch(source);
+    if (cities != null) {
+      final n = cities.group(1)!;
+      if (code == 'ar') return '$n مدينة';
+      if (code == 'de') return '$n Städte';
+    }
+
+    final upload = RegExp(r'^Uploading (\d+)%$').firstMatch(source);
+    if (upload != null) {
+      final n = upload.group(1)!;
+      if (code == 'ar') return 'جارٍ الرفع $n%';
+      if (code == 'de') return 'Wird hochgeladen $n%';
+    }
+
+    return source;
+  }
 
   static const _values = {
     'en': {

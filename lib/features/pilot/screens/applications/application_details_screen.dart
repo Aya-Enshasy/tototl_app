@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
 import '../../services/pilot_job_service.dart';
 import '../message/messages_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class ApplicationDetailsScreen extends StatefulWidget {
   const ApplicationDetailsScreen({
@@ -271,13 +273,13 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
           titlePadding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
           contentPadding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
           actionsPadding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-          title: const Row(
+          title: Row(
             children: [
               _WithdrawDialogIcon(),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Withdraw application?',
+                  AppLanguage.text('Withdraw application?'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 17,
@@ -287,8 +289,8 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
               ),
             ],
           ),
-          content: const Text(
-            'This pending application will be withdrawn and can no longer move forward.',
+          content: Text(
+            AppLanguage.text('This pending application will be withdrawn and can no longer move forward.'),
             style: TextStyle(
               color: AppColors.grey,
               fontSize: 12.5,
@@ -298,7 +300,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Keep Application'),
+              child: Text(AppLanguage.text('Keep Application')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -309,7 +311,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
                   borderRadius: BorderRadius.circular(13),
                 ),
               ),
-              child: const Text('Withdraw'),
+              child: Text(AppLanguage.text('Withdraw')),
             ),
           ],
         );
@@ -461,13 +463,13 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     return _PremiumSection(
       icon: Icons.work_outline_rounded,
       eyebrow: 'MISSION',
-      title: 'Mission Details',
+      title: AppLanguage.text('Mission Details'),
       child: job == null
           ? _UnavailableRelation(
         icon: Icons.work_off_outlined,
         title: 'Job #${application.jobPostingId}',
         message:
-        'Full mission details are not available from the current pilot endpoint. No replacement data is being invented.',
+        AppLanguage.text('Full mission details are not available from the current pilot endpoint. No replacement data is being invented.'),
       )
           : _JobContent(
         job: job,
@@ -482,13 +484,13 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     return _PremiumSection(
       icon: Icons.flight_rounded,
       eyebrow: 'AIRCRAFT',
-      title: 'Committed Drone',
+      title: AppLanguage.text('Committed Drone'),
       child: drone == null
           ? _UnavailableRelation(
         icon: Icons.flight_outlined,
         title: 'Drone #${application.droneId}',
         message:
-        'This is the real drone ID linked to the application. Its full profile could not be retrieved.',
+        AppLanguage.text('This is the real drone ID linked to the application. Its full profile could not be retrieved.'),
       )
           : _DroneContent(drone: drone),
     );
@@ -535,26 +537,26 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               child: _withdrawing
-                  ? const Row(
+                  ? Row(
                 key: ValueKey('withdrawing'),
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _ActionDots(color: AppColors.red),
                   SizedBox(width: 9),
                   Text(
-                    'Withdrawing...',
+                    AppLanguage.text('Withdrawing...'),
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ],
               )
-                  : const Row(
+                  : Row(
                 key: ValueKey('withdraw'),
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.undo_rounded, size: 18),
                   SizedBox(width: 8),
                   Text(
-                    'Withdraw Application',
+                    AppLanguage.text('Withdraw Application'),
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ],
@@ -659,12 +661,12 @@ class _TopBar extends StatelessWidget {
             onTap: onBack,
           ),
           const SizedBox(width: 11),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Application Details',
+                  AppLanguage.text('Application Details'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -675,7 +677,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Verified application record',
+                  AppLanguage.text('Verified application record'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 9.8,
@@ -754,13 +756,13 @@ class _SyncBadge extends StatelessWidget {
           color: AppColors.logoTurquoiseDark.withOpacity(0.10),
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _ActionDots(color: AppColors.logoTurquoiseDark),
           SizedBox(width: 7),
           Text(
-            'SYNCING',
+            AppLanguage.text('SYNCING'),
             style: TextStyle(
               color: AppColors.logoTurquoiseDark,
               fontSize: 8.5,
@@ -1139,7 +1141,7 @@ class _HeroCard extends StatelessWidget {
                     Expanded(
                       child: _HeroMiniInfo(
                         icon: Icons.schedule_rounded,
-                        label: 'Submitted',
+                        label: AppLanguage.text('Submitted'),
                         value: application.submittedLabel,
                       ),
                     ),
@@ -1147,7 +1149,7 @@ class _HeroCard extends StatelessWidget {
                     Expanded(
                       child: _HeroMiniInfo(
                         icon: Icons.flight_outlined,
-                        label: 'Aircraft',
+                        label: AppLanguage.text('Aircraft'),
                         value: droneName.isNotEmpty
                             ? droneName
                             : 'Drone #${application.droneId}',
@@ -1313,7 +1315,7 @@ class _StatusJourney extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.route_outlined,
@@ -1322,7 +1324,7 @@ class _StatusJourney extends StatelessWidget {
               ),
               SizedBox(width: 8),
               Text(
-                'APPLICATION JOURNEY',
+                AppLanguage.text('APPLICATION JOURNEY'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 10,
@@ -1335,9 +1337,9 @@ class _StatusJourney extends StatelessWidget {
           const SizedBox(height: 17),
           Row(
             children: [
-              const _JourneyNode(
+              _JourneyNode(
                 icon: Icons.send_rounded,
-                label: 'Submitted',
+                label: AppLanguage.text('Submitted'),
                 color: AppColors.logoTurquoiseDark,
                 active: true,
               ),
@@ -1476,7 +1478,7 @@ class _ApplicationSnapshot extends StatelessWidget {
     return _PremiumSection(
       icon: Icons.grid_view_rounded,
       eyebrow: 'RECORD',
-      title: 'Application Snapshot',
+      title: AppLanguage.text('Application Snapshot'),
       child: Column(
         children: [
           Row(
@@ -1484,7 +1486,7 @@ class _ApplicationSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotTile(
                   icon: Icons.tag_rounded,
-                  label: 'Application',
+                  label: AppLanguage.text('Application'),
                   value: '#${application.id}',
                   tint: AppColors.blue,
                 ),
@@ -1493,7 +1495,7 @@ class _ApplicationSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotTile(
                   icon: Icons.work_outline_rounded,
-                  label: 'Job',
+                  label: AppLanguage.text('Job'),
                   value: '#${application.jobPostingId}',
                   tint: AppColors.logoTurquoiseDark,
                 ),
@@ -1506,7 +1508,7 @@ class _ApplicationSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotTile(
                   icon: Icons.flight_outlined,
-                  label: 'Drone',
+                  label: AppLanguage.text('Drone'),
                   value: '#${application.droneId}',
                   tint: AppColors.green,
                 ),
@@ -1515,7 +1517,7 @@ class _ApplicationSnapshot extends StatelessWidget {
               Expanded(
                 child: _SnapshotTile(
                   icon: Icons.schedule_rounded,
-                  label: 'Submitted',
+                  label: AppLanguage.text('Submitted'),
                   value: application.submittedLabel,
                   tint: const Color(0xFFE99A18),
                 ),
@@ -1743,7 +1745,7 @@ class _JobContent extends StatelessWidget {
             Expanded(
               child: _MissionMetric(
                 icon: Icons.payments_outlined,
-                label: 'Mission Value',
+                label: AppLanguage.text('Mission Value'),
                 value: job.payLabel,
                 tint: AppColors.green,
               ),
@@ -1752,7 +1754,7 @@ class _JobContent extends StatelessWidget {
             Expanded(
               child: _MissionMetric(
                 icon: Icons.calendar_month_outlined,
-                label: 'Mission Date',
+                label: AppLanguage.text('Mission Date'),
                 value: job.dateLabel,
                 tint: AppColors.logoTurquoiseDark,
               ),
@@ -2264,8 +2266,8 @@ class _CompanyChatCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'DIRECT COMMUNICATION',
+                  Text(
+                    AppLanguage.text('DIRECT COMMUNICATION'),
                     style: TextStyle(
                       color: AppColors.green,
                       fontSize: 7.8,
@@ -2285,8 +2287,8 @@ class _CompanyChatCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  const Text(
-                    'Your accepted application can now move into coordination.',
+                  Text(
+                    AppLanguage.text('Your accepted application can now move into coordination.'),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2341,7 +2343,7 @@ class _MessageSection extends StatelessWidget {
     return _PremiumSection(
       icon: Icons.notes_rounded,
       eyebrow: 'SUBMISSION',
-      title: 'Cover Message',
+      title: AppLanguage.text('Cover Message'),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(13),
@@ -2382,7 +2384,7 @@ class _DecisionSection extends StatelessWidget {
     return _PremiumSection(
       icon: visual.icon,
       eyebrow: 'OUTCOME',
-      title: 'Application Decision',
+      title: AppLanguage.text('Application Decision'),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -2618,8 +2620,8 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 17),
-            const Text(
-              'Couldn’t load this application',
+            Text(
+              AppLanguage.text('Couldn’t load this application'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.navy,
@@ -2652,8 +2654,8 @@ class _ErrorState extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 17),
-              label: const Text(
-                'Try Again',
+              label: Text(
+                AppLanguage.text('Try Again'),
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -3050,3 +3052,4 @@ class _ShimmerBlock extends StatelessWidget {
     );
   }
 }
+

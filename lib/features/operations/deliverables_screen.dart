@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import '../../core/theme/app_colors.dart';
 import 'operation_store.dart';
 
@@ -53,9 +54,8 @@ class _DeliverablesScreenState extends State<DeliverablesScreen> {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               ),
-              const Expanded(
-                child: Text(
-                  'Deliverables',
+              Expanded(
+                child: Text(AppLanguage.text('Deliverables'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.navy,
@@ -77,19 +77,17 @@ class _DeliverablesScreenState extends State<DeliverablesScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Add the agreed site photos, files, and final report before submission.',
+          Text(AppLanguage.text('Add the agreed site photos, files, and final report before submission.'),
             style: TextStyle(color: AppColors.grey, fontSize: 13.5),
           ),
           const SizedBox(height: 22),
           _Section(
-            title: 'Mission photos & video',
+            title: AppLanguage.text('Mission photos & video'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_photos.isEmpty)
-                  const Text(
-                    'No files added yet.',
+                  Text(AppLanguage.text('No files added yet.'),
                     style: TextStyle(color: AppColors.grey, fontSize: 12.5),
                   )
                 else
@@ -114,19 +112,19 @@ class _DeliverablesScreenState extends State<DeliverablesScreen> {
                 OutlinedButton.icon(
                   onPressed: _pickPhoto,
                   icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('Add photos or video'),
+                  label: Text(AppLanguage.text('Add photos or video')),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 14),
           _Section(
-            title: 'Final report',
+            title: AppLanguage.text('Final report'),
             child: _report == null
                 ? OutlinedButton.icon(
                     onPressed: _pickReport,
                     icon: const Icon(Icons.upload_file_outlined),
-                    label: const Text('Attach PDF report'),
+                    label: Text(AppLanguage.text('Attach PDF report')),
                   )
                 : Row(
                     children: [
@@ -155,13 +153,13 @@ class _DeliverablesScreenState extends State<DeliverablesScreen> {
           ),
           const SizedBox(height: 14),
           _Section(
-            title: 'Completion note',
+            title: AppLanguage.text('Completion note'),
             child: TextField(
               controller: _note,
               maxLines: 5,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText:
-                    'Summarize findings, completed inspections, and anything the company should know.',
+                    AppLanguage.text('Summarize findings, completed inspections, and anything the company should know.'),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -173,9 +171,8 @@ class _DeliverablesScreenState extends State<DeliverablesScreen> {
               onPressed: () {
                 if (_photos.isEmpty && _report == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Add at least one photo or the final report before submitting.',
+                    SnackBar(
+                      content: Text(AppLanguage.text('Add at least one photo or the final report before submitting.'),
                       ),
                     ),
                   );
@@ -190,8 +187,7 @@ class _DeliverablesScreenState extends State<DeliverablesScreen> {
                   borderRadius: BorderRadius.circular(15),
                 ),
               ),
-              child: const Text(
-                'Submit Deliverables',
+              child: Text(AppLanguage.text('Submit Deliverables'),
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),

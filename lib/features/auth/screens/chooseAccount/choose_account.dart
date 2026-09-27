@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/session/account_role_store.dart';
@@ -213,8 +214,8 @@ class _ChooseAccountTypeScreenState
                           const SizedBox(height: 30),
 
                           // النصوص
-                          const Text(
-                            'Create Account',
+                          Text(
+                            AppLanguage.text('Create Account'),
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -223,8 +224,8 @@ class _ChooseAccountTypeScreenState
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Choose your account type',
+                          Text(
+                            AppLanguage.text('Choose your account type'),
                             style: TextStyle(
                               fontSize: 14.5,
                               color: AppColors.grey,
@@ -250,7 +251,7 @@ class _ChooseAccountTypeScreenState
                                       child: _buildAccountCard(
                                         title: 'Drone Pilot',
                                         subtitle:
-                                            'Upload your profile\nand apply for jobs',
+                                        'Upload your profile\nand apply for jobs',
                                         imageAsset: 'assets/images/drone.png',
                                         baseColor: AppColors.logoTurquoiseDark,
                                         arrowColor: AppColors.logoTurquoise,
@@ -262,8 +263,8 @@ class _ChooseAccountTypeScreenState
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) =>
-                                                   PilotRegisterStepOneScreen(
-                                                      authController: widget.authController,
+                                                  PilotRegisterStepOneScreen(
+                                                    authController: widget.authController,
 
                                                   ),
                                             ),
@@ -283,7 +284,7 @@ class _ChooseAccountTypeScreenState
                                       child: _buildAccountCard(
                                         title: 'Company',
                                         subtitle:
-                                            'Hire certified pilots\nand publish jobs',
+                                        'Hire certified pilots\nand publish jobs',
                                         imageAsset: 'assets/images/company.png',
                                         baseColor: AppColors.logoNavy,
                                         arrowColor: AppColors.logoTurquoise,
@@ -294,10 +295,10 @@ class _ChooseAccountTypeScreenState
                                           Navigator.pushReplacement(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) =>
-                                                  CompanyRegisterStepOneScreen(
-                                                    authController: widget.authController,
-                                                                                                    )
+                                                builder: (context) =>
+                                                    CompanyRegisterStepOneScreen(
+                                                      authController: widget.authController,
+                                                    )
                                             ),
                                           );
                                         },
@@ -404,7 +405,7 @@ class _ChooseAccountTypeScreenState
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              title,
+                              AppLanguage.text(title),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 19,
@@ -414,7 +415,7 @@ class _ChooseAccountTypeScreenState
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              subtitle,
+                              AppLanguage.text(subtitle),
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.85),
                                 fontSize: 12,

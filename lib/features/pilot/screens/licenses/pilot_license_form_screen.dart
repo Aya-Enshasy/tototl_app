@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -10,6 +11,7 @@ import '../../models/pilot_license_form_request.dart';
 import '../../models/pilot_license_model.dart';
 import '../../services/pilot_license_service.dart';
 import 'pilot_license_document_viewer_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 const Color _page = Color(0xFFF7F9FB);
 const Color _ink = Color(0xFF071A35);
@@ -364,18 +366,18 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                         children: [
                           _IntroCard(isEditing: widget.isEditing),
                           const SizedBox(height: 16),
-                          const _SectionTitle(
+                          _SectionTitle(
                             icon: Icons.badge_outlined,
-                            title: 'License Information',
+                            title: AppLanguage.text('License Information'),
                             subtitle:
-                            'Use the exact details printed on the credential.',
+                            AppLanguage.text('Use the exact details printed on the credential.'),
                           ),
                           const SizedBox(height: 10),
                           _FormCard(
                             children: [
                               _PremiumTextField(
                                 controller: _typeController,
-                                label: 'License Type',
+                                label: AppLanguage.text('License Type'),
                                 hint: 'e.g. FAA Part 107',
                                 icon: Icons.workspace_premium_outlined,
                                 maxLength: 60,
@@ -387,7 +389,7 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                               const SizedBox(height: 14),
                               _PremiumTextField(
                                 controller: _numberController,
-                                label: 'License Number',
+                                label: AppLanguage.text('License Number'),
                                 hint: 'Enter license number',
                                 icon: Icons.numbers_rounded,
                                 maxLength: 255,
@@ -399,7 +401,7 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                               const SizedBox(height: 14),
                               _PremiumTextField(
                                 controller: _authorityController,
-                                label: 'Issuing Authority',
+                                label: AppLanguage.text('Issuing Authority'),
                                 hint: 'e.g. Federal Aviation Administration',
                                 icon: Icons.account_balance_outlined,
                                 maxLength: 60,
@@ -416,15 +418,15 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                             ],
                           ),
                           const SizedBox(height: 18),
-                          const _SectionTitle(
+                          _SectionTitle(
                             icon: Icons.attach_file_rounded,
-                            title: 'Documents',
+                            title: AppLanguage.text('Documents'),
                             subtitle:
-                            'PDF or image files. Maximum 10 MB per document.',
+                            AppLanguage.text('PDF or image files. Maximum 10 MB per document.'),
                           ),
                           const SizedBox(height: 10),
                           _DocumentPickerCard(
-                            title: 'License Document',
+                            title: AppLanguage.text('License Document'),
                             subtitle: widget.isEditing &&
                                 existing?.licenseDocument != null
                                 ? 'Current document stays unless you replace it.'
@@ -452,8 +454,8 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
                           ),
                           const SizedBox(height: 10),
                           _DocumentPickerCard(
-                            title: 'Permit / Insurance Document',
-                            subtitle: 'Optional supporting document',
+                            title: AppLanguage.text('Permit / Insurance Document'),
+                            subtitle: AppLanguage.text('Optional supporting document'),
                             selectedFile: _permitDocument,
                             existingName:
                             existing?.permitOrInsuranceDocument?.name,
@@ -804,7 +806,7 @@ class _DateField extends StatelessWidget {
       borderRadius: BorderRadius.circular(15),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: 'Expiration Date',
+          labelText: AppLanguage.text('Expiration Date'),
           labelStyle: const TextStyle(
             color: _muted,
             fontSize: 11.5,
@@ -1075,8 +1077,8 @@ class _PreviewCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'PROFILE PREVIEW',
+                Text(
+                  AppLanguage.text('PROFILE PREVIEW'),
                   style: TextStyle(
                     color: _tealDark,
                     fontSize: 8,
@@ -1150,4 +1152,5 @@ String _formatDate(DateTime date) {
 
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }
+
 

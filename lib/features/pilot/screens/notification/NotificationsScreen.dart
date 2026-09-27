@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 
 class PilotNotificationsScreen extends StatelessWidget {
@@ -72,12 +73,11 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 13),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Notifications',
+                Text(AppLanguage.text('Notifications'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 19,
@@ -87,8 +87,7 @@ class _TopBar extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 3),
-                Text(
-                  'Updates that need your attention',
+                Text(AppLanguage.text('Updates that need your attention'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 10.2,
@@ -184,8 +183,7 @@ class _EmptyNotifications extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 22),
-              const Text(
-                'You’re all caught up',
+              Text(AppLanguage.text('You’re all caught up'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.navy,
@@ -196,8 +194,7 @@ class _EmptyNotifications extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Job matches, application decisions and important account updates will appear here.',
+              Text(AppLanguage.text('Job matches, application decisions and important account updates will appear here.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.grey.withOpacity(0.92),
@@ -217,7 +214,7 @@ class _EmptyNotifications extends StatelessWidget {
                     color: AppColors.cardBorder,
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     _InfoIcon(
                       icon: Icons.work_outline_rounded,
@@ -232,8 +229,7 @@ class _EmptyNotifications extends StatelessWidget {
                     ),
                     SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Job, application and message updates will stay organized here as activity happens.',
+                      child: Text(AppLanguage.text('Job, application and message updates will stay organized here as activity happens.'),
                         style: TextStyle(
                           color: AppColors.grey,
                           fontSize: 10.2,
@@ -327,3 +323,4 @@ class _BackgroundGlow extends StatelessWidget {
     );
   }
 }
+

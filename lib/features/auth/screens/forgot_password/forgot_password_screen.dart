@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({
@@ -189,7 +190,7 @@ class _ForgotPasswordScreenState
 
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
                   style:
                   const TextStyle(
                     color: Colors.white,
@@ -308,8 +309,8 @@ class _ForgotPasswordScreenState
 
                             const SizedBox(height: 6),
 
-                            const Text(
-                              'TOTOTL',
+                            Text(
+                              AppLanguage.text('TOTOTL'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 30,
@@ -320,8 +321,8 @@ class _ForgotPasswordScreenState
 
                             const SizedBox(height: 1),
 
-                            const Text(
-                              'I N T G R X',
+                            Text(
+                              AppLanguage.text('I N T G R X'),
                               style: TextStyle(
                                 color:
                                 AppColors.logoTurquoiseLight,
@@ -459,8 +460,8 @@ class _ForgotPasswordScreenState
 
           // TITLE
 
-          const Text(
-            'Forgot Password?',
+          Text(
+            AppLanguage.text('Forgot Password?'),
             textAlign:
             TextAlign.center,
 
@@ -481,8 +482,8 @@ class _ForgotPasswordScreenState
 
           // DESCRIPTION
 
-          const Text(
-            'Enter the email address linked to your account. We’ll send you instructions to securely reset your password.',
+          Text(
+            AppLanguage.text('Enter the email address linked to your account. We’ll send you instructions to securely reset your password.'),
             textAlign:
             TextAlign.center,
 
@@ -500,8 +501,8 @@ class _ForgotPasswordScreenState
 
           // EMAIL LABEL
 
-          const Text(
-            'Email Address',
+          Text(
+            AppLanguage.text('Email Address'),
             style: TextStyle(
               fontSize: 13.5,
               fontWeight:
@@ -615,8 +616,8 @@ class _ForgotPasswordScreenState
               );
             },
 
-            child: const Text(
-              'Back to Sign In',
+            child: Text(
+              AppLanguage.text('Back to Sign In'),
 
               style: TextStyle(
                 color:
@@ -664,8 +665,8 @@ class _ForgotPasswordScreenState
 
         // TITLE
 
-        const Text(
-          'Check Your Inbox',
+        Text(
+          AppLanguage.text('Check Your Inbox'),
           textAlign:
           TextAlign.center,
 
@@ -687,7 +688,7 @@ class _ForgotPasswordScreenState
         // EMAIL MESSAGE
 
         Text(
-          'If an account exists for\n${_emailController.text.trim()}\nwe’ve sent password reset instructions.',
+          AppLanguage.text('If an account exists for\n${_emailController.text.trim()}\nwe’ve sent password reset instructions.'),
           textAlign:
           TextAlign.center,
 
@@ -735,7 +736,7 @@ class _ForgotPasswordScreenState
             ),
           ),
 
-          child: const Row(
+          child: Row(
             crossAxisAlignment:
             CrossAxisAlignment.start,
 
@@ -754,7 +755,7 @@ class _ForgotPasswordScreenState
 
               Expanded(
                 child: Text(
-                  'Open the email and follow the reset instructions. Check your spam folder if you don’t see it.',
+                  AppLanguage.text('Open the email and follow the reset instructions. Check your spam folder if you don’t see it.'),
                   style:
                   TextStyle(
                     fontSize: 12,
@@ -805,8 +806,8 @@ class _ForgotPasswordScreenState
           onPressed:
           _useDifferentEmail,
 
-          child: const Text(
-            'Use a different email',
+          child: Text(
+            AppLanguage.text('Use a different email'),
 
             style: TextStyle(
               color:
@@ -853,8 +854,8 @@ class _ForgotPasswordScreenState
             size: 17,
           ),
 
-          label: const Text(
-            'Resend Reset Email',
+          label: Text(
+            AppLanguage.text('Resend Reset Email'),
           ),
 
           style:
@@ -1257,7 +1258,7 @@ class _PrimaryButton
               ),
 
               Text(
-                label,
+                AppLanguage.text(label),
 
                 style:
                 const TextStyle(

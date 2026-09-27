@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +9,7 @@ import '../../services/pilot_license_service.dart';
 import 'pilot_license_details_screen.dart';
 import 'pilot_license_form_screen.dart';
 import 'pilot_licenses_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 const Color _ink = Color(0xFF071A35);
 const Color _muted = Color(0xFF63748A);
@@ -131,9 +133,9 @@ class _ProfileLicensesSectionState extends State<ProfileLicensesSection>
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Pilot Licenses',
+                      AppLanguage.text('Pilot Licenses'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -624,13 +626,13 @@ class _EmptyLicenses extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'No licenses added yet',
+                  AppLanguage.text('No licenses added yet'),
                   style: TextStyle(
                     color: _ink,
                     fontSize: 13,
@@ -639,7 +641,7 @@ class _EmptyLicenses extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Add your professional pilot credentials.',
+                  AppLanguage.text('Add your professional pilot credentials.'),
                   style: TextStyle(
                     color: _muted,
                     fontSize: 10.2,
@@ -712,7 +714,7 @@ class _SectionError extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text('Retry'),
+            child: Text(AppLanguage.text('Retry')),
           ),
         ],
       ),
@@ -845,8 +847,8 @@ class _LicenseStatusData {
 
 _LicenseStatusData _licenseStatus(PilotLicenseModel license) {
   if (license.isExpired) {
-    return const _LicenseStatusData(
-      label: 'Expired',
+    return _LicenseStatusData(
+      label: AppLanguage.text('Expired'),
       color: _danger,
       background: Color(0xFFFFEEEE),
       icon: Icons.error_outline_rounded,
@@ -854,16 +856,16 @@ _LicenseStatusData _licenseStatus(PilotLicenseModel license) {
   }
 
   if (license.isExpiringSoon) {
-    return const _LicenseStatusData(
-      label: 'Expiring',
+    return _LicenseStatusData(
+      label: AppLanguage.text('Expiring'),
       color: _warning,
       background: Color(0xFFFFF5E6),
       icon: Icons.schedule_rounded,
     );
   }
 
-  return const _LicenseStatusData(
-    label: 'Valid',
+  return _LicenseStatusData(
+    label: AppLanguage.text('Valid'),
     color: Color(0xFF12966F),
     background: Color(0xFFEAF8F3),
     icon: Icons.check_circle_rounded,
@@ -914,3 +916,4 @@ String _pretty(String value) {
   })
       .join(' ');
 }
+

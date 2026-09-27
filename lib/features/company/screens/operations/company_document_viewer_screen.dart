@@ -3,13 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
-const Color _viewerPage = Color(0xFFF5F8FB);
-const Color _viewerInk = Color(0xFF071A35);
-const Color _viewerMuted = Color(0xFF60748C);
-const Color _viewerTeal = Color(0xFF078B98);
-const Color _viewerTealSoft = Color(0xFFEAF9FA);
-const Color _viewerBorder = Color(0xFFE6ECF1);
+import '../../../../core/theme/app_colors.dart';
 
 class CompanyDocumentViewerScreen extends StatefulWidget {
   const CompanyDocumentViewerScreen({
@@ -85,25 +81,71 @@ class _CompanyDocumentViewerScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _viewerPage,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(
           children: [
-            _ViewerHeader(
-              fileName: widget.fileName.trim().isEmpty
-                  ? 'Document'
-                  : widget.fileName.trim(),
-              onBack: () => Navigator.of(context).pop(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+              child: Row(
+                children: [
+                  Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      customBorder: const CircleBorder(),
+                      child: const SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 17,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(AppLanguage.text('Document Preview'),
+                          style: TextStyle(
+                            color: AppColors.navy,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.fileName.trim().isEmpty
+                              ? AppLanguage.text('Company document')
+                              : widget.fileName.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.grey,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(20),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      border: Border.all(color: _viewerBorder),
+                      border: Border.all(color: AppColors.cardBorder),
                     ),
                     child: _buildViewer(),
                   ),
@@ -118,66 +160,62 @@ class _CompanyDocumentViewerScreenState
 
   Widget _buildViewer() {
     if (!_fileExists) {
-      return const _ViewerMessage(
+      return _ViewerMessage(
         icon: Icons.file_download_off_outlined,
-        title: 'File unavailable',
-        message: 'The downloaded file is no longer available on this device.',
+        title: AppLanguage.text('File unavailable'),
+        message: AppLanguage.text('The downloaded file is no longer available on this device.'),
       );
     }
 
     if (_isPdf) {
       final controller = _pdfController;
       if (controller == null) {
-        return const _ViewerMessage(
+        return _ViewerMessage(
           icon: Icons.picture_as_pdf_outlined,
-          title: 'Unable to preview PDF',
-          message: 'The PDF viewer could not be prepared.',
+          title: AppLanguage.text('Unable to preview PDF'),
+          message: AppLanguage.text('The PDF viewer could not be prepared.'),
         );
       }
 
-      return Container(
+      return ColoredBox(
         color: const Color(0xFFF1F4F7),
         child: PdfViewPinch(
           controller: controller,
           padding: 10,
           onDocumentError: (error) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: _viewerInk,
-                margin: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: AppColors.navy,
+                  content: Text('${AppLanguage.text('Unable to display this PDF')}: $error'),
                 ),
-                content: Text('Unable to display this PDF: $error'),
-              ),
-            );
+              );
           },
         ),
       );
     }
 
     if (_isImage) {
-      return Container(
+      return ColoredBox(
         color: const Color(0xFFF1F4F7),
-        alignment: Alignment.center,
-        child: InteractiveViewer(
-          minScale: 0.8,
-          maxScale: 5,
-          boundaryMargin: const EdgeInsets.all(80),
-          child: Image.file(
-            File(widget.filePath),
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-            errorBuilder: (_, __, ___) {
-              return const _ViewerMessage(
+        child: Center(
+          child: InteractiveViewer(
+            minScale: .8,
+            maxScale: 5,
+            boundaryMargin: const EdgeInsets.all(80),
+            child: Image.file(
+              File(widget.filePath),
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (_, __, ___) => _ViewerMessage(
                 icon: Icons.broken_image_outlined,
-                title: 'Unable to display image',
-                message: 'This image could not be decoded on the device.',
-              );
-            },
+                title: AppLanguage.text('Unable to display image'),
+                message: AppLanguage.text('This image could not be decoded on the device.'),
+              ),
+            ),
           ),
         ),
       );
@@ -185,91 +223,10 @@ class _CompanyDocumentViewerScreenState
 
     return _ViewerMessage(
       icon: Icons.insert_drive_file_outlined,
-      title: 'Preview not supported',
+      title: AppLanguage.text('Preview not supported'),
       message: widget.mimeType.trim().isEmpty
           ? 'This file type cannot be previewed inside the app.'
           : 'Files of type ${widget.mimeType.trim()} cannot be previewed inside the app.',
-    );
-  }
-}
-
-class _ViewerHeader extends StatelessWidget {
-  const _ViewerHeader({
-    required this.fileName,
-    required this.onBack,
-  });
-
-  final String fileName;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      child: Row(
-        children: [
-          Material(
-            color: Colors.white,
-            shape: const CircleBorder(),
-            elevation: 2,
-            shadowColor: Colors.black.withOpacity(0.06),
-            child: InkWell(
-              onTap: onBack,
-              customBorder: const CircleBorder(),
-              child: const SizedBox(
-                width: 40,
-                height: 40,
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  size: 20,
-                  color: _viewerInk,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Document Preview',
-                  style: TextStyle(
-                    color: _viewerInk,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  fileName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _viewerMuted,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _viewerTealSoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.visibility_outlined,
-              color: _viewerTeal,
-              size: 18,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -294,31 +251,35 @@ class _ViewerMessage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 64,
-              height: 64,
-              decoration: const BoxDecoration(
-                color: _viewerTealSoft,
-                shape: BoxShape.circle,
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: AppColors.blueBg,
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(icon, color: _viewerTeal, size: 29),
+              child: Icon(
+                icon,
+                color: AppColors.blue,
+                size: 27,
+              ),
             ),
             const SizedBox(height: 14),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: _viewerInk,
+                color: AppColors.navy,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: _viewerMuted,
-                fontSize: 11.5,
+                color: AppColors.grey,
+                fontSize: 12,
                 height: 1.45,
               ),
             ),

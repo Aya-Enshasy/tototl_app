@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../controllers/drone_controller.dart';
 import '../../models/drone_form_request.dart';
 import '../../models/drone_model.dart';
 import '../../services/drone_service.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 // ============================================================================
 // COLORS
@@ -98,56 +100,56 @@ class _DroneFormScreenState
 
   bool _saving = false;
 
-  static const List<_CapabilityOption>
+  static   List<_CapabilityOption>
   _capabilityOptions = [
     _CapabilityOption(
       value: 'thermal',
-      label: 'Thermal',
+      label: AppLanguage.text('Thermal'),
       icon: Icons.thermostat_rounded,
     ),
     _CapabilityOption(
       value: 'night_vision',
-      label: 'Night Vision',
+      label: AppLanguage.text('Night Vision'),
       icon: Icons.nights_stay_outlined,
     ),
     _CapabilityOption(
       value: 'zoom',
-      label: 'Zoom',
+      label: AppLanguage.text('Zoom'),
       icon: Icons.zoom_in_rounded,
     ),
     _CapabilityOption(
       value: 'multispectral',
-      label: 'Multispectral',
+      label: AppLanguage.text('Multispectral'),
       icon: Icons.filter_center_focus_rounded,
     ),
     _CapabilityOption(
       value: 'speaker',
-      label: 'Speaker',
+      label: AppLanguage.text('Speaker'),
       icon: Icons.volume_up_outlined,
     ),
     _CapabilityOption(
       value: 'spotlight',
-      label: 'Spotlight',
+      label: AppLanguage.text('Spotlight'),
       icon: Icons.light_mode_outlined,
     ),
     _CapabilityOption(
       value: 'parachute',
-      label: 'Parachute',
+      label: AppLanguage.text('Parachute'),
       icon: Icons.paragliding_rounded,
     ),
     _CapabilityOption(
       value: 'rtk',
-      label: 'RTK',
+      label: AppLanguage.text('RTK'),
       icon: Icons.gps_fixed_rounded,
     ),
     _CapabilityOption(
       value: 'winch',
-      label: 'Winch',
+      label: AppLanguage.text('Winch'),
       icon: Icons.vertical_align_bottom_rounded,
     ),
     _CapabilityOption(
       value: 'laser',
-      label: 'Laser',
+      label: AppLanguage.text('Laser'),
       icon: Icons.center_focus_strong_rounded,
     ),
   ];
@@ -281,8 +283,8 @@ class _DroneFormScreenState
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Drone Photo',
+                Text(
+                  AppLanguage.text('Drone Photo'),
                   style: TextStyle(
                     color: _ink,
                     fontSize: 17,
@@ -298,7 +300,7 @@ class _DroneFormScreenState
                         icon:
                         Icons.camera_alt_outlined,
                         title:
-                        'Camera',
+                        AppLanguage.text('Camera'),
                         onTap: () {
                           Navigator.pop(
                             sheetContext,
@@ -313,7 +315,7 @@ class _DroneFormScreenState
                         icon:
                         Icons.photo_library_outlined,
                         title:
-                        'Gallery',
+                        AppLanguage.text('Gallery'),
                         onTap: () {
                           Navigator.pop(
                             sheetContext,
@@ -584,9 +586,9 @@ class _DroneFormScreenState
                     icon:
                     Icons.flight_takeoff_rounded,
                     title:
-                    'Aircraft details',
+                    AppLanguage.text('Aircraft details'),
                     subtitle:
-                    'Identity and physical information',
+                    AppLanguage.text('Identity and physical information'),
                     child: Column(
                       children: [
                         Row(
@@ -597,7 +599,7 @@ class _DroneFormScreenState
                                 controller:
                                 _makeController,
                                 label:
-                                'Make',
+                                AppLanguage.text('Make'),
                                 hint:
                                 'DJI',
                                 icon:
@@ -615,7 +617,7 @@ class _DroneFormScreenState
                                 controller:
                                 _modelController,
                                 label:
-                                'Model',
+                                AppLanguage.text('Model'),
                                 hint:
                                 'Mavic 3 Pro',
                                 icon:
@@ -637,7 +639,7 @@ class _DroneFormScreenState
                                 controller:
                                 _yearController,
                                 label:
-                                'Year',
+                                AppLanguage.text('Year'),
                                 hint:
                                 '2026',
                                 icon:
@@ -657,7 +659,7 @@ class _DroneFormScreenState
                                 controller:
                                 _weightController,
                                 label:
-                                'Weight (kg)',
+                                AppLanguage.text('Weight (kg)'),
                                 hint:
                                 '0.95',
                                 icon:
@@ -682,7 +684,7 @@ class _DroneFormScreenState
                           controller:
                           _serialController,
                           label:
-                          'Serial number',
+                          AppLanguage.text('Serial number'),
                           hint:
                           'Enter aircraft serial number',
                           icon:
@@ -701,9 +703,9 @@ class _DroneFormScreenState
                     icon:
                     Icons.battery_charging_full_rounded,
                     title:
-                    'Power & capabilities',
+                    AppLanguage.text('Power & capabilities'),
                     subtitle:
-                    'Battery setup and aircraft equipment',
+                    AppLanguage.text('Battery setup and aircraft equipment'),
                     child: Column(
                       children: [
                         Row(
@@ -714,7 +716,7 @@ class _DroneFormScreenState
                                 controller:
                                 _flightTimeController,
                                 label:
-                                'Flight time',
+                                AppLanguage.text('Flight time'),
                                 hint:
                                 '45',
                                 suffix:
@@ -739,7 +741,7 @@ class _DroneFormScreenState
                                 controller:
                                 _batteriesController,
                                 label:
-                                'Batteries',
+                                AppLanguage.text('Batteries'),
                                 hint:
                                 '3',
                                 icon:
@@ -762,7 +764,7 @@ class _DroneFormScreenState
                           controller:
                           _batteryTypeController,
                           label:
-                          'Battery type',
+                          AppLanguage.text('Battery type'),
                           hint:
                           'Optional',
                           icon:
@@ -775,7 +777,7 @@ class _DroneFormScreenState
                           controller:
                           _batteryFeeController,
                           label:
-                          'Battery usage fee',
+                          AppLanguage.text('Battery usage fee'),
                           hint:
                           'Optional',
                           prefixText:
@@ -792,12 +794,12 @@ class _DroneFormScreenState
 
                         const SizedBox(height: 18),
 
-                        const Align(
+                        Align(
                           alignment:
                           Alignment.centerLeft,
                           child:
                           Text(
-                            'Capabilities',
+                            AppLanguage.text('Capabilities'),
                             style:
                             TextStyle(
                               color: _ink,
@@ -886,16 +888,16 @@ class _DroneFormScreenState
                     icon:
                     Icons.attach_money_rounded,
                     title:
-                    'Pricing',
+                    AppLanguage.text('Pricing'),
                     subtitle:
-                    'Pilot rates for this aircraft',
+                    AppLanguage.text('Pilot rates for this aircraft'),
                     child: Column(
                       children: [
                         _Input(
                           controller:
                           _hourlyRateController,
                           label:
-                          'Hourly rate',
+                          AppLanguage.text('Hourly rate'),
                           hint:
                           '150',
                           prefixText:
@@ -919,7 +921,7 @@ class _DroneFormScreenState
                           controller:
                           _dailyRateController,
                           label:
-                          'Daily rate',
+                          AppLanguage.text('Daily rate'),
                           hint:
                           '800',
                           prefixText:
@@ -943,7 +945,7 @@ class _DroneFormScreenState
                           controller:
                           _emergencyRateController,
                           label:
-                          'Emergency callout fee',
+                          AppLanguage.text('Emergency callout fee'),
                           hint:
                           '250',
                           prefixText:
@@ -1229,14 +1231,14 @@ class _DroneImageCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child:
                       Column(
                         crossAxisAlignment:
                         CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Drone photo',
+                            AppLanguage.text('Drone photo'),
                             style:
                             TextStyle(
                               color:
@@ -1249,7 +1251,7 @@ class _DroneImageCard extends StatelessWidget {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Tap to choose or replace • max 10 MB',
+                            AppLanguage.text('Tap to choose or replace • max 10 MB'),
                             style:
                             TextStyle(
                               color:

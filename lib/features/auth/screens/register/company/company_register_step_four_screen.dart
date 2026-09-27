@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/navigation/company_shell_screen.dart';
@@ -335,8 +336,8 @@ class _CompanyRegisterStepThreeScreenState
                             _animatedEntry(
                               index: 2,
                               child:
-                              const Text(
-                                'Choose Your Plan',
+                              Text(
+                                AppLanguage.text('Choose Your Plan'),
                                 style:
                                 TextStyle(
                                   fontSize: 27,
@@ -358,8 +359,8 @@ class _CompanyRegisterStepThreeScreenState
                             _animatedEntry(
                               index: 3,
                               child:
-                              const Text(
-                                'Your company account is ready. Choose a plan now or skip and continue to your dashboard.',
+                              Text(
+                                AppLanguage.text('Your company account is ready. Choose a plan now or skip and continue to your dashboard.'),
                                 style:
                                 TextStyle(
                                   fontSize: 13.5,
@@ -596,8 +597,8 @@ class _CompanyRegisterStepThreeScreenState
                 ),
               ),
               child:
-              const Text(
-                'STEP 3 OF 3',
+              Text(
+                AppLanguage.text('STEP 3 OF 3'),
                 style:
                 TextStyle(
                   fontSize: 10,
@@ -763,7 +764,7 @@ class _CompanyRegisterStepThreeScreenState
         ),
       ),
       child:
-      const Row(
+      Row(
         mainAxisSize:
         MainAxisSize.min,
         children: [
@@ -780,7 +781,7 @@ class _CompanyRegisterStepThreeScreenState
           ),
 
           Text(
-            'COMPANY SUBSCRIPTION',
+            AppLanguage.text('COMPANY SUBSCRIPTION'),
             style:
             TextStyle(
               color: kPrimary,
@@ -830,13 +831,13 @@ class _CompanyRegisterStepThreeScreenState
           width: 11,
         ),
 
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment:
             CrossAxisAlignment.start,
             children: [
               Text(
-                'Available Plans',
+                AppLanguage.text('Available Plans'),
                 style:
                 TextStyle(
                   color:
@@ -852,7 +853,7 @@ class _CompanyRegisterStepThreeScreenState
               ),
 
               Text(
-                'You can change your subscription later',
+                AppLanguage.text('You can change your subscription later'),
                 style:
                 TextStyle(
                   color:
@@ -1028,7 +1029,7 @@ class _CompanyRegisterStepThreeScreenState
                       CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
+                          AppLanguage.text(title),
                           style:
                           TextStyle(
                             color:
@@ -1063,7 +1064,7 @@ class _CompanyRegisterStepThreeScreenState
                             ),
                           ),
                           child: Text(
-                            badgeText,
+                            AppLanguage.text(badgeText),
                             style:
                             TextStyle(
                               color:
@@ -1134,7 +1135,7 @@ class _CompanyRegisterStepThreeScreenState
                 CrossAxisAlignment.end,
                 children: [
                   Text(
-                    price,
+                    AppLanguage.text(price),
                     style:
                     const TextStyle(
                       color:
@@ -1158,7 +1159,7 @@ class _CompanyRegisterStepThreeScreenState
                       bottom: 3,
                     ),
                     child: Text(
-                      period,
+                      AppLanguage.text(period),
                       style:
                       const TextStyle(
                         color:
@@ -1177,7 +1178,7 @@ class _CompanyRegisterStepThreeScreenState
               ),
 
               Text(
-                description,
+                AppLanguage.text(description),
                 style:
                 const TextStyle(
                   color:
@@ -1249,7 +1250,7 @@ class _CompanyRegisterStepThreeScreenState
 
                         Expanded(
                           child: Text(
-                            feature,
+                            AppLanguage.text(feature),
                             style:
                             const TextStyle(
                               color:
@@ -1296,7 +1297,7 @@ class _CompanyRegisterStepThreeScreenState
                     ),
                   ),
                   child:
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons
@@ -1311,7 +1312,7 @@ class _CompanyRegisterStepThreeScreenState
                       ),
 
                       Text(
-                        'Selected plan',
+                        AppLanguage.text('Selected plan'),
                         style:
                         TextStyle(
                           color:
@@ -1421,7 +1422,7 @@ class _CompanyRegisterStepThreeScreenState
               CrossAxisAlignment.start,
               children: [
                 Text(
-                  _selectedPlanName(),
+                  AppLanguage.text(_selectedPlanName()),
                   style:
                   const TextStyle(
                     color:
@@ -1438,7 +1439,7 @@ class _CompanyRegisterStepThreeScreenState
                 ),
 
                 Text(
-                  'Your current selection',
+                  AppLanguage.text('Your current selection'),
                   style:
                   const TextStyle(
                     color:
@@ -1460,7 +1461,7 @@ class _CompanyRegisterStepThreeScreenState
             CrossAxisAlignment.end,
             children: [
               Text(
-                price,
+                AppLanguage.text(price),
                 style:
                 const TextStyle(
                   color:
@@ -1473,7 +1474,7 @@ class _CompanyRegisterStepThreeScreenState
               ),
 
               Text(
-                period,
+                AppLanguage.text(period),
                 style:
                 const TextStyle(
                   color:
@@ -1624,7 +1625,7 @@ class _CompanyRegisterStepThreeScreenState
                 children: [
                   Flexible(
                     child: Text(
-                      text,
+                      AppLanguage.text(text),
                       maxLines: 1,
                       overflow:
                       TextOverflow.ellipsis,
@@ -1665,7 +1666,7 @@ class _CompanyRegisterStepThreeScreenState
   // ==========================================================================
 
   Widget _buildBottomNote() {
-    return const Center(
+    return Center(
       child: Row(
         mainAxisSize:
         MainAxisSize.min,
@@ -1684,7 +1685,7 @@ class _CompanyRegisterStepThreeScreenState
 
           Flexible(
             child: Text(
-              'You can choose or change your subscription later.',
+              AppLanguage.text('You can choose or change your subscription later.'),
               textAlign:
               TextAlign.center,
               style:

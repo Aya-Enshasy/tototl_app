@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
 
+import '../../../../core/localization/app_language.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class CompanyDocumentViewerScreen extends StatefulWidget {
@@ -110,8 +111,8 @@ class _CompanyDocumentViewerScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Document Preview',
+                        Text(
+                          AppLanguage.text('Document Preview'),
                           style: TextStyle(
                             color: AppColors.navy,
                             fontSize: 16,
@@ -121,7 +122,7 @@ class _CompanyDocumentViewerScreenState
                         const SizedBox(height: 2),
                         Text(
                           widget.fileName.trim().isEmpty
-                              ? 'Company document'
+                              ? AppLanguage.text('Company document')
                               : widget.fileName.trim(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -160,20 +161,22 @@ class _CompanyDocumentViewerScreenState
 
   Widget _buildViewer() {
     if (!_fileExists) {
-      return const _ViewerMessage(
+      return _ViewerMessage(
         icon: Icons.file_download_off_outlined,
-        title: 'File unavailable',
-        message: 'The downloaded file is no longer available on this device.',
+        title: AppLanguage.text('File unavailable'),
+        message: AppLanguage.text(
+          'The downloaded file is no longer available on this device.',
+        ),
       );
     }
 
     if (_isPdf) {
       final controller = _pdfController;
       if (controller == null) {
-        return const _ViewerMessage(
+        return _ViewerMessage(
           icon: Icons.picture_as_pdf_outlined,
-          title: 'Unable to preview PDF',
-          message: 'The PDF viewer could not be prepared.',
+          title: AppLanguage.text('Unable to preview PDF'),
+          message: AppLanguage.text('The PDF viewer could not be prepared.'),
         );
       }
 
@@ -190,7 +193,9 @@ class _CompanyDocumentViewerScreenState
                 SnackBar(
                   behavior: SnackBarBehavior.floating,
                   backgroundColor: AppColors.navy,
-                  content: Text('Unable to display this PDF: $error'),
+                  content: Text(
+                    '${AppLanguage.text('Unable to display this PDF')}: $error',
+                  ),
                 ),
               );
           },
@@ -210,10 +215,12 @@ class _CompanyDocumentViewerScreenState
               File(widget.filePath),
               fit: BoxFit.contain,
               filterQuality: FilterQuality.high,
-              errorBuilder: (_, __, ___) => const _ViewerMessage(
+              errorBuilder: (_, __, ___) => _ViewerMessage(
                 icon: Icons.broken_image_outlined,
-                title: 'Unable to display image',
-                message: 'This image could not be decoded on the device.',
+                title: AppLanguage.text('Unable to display image'),
+                message: AppLanguage.text(
+                  'This image could not be decoded on the device.',
+                ),
               ),
             ),
           ),
@@ -223,10 +230,10 @@ class _CompanyDocumentViewerScreenState
 
     return _ViewerMessage(
       icon: Icons.insert_drive_file_outlined,
-      title: 'Preview not supported',
+      title: AppLanguage.text('Preview not supported'),
       message: widget.mimeType.trim().isEmpty
-          ? 'This file type cannot be previewed inside the app.'
-          : 'Files of type ${widget.mimeType.trim()} cannot be previewed inside the app.',
+          ? AppLanguage.text('This file type cannot be previewed inside the app.')
+          : '${AppLanguage.text('Files of type')} ${widget.mimeType.trim()} ${AppLanguage.text('cannot be previewed inside the app.')}',
     );
   }
 }

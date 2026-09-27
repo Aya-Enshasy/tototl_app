@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../../services/drone_service.dart';
 
 import 'drone_details_screen.dart';
 import 'drone_form_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 // ============================================================================
 // COLORS
@@ -342,13 +344,13 @@ class _TopBar extends StatelessWidget {
 
           const SizedBox(width: 10),
 
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
                 Text(
-                  'My Drones',
+                  AppLanguage.text('My Drones'),
                   style: TextStyle(
                     color: _ink,
                     fontSize: 16,
@@ -359,7 +361,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 SizedBox(height: 5),
                 Text(
-                  'Manage your aircraft fleet',
+                  AppLanguage.text('Manage your aircraft fleet'),
                   style: TextStyle(
                     color: _muted,
                     fontSize: 10.5,
@@ -398,8 +400,8 @@ class _TopBar extends StatelessWidget {
               size: 17,
             ),
             label:
-            const Text(
-              'Add',
+            Text(
+              AppLanguage.text('Add'),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
@@ -521,7 +523,7 @@ class _FleetSummary extends StatelessWidget {
               BorderRadius.circular(30),
             ),
             child:
-            const Row(
+            Row(
               mainAxisSize:
               MainAxisSize.min,
               children: [
@@ -532,7 +534,7 @@ class _FleetSummary extends StatelessWidget {
                 ),
                 SizedBox(width: 5),
                 Text(
-                  'Pilot fleet',
+                  AppLanguage.text('Pilot fleet'),
                   style: TextStyle(
                     color: Color(0xFFB7F4F2),
                     fontSize: 9.5,
@@ -777,7 +779,7 @@ class _PremiumDroneCard extends StatelessWidget {
                             icon:
                             Icons.timer_outlined,
                             label:
-                            'Flight time',
+                            AppLanguage.text('Flight time'),
                             value:
                             drone.flightTimeLabel,
                           ),
@@ -791,7 +793,7 @@ class _PremiumDroneCard extends StatelessWidget {
                             icon:
                             Icons.battery_std_rounded,
                             label:
-                            'Batteries',
+                            AppLanguage.text('Batteries'),
                             value:
                             drone.batteriesLabel,
                           ),
@@ -805,7 +807,7 @@ class _PremiumDroneCard extends StatelessWidget {
                             icon:
                             Icons.payments_outlined,
                             label:
-                            'Hourly',
+                            AppLanguage.text('Hourly'),
                             value:
                             drone.hourlyRateLabel,
                           ),
@@ -1034,8 +1036,8 @@ class _ImageFallback extends StatelessWidget {
             ),
             if (failed) ...[
               const SizedBox(height: 7),
-              const Text(
-                'Image unavailable',
+              Text(
+                AppLanguage.text('Image unavailable'),
                 style: TextStyle(
                   color: _muted,
                   fontSize: 9.5,
@@ -1312,8 +1314,8 @@ class _EmptyState extends StatelessWidget {
 
         const SizedBox(height: 20),
 
-        const Text(
-          'Build your fleet',
+        Text(
+          AppLanguage.text('Build your fleet'),
           textAlign:
           TextAlign.center,
           style:
@@ -1326,8 +1328,8 @@ class _EmptyState extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        const Text(
-          'Add the drones you operate so companies can review your equipment before assigning a mission.',
+        Text(
+          AppLanguage.text('Add the drones you operate so companies can review your equipment before assigning a mission.'),
           textAlign:
           TextAlign.center,
           style:
@@ -1364,8 +1366,8 @@ class _EmptyState extends StatelessWidget {
             Icons.add_rounded,
           ),
           label:
-          const Text(
-            'Add your first drone',
+          Text(
+            AppLanguage.text('Add your first drone'),
             style:
             TextStyle(
               fontWeight: FontWeight.w800,

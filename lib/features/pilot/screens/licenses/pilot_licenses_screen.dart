@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +8,7 @@ import '../../models/pilot_license_model.dart';
 import '../../services/pilot_license_service.dart';
 import 'pilot_license_details_screen.dart';
 import 'pilot_license_form_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 const Color _page = Color(0xFFF7F9FB);
 const Color _ink = Color(0xFF071A35);
@@ -135,8 +137,8 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                   ),
                 ),
                 const SizedBox(height: 13),
-                const Text(
-                  'Delete this license?',
+                Text(
+                  AppLanguage.text('Delete this license?'),
                   style: TextStyle(
                     color: _ink,
                     fontSize: 18,
@@ -167,7 +169,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                             borderRadius: BorderRadius.circular(15),
                           ),
                         ),
-                        child: const Text('Cancel'),
+                        child: Text(AppLanguage.text('Cancel')),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -183,7 +185,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                           ),
                         ),
                         icon: const Icon(Icons.delete_outline_rounded),
-                        label: const Text('Delete'),
+                        label: Text(AppLanguage.text('Delete')),
                       ),
                     ),
                   ],
@@ -248,11 +250,11 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
             icon: const Icon(Icons.arrow_back_rounded),
             color: _ink,
           ),
-          title: const Column(
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Pilot Licenses',
+                AppLanguage.text('Pilot Licenses'),
                 style: TextStyle(
                   color: _ink,
                   fontSize: 20,
@@ -261,7 +263,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                 ),
               ),
               Text(
-                'Manage your professional credentials',
+                AppLanguage.text('Manage your professional credentials'),
                 style: TextStyle(
                   color: _muted,
                   fontSize: 10.5,
@@ -284,8 +286,8 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.add_rounded, size: 19),
-                label: const Text(
-                  'Add',
+                label: Text(
+                  AppLanguage.text('Add'),
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
@@ -331,7 +333,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                       hasScrollBody: false,
                       child: _StateMessage(
                         icon: Icons.cloud_off_rounded,
-                        title: 'Could not load licenses',
+                        title: AppLanguage.text('Could not load licenses'),
                         message: _controller.errorMessage!,
                         buttonLabel: 'Try Again',
                         onPressed: _controller.loadLicenses,
@@ -342,9 +344,9 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                       hasScrollBody: false,
                       child: _StateMessage(
                         icon: Icons.workspace_premium_outlined,
-                        title: 'Build your credentials',
+                        title: AppLanguage.text('Build your credentials'),
                         message:
-                            'Add your first pilot license or certification and keep your profile ready for opportunities.',
+                            AppLanguage.text('Add your first pilot license or certification and keep your profile ready for opportunities.'),
                         buttonLabel: 'Add License',
                         onPressed: _add,
                       ),
@@ -414,7 +416,7 @@ class _OverviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.shield_outlined,
@@ -424,7 +426,7 @@ class _OverviewCard extends StatelessWidget {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Credential Center',
+                  AppLanguage.text('Credential Center'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -433,7 +435,7 @@ class _OverviewCard extends StatelessWidget {
                 ),
               ),
               Text(
-                'TOTOTL',
+                AppLanguage.text('TOTOTL'),
                 style: TextStyle(
                   color: Color(0xFFBCEEF2),
                   fontSize: 10,
@@ -444,8 +446,8 @@ class _OverviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Keep every license current and ready for company review.',
+          Text(
+            AppLanguage.text('Keep every license current and ready for company review.'),
             style: TextStyle(
               color: Color(0xFFD8F3F5),
               fontSize: 10.5,
@@ -455,13 +457,13 @@ class _OverviewCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              _OverviewStat(label: 'Total', value: '${licenses.length}'),
+              _OverviewStat(label: AppLanguage.text('Total'), value: '${licenses.length}'),
               _OverviewDivider(),
-              _OverviewStat(label: 'Valid', value: '$valid'),
+              _OverviewStat(label: AppLanguage.text('Valid'), value: '$valid'),
               _OverviewDivider(),
-              _OverviewStat(label: 'Expiring', value: '$expiring'),
+              _OverviewStat(label: AppLanguage.text('Expiring'), value: '$expiring'),
               _OverviewDivider(),
-              _OverviewStat(label: 'Expired', value: '$expired'),
+              _OverviewStat(label: AppLanguage.text('Expired'), value: '$expired'),
             ],
           ),
         ],
@@ -623,7 +625,7 @@ class _LicenseCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: _MiniInfo(
-                                label: 'License No.',
+                                label: AppLanguage.text('License No.'),
                                 value: license.licenseNumber.isEmpty
                                     ? '—'
                                     : license.licenseNumber,
@@ -638,7 +640,7 @@ class _LicenseCard extends StatelessWidget {
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 12),
                                 child: _MiniInfo(
-                                  label: 'Expires',
+                                  label: AppLanguage.text('Expires'),
                                   value: _formatDate(license.expiresAt),
                                   valueColor: status.color,
                                 ),
@@ -670,7 +672,7 @@ class _LicenseCard extends StatelessWidget {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.visibility_outlined,
-                    label: 'View',
+                    label: AppLanguage.text('View'),
                     onTap: onView,
                   ),
                 ),
@@ -678,7 +680,7 @@ class _LicenseCard extends StatelessWidget {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.edit_outlined,
-                    label: 'Edit',
+                    label: AppLanguage.text('Edit'),
                     onTap: onEdit,
                   ),
                 ),
@@ -686,7 +688,7 @@ class _LicenseCard extends StatelessWidget {
                 Expanded(
                   child: _ActionButton(
                     icon: Icons.delete_outline_rounded,
-                    label: 'Delete',
+                    label: AppLanguage.text('Delete'),
                     onTap: onDelete,
                     danger: true,
                   ),
@@ -910,8 +912,8 @@ class _StatusPill extends StatelessWidget {
 
 _StatusData _status(PilotLicenseModel license) {
   if (license.isExpired) {
-    return const _StatusData(
-      label: 'Expired',
+    return _StatusData(
+      label: AppLanguage.text('Expired'),
       color: _danger,
       background: Color(0xFFFFEEEE),
       icon: Icons.error_outline_rounded,
@@ -919,16 +921,16 @@ _StatusData _status(PilotLicenseModel license) {
   }
 
   if (license.isExpiringSoon) {
-    return const _StatusData(
-      label: 'Expiring Soon',
+    return _StatusData(
+      label: AppLanguage.text('Expiring Soon'),
       color: _warning,
       background: Color(0xFFFFF5E6),
       icon: Icons.schedule_rounded,
     );
   }
 
-  return const _StatusData(
-    label: 'Valid',
+  return _StatusData(
+    label: AppLanguage.text('Valid'),
     color: _tealDark,
     background: _tealSoft,
     icon: Icons.check_circle_outline_rounded,
@@ -955,3 +957,4 @@ String _formatDate(DateTime? date) {
 
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }
+

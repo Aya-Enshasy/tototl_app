@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../../services/drone_service.dart';
 import 'drone_details_screen.dart';
 import 'drone_form_screen.dart';
 import 'my_drones_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 
 const Color _ink = Color(0xFF071A35);
@@ -208,10 +210,10 @@ class _ProfileDronesSectionState
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child:
                 Text(
-                  'My Drones',
+                  AppLanguage.text('My Drones'),
                   style:
                   TextStyle(
                     color:
@@ -273,8 +275,8 @@ class _ProfileDronesSectionState
                   19,
                 ),
                 label:
-                const Text(
-                  'Add Drone',
+                Text(
+                  AppLanguage.text('Add Drone'),
                   style:
                   TextStyle(
                     fontSize:
@@ -320,8 +322,8 @@ class _ProfileDronesSectionState
                 16,
               ),
               label:
-              const Text(
-                'Retry',
+              Text(
+                AppLanguage.text('Retry'),
               ),
             ),
           ],
@@ -495,8 +497,8 @@ class _DronePreview extends StatelessWidget {
                             ),
                           if (drone.yearLabel.isNotEmpty &&
                               capability.isNotEmpty)
-                            const Text(
-                              ' • ',
+                            Text(
+                              AppLanguage.text(' • '),
                               style:
                               TextStyle(
                                 color:
@@ -641,14 +643,14 @@ class _EmptyPreview extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child:
             Column(
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Add your first drone',
+                  AppLanguage.text('Add your first drone'),
                   style:
                   TextStyle(
                     color:
@@ -661,7 +663,7 @@ class _EmptyPreview extends StatelessWidget {
                 ),
                 SizedBox(height: 3),
                 Text(
-                  'Show companies the aircraft you can operate.',
+                  AppLanguage.text('Show companies the aircraft you can operate.'),
                   style:
                   TextStyle(
                     color:
@@ -728,3 +730,4 @@ String _pretty(
   )
       .join(' ');
 }
+

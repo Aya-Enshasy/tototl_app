@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_four_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../models/PilotRegisterRequestModel.dart';
 
@@ -454,12 +455,12 @@ class _PilotRegisterStepThreeScreenState
                   height: 20,
                 ),
 
-                const Align(
+                Align(
                   alignment:
                   Alignment
                       .centerLeft,
                   child: Text(
-                    'Drone Photo',
+                    AppLanguage.text('Drone Photo'),
                     style:
                     TextStyle(
                       fontSize: 18,
@@ -476,12 +477,12 @@ class _PilotRegisterStepThreeScreenState
                   height: 4,
                 ),
 
-                const Align(
+                Align(
                   alignment:
                   Alignment
                       .centerLeft,
                   child: Text(
-                    'Add a clear photo of your aircraft.',
+                    AppLanguage.text('Add a clear photo of your aircraft.'),
                     style:
                     TextStyle(
                       fontSize: 11.5,
@@ -648,7 +649,7 @@ class _PilotRegisterStepThreeScreenState
 
                   children: [
                     Text(
-                      title,
+                      AppLanguage.text(title),
                       style:
                       TextStyle(
                         color: destructive
@@ -669,7 +670,7 @@ class _PilotRegisterStepThreeScreenState
                     ),
 
                     Text(
-                      subtitle,
+                      AppLanguage.text(subtitle),
 
                       style:
                       const TextStyle(
@@ -1004,7 +1005,7 @@ class _PilotRegisterStepThreeScreenState
 
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
 
                   style:
                   const TextStyle(
@@ -1190,8 +1191,8 @@ class _PilotRegisterStepThreeScreenState
                               index: 2,
 
                               child:
-                              const Text(
-                                'Your Drone',
+                              Text(
+                                AppLanguage.text('Your Drone'),
                                 style:
                                 TextStyle(
                                   fontSize: 27,
@@ -1219,8 +1220,8 @@ class _PilotRegisterStepThreeScreenState
                               index: 3,
 
                               child:
-                              const Text(
-                                'Add your aircraft details, flight capabilities and services rates.',
+                              Text(
+                                AppLanguage.text('Add your aircraft details, flight capabilities and services rates.'),
                                 style:
                                 TextStyle(
                                   fontSize:
@@ -2007,8 +2008,8 @@ class _PilotRegisterStepThreeScreenState
                 ),
               ),
 
-              child: const Text(
-                'STEP 3 OF 4',
+              child: Text(
+                AppLanguage.text('STEP 3 OF 4'),
 
                 style: TextStyle(
                   fontSize: 10,
@@ -2125,7 +2126,7 @@ class _PilotRegisterStepThreeScreenState
         ),
       ),
 
-      child: const Row(
+      child: Row(
         mainAxisSize:
         MainAxisSize.min,
 
@@ -2144,7 +2145,7 @@ class _PilotRegisterStepThreeScreenState
           ),
 
           Text(
-            'AIRCRAFT PROFILE',
+            AppLanguage.text('AIRCRAFT PROFILE'),
 
             style: TextStyle(
               color: kPrimary,
@@ -2214,7 +2215,7 @@ class _PilotRegisterStepThreeScreenState
 
             children: [
               Text(
-                title,
+                AppLanguage.text(title),
 
                 style:
                 const TextStyle(
@@ -2234,7 +2235,7 @@ class _PilotRegisterStepThreeScreenState
               ),
 
               Text(
-                subtitle,
+                AppLanguage.text(subtitle),
 
                 maxLines: 2,
 
@@ -2261,7 +2262,7 @@ class _PilotRegisterStepThreeScreenState
       String label,
       ) {
     return Text(
-      label,
+      AppLanguage.text(label),
 
       style: const TextStyle(
         fontSize: 12.5,
@@ -2613,9 +2614,9 @@ class _PilotRegisterStepThreeScreenState
             ),
 
             Text(
-              _droneImage == null
+              AppLanguage.text(_droneImage == null
                   ? 'Add drone photo'
-                  : 'Change drone photo',
+                  : 'Change drone photo'),
 
               style:
               const TextStyle(
@@ -3000,8 +3001,8 @@ class _PilotRegisterStepThreeScreenState
 
                     Expanded(
                       child: Text(
-                        value ??
-                            hintText,
+                        AppLanguage.text(value ??
+                            hintText),
 
                         style:
                         TextStyle(
@@ -3042,8 +3043,8 @@ class _PilotRegisterStepThreeScreenState
                     ),
 
                     child: Text(
-                      state
-                          .errorText!,
+                      AppLanguage.text(state
+                          .errorText!),
 
                       style:
                       const TextStyle(
@@ -3144,7 +3145,7 @@ class _PilotRegisterStepThreeScreenState
                       children: [
                         Expanded(
                           child: Text(
-                            title,
+                            AppLanguage.text(title),
 
                             style:
                             const TextStyle(
@@ -3333,7 +3334,7 @@ class _PilotRegisterStepThreeScreenState
                                   Expanded(
                                     child:
                                     Text(
-                                      item,
+                                      AppLanguage.text(item),
 
                                       style:
                                       TextStyle(
@@ -3489,7 +3490,7 @@ class _PilotRegisterStepThreeScreenState
               child: selectedItems
                   .isEmpty
                   ? Text(
-                hintText,
+                AppLanguage.text(hintText),
 
                 style:
                 const TextStyle(
@@ -3549,7 +3550,7 @@ class _PilotRegisterStepThreeScreenState
                       ),
 
                       child: Text(
-                        '+${selectedItems.length - 3}',
+                        AppLanguage.text('+${selectedItems.length - 3}'),
 
                         style:
                         const TextStyle(
@@ -3627,7 +3628,7 @@ class _PilotRegisterStepThreeScreenState
         children: [
           Flexible(
             child: Text(
-              item,
+              AppLanguage.text(item),
 
               maxLines: 1,
 
@@ -3785,7 +3786,7 @@ class _PilotRegisterStepThreeScreenState
 
                                 children: [
                                   Text(
-                                    title,
+                                    AppLanguage.text(title),
 
                                     style:
                                     const TextStyle(
@@ -3806,8 +3807,8 @@ class _PilotRegisterStepThreeScreenState
                                     2,
                                   ),
 
-                                  const Text(
-                                    'Select all equipment available with your drone',
+                                  Text(
+                                    AppLanguage.text('Select all equipment available with your drone'),
 
                                     style:
                                     TextStyle(
@@ -3857,8 +3858,8 @@ class _PilotRegisterStepThreeScreenState
 
                         child: Row(
                           children: [
-                            const Text(
-                              'Available Accessories',
+                            Text(
+                              AppLanguage.text('Available Accessories'),
 
                               style:
                               TextStyle(
@@ -3910,7 +3911,7 @@ class _PilotRegisterStepThreeScreenState
 
                               child:
                               Text(
-                                '${tempSelected.length} selected',
+                                AppLanguage.text('${tempSelected.length} selected'),
 
                                 style:
                                 TextStyle(
@@ -4096,7 +4097,7 @@ class _PilotRegisterStepThreeScreenState
                                       Expanded(
                                         child:
                                         Text(
-                                          item,
+                                          AppLanguage.text(item),
 
                                           style:
                                           TextStyle(
@@ -4177,10 +4178,10 @@ class _PilotRegisterStepThreeScreenState
                             ),
 
                             child: Text(
-                              tempSelected
+                              AppLanguage.text(tempSelected
                                   .isEmpty
                                   ? 'Done'
-                                  : 'Done • ${tempSelected.length} Selected',
+                                  : 'Done • ${tempSelected.length} Selected'),
 
                               style:
                               const TextStyle(
@@ -4369,7 +4370,7 @@ class _PilotRegisterStepThreeScreenState
                 children: [
                   Flexible(
                     child: Text(
-                      text,
+                      AppLanguage.text(text),
 
                       overflow:
                       TextOverflow
@@ -4417,7 +4418,7 @@ class _PilotRegisterStepThreeScreenState
   // ==========================================================================
 
   Widget _buildBottomNote() {
-    return const Center(
+    return Center(
       child: Row(
         mainAxisSize:
         MainAxisSize.min,
@@ -4438,7 +4439,7 @@ class _PilotRegisterStepThreeScreenState
 
           Flexible(
             child: Text(
-              'Make sure your aircraft information is accurate.',
+              AppLanguage.text('Make sure your aircraft information is accurate.'),
 
               textAlign:
               TextAlign.center,

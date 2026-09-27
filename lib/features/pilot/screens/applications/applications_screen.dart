@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
@@ -8,6 +9,7 @@ import '../../models/pilot_application_model.dart';
 import '../../services/pilot_application_service.dart';
 import '../../services/pilot_job_service.dart';
 import 'application_details_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   const ApplicationsScreen({
@@ -204,7 +206,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     if (_controller.errorMessage != null && applications.isEmpty) {
       return _FullMessage(
         icon: Icons.cloud_off_rounded,
-        title: 'Couldn’t load applications',
+        title: AppLanguage.text('Couldn’t load applications'),
         text: _controller.errorMessage!,
         actionLabel: 'Try Again',
         onAction: _controller.load,
@@ -361,12 +363,12 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 11),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'APPLICATIONS',
+                      AppLanguage.text('APPLICATIONS'),
                       style: TextStyle(
                         color: AppColors.logoTurquoiseDark,
                         fontSize: 8.6,
@@ -376,7 +378,7 @@ class _Header extends StatelessWidget {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'Mission Pipeline',
+                      AppLanguage.text('Mission Pipeline'),
                       style: TextStyle(
                         color: AppColors.navy,
                         fontSize: 21.5,
@@ -387,7 +389,7 @@ class _Header extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Track every application and decision.',
+                      AppLanguage.text('Track every application and decision.'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -502,7 +504,7 @@ class _PipelineHero extends StatelessWidget {
                           color: Colors.white.withOpacity(0.09),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -512,7 +514,7 @@ class _PipelineHero extends StatelessWidget {
                           ),
                           SizedBox(width: 6),
                           Text(
-                            'LIVE PIPELINE',
+                            AppLanguage.text('LIVE PIPELINE'),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 8.5,
@@ -540,7 +542,7 @@ class _PipelineHero extends StatelessWidget {
                     Expanded(
                       child: _HeroMetric(
                         value: '$pending',
-                        label: 'Pending',
+                        label: AppLanguage.text('Pending'),
                         icon: Icons.schedule_rounded,
                         tint: const Color(0xFFFFCC72),
                       ),
@@ -549,7 +551,7 @@ class _PipelineHero extends StatelessWidget {
                     Expanded(
                       child: _HeroMetric(
                         value: '$accepted',
-                        label: 'Accepted',
+                        label: AppLanguage.text('Accepted'),
                         icon: Icons.verified_rounded,
                         tint: const Color(0xFF7DE2B2),
                       ),
@@ -558,7 +560,7 @@ class _PipelineHero extends StatelessWidget {
                     Expanded(
                       child: _HeroMetric(
                         value: '$rejected',
-                        label: 'Rejected',
+                        label: AppLanguage.text('Rejected'),
                         icon: Icons.cancel_outlined,
                         tint: const Color(0xFFFFA0A0),
                       ),
@@ -692,8 +694,8 @@ class _LiveRefreshBadge extends StatelessWidget {
           const _PulseDots(),
           if (!compact) ...[
             const SizedBox(width: 7),
-            const Text(
-              'SYNCING',
+            Text(
+              AppLanguage.text('SYNCING'),
               style: TextStyle(
                 color: AppColors.logoTurquoiseDark,
                 fontSize: 8.5,
@@ -1485,8 +1487,8 @@ class _EmptyApplications extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 19),
-        const Text(
-          'Your mission pipeline starts here',
+        Text(
+          AppLanguage.text('Your mission pipeline starts here'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.navy,
@@ -1495,8 +1497,8 @@ class _EmptyApplications extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Once you apply to a published mission, its real application status will appear here.',
+        Text(
+          AppLanguage.text('Once you apply to a published mission, its real application status will appear here.'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.grey,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import 'pilot_data.dart';
@@ -22,9 +23,8 @@ class PilotPublicProfileScreen extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                 ),
-                const Expanded(
-                  child: Text(
-                    'Pilot Profile',
+                Expanded(
+                  child: Text(AppLanguage.text('Pilot Profile'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.navy,
@@ -97,7 +97,7 @@ class PilotPublicProfileScreen extends StatelessWidget {
                         color: AppColors.greenBg,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -106,8 +106,7 @@ class PilotPublicProfileScreen extends StatelessWidget {
                             size: 14,
                           ),
                           SizedBox(width: 5),
-                          Text(
-                            'Verified Pilot',
+                          Text(AppLanguage.text('Verified Pilot'),
                             style: TextStyle(
                               color: AppColors.green,
                               fontSize: 11.5,
@@ -143,8 +142,7 @@ class PilotPublicProfileScreen extends StatelessWidget {
                               size: 14,
                             ),
                             const SizedBox(width: 5),
-                            Text(
-                              'LinkedIn',
+                            Text(AppLanguage.text('LinkedIn'),
                               style: TextStyle(
                                 color: AppColors.blue,
                                 fontSize: 11.5,
@@ -162,10 +160,10 @@ class PilotPublicProfileScreen extends StatelessWidget {
                     children: [
                       _Metric(
                         value: pilot.rating,
-                        label: '${pilot.reviewCount} reviews',
+                        label: '${pilot.reviewCount} ${AppLanguage.text('reviews')}',
                       ),
-                      _Metric(value: pilot.experience, label: 'Experience'),
-                      _Metric(value: pilot.successRate, label: 'Success'),
+                      _Metric(value: pilot.experience, label: AppLanguage.text('Experience')),
+                      _Metric(value: pilot.successRate, label: AppLanguage.text('Success')),
                     ],
                   ),
                 ],
@@ -173,7 +171,7 @@ class PilotPublicProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _Section(
-              title: 'About',
+              title: AppLanguage.text('About'),
               child: Text(
                 pilot.about,
                 style: const TextStyle(
@@ -185,7 +183,7 @@ class PilotPublicProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _Section(
-              title: 'Capabilities',
+              title: AppLanguage.text('Capabilities'),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -196,7 +194,7 @@ class PilotPublicProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _Section(
-              title: 'Registered Drones',
+              title: AppLanguage.text('Registered Drones'),
               child: Column(
                 children: pilot.drones
                     .map(
@@ -323,7 +321,7 @@ class _DroneRow extends StatelessWidget {
           ),
         ),
         Text(
-          drone.isFullMatch ? 'Verified' : 'Active',
+          drone.isFullMatch ? AppLanguage.text('Verified') : AppLanguage.text('Active'),
           style: const TextStyle(
             color: AppColors.green,
             fontSize: 11.5,
@@ -334,3 +332,4 @@ class _DroneRow extends StatelessWidget {
     ),
   );
 }
+

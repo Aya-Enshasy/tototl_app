@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/pilot/models/pilot_home_snapshot.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class MyDroneCard extends StatelessWidget {
   const MyDroneCard({
@@ -76,12 +78,12 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'My Fleet',
+                AppLanguage.text('My Fleet'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 16,
@@ -91,7 +93,7 @@ class _SectionHeader extends StatelessWidget {
               ),
               SizedBox(height: 2),
               Text(
-                'Your registered aircraft',
+                AppLanguage.text('Your registered aircraft'),
                 style: TextStyle(
                   color: AppColors.grey,
                   fontSize: 10.5,
@@ -134,8 +136,8 @@ class _SectionHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 7),
                   ],
-                  const Text(
-                    'Manage',
+                  Text(
+                    AppLanguage.text('Manage'),
                     style: TextStyle(
                       color: AppColors.blue,
                       fontSize: 11.5,
@@ -404,7 +406,7 @@ class _DroneDetails extends StatelessWidget {
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  'Open aircraft details',
+                  AppLanguage.text('Open aircraft details'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -709,8 +711,8 @@ class _DroneErrorState extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
-              'Retry',
+            child: Text(
+              AppLanguage.text('Retry'),
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
@@ -775,13 +777,13 @@ class _EmptyDroneState extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Build your fleet profile',
+                  AppLanguage.text('Build your fleet profile'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 13.2,
@@ -790,7 +792,7 @@ class _EmptyDroneState extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Add a drone so companies can see your equipment.',
+                  AppLanguage.text('Add a drone so companies can see your equipment.'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 10.5,
@@ -960,3 +962,4 @@ class _DroneShimmerState extends State<_DroneShimmer>
     );
   }
 }
+

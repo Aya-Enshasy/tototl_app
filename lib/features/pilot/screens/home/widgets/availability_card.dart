@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/pilot/models/pilot_availability_preference.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 class AvailabilityCard extends StatelessWidget {
   const AvailabilityCard({
@@ -208,12 +210,12 @@ class _AvailabilitySectionHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Available Times',
+                AppLanguage.text('Available Times'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 16,
@@ -223,7 +225,7 @@ class _AvailabilitySectionHeader extends StatelessWidget {
               ),
               SizedBox(height: 2),
               Text(
-                'Your preferred work window',
+                AppLanguage.text('Your preferred work window'),
                 style: TextStyle(
                   color: AppColors.grey,
                   fontSize: 10.5,
@@ -409,8 +411,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
   void _save() {
     if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choose the availability date range first.'),
+        SnackBar(
+          content: Text(AppLanguage.text('Choose the availability date range first.')),
         ),
       );
       return;
@@ -418,8 +420,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
 
     if (_weekdays.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select at least one available weekday.'),
+        SnackBar(
+          content: Text(AppLanguage.text('Select at least one available weekday.')),
         ),
       );
       return;
@@ -427,8 +429,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
 
     if (!_allDay && _endMinutes <= _startMinutes) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('End time must be after start time.'),
+        SnackBar(
+          content: Text(AppLanguage.text('End time must be after start time.')),
         ),
       );
       return;
@@ -485,8 +487,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Work availability',
+                Text(
+                  AppLanguage.text('Work availability'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 20,
@@ -495,8 +497,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 5),
-                const Text(
-                  'Set one availability window, then choose the days and hours that repeat inside it.',
+                Text(
+                  AppLanguage.text('Set one availability window, then choose the days and hours that repeat inside it.'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 11.2,
@@ -505,9 +507,9 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const _FieldTitle(
+                _FieldTitle(
                   icon: Icons.date_range_outlined,
-                  title: 'Availability window',
+                  title: AppLanguage.text('Availability window'),
                 ),
                 const SizedBox(height: 9),
                 _ActionField(
@@ -515,13 +517,13 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                   title: _startDate == null || _endDate == null
                       ? 'Choose start and end date'
                       : '${_date(_startDate!)} – ${_date(_endDate!)}',
-                  subtitle: 'Example: available for the next two months',
+                  subtitle: AppLanguage.text('Example: available for the next two months'),
                   onTap: _pickRange,
                 ),
                 const SizedBox(height: 19),
-                const _FieldTitle(
+                _FieldTitle(
                   icon: Icons.view_week_outlined,
-                  title: 'Days inside this range',
+                  title: AppLanguage.text('Days inside this range'),
                 ),
                 const SizedBox(height: 10),
                 _WeekdaySelector(
@@ -539,10 +541,10 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                 const SizedBox(height: 19),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: _FieldTitle(
                         icon: Icons.schedule_rounded,
-                        title: 'Daily hours',
+                        title: AppLanguage.text('Daily hours'),
                       ),
                     ),
                     Switch.adaptive(
@@ -552,8 +554,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                         setState(() => _allDay = value);
                       },
                     ),
-                    const Text(
-                      'All day',
+                    Text(
+                      AppLanguage.text('All day'),
                       style: TextStyle(
                         color: AppColors.grey,
                         fontSize: 10.5,
@@ -568,7 +570,7 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                     children: [
                       Expanded(
                         child: _TimeField(
-                          label: 'From',
+                          label: AppLanguage.text('From'),
                           value: _clock(_startMinutes),
                           onTap: () => _pickTime(start: true),
                         ),
@@ -576,7 +578,7 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _TimeField(
-                          label: 'Until',
+                          label: AppLanguage.text('Until'),
                           value: _clock(_endMinutes),
                           onTap: () => _pickTime(start: false),
                         ),
@@ -601,8 +603,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text(
-                            'Clear',
+                          child: Text(
+                            AppLanguage.text('Clear'),
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -622,8 +624,8 @@ class _AvailabilityEditorSheetState extends State<AvailabilityEditorSheet> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          'Save availability',
+                        child: Text(
+                          AppLanguage.text('Save availability'),
                           style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),
@@ -878,3 +880,4 @@ String _clock(int totalMinutes) {
   final hour12 = hour24 == 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
   return '$hour12:${minute.toString().padLeft(2, '0')} $period';
 }
+

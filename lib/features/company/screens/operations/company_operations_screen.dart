@@ -4,14 +4,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../controllers/company_job_controller.dart';
- import '../../models/company_job_posting_model.dart';
+import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
- import 'company_applicant_detail_screen.dart';
+import 'company_applicant_detail_screen.dart';
 import 'company_applicant_list_item.dart';
 
 class CompanyApplicationsScreen extends StatefulWidget {
@@ -335,8 +336,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Applications',
+                    Text(AppLanguage.text('Applications'),
                       style: TextStyle(
                         color: AppColors.navy,
                         fontSize: 16,
@@ -423,7 +423,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
       child: Row(
         children: [
           _FilterChip(
-            label: 'All',
+            label: AppLanguage.text('All'),
             selected: _selectedStatus == null,
             onTap: () => _loadStatus(null),
           ),
@@ -948,13 +948,12 @@ class _SyncPill extends StatelessWidget {
         color: AppColors.blueBg,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _TinyPulse(),
           SizedBox(width: 6),
-          Text(
-            'Updating',
+          Text(AppLanguage.text('Updating'),
             style: TextStyle(
               color: AppColors.blue,
               fontSize: 10.3,
@@ -1008,8 +1007,7 @@ class _EmptyApplications extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Applications from pilots will appear here as soon as they apply to your jobs.',
+        Text(AppLanguage.text('Applications from pilots will appear here as soon as they apply to your jobs.'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.grey,
@@ -1053,8 +1051,7 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Could not load applications',
+            Text(AppLanguage.text('Could not load applications'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 15,
@@ -1081,8 +1078,7 @@ class _ErrorView extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 17),
-              label: const Text(
-                'Try Again',
+              label: Text(AppLanguage.text('Try Again'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,

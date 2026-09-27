@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/chat_conversation.dart';
 import '../services/firebase_chat_service.dart';
 
+String _ui(String source) => AppLanguage.text(source);
+
 class ForwardMessageScreen extends StatefulWidget {
-  const ForwardMessageScreen({
+  ForwardMessageScreen({
     super.key,
     required this.currentUserId,
     required this.currentUserName,
@@ -83,12 +86,12 @@ class _ForwardMessageScreenState
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
+          SnackBar(
             behavior:
             SnackBarBehavior.floating,
             content:
             Text(
-              'Message forwarded.',
+              _ui('Message forwarded.'),
             ),
           ),
         );
@@ -104,14 +107,14 @@ class _ForwardMessageScreenState
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
+          SnackBar(
             behavior:
             SnackBarBehavior.floating,
             backgroundColor:
             AppColors.red,
             content:
             Text(
-              'Could not forward the message.',
+              _ui('Could not forward the message.'),
             ),
           ),
         );
@@ -140,14 +143,14 @@ class _ForwardMessageScreenState
           children: [
             Container(
               padding:
-              const EdgeInsets.fromLTRB(
+              EdgeInsets.fromLTRB(
                 8,
                 8,
                 14,
                 10,
               ),
               decoration:
-              const BoxDecoration(
+              BoxDecoration(
                 color:
                 Colors.white,
                 border:
@@ -168,7 +171,7 @@ class _ForwardMessageScreenState
                       context,
                     ),
                     icon:
-                    const Icon(
+                    Icon(
                       Icons.arrow_back_ios_new_rounded,
                       color:
                       AppColors.navy,
@@ -183,8 +186,8 @@ class _ForwardMessageScreenState
                       crossAxisAlignment:
                       CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Forward message',
+                        Text(
+                          _ui('Forward message'),
                           style:
                           TextStyle(
                             color:
@@ -196,7 +199,7 @@ class _ForwardMessageScreenState
                           ),
                         ),
 
-                        const SizedBox(
+                        SizedBox(
                           height:
                           2,
                         ),
@@ -208,7 +211,7 @@ class _ForwardMessageScreenState
                           overflow:
                           TextOverflow.ellipsis,
                           style:
-                          const TextStyle(
+                          TextStyle(
                             color:
                             AppColors.grey,
                             fontSize:
@@ -224,7 +227,7 @@ class _ForwardMessageScreenState
 
             Padding(
               padding:
-              const EdgeInsets.fromLTRB(
+              EdgeInsets.fromLTRB(
                 16,
                 14,
                 16,
@@ -244,9 +247,9 @@ class _ForwardMessageScreenState
                 decoration:
                 InputDecoration(
                   hintText:
-                  'Search conversations',
+                  _ui('Search conversations'),
                   prefixIcon:
-                  const Icon(
+                  Icon(
                     Icons.search_rounded,
                     color:
                     AppColors.grey,
@@ -262,7 +265,7 @@ class _ForwardMessageScreenState
                       18,
                     ),
                     borderSide:
-                    const BorderSide(
+                    BorderSide(
                       color:
                       AppColors.cardBorder,
                     ),
@@ -274,7 +277,7 @@ class _ForwardMessageScreenState
                       18,
                     ),
                     borderSide:
-                    const BorderSide(
+                    BorderSide(
                       color:
                       AppColors.cardBorder,
                     ),
@@ -286,7 +289,7 @@ class _ForwardMessageScreenState
                       18,
                     ),
                     borderSide:
-                    const BorderSide(
+                    BorderSide(
                       color:
                       AppColors.logoTurquoise,
                     ),
@@ -313,10 +316,10 @@ class _ForwardMessageScreenState
                     ) {
                   if (snapshot
                       .hasError) {
-                    return const Center(
+                    return Center(
                       child:
                       Text(
-                        'Could not load conversations.',
+                        _ui('Could not load conversations.'),
                         style:
                         TextStyle(
                           color:
@@ -328,7 +331,7 @@ class _ForwardMessageScreenState
 
                   final conversations =
                       snapshot.data ??
-                          const <
+                          <
                               ChatConversation>[];
 
                   final visible =
@@ -349,10 +352,10 @@ class _ForwardMessageScreenState
 
                   if (visible
                       .isEmpty) {
-                    return const Center(
+                    return Center(
                       child:
                       Text(
-                        'No conversations found.',
+                        _ui('No conversations found.'),
                         style:
                         TextStyle(
                           color:
@@ -364,7 +367,7 @@ class _ForwardMessageScreenState
 
                   return ListView.separated(
                     padding:
-                    const EdgeInsets.fromLTRB(
+                    EdgeInsets.fromLTRB(
                       16,
                       4,
                       16,
@@ -374,12 +377,12 @@ class _ForwardMessageScreenState
                     visible.length,
                     separatorBuilder:
                         (_, __) =>
-                    const Divider(
-                      height:
-                      1,
-                      color:
-                      AppColors.cardBorder,
-                    ),
+                        Divider(
+                          height:
+                          1,
+                          color:
+                          AppColors.cardBorder,
+                        ),
                     itemBuilder:
                         (
                         context,
@@ -395,7 +398,7 @@ class _ForwardMessageScreenState
 
                       return ListTile(
                         contentPadding:
-                        const EdgeInsets.symmetric(
+                        EdgeInsets.symmetric(
                           horizontal:
                           2,
                           vertical:
@@ -412,7 +415,7 @@ class _ForwardMessageScreenState
                         Text(
                           chat.partnerName,
                           style:
-                          const TextStyle(
+                          TextStyle(
                             color:
                             AppColors.navy,
                             fontWeight:
@@ -427,7 +430,7 @@ class _ForwardMessageScreenState
                           overflow:
                           TextOverflow.ellipsis,
                           style:
-                          const TextStyle(
+                          TextStyle(
                             color:
                             AppColors.grey,
                             fontSize:
@@ -436,7 +439,7 @@ class _ForwardMessageScreenState
                         ),
                         trailing:
                         sending
-                            ? const SizedBox(
+                            ? SizedBox(
                           width:
                           20,
                           height:
@@ -449,7 +452,7 @@ class _ForwardMessageScreenState
                             AppColors.logoTurquoiseDark,
                           ),
                         )
-                            : const Icon(
+                            : Icon(
                           Icons.send_rounded,
                           color:
                           AppColors.logoTurquoiseDark,
@@ -550,7 +553,7 @@ class _ForwardAvatarFallback
       alignment:
       Alignment.center,
       decoration:
-      const BoxDecoration(
+      BoxDecoration(
         gradient:
         LinearGradient(
           colors: [
@@ -563,7 +566,7 @@ class _ForwardAvatarFallback
       Text(
         initial,
         style:
-        const TextStyle(
+        TextStyle(
           color:
           Colors.white,
           fontWeight:

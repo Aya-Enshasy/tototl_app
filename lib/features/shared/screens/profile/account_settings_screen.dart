@@ -1551,3 +1551,4 @@ String _companyProfileSubtitle(Locale locale) {
       return 'Edit company details and operating regions';
   }
 }
+

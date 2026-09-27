@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
@@ -183,7 +184,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
     HapticFeedback.selectionClick();
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PostJobScreen(),
+        builder: (_) =>   PostJobScreen(),
       ),
     );
 
@@ -235,8 +236,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
         foregroundColor: Colors.white,
         elevation: 3,
         icon: const Icon(Icons.add_rounded, size: 19),
-        label: const Text(
-          'Post Job',
+        label: Text(AppLanguage.text('Post Job'),
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w800,
@@ -294,8 +294,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'My Jobs',
+                    Text(AppLanguage.text('My Jobs'),
                       style: TextStyle(
                         color: AppColors.navy,
                         fontSize: 16,
@@ -328,13 +327,12 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
                     color: AppColors.blueBg,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _TinyPulse(),
                       SizedBox(width: 6),
-                      Text(
-                        'Updating',
+                      Text(AppLanguage.text('Updating'),
                         style: TextStyle(
                           color: AppColors.blue,
                           fontSize: 10.5,
@@ -392,7 +390,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
       child: Row(
         children: [
           _FilterChip(
-            label: 'All',
+            label: AppLanguage.text('All'),
             selected: _selectedStatus == null,
             onTap: () => setState(() => _selectedStatus = null),
           ),
@@ -691,8 +689,7 @@ class _EmptyJobsView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 5),
-        const Text(
-          'Pull down to refresh or create a new job posting.',
+        Text(AppLanguage.text('Pull down to refresh or create a new job posting.'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.grey,
@@ -743,8 +740,7 @@ class _ErrorView extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.blue,
               ),
-              child: const Text(
-                'Try Again',
+              child: Text(AppLanguage.text('Try Again'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,

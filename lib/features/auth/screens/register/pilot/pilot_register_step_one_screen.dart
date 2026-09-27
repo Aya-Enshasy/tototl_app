@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_tow_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../../model/Country.dart';
 import '../../../models/PilotRegisterRequestModel.dart';
@@ -296,10 +297,10 @@ class _PilotRegisterStepOneScreenState
 
                   const SizedBox(height: 22),
 
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Profile Photo',
+                      AppLanguage.text('Profile Photo'),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -310,10 +311,10 @@ class _PilotRegisterStepOneScreenState
 
                   const SizedBox(height: 5),
 
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Add a clear photo for your pilot profile.',
+                      AppLanguage.text('Add a clear photo for your pilot profile.'),
                       style: TextStyle(
                         color: AppColors.kTextMuted,
                         fontSize: 12.5,
@@ -430,7 +431,7 @@ class _PilotRegisterStepOneScreenState
                   CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      AppLanguage.text(title),
                       style: TextStyle(
                         color: destructive
                             ? color
@@ -441,7 +442,7 @@ class _PilotRegisterStepOneScreenState
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      subtitle,
+                      AppLanguage.text(subtitle),
                       style: const TextStyle(
                         color:
                         AppColors.kTextMuted,
@@ -616,8 +617,8 @@ class _PilotRegisterStepOneScreenState
 
             const SizedBox(height: 12),
 
-            const Text(
-              'Add profile photo',
+            Text(
+              AppLanguage.text('Add profile photo'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,
@@ -833,14 +834,14 @@ class _PilotRegisterStepOneScreenState
                         ),
                         child: Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment:
                                 CrossAxisAlignment
                                     .start,
                                 children: [
                                   Text(
-                                    'Country Code',
+                                    AppLanguage.text('Country Code'),
                                     style:
                                     TextStyle(
                                       fontSize: 18,
@@ -856,7 +857,7 @@ class _PilotRegisterStepOneScreenState
                                     height: 2,
                                   ),
                                   Text(
-                                    'Select your calling code',
+                                    AppLanguage.text('Select your calling code'),
                                     style:
                                     TextStyle(
                                       fontSize:
@@ -950,9 +951,9 @@ class _PilotRegisterStepOneScreenState
 
                       Expanded(
                         child: filtered.isEmpty
-                            ? const Center(
+                            ? Center(
                           child: Text(
-                            'No countries found',
+                            AppLanguage.text('No countries found'),
                             style:
                             TextStyle(
                               color: AppColors
@@ -1028,8 +1029,8 @@ class _PilotRegisterStepOneScreenState
                                     Expanded(
                                       child:
                                       Text(
-                                        country
-                                            .name,
+                                        AppLanguage.text(country
+                                            .name),
                                         maxLines:
                                         1,
                                         overflow:
@@ -1055,8 +1056,8 @@ class _PilotRegisterStepOneScreenState
                                     ),
 
                                     Text(
-                                      country
-                                          .dialCode,
+                                      AppLanguage.text(country
+                                          .dialCode),
                                       style:
                                       TextStyle(
                                         fontSize:
@@ -1185,14 +1186,14 @@ class _PilotRegisterStepOneScreenState
                         ),
                         child: Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment:
                                 CrossAxisAlignment
                                     .start,
                                 children: [
                                   Text(
-                                    'Nationality',
+                                    AppLanguage.text('Nationality'),
                                     style:
                                     TextStyle(
                                       fontSize: 18,
@@ -1208,7 +1209,7 @@ class _PilotRegisterStepOneScreenState
                                     height: 2,
                                   ),
                                   Text(
-                                    'Select your nationality',
+                                    AppLanguage.text('Select your nationality'),
                                     style:
                                     TextStyle(
                                       fontSize:
@@ -1302,9 +1303,9 @@ class _PilotRegisterStepOneScreenState
 
                       Expanded(
                         child: filtered.isEmpty
-                            ? const Center(
+                            ? Center(
                           child: Text(
-                            'No results found',
+                            AppLanguage.text('No results found'),
                             style:
                             TextStyle(
                               color: AppColors
@@ -1390,8 +1391,8 @@ class _PilotRegisterStepOneScreenState
                                     Expanded(
                                       child:
                                       Text(
-                                        country
-                                            .name,
+                                        AppLanguage.text(country
+                                            .name),
                                         maxLines:
                                         1,
                                         overflow:
@@ -1695,7 +1696,7 @@ class _PilotRegisterStepOneScreenState
 
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -1852,8 +1853,8 @@ class _PilotRegisterStepOneScreenState
 
                             _animatedEntry(
                               index: 2,
-                              child: const Text(
-                                'Create Pilot Account',
+                              child: Text(
+                                AppLanguage.text('Create Pilot Account'),
                                 style: TextStyle(
                                   fontSize: 27,
                                   fontWeight:
@@ -1874,8 +1875,8 @@ class _PilotRegisterStepOneScreenState
 
                             _animatedEntry(
                               index: 3,
-                              child: const Text(
-                                'Complete your basic information to create your pilot account.',
+                              child: Text(
+                                AppLanguage.text('Complete your basic information to create your pilot account.'),
                                 style: TextStyle(
                                   fontSize: 13.5,
                                   height: 1.5,
@@ -2107,29 +2108,29 @@ class _PilotRegisterStepOneScreenState
                                       ),
                                     ),
                                     validator: (value) {
-                            if (value == null ||
-                            value.isEmpty) {
-                            return 'Password is required';
-                            }
+                                      if (value == null ||
+                                          value.isEmpty) {
+                                        return 'Password is required';
+                                      }
 
-                            if (value.length < 8) {
-                            return 'Password must be at least 8 characters';
-                            }
+                                      if (value.length < 8) {
+                                        return 'Password must be at least 8 characters';
+                                      }
 
-                            if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                            return 'Password must contain an uppercase letter';
-                            }
+                                      if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                                        return 'Password must contain an uppercase letter';
+                                      }
 
-                            if (!RegExp(r'[a-z]').hasMatch(value)) {
-                            return 'Password must contain a lowercase letter';
-                            }
+                                      if (!RegExp(r'[a-z]').hasMatch(value)) {
+                                        return 'Password must contain a lowercase letter';
+                                      }
 
-                            if (!RegExp(r'[0-9]').hasMatch(value)) {
-                            return 'Password must contain a number';
-                            }
+                                      if (!RegExp(r'[0-9]').hasMatch(value)) {
+                                        return 'Password must contain a number';
+                                      }
 
-                            return null;
-                            },
+                                      return null;
+                                    },
                                   ),
 
                                   const SizedBox(
@@ -2393,8 +2394,8 @@ class _PilotRegisterStepOneScreenState
                   color: AppColors.kBorder,
                 ),
               ),
-              child: const Text(
-                'STEP 1 OF 4',
+              child: Text(
+                AppLanguage.text('STEP 1 OF 4'),
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 0.5,
@@ -2525,7 +2526,7 @@ class _PilotRegisterStepOneScreenState
         borderRadius:
         BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -2535,7 +2536,7 @@ class _PilotRegisterStepOneScreenState
           ),
           SizedBox(width: 6),
           Text(
-            'PILOT ONBOARDING',
+            AppLanguage.text('PILOT ONBOARDING'),
             style: TextStyle(
               color: AppColors.kPrimary,
               fontSize: 10,
@@ -2575,13 +2576,13 @@ class _PilotRegisterStepOneScreenState
 
         const SizedBox(width: 10),
 
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment:
             CrossAxisAlignment.start,
             children: [
               Text(
-                'Personal Details',
+                AppLanguage.text('Personal Details'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight:
@@ -2592,7 +2593,7 @@ class _PilotRegisterStepOneScreenState
               ),
               SizedBox(height: 2),
               Text(
-                'Complete all required information',
+                AppLanguage.text('Complete all required information'),
                 maxLines: 2,
                 style: TextStyle(
                   fontSize: 10.5,
@@ -2822,9 +2823,9 @@ class _PilotRegisterStepOneScreenState
                     MainAxisSize.min,
                     children: [
                       Text(
-                        _selectedCountry
+                        AppLanguage.text(_selectedCountry
                             ?.dialCode ??
-                            '+970',
+                            '+970'),
                         style:
                         const TextStyle(
                           color: AppColors
@@ -3013,8 +3014,8 @@ class _PilotRegisterStepOneScreenState
 
                     Expanded(
                       child: Text(
-                        _selectedNationality ??
-                            'Nationality',
+                        AppLanguage.text(_selectedNationality ??
+                            'Nationality'),
                         maxLines: 1,
                         overflow:
                         TextOverflow
@@ -3057,7 +3058,7 @@ class _PilotRegisterStepOneScreenState
                       left: 28,
                     ),
                     child: Text(
-                      state.errorText!,
+                      AppLanguage.text(state.errorText!),
                       style:
                       const TextStyle(
                         color:
@@ -3195,7 +3196,7 @@ class _PilotRegisterStepOneScreenState
                 );
               },
               child: isSuccess
-                  ? const Row(
+                  ? Row(
                 key: ValueKey(
                   'success',
                 ),
@@ -3213,7 +3214,7 @@ class _PilotRegisterStepOneScreenState
                   SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Account Created!',
+                      AppLanguage.text('Account Created!'),
                       overflow:
                       TextOverflow
                           .ellipsis,
@@ -3258,7 +3259,7 @@ class _PilotRegisterStepOneScreenState
                 children: [
                   Flexible(
                     child: Text(
-                      text,
+                      AppLanguage.text(text),
                       overflow:
                       TextOverflow
                           .ellipsis,
@@ -3294,4 +3295,4 @@ class _PilotRegisterStepOneScreenState
   }
 
 
- }
+}

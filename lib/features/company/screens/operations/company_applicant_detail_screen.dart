@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
@@ -360,7 +361,7 @@ class _CompanyApplicantDetailScreenState
     if (!_application.isPending || _acting) return;
 
     final confirmed = await _confirmDialog(
-      title: 'Accept Applicant?',
+      title: AppLanguage.text('Accept Applicant?'),
       message:
       'Accept ${_pilotName()} for this job? The application will move to Accepted.',
       confirmText: 'Accept',
@@ -501,7 +502,7 @@ class _CompanyApplicantDetailScreenState
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(AppLanguage.text('Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -526,8 +527,7 @@ class _CompanyApplicantDetailScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          title: const Text(
-            'Reject Applicant?',
+          title: Text(AppLanguage.text('Reject Applicant?'),
             style: TextStyle(
               color: AppColors.navy,
               fontSize: 16,
@@ -538,8 +538,7 @@ class _CompanyApplicantDetailScreenState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'You can add a rejection reason or leave it empty.',
+              Text(AppLanguage.text('You can add a rejection reason or leave it empty.'),
                 style: TextStyle(
                   color: AppColors.grey,
                   fontSize: 12,
@@ -555,7 +554,7 @@ class _CompanyApplicantDetailScreenState
                 onChanged: (value) => draftReason = value,
                 style: const TextStyle(fontSize: 12.5),
                 decoration: InputDecoration(
-                  hintText: 'Optional rejection reason...',
+                  hintText: AppLanguage.text('Optional rejection reason...'),
                   filled: true,
                   fillColor: AppColors.bg,
                   border: OutlineInputBorder(
@@ -577,7 +576,7 @@ class _CompanyApplicantDetailScreenState
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(AppLanguage.text('Cancel')),
             ),
             FilledButton(
               onPressed: () =>
@@ -585,7 +584,7 @@ class _CompanyApplicantDetailScreenState
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red.shade700,
               ),
-              child: const Text('Reject'),
+              child: Text(AppLanguage.text('Reject')),
             ),
           ],
         );
@@ -695,7 +694,7 @@ class _CompanyApplicantDetailScreenState
                           ...[
                             const SizedBox(height: 12),
                             _section(
-                              title: 'Cover Message',
+                              title: AppLanguage.text('Cover Message'),
                               icon: Icons.chat_bubble_outline_rounded,
                               child: Text(
                                 _application.coverMessage.trim(),
@@ -711,7 +710,7 @@ class _CompanyApplicantDetailScreenState
                           ...[
                             const SizedBox(height: 12),
                             _section(
-                              title: 'Rejection Reason',
+                              title: AppLanguage.text('Rejection Reason'),
                               icon: Icons.info_outline_rounded,
                               accent: AppColors.red,
                               accentBackground: AppColors.redBg,
@@ -765,9 +764,8 @@ class _CompanyApplicantDetailScreenState
               ),
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Applicant Details',
+          Expanded(
+            child: Text(AppLanguage.text('Applicant Details'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.navy,
@@ -951,7 +949,7 @@ class _CompanyApplicantDetailScreenState
 
   Widget _applicationInfo() {
     return _section(
-      title: 'Application',
+      title: AppLanguage.text('Application'),
       icon: Icons.assignment_outlined,
       child: Column(
         children: [
@@ -959,7 +957,7 @@ class _CompanyApplicantDetailScreenState
             children: [
               Expanded(
                 child: _MiniStat(
-                  label: 'Application',
+                  label: AppLanguage.text('Application'),
                   value: '#${_application.id}',
                   icon: Icons.tag_rounded,
                 ),
@@ -967,7 +965,7 @@ class _CompanyApplicantDetailScreenState
               const SizedBox(width: 9),
               Expanded(
                 child: _MiniStat(
-                  label: 'Job',
+                  label: AppLanguage.text('Job'),
                   value: '#${_application.jobPostingId}',
                   icon: Icons.work_outline_rounded,
                 ),
@@ -1008,7 +1006,7 @@ class _CompanyApplicantDetailScreenState
       }
 
       return _section(
-        title: 'Pilot Profile',
+        title: AppLanguage.text('Pilot Profile'),
         icon: Icons.person_outline_rounded,
         child: Text(
           'Pilot #${_application.pilotProfileId}',
@@ -1022,7 +1020,7 @@ class _CompanyApplicantDetailScreenState
     }
 
     return _section(
-      title: 'Pilot Profile',
+      title: AppLanguage.text('Pilot Profile'),
       icon: Icons.person_outline_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1031,7 +1029,7 @@ class _CompanyApplicantDetailScreenState
             children: [
               Expanded(
                 child: _MiniStat(
-                  label: 'Location',
+                  label: AppLanguage.text('Location'),
                   value: pilot.location.isEmpty ? '—' : pilot.location,
                   icon: Icons.location_on_outlined,
                 ),
@@ -1039,7 +1037,7 @@ class _CompanyApplicantDetailScreenState
               const SizedBox(width: 9),
               Expanded(
                 child: _MiniStat(
-                  label: 'Experience',
+                  label: AppLanguage.text('Experience'),
                   value: pilot.experienceLabel.isEmpty
                       ? '—'
                       : pilot.experienceLabel,
@@ -1130,7 +1128,7 @@ class _CompanyApplicantDetailScreenState
     }
 
     return _section(
-      title: 'Credentials & Documents',
+      title: AppLanguage.text('Credentials & Documents'),
       icon: Icons.workspace_premium_outlined,
       child: _credentials.isEmpty
           ? const _EmptyInlineState(
@@ -1317,7 +1315,7 @@ class _CompanyApplicantDetailScreenState
       }
 
       return _section(
-        title: 'Committed Drone',
+        title: AppLanguage.text('Committed Drone'),
         icon: Icons.flight_outlined,
         child: Text(
           'Drone #${_application.droneId}',
@@ -1331,7 +1329,7 @@ class _CompanyApplicantDetailScreenState
     }
 
     return _section(
-      title: 'Committed Drone',
+      title: AppLanguage.text('Committed Drone'),
       icon: Icons.flight_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1477,7 +1475,7 @@ class _CompanyApplicantDetailScreenState
 
   Widget _acceptedStateCard() {
     return _section(
-      title: 'Accepted Application',
+      title: AppLanguage.text('Accepted Application'),
       icon: Icons.handshake_outlined,
       accent: AppColors.green,
       accentBackground: AppColors.greenBg,
@@ -1488,7 +1486,7 @@ class _CompanyApplicantDetailScreenState
           color: AppColors.greenBg.withOpacity(0.62),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Row(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
@@ -1498,8 +1496,7 @@ class _CompanyApplicantDetailScreenState
             ),
             SizedBox(width: 9),
             Expanded(
-              child: Text(
-                'This pilot has been selected for the job. Mission setup actions can be added here in the next workflow stage.',
+              child: Text(AppLanguage.text('This pilot has been selected for the job. Mission setup actions can be added here in the next workflow stage.'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 11.2,
@@ -1717,8 +1714,7 @@ class _CompanyApplicantDetailScreenState
                       Icons.close_rounded,
                       size: 18,
                     ),
-                    label: const Text(
-                      'Reject',
+                    label: Text(AppLanguage.text('Reject'),
                       style: TextStyle(
                         fontSize: 12.3,
                         fontWeight: FontWeight.w800,
@@ -1741,8 +1737,7 @@ class _CompanyApplicantDetailScreenState
                       Icons.check_rounded,
                       size: 18,
                     ),
-                    label: const Text(
-                      'Accept',
+                    label: Text(AppLanguage.text('Accept'),
                       style: TextStyle(
                         fontSize: 12.3,
                         fontWeight: FontWeight.w800,
@@ -2044,8 +2039,7 @@ class _OfflineNotice extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
-              'Retry',
+            child: Text(AppLanguage.text('Retry'),
               style: TextStyle(fontSize: 10.8),
             ),
           ),

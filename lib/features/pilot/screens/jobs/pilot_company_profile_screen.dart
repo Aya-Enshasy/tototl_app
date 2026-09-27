@@ -1,8 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 
 import '../../models/pilot_job_model.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 /// Read-only company profile shown to pilots from a mission.
 ///
@@ -139,12 +141,12 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 11),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Company Profile',
+                  AppLanguage.text('Company Profile'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16.5,
@@ -155,7 +157,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 SizedBox(height: 5),
                 Text(
-                  'Company information for this mission',
+                  AppLanguage.text('Company information for this mission'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -420,10 +422,10 @@ class _AboutCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.apartment_rounded,
             eyebrow: 'ABOUT',
-            title: 'About the company',
+            title: AppLanguage.text('About the company'),
           ),
           const SizedBox(height: 14),
           Text(
@@ -454,7 +456,7 @@ class _CompanyDetailsCard extends StatelessWidget {
       if (company.industryType.trim().isNotEmpty)
         _DetailData(
           icon: Icons.work_outline_rounded,
-          label: 'Industry',
+          label: AppLanguage.text('Industry'),
           value: company.industryType.trim(),
         ),
       if (company.locationLabel.trim().isNotEmpty &&
@@ -462,19 +464,19 @@ class _CompanyDetailsCard extends StatelessWidget {
               'location not specified')
         _DetailData(
           icon: Icons.location_on_outlined,
-          label: 'Location',
+          label: AppLanguage.text('Location'),
           value: company.locationLabel.trim(),
         ),
       if (company.address.trim().isNotEmpty)
         _DetailData(
           icon: Icons.signpost_outlined,
-          label: 'Address',
+          label: AppLanguage.text('Address'),
           value: company.address.trim(),
         ),
       if (company.website.trim().isNotEmpty)
         _DetailData(
           icon: Icons.language_rounded,
-          label: 'Website',
+          label: AppLanguage.text('Website'),
           value: company.website.trim(),
         ),
     ];
@@ -483,15 +485,15 @@ class _CompanyDetailsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.info_outline_rounded,
             eyebrow: 'COMPANY DETAILS',
-            title: 'Company information',
+            title: AppLanguage.text('Company information'),
           ),
           const SizedBox(height: 14),
           if (rows.isEmpty)
-            const Text(
-              'No additional company information was provided.',
+            Text(
+              AppLanguage.text('No additional company information was provided.'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 11.5,
@@ -590,13 +592,13 @@ class _ServiceRegionsCard extends StatelessWidget {
           _SectionHeader(
             icon: Icons.public_rounded,
             eyebrow: 'SERVICE AREA',
-            title: 'Work regions',
+            title: AppLanguage.text('Work regions'),
             trailing: regions.isEmpty ? null : '${regions.length}',
           ),
           const SizedBox(height: 14),
           if (regions.isEmpty)
-            const Text(
-              'No work regions were listed by this company.',
+            Text(
+              AppLanguage.text('No work regions were listed by this company.'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 11.5,
@@ -793,3 +795,4 @@ String _initials(String value) {
 
   return parts.map((part) => part[0].toUpperCase()).join();
 }
+

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 const Color _viewerPage = Color(0xFFF5F8FB);
 const Color _viewerInk = Color(0xFF071A35);
@@ -91,7 +92,7 @@ class _PilotLicenseDocumentViewerScreenState
           children: [
             _ViewerHeader(
               fileName: widget.fileName.trim().isEmpty
-                  ? 'Document'
+                  ? AppLanguage.text('Document')
                   : widget.fileName.trim(),
               onBack: () => Navigator.of(context).pop(),
             ),
@@ -118,20 +119,20 @@ class _PilotLicenseDocumentViewerScreenState
 
   Widget _buildViewer() {
     if (!_fileExists) {
-      return const _ViewerMessage(
+      return _ViewerMessage(
         icon: Icons.file_download_off_outlined,
-        title: 'File unavailable',
-        message: 'The downloaded file is no longer available on this device.',
+        title: AppLanguage.text('File unavailable'),
+        message: AppLanguage.text('The downloaded file is no longer available on this device.'),
       );
     }
 
     if (_isPdf) {
       final controller = _pdfController;
       if (controller == null) {
-        return const _ViewerMessage(
+        return _ViewerMessage(
           icon: Icons.picture_as_pdf_outlined,
-          title: 'Unable to preview PDF',
-          message: 'The PDF viewer could not be prepared.',
+          title: AppLanguage.text('Unable to preview PDF'),
+          message: AppLanguage.text('The PDF viewer could not be prepared.'),
         );
       }
 
@@ -172,10 +173,10 @@ class _PilotLicenseDocumentViewerScreenState
             fit: BoxFit.contain,
             filterQuality: FilterQuality.high,
             errorBuilder: (_, __, ___) {
-              return const _ViewerMessage(
+              return _ViewerMessage(
                 icon: Icons.broken_image_outlined,
-                title: 'Unable to display image',
-                message: 'This image could not be decoded on the device.',
+                title: AppLanguage.text('Unable to display image'),
+                message: AppLanguage.text('This image could not be decoded on the device.'),
               );
             },
           ),
@@ -185,9 +186,9 @@ class _PilotLicenseDocumentViewerScreenState
 
     return _ViewerMessage(
       icon: Icons.insert_drive_file_outlined,
-      title: 'Preview not supported',
+      title: AppLanguage.text('Preview not supported'),
       message: widget.mimeType.trim().isEmpty
-          ? 'This file type cannot be previewed inside the app.'
+          ? AppLanguage.text('This file type cannot be previewed inside the app.')
           : 'Files of type ${widget.mimeType.trim()} cannot be previewed inside the app.',
     );
   }
@@ -232,8 +233,8 @@ class _ViewerHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Document Preview',
+                Text(
+                  AppLanguage.text('Document Preview'),
                   style: TextStyle(
                     color: _viewerInk,
                     fontSize: 16,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../pilot/screens/shared/pilot_data.dart';
 
@@ -20,17 +21,17 @@ enum MissionStage {
 
 extension MissionStageLabel on MissionStage {
   String get label => switch (this) {
-    MissionStage.offerSent => 'Offer sent',
-    MissionStage.contractPending => 'Contract pending',
-    MissionStage.contractSigned => 'Contract signed',
-    MissionStage.readyToStart => 'Ready to start',
-    MissionStage.inProgress => 'In progress',
-    MissionStage.terminationPending => 'Ending contract',
-    MissionStage.terminationSigned => 'Termination signed',
-    MissionStage.paymentPending => 'Payment pending',
-    MissionStage.paymentSent => 'Payment sent',
-    MissionStage.completed => 'Completed',
-    MissionStage.rejected => 'Declined',
+    MissionStage.offerSent => AppLanguage.text('Offer sent'),
+    MissionStage.contractPending => AppLanguage.text('Contract pending'),
+    MissionStage.contractSigned => AppLanguage.text('Contract signed'),
+    MissionStage.readyToStart => AppLanguage.text('Ready to start'),
+    MissionStage.inProgress => AppLanguage.text('In progress'),
+    MissionStage.terminationPending => AppLanguage.text('Ending contract'),
+    MissionStage.terminationSigned => AppLanguage.text('Termination signed'),
+    MissionStage.paymentPending => AppLanguage.text('Payment pending'),
+    MissionStage.paymentSent => AppLanguage.text('Payment sent'),
+    MissionStage.completed => AppLanguage.text('Completed'),
+    MissionStage.rejected => AppLanguage.text('Declined'),
   };
 }
 
@@ -119,9 +120,9 @@ class OperationStore extends ChangeNotifier {
         id: 'message-${DateTime.now().millisecondsSinceEpoch}',
         applicationId: application.id,
         text:
-            'Application approved. The company can upload the contract, then both sides confirm start.',
+            AppLanguage.text('Application approved. The company can upload the contract, then both sides confirm start.'),
         isCompany: true,
-        time: 'Just now',
+        time: AppLanguage.text('Just now'),
       ),
     );
     notifyListeners();
@@ -164,7 +165,7 @@ class OperationStore extends ChangeNotifier {
         text:
             'We sent an offer for \$${amount.toStringAsFixed(0)} on $date ($hours hours).',
         isCompany: true,
-        time: 'Just now',
+        time: AppLanguage.text('Just now'),
       ),
     );
     notifyListeners();
@@ -183,7 +184,7 @@ class OperationStore extends ChangeNotifier {
         applicationId: applicationId,
         text: text.trim(),
         isCompany: isCompany,
-        time: 'Just now',
+        time: AppLanguage.text('Just now'),
       ),
     );
     notifyListeners();

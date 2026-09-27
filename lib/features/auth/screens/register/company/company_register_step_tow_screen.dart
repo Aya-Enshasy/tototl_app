@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/models/CompanyRegisterRequestModel.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../models/country_model.dart';
 import '../../../services/location_service.dart';
@@ -519,7 +520,7 @@ class _CompanyRegisterStepTwoScreenState
 
               Expanded(
                 child: Text(
-                  message,
+                  AppLanguage.text(message),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -674,8 +675,8 @@ class _CompanyRegisterStepTwoScreenState
                             _animatedEntry(
                               index: 2,
                               child:
-                              const Text(
-                                'Company Profile',
+                              Text(
+                                AppLanguage.text('Company Profile'),
                                 style:
                                 TextStyle(
                                   fontSize: 27,
@@ -698,8 +699,8 @@ class _CompanyRegisterStepTwoScreenState
                             _animatedEntry(
                               index: 3,
                               child:
-                              const Text(
-                                'Tell us where your company operates and provide a short professional overview.',
+                              Text(
+                                AppLanguage.text('Tell us where your company operates and provide a short professional overview.'),
                                 style:
                                 TextStyle(
                                   fontSize: 13.5,
@@ -1092,8 +1093,8 @@ class _CompanyRegisterStepTwoScreenState
                 ),
               ),
               child:
-              const Text(
-                'STEP 2 OF 3',
+              Text(
+                AppLanguage.text('STEP 2 OF 3'),
                 style:
                 TextStyle(
                   fontSize: 10,
@@ -1195,7 +1196,7 @@ class _CompanyRegisterStepTwoScreenState
         ),
       ),
       child:
-      const Row(
+      Row(
         mainAxisSize:
         MainAxisSize.min,
         children: [
@@ -1210,7 +1211,7 @@ class _CompanyRegisterStepTwoScreenState
           ),
 
           Text(
-            'COMPANY ONBOARDING',
+            AppLanguage.text('COMPANY ONBOARDING'),
             style:
             TextStyle(
               color: kPrimary,
@@ -1268,7 +1269,7 @@ class _CompanyRegisterStepTwoScreenState
             CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                AppLanguage.text(title),
                 style:
                 const TextStyle(
                   color: kTextDark,
@@ -1283,7 +1284,7 @@ class _CompanyRegisterStepTwoScreenState
               ),
 
               Text(
-                subtitle,
+                AppLanguage.text(subtitle),
                 maxLines: 2,
                 style:
                 const TextStyle(
@@ -1607,8 +1608,8 @@ class _CompanyRegisterStepTwoScreenState
 
             Expanded(
               child: !hasRegions
-                  ? const Text(
-                'Select country and operating regions',
+                  ? Text(
+                AppLanguage.text('Select country and operating regions'),
                 style:
                 TextStyle(
                   fontSize: 13,
@@ -1621,8 +1622,8 @@ class _CompanyRegisterStepTwoScreenState
                     .start,
                 children: [
                   Text(
-                    _selectedCountry!
-                        .name,
+                    AppLanguage.text(_selectedCountry!
+                        .name),
                     maxLines: 1,
                     overflow:
                     TextOverflow
@@ -1682,7 +1683,7 @@ class _CompanyRegisterStepTwoScreenState
                           ),
                           child:
                           Text(
-                            '+${_selectedWillingRegions.length - 3}',
+                            AppLanguage.text('+${_selectedWillingRegions.length - 3}'),
                             style:
                             const TextStyle(
                               color:
@@ -1741,7 +1742,7 @@ class _CompanyRegisterStepTwoScreenState
         ),
       ),
       child: Text(
-        region,
+        AppLanguage.text(region),
         maxLines: 1,
         overflow:
         TextOverflow.ellipsis,
@@ -1873,14 +1874,14 @@ class _CompanyRegisterStepTwoScreenState
                         child:
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child:
                               Column(
                                 crossAxisAlignment:
                                 CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Operating Regions',
+                                    AppLanguage.text('Operating Regions'),
                                     style:
                                     TextStyle(
                                       fontSize:
@@ -1897,7 +1898,7 @@ class _CompanyRegisterStepTwoScreenState
                                   ),
 
                                   Text(
-                                    'Choose a country and cities where your company operates',
+                                    AppLanguage.text('Choose a country and cities where your company operates'),
                                     style:
                                     TextStyle(
                                       fontSize:
@@ -2018,7 +2019,7 @@ class _CompanyRegisterStepTwoScreenState
                                 country,
                                 child:
                                 Text(
-                                  country.name,
+                                  AppLanguage.text(country.name),
                                   maxLines:
                                   1,
                                   overflow:
@@ -2153,7 +2154,7 @@ class _CompanyRegisterStepTwoScreenState
                               Row(
                                 children: [
                                   Text(
-                                    '${filteredCities.length} cities',
+                                    AppLanguage.text('${filteredCities.length} cities'),
                                     style:
                                     const TextStyle(
                                       color:
@@ -2188,7 +2189,7 @@ class _CompanyRegisterStepTwoScreenState
                                     ),
                                     child:
                                     Text(
-                                      '${tempSelectedCities.length} selected',
+                                      AppLanguage.text('${tempSelectedCities.length} selected'),
                                       style:
                                       TextStyle(
                                         color: tempSelectedCities
@@ -2214,10 +2215,10 @@ class _CompanyRegisterStepTwoScreenState
                               child:
                               filteredCities
                                   .isEmpty
-                                  ? const Center(
+                                  ? Center(
                                 child:
                                 Text(
-                                  'No cities found',
+                                  AppLanguage.text('No cities found'),
                                   style:
                                   TextStyle(
                                     fontSize:
@@ -2337,7 +2338,7 @@ class _CompanyRegisterStepTwoScreenState
                                           Expanded(
                                             child:
                                             Text(
-                                              city,
+                                              AppLanguage.text(city),
                                               style:
                                               TextStyle(
                                                 color: selected
@@ -2426,10 +2427,10 @@ class _CompanyRegisterStepTwoScreenState
                             ),
                             child:
                             Text(
-                              tempSelectedCities
+                              AppLanguage.text(tempSelectedCities
                                   .isEmpty
                                   ? 'Done'
-                                  : 'Done • ${tempSelectedCities.length} Selected',
+                                  : 'Done • ${tempSelectedCities.length} Selected'),
                               style:
                               const TextStyle(
                                 fontSize:
@@ -2492,7 +2493,7 @@ class _CompanyRegisterStepTwoScreenState
             ),
 
             Text(
-              title,
+              AppLanguage.text(title),
               textAlign:
               TextAlign.center,
               style:
@@ -2511,7 +2512,7 @@ class _CompanyRegisterStepTwoScreenState
             ),
 
             Text(
-              subtitle,
+              AppLanguage.text(subtitle),
               textAlign:
               TextAlign.center,
               style:
@@ -2624,8 +2625,8 @@ class _CompanyRegisterStepTwoScreenState
               CrossAxisAlignment
                   .start,
               children: [
-                const Text(
-                  'User Agreement',
+                Text(
+                  AppLanguage.text('User Agreement'),
                   style:
                   TextStyle(
                     color:
@@ -2646,8 +2647,8 @@ class _CompanyRegisterStepTwoScreenState
                   WrapCrossAlignment
                       .center,
                   children: [
-                    const Text(
-                      'I agree to the ',
+                    Text(
+                      AppLanguage.text('I agree to the '),
                       style:
                       TextStyle(
                         color:
@@ -2663,8 +2664,8 @@ class _CompanyRegisterStepTwoScreenState
                       onTap:
                       _showTermsAndConditionsSheet,
                       child:
-                      const Text(
-                        'User Contract Agreement & Terms',
+                      Text(
+                        AppLanguage.text('User Contract Agreement & Terms'),
                         style:
                         TextStyle(
                           color:
@@ -2803,14 +2804,14 @@ class _CompanyRegisterStepTwoScreenState
                           11,
                         ),
 
-                        const Expanded(
+                        Expanded(
                           child:
                           Column(
                             crossAxisAlignment:
                             CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'User Contract Agreement',
+                                AppLanguage.text('User Contract Agreement'),
                                 style:
                                 TextStyle(
                                   color:
@@ -2828,7 +2829,7 @@ class _CompanyRegisterStepTwoScreenState
                               ),
 
                               Text(
-                                'Terms & Conditions',
+                                AppLanguage.text('Terms & Conditions'),
                                 style:
                                 TextStyle(
                                   fontSize:
@@ -3003,8 +3004,8 @@ class _CompanyRegisterStepTwoScreenState
                           ),
                         ),
                         child:
-                        const Text(
-                          'I Understand',
+                        Text(
+                          AppLanguage.text('I Understand'),
                           style:
                           TextStyle(
                             fontSize:
@@ -3055,7 +3056,7 @@ class _CompanyRegisterStepTwoScreenState
                 ),
               ),
               child: Text(
-                number,
+                AppLanguage.text(number),
                 style:
                 const TextStyle(
                   color:
@@ -3080,7 +3081,7 @@ class _CompanyRegisterStepTwoScreenState
                     .start,
                 children: [
                   Text(
-                    title,
+                    AppLanguage.text(title),
                     style:
                     const TextStyle(
                       color:
@@ -3098,7 +3099,7 @@ class _CompanyRegisterStepTwoScreenState
                   ),
 
                   Text(
-                    body,
+                    AppLanguage.text(body),
                     style:
                     const TextStyle(
                       color:
@@ -3281,7 +3282,7 @@ class _CompanyRegisterStepTwoScreenState
                 MainAxisAlignment.center,
                 children: [
                   Text(
-                    text,
+                    AppLanguage.text(text),
                     style:
                     const TextStyle(
                       color:
@@ -3319,7 +3320,7 @@ class _CompanyRegisterStepTwoScreenState
   // ==========================================================================
 
   Widget _buildBottomNote() {
-    return const Center(
+    return Center(
       child: Row(
         mainAxisSize:
         MainAxisSize.min,
@@ -3336,7 +3337,7 @@ class _CompanyRegisterStepTwoScreenState
 
           Flexible(
             child: Text(
-              'Your company information is securely protected',
+              AppLanguage.text('Your company information is securely protected'),
               textAlign:
               TextAlign.center,
               style:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../core/theme/app_colors.dart';
  import '../pilot/screens/shared/pilot_data.dart';
@@ -77,9 +78,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ),
               Expanded(
                 child: messages.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Start the conversation about this mission.',
+                    ? Center(
+                        child: Text(AppLanguage.text('Start the conversation about this mission.'),
                           style: TextStyle(color: AppColors.grey),
                         ),
                       )
@@ -126,7 +126,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         controller: _controller,
                         onSubmitted: (_) => _send(),
                         decoration: InputDecoration(
-                          hintText: 'Write a message...',
+                          hintText: AppLanguage.text('Write a message...'),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: const BorderSide(

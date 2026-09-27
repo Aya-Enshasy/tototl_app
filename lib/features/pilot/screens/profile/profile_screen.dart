@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -200,13 +201,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Change Profile Photo',
+                      Text(AppLanguage.text('Change Profile Photo'),
                         style: TextStyle(
                           color: _ink,
                           fontSize: 16,
@@ -214,8 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       SizedBox(height: 3),
-                      Text(
-                        'Choose a new professional photo',
+                      Text(AppLanguage.text('Choose a new professional photo'),
                         style: TextStyle(
                           color: _muted,
                           fontSize: 11,
@@ -230,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: _PhotoSourceButton(
                         icon: Icons.camera_alt_outlined,
-                        title: 'Camera',
+                        title: AppLanguage.text('Camera'),
                         onTap: () {
                           Navigator.pop(
                             sheetContext,
@@ -243,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: _PhotoSourceButton(
                         icon: Icons.photo_library_outlined,
-                        title: 'Gallery',
+                        title: AppLanguage.text('Gallery'),
                         onTap: () {
                           Navigator.pop(
                             sheetContext,
@@ -945,17 +944,17 @@ class _ProfileDetailsCard extends StatelessWidget {
     final left = <_ProfileInfoItem>[
       _ProfileInfoItem(
         icon: Icons.calendar_month_outlined,
-        label: 'Date of Birth',
+        label: AppLanguage.text('Date of Birth'),
         value: _formatDate(profile.dateOfBirth),
       ),
       _ProfileInfoItem(
         icon: Icons.public_rounded,
-        label: 'Nationality',
+        label: AppLanguage.text('Nationality'),
         value: profile.nationality,
       ),
       _ProfileInfoItem(
         icon: Icons.chat_bubble_outline_rounded,
-        label: 'Languages',
+        label: AppLanguage.text('Languages'),
         value: _languagesLabel(profile.languages),
       ),
     ];
@@ -963,17 +962,17 @@ class _ProfileDetailsCard extends StatelessWidget {
     final right = <_ProfileInfoItem>[
       _ProfileInfoItem(
         icon: Icons.phone_outlined,
-        label: 'Phone',
+        label: AppLanguage.text('Phone'),
         value: account.phone,
       ),
       _ProfileInfoItem(
         icon: Icons.location_on_outlined,
-        label: 'Local Region',
+        label: AppLanguage.text('Local Region'),
         value: localRegion,
       ),
       _ProfileInfoItem(
         icon: Icons.work_outline_rounded,
-        label: 'Willing to Work',
+        label: AppLanguage.text('Willing to Work'),
         value: _workRegionsLabel(profile.workRegions),
       ),
     ];
@@ -1000,12 +999,11 @@ class _ProfileDetailsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Pilot Information',
+                    Text(AppLanguage.text('Pilot Information'),
                       style: TextStyle(
                         color: _ink,
                         fontSize: 16,
@@ -1014,8 +1012,7 @@ class _ProfileDetailsCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 3),
-                    Text(
-                      'Professional details & working preferences',
+                    Text(AppLanguage.text('Professional details & working preferences'),
                       style: TextStyle(
                         color: _muted,
                         fontSize: 10.7,
@@ -1043,7 +1040,7 @@ class _ProfileDetailsCard extends StatelessWidget {
                         color: _teal.withOpacity(0.15),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
@@ -1052,8 +1049,7 @@ class _ProfileDetailsCard extends StatelessWidget {
                           size: 16,
                         ),
                         SizedBox(width: 6),
-                        Text(
-                          'Edit',
+                        Text(AppLanguage.text('Edit'),
                           style: TextStyle(
                             color: _tealDark,
                             fontSize: 11.5,
@@ -1235,7 +1231,7 @@ class _StatsRow extends StatelessWidget {
                 icon:
                 Icons.workspace_premium_rounded,
                 value: experience,
-                label: 'Years Exp',
+                label: AppLanguage.text('Years Exp'),
                 compact: compact,
               ),
             ),
@@ -1246,7 +1242,7 @@ class _StatsRow extends StatelessWidget {
               child: _StatCard(
                 icon: Icons.flight_takeoff_rounded,
                 value: '—',
-                label: 'Missions',
+                label: AppLanguage.text('Missions'),
                 compact: compact,
               ),
             ),
@@ -1257,7 +1253,7 @@ class _StatsRow extends StatelessWidget {
               child: _StatCard(
                 icon: Icons.track_changes_rounded,
                 value: '—',
-                label: 'Success Rate',
+                label: AppLanguage.text('Success Rate'),
                 compact: compact,
               ),
             ),
@@ -1433,9 +1429,8 @@ class _MyDronesSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'My Drones',
+              Expanded(
+                child: Text(AppLanguage.text('My Drones'),
                   style: TextStyle(
                     color: _ink,
                     fontSize: 16,
@@ -1457,8 +1452,7 @@ class _MyDronesSection extends StatelessWidget {
                   Icons.add_rounded,
                   size: 20,
                 ),
-                label: const Text(
-                  'Add Drone',
+                label: Text(AppLanguage.text('Add Drone'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -1528,8 +1522,7 @@ class _MyDronesSection extends StatelessWidget {
                           crossAxisAlignment:
                           CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Drone profile',
+                            Text(AppLanguage.text('Drone profile'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1541,8 +1534,7 @@ class _MyDronesSection extends StatelessWidget {
 
                             const SizedBox(height: 5),
 
-                            const Text(
-                              'Not linked yet',
+                            Text(AppLanguage.text('Not linked yet'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -1565,8 +1557,7 @@ class _MyDronesSection extends StatelessWidget {
                                   30,
                                 ),
                               ),
-                              child: const Text(
-                                'Connect API',
+                              child: Text(AppLanguage.text('Connect API'),
                                 style: TextStyle(
                                   color: _tealDark,
                                   fontSize: 9.5,
@@ -1841,8 +1832,7 @@ class _NoProfileData extends StatelessWidget {
 
                 const SizedBox(height: 15),
 
-                const Text(
-                  'Profile unavailable',
+                Text(AppLanguage.text('Profile unavailable'),
                   style: TextStyle(
                     color: _ink,
                     fontSize: 16,
@@ -1852,8 +1842,7 @@ class _NoProfileData extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                const Text(
-                  'We could not load your pilot profile.',
+                Text(AppLanguage.text('We could not load your pilot profile.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _muted,
@@ -1875,8 +1864,7 @@ class _NoProfileData extends StatelessWidget {
                     Icons.refresh_rounded,
                     size: 17,
                   ),
-                  label: const Text(
-                    'Try Again',
+                  label: Text(AppLanguage.text('Try Again'),
                   ),
                 ),
               ],
@@ -1913,36 +1901,36 @@ _StatusData _statusData(
     case 'active':
     case 'approved':
     case 'verified':
-      return const _StatusData(
-        label: 'Verified Pilot',
+      return _StatusData(
+        label: AppLanguage.text('Verified Pilot'),
         icon: Icons.verified_rounded,
         color: _tealDark,
       );
 
     case 'pending':
-      return const _StatusData(
-        label: 'Pending Pilot',
+      return _StatusData(
+        label: AppLanguage.text('Pending Pilot'),
         icon: Icons.schedule_rounded,
         color: Color(0xFFB67A00),
       );
 
     case 'rejected':
-      return const _StatusData(
-        label: 'Rejected Pilot',
+      return _StatusData(
+        label: AppLanguage.text('Rejected Pilot'),
         icon: Icons.cancel_outlined,
         color: _danger,
       );
 
     case 'suspended':
-      return const _StatusData(
-        label: 'Suspended Pilot',
+      return _StatusData(
+        label: AppLanguage.text('Suspended Pilot'),
         icon: Icons.block_rounded,
         color: _danger,
       );
 
     default:
-      return const _StatusData(
-        label: 'Pilot',
+      return _StatusData(
+        label: AppLanguage.text('Pilot'),
         icon: Icons.flight_takeoff_rounded,
         color: _tealDark,
       );
@@ -2052,3 +2040,4 @@ String _initials(
 
   return '${words.first[0]}${words.last[0]}'.toUpperCase();
 }
+

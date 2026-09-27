@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/storage/user_session_storage.dart';
 import '../models/chat_conversation.dart';
@@ -16,8 +17,10 @@ import '../services/cloudinary_chat_media_service.dart';
 import '../services/firebase_chat_service.dart';
 import 'forward_message_screen.dart';
 
+String _ui(String source) => AppLanguage.text(source);
+
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({
+  ChatScreen({
     super.key,
     required this.currentUserId,
     required this.currentUserName,
@@ -192,7 +195,7 @@ class _ChatScreenState
     } catch (_) {
       if (mounted) {
         _showSnack(
-          'Message could not be sent.',
+          _ui('Message could not be sent.'),
           error: true,
         );
       }
@@ -231,11 +234,11 @@ class _ChatScreenState
           child:
           Container(
             margin:
-            const EdgeInsets.all(
+            EdgeInsets.all(
               12,
             ),
             padding:
-            const EdgeInsets.fromLTRB(
+            EdgeInsets.fromLTRB(
               18,
               10,
               18,
@@ -271,13 +274,13 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   18,
                 ),
 
-                const Text(
-                  'Send a photo',
+                Text(
+                  _ui('Send a photo'),
                   style:
                   TextStyle(
                     color:
@@ -289,7 +292,7 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   14,
                 ),
@@ -298,9 +301,9 @@ class _ChatScreenState
                   icon:
                   Icons.photo_library_outlined,
                   title:
-                  'Photo library',
+                  _ui('Photo library'),
                   subtitle:
-                  'Choose an image from your device',
+                  _ui('Choose an image from your device'),
                   onTap:
                       () => Navigator.pop(
                     sheetContext,
@@ -308,7 +311,7 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   8,
                 ),
@@ -317,9 +320,9 @@ class _ChatScreenState
                   icon:
                   Icons.photo_camera_outlined,
                   title:
-                  'Camera',
+                  _ui('Camera'),
                   subtitle:
-                  'Take a new photo',
+                  _ui('Take a new photo'),
                   onTap:
                       () => Navigator.pop(
                     sheetContext,
@@ -423,7 +426,7 @@ class _ChatScreenState
     } catch (e) {
       if (mounted) {
         _showSnack(
-          'Photo upload failed.',
+          _ui('Photo upload failed.'),
           error: true,
         );
       }
@@ -459,7 +462,7 @@ class _ChatScreenState
           child:
           Container(
             margin:
-            const EdgeInsets.all(
+            EdgeInsets.all(
               12,
             ),
             constraints:
@@ -468,7 +471,7 @@ class _ChatScreenState
               height,
             ),
             padding:
-            const EdgeInsets.fromLTRB(
+            EdgeInsets.fromLTRB(
               14,
               10,
               14,
@@ -504,7 +507,7 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   12,
                 ),
@@ -529,7 +532,7 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   12,
                 ),
@@ -549,12 +552,12 @@ class _ChatScreenState
                           foregroundColor:
                           AppColors.navy,
                           side:
-                          const BorderSide(
+                          BorderSide(
                             color:
                             AppColors.cardBorder,
                           ),
                           padding:
-                          const EdgeInsets.symmetric(
+                          EdgeInsets.symmetric(
                             vertical:
                             14,
                           ),
@@ -567,13 +570,13 @@ class _ChatScreenState
                           ),
                         ),
                         child:
-                        const Text(
-                          'Cancel',
+                        Text(
+                          _ui('Cancel'),
                         ),
                       ),
                     ),
 
-                    const SizedBox(
+                    SizedBox(
                       width:
                       10,
                     ),
@@ -593,7 +596,7 @@ class _ChatScreenState
                           foregroundColor:
                           Colors.white,
                           padding:
-                          const EdgeInsets.symmetric(
+                          EdgeInsets.symmetric(
                             vertical:
                             14,
                           ),
@@ -606,14 +609,14 @@ class _ChatScreenState
                           ),
                         ),
                         icon:
-                        const Icon(
+                        Icon(
                           Icons.send_rounded,
                           size:
                           17,
                         ),
                         label:
-                        const Text(
-                          'Send photo',
+                        Text(
+                          _ui('Send photo'),
                           style:
                           TextStyle(
                             fontWeight:
@@ -652,7 +655,7 @@ class _ChatScreenState
       if (!allowed) {
         if (mounted) {
           _showSnack(
-            'Microphone permission is required.',
+            _ui('Microphone permission is required.'),
             error: true,
           );
         }
@@ -668,7 +671,7 @@ class _ChatScreenState
           'tototl_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
       await _recorder.start(
-        const RecordConfig(
+        RecordConfig(
           encoder:
           AudioEncoder.aacLc,
           bitRate:
@@ -705,7 +708,7 @@ class _ChatScreenState
 
       _recordingTimer =
           Timer.periodic(
-            const Duration(
+            Duration(
               seconds:
               1,
             ),
@@ -717,17 +720,17 @@ class _ChatScreenState
 
               setState(() {
                 _recordingDuration +=
-                const Duration(
-                  seconds:
-                  1,
-                );
+                    Duration(
+                      seconds:
+                      1,
+                    );
               });
             },
           );
     } catch (_) {
       if (mounted) {
         _showSnack(
-          'Could not start voice recording.',
+          _ui('Could not start voice recording.'),
           error: true,
         );
       }
@@ -810,7 +813,7 @@ class _ChatScreenState
     if (path == null ||
         path.trim().isEmpty) {
       _showSnack(
-        'Voice recording was not saved.',
+        _ui('Voice recording was not saved.'),
         error: true,
       );
 
@@ -821,7 +824,7 @@ class _ChatScreenState
         path;
 
     if (capturedDuration <
-        const Duration(
+        Duration(
           seconds:
           1,
         )) {
@@ -835,7 +838,7 @@ class _ChatScreenState
       }
 
       _showSnack(
-        'Voice message is too short.',
+        _ui('Voice message is too short.'),
       );
 
       return;
@@ -903,7 +906,7 @@ class _ChatScreenState
     } catch (_) {
       if (mounted) {
         _showSnack(
-          'Voice upload failed.',
+          _ui('Voice upload failed.'),
           error: true,
         );
       }
@@ -953,7 +956,7 @@ class _ChatScreenState
     } catch (_) {
       if (mounted) {
         _showSnack(
-          'Reaction could not be updated.',
+          _ui('Reaction could not be updated.'),
           error: true,
         );
       }
@@ -1022,7 +1025,7 @@ class _ChatScreenState
 
           if (mounted) {
             _showSnack(
-              'Message copied.',
+              _ui('Message copied.'),
             );
           }
         }
@@ -1089,11 +1092,11 @@ class _ChatScreenState
           child:
           Container(
             margin:
-            const EdgeInsets.all(
+            EdgeInsets.all(
               12,
             ),
             padding:
-            const EdgeInsets.fromLTRB(
+            EdgeInsets.fromLTRB(
               20,
               10,
               20,
@@ -1129,7 +1132,7 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   20,
                 ),
@@ -1152,7 +1155,7 @@ class _ChatScreenState
                     ),
                   ),
                   child:
-                  const Icon(
+                  Icon(
                     Icons.delete_outline_rounded,
                     color:
                     AppColors.red,
@@ -1161,13 +1164,13 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   14,
                 ),
 
-                const Text(
-                  'Delete message?',
+                Text(
+                  _ui('Delete message?'),
                   style:
                   TextStyle(
                     color:
@@ -1179,13 +1182,13 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   6,
                 ),
 
-                const Text(
-                  'It will be replaced with “Message deleted” for both users.',
+                Text(
+                  _ui('It will be replaced with “Message deleted” for both users.'),
                   textAlign:
                   TextAlign.center,
                   style:
@@ -1199,7 +1202,7 @@ class _ChatScreenState
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   18,
                 ),
@@ -1219,12 +1222,12 @@ class _ChatScreenState
                           foregroundColor:
                           AppColors.navy,
                           side:
-                          const BorderSide(
+                          BorderSide(
                             color:
                             AppColors.cardBorder,
                           ),
                           padding:
-                          const EdgeInsets.symmetric(
+                          EdgeInsets.symmetric(
                             vertical:
                             14,
                           ),
@@ -1237,13 +1240,13 @@ class _ChatScreenState
                           ),
                         ),
                         child:
-                        const Text(
-                          'Cancel',
+                        Text(
+                          _ui('Cancel'),
                         ),
                       ),
                     ),
 
-                    const SizedBox(
+                    SizedBox(
                       width:
                       10,
                     ),
@@ -1263,7 +1266,7 @@ class _ChatScreenState
                           foregroundColor:
                           Colors.white,
                           padding:
-                          const EdgeInsets.symmetric(
+                          EdgeInsets.symmetric(
                             vertical:
                             14,
                           ),
@@ -1276,8 +1279,8 @@ class _ChatScreenState
                           ),
                         ),
                         child:
-                        const Text(
-                          'Delete',
+                        Text(
+                          _ui('Delete'),
                           style:
                           TextStyle(
                             fontWeight:
@@ -1310,7 +1313,7 @@ class _ChatScreenState
     } catch (_) {
       if (mounted) {
         _showSnack(
-          'Message could not be deleted.',
+          _ui('Message could not be deleted.'),
           error: true,
         );
       }
@@ -1335,7 +1338,7 @@ class _ChatScreenState
               .position
               .maxScrollExtent,
           duration:
-          const Duration(
+          Duration(
             milliseconds:
             240,
           ),
@@ -1395,7 +1398,7 @@ class _ChatScreenState
               ? AppColors.red
               : AppColors.navy,
           margin:
-          const EdgeInsets.all(
+          EdgeInsets.all(
             16,
           ),
           shape:
@@ -1457,7 +1460,7 @@ class _ChatScreenState
 
                       final messages =
                           snapshot.data ??
-                              const <
+                              <
                                   ChatMessage>[];
 
                       WidgetsBinding
@@ -1484,9 +1487,9 @@ class _ChatScreenState
                         ScrollViewKeyboardDismissBehavior
                             .onDrag,
                         physics:
-                        const BouncingScrollPhysics(),
+                        BouncingScrollPhysics(),
                         padding:
-                        const EdgeInsets.fromLTRB(
+                        EdgeInsets.fromLTRB(
                           16,
                           18,
                           16,
@@ -1594,7 +1597,7 @@ class _ChatScreenState
             ),
 
             if (_uploadingMedia)
-              const Positioned.fill(
+              Positioned.fill(
                 child:
                 _MediaUploadingOverlay(),
               ),
@@ -1640,14 +1643,14 @@ class _ChatHeader
       ) {
     return Container(
       padding:
-      const EdgeInsets.fromLTRB(
+      EdgeInsets.fromLTRB(
         8,
         8,
         14,
         10,
       ),
       decoration:
-      const BoxDecoration(
+      BoxDecoration(
         color:
         Colors.white,
         border:
@@ -1668,7 +1671,7 @@ class _ChatHeader
               context,
             ).pop(),
             icon:
-            const Icon(
+            Icon(
               Icons.arrow_back_ios_new_rounded,
               color:
               AppColors.navy,
@@ -1688,7 +1691,7 @@ class _ChatHeader
             true,
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             10,
           ),
@@ -1701,14 +1704,14 @@ class _ChatHeader
               children: [
                 Text(
                   name.trim().isEmpty
-                      ? 'Conversation'
+                      ? _ui('Conversation')
                       : name,
                   maxLines:
                   1,
                   overflow:
                   TextOverflow.ellipsis,
                   style:
-                  const TextStyle(
+                  TextStyle(
                     color:
                     AppColors.navy,
                     fontSize:
@@ -1718,12 +1721,12 @@ class _ChatHeader
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   2,
                 ),
 
-                const Row(
+                Row(
                   children: [
                     Icon(
                       Icons.lock_outline_rounded,
@@ -1737,7 +1740,7 @@ class _ChatHeader
                       4,
                     ),
                     Text(
-                      'Private conversation',
+                      _ui('Private conversation'),
                       style:
                       TextStyle(
                         color:
@@ -1760,7 +1763,7 @@ class _ChatHeader
             height:
             38,
             decoration:
-            const BoxDecoration(
+            BoxDecoration(
               color:
               Color(
                 0xFFF5F7F9,
@@ -1769,7 +1772,7 @@ class _ChatHeader
               BoxShape.circle,
             ),
             child:
-            const Icon(
+            Icon(
               Icons.more_horiz_rounded,
               color:
               AppColors.navy,
@@ -1834,7 +1837,7 @@ class _MessageBubble
 
     return Padding(
       padding:
-      const EdgeInsets.only(
+      EdgeInsets.only(
         bottom:
         9,
       ),
@@ -1863,7 +1866,7 @@ class _MessageBubble
               )
                   : null,
             ),
-            const SizedBox(
+            SizedBox(
               width:
               6,
             ),
@@ -1919,7 +1922,7 @@ class _MessageBubble
                       gradient:
                       mine &&
                           !message.deleted
-                          ? const LinearGradient(
+                          ? LinearGradient(
                         begin:
                         Alignment.topLeft,
                         end:
@@ -1935,18 +1938,18 @@ class _MessageBubble
                           !message.deleted
                           ? null
                           : message.deleted
-                          ? const Color(
+                          ? Color(
                         0xFFF1F3F5,
                       )
                           : Colors.white,
                       borderRadius:
                       BorderRadius.only(
                         topLeft:
-                        const Radius.circular(
+                        Radius.circular(
                           19,
                         ),
                         topRight:
-                        const Radius.circular(
+                        Radius.circular(
                           19,
                         ),
                         bottomLeft:
@@ -1979,7 +1982,7 @@ class _MessageBubble
                           blurRadius:
                           12,
                           offset:
-                          const Offset(
+                          Offset(
                             0,
                             4,
                           ),
@@ -2006,14 +2009,14 @@ class _MessageBubble
 
                         if (message
                             .hasReply)
-                          const SizedBox(
+                          SizedBox(
                             height:
                             7,
                           ),
 
                         if (message.deleted)
-                          const Text(
-                            'Message deleted',
+                          Text(
+                            _ui('Message deleted'),
                             style:
                             TextStyle(
                               color:
@@ -2058,7 +2061,7 @@ class _MessageBubble
 
                         if (time
                             .isNotEmpty) ...[
-                          const SizedBox(
+                          SizedBox(
                             height:
                             5,
                           ),
@@ -2087,7 +2090,7 @@ class _MessageBubble
 
                               if (mine &&
                                   !message.deleted) ...[
-                                const SizedBox(
+                                SizedBox(
                                   width:
                                   3,
                                 ),
@@ -2114,7 +2117,7 @@ class _MessageBubble
                     .isNotEmpty)
                   Padding(
                     padding:
-                    const EdgeInsets.only(
+                    EdgeInsets.only(
                       top:
                       4,
                     ),
@@ -2195,7 +2198,7 @@ class _ImageMessageContent
         child:
         Container(
           constraints:
-          const BoxConstraints(
+          BoxConstraints(
             minWidth:
             180,
             maxWidth:
@@ -2206,7 +2209,7 @@ class _ImageMessageContent
             300,
           ),
           color:
-          const Color(
+          Color(
             0xFFF0F3F5,
           ),
           child:
@@ -2225,7 +2228,7 @@ class _ImageMessageContent
                 return child;
               }
 
-              return const SizedBox(
+              return SizedBox(
                 width:
                 220,
                 height:
@@ -2248,7 +2251,7 @@ class _ImageMessageContent
                 error,
                 stackTrace,
                 ) {
-              return const SizedBox(
+              return SizedBox(
                 width:
                 220,
                 height:
@@ -2270,7 +2273,7 @@ class _ImageMessageContent
                         6,
                       ),
                       Text(
-                        'Photo unavailable',
+                        _ui('Photo unavailable'),
                         style:
                         TextStyle(
                           color:
@@ -2556,13 +2559,13 @@ class _VoiceMessagePlayerState
                 ? Colors.white
                 : AppColors.blueBg,
             shape:
-            const CircleBorder(),
+            CircleBorder(),
             child:
             InkWell(
               onTap:
               _toggle,
               customBorder:
-              const CircleBorder(),
+              CircleBorder(),
               child:
               SizedBox(
                 width:
@@ -2586,7 +2589,7 @@ class _VoiceMessagePlayerState
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             10,
           ),
@@ -2608,7 +2611,7 @@ class _VoiceMessagePlayerState
                   _seek,
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   5,
                 ),
@@ -2793,7 +2796,7 @@ class _ReplyPreview
       width:
       double.infinity,
       padding:
-      const EdgeInsets.fromLTRB(
+      EdgeInsets.fromLTRB(
         9,
         7,
         9,
@@ -2807,7 +2810,7 @@ class _ReplyPreview
           alpha:
           .14,
         )
-            : const Color(
+            : Color(
           0xFFF4F7F8,
         ),
         borderRadius:
@@ -2837,7 +2840,7 @@ class _ReplyPreview
         children: [
           Text(
             replyMine
-                ? 'You'
+                ? _ui('You')
                 : partnerName,
             style:
             TextStyle(
@@ -2852,7 +2855,7 @@ class _ReplyPreview
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             height:
             2,
           ),
@@ -2920,7 +2923,7 @@ class _ReactionChip
         child:
         Container(
           padding:
-          const EdgeInsets.symmetric(
+          EdgeInsets.symmetric(
             horizontal:
             7,
             vertical:
@@ -2950,7 +2953,7 @@ class _ReactionChip
                   code,
                 ),
                 style:
-                const TextStyle(
+                TextStyle(
                   fontSize:
                   13,
                 ),
@@ -2958,14 +2961,14 @@ class _ReactionChip
 
               if (count >
                   1) ...[
-                const SizedBox(
+                SizedBox(
                   width:
                   3,
                 ),
                 Text(
                   '$count',
                   style:
-                  const TextStyle(
+                  TextStyle(
                     color:
                     AppColors.grey,
                     fontSize:
@@ -3012,11 +3015,11 @@ class _MessageActionsSheet
       child:
       Container(
         margin:
-        const EdgeInsets.all(
+        EdgeInsets.all(
           12,
         ),
         padding:
-        const EdgeInsets.fromLTRB(
+        EdgeInsets.fromLTRB(
           16,
           9,
           16,
@@ -3040,7 +3043,7 @@ class _MessageActionsSheet
               blurRadius:
               30,
               offset:
-              const Offset(
+              Offset(
                 0,
                 12,
               ),
@@ -3073,7 +3076,7 @@ class _MessageActionsSheet
               ),
             ),
 
-            const SizedBox(
+            SizedBox(
               height:
               14,
             ),
@@ -3082,13 +3085,13 @@ class _MessageActionsSheet
               width:
               double.infinity,
               padding:
-              const EdgeInsets.all(
+              EdgeInsets.all(
                 12,
               ),
               decoration:
               BoxDecoration(
                 color:
-                const Color(
+                Color(
                   0xFFF6F8FA,
                 ),
                 borderRadius:
@@ -3104,7 +3107,7 @@ class _MessageActionsSheet
                 overflow:
                 TextOverflow.ellipsis,
                 style:
-                const TextStyle(
+                TextStyle(
                   color:
                   AppColors.navy,
                   fontSize:
@@ -3115,13 +3118,13 @@ class _MessageActionsSheet
               ),
             ),
 
-            const SizedBox(
+            SizedBox(
               height:
               14,
             ),
 
-            const Text(
-              'React',
+            Text(
+              _ui('React'),
               style:
               TextStyle(
                 color:
@@ -3133,7 +3136,7 @@ class _MessageActionsSheet
               ),
             ),
 
-            const SizedBox(
+            SizedBox(
               height:
               10,
             ),
@@ -3154,7 +3157,7 @@ class _MessageActionsSheet
 
                     return Padding(
                       padding:
-                      const EdgeInsets.only(
+                      EdgeInsets.only(
                         right:
                         8,
                       ),
@@ -3163,11 +3166,11 @@ class _MessageActionsSheet
                         color:
                         selected
                             ? AppColors.blueBg
-                            : const Color(
+                            : Color(
                           0xFFF7F8FA,
                         ),
                         shape:
-                        const CircleBorder(),
+                        CircleBorder(),
                         child:
                         InkWell(
                           onTap:
@@ -3176,7 +3179,7 @@ class _MessageActionsSheet
                             'reaction:${reaction.code}',
                           ),
                           customBorder:
-                          const CircleBorder(),
+                          CircleBorder(),
                           child:
                           Container(
                             width:
@@ -3203,7 +3206,7 @@ class _MessageActionsSheet
                               Text(
                                 reaction.emoji,
                                 style:
-                                const TextStyle(
+                                TextStyle(
                                   fontSize:
                                   23,
                                 ),
@@ -3220,12 +3223,12 @@ class _MessageActionsSheet
 
             if (currentReaction !=
                 null) ...[
-              const SizedBox(
+              SizedBox(
                 height:
                 7,
               ),
-              const Text(
-                'Choose another reaction to replace the current one, or tap the same reaction to remove it.',
+              Text(
+                _ui('Choose another reaction to replace the current one, or tap the same reaction to remove it.'),
                 style:
                 TextStyle(
                   color:
@@ -3238,12 +3241,12 @@ class _MessageActionsSheet
               ),
             ],
 
-            const SizedBox(
+            SizedBox(
               height:
               10,
             ),
 
-            const Divider(
+            Divider(
               color:
               AppColors.cardBorder,
               height:
@@ -3255,7 +3258,7 @@ class _MessageActionsSheet
                 icon:
                 Icons.copy_rounded,
                 label:
-                'Copy',
+                _ui('Copy'),
                 onTap:
                     () => Navigator.pop(
                   context,
@@ -3267,7 +3270,7 @@ class _MessageActionsSheet
               icon:
               Icons.reply_rounded,
               label:
-              'Reply',
+              _ui('Reply'),
               onTap:
                   () => Navigator.pop(
                 context,
@@ -3279,7 +3282,7 @@ class _MessageActionsSheet
               icon:
               Icons.forward_rounded,
               label:
-              'Forward',
+              _ui('Forward'),
               onTap:
                   () => Navigator.pop(
                 context,
@@ -3292,7 +3295,7 @@ class _MessageActionsSheet
                 icon:
                 Icons.delete_outline_rounded,
                 label:
-                'Delete',
+                _ui('Delete'),
                 danger:
                 true,
                 onTap:
@@ -3340,7 +3343,7 @@ class _ActionRow
         child:
         Padding(
           padding:
-          const EdgeInsets.symmetric(
+          EdgeInsets.symmetric(
             horizontal:
             3,
             vertical:
@@ -3447,7 +3450,7 @@ class _Composer
       ) {
     return Container(
       decoration:
-      const BoxDecoration(
+      BoxDecoration(
         color:
         Colors.white,
         border:
@@ -3466,7 +3469,7 @@ class _Composer
         child:
         Padding(
           padding:
-          const EdgeInsets.fromLTRB(
+          EdgeInsets.fromLTRB(
             12,
             8,
             12,
@@ -3492,7 +3495,7 @@ class _Composer
 
               if (replyTo !=
                   null)
-                const SizedBox(
+                SizedBox(
                   height:
                   7,
                 ),
@@ -3520,7 +3523,7 @@ class _Composer
                           : onAttachment,
                     ),
 
-                    const SizedBox(
+                    SizedBox(
                       width:
                       7,
                     ),
@@ -3543,7 +3546,7 @@ class _Composer
                         textInputAction:
                         TextInputAction.newline,
                         style:
-                        const TextStyle(
+                        TextStyle(
                           color:
                           AppColors.navy,
                           fontSize:
@@ -3552,16 +3555,16 @@ class _Composer
                         decoration:
                         InputDecoration(
                           hintText:
-                          'Message...',
+                          _ui('Message...'),
                           hintStyle:
-                          const TextStyle(
+                          TextStyle(
                             color:
                             AppColors.lightGrey,
                             fontSize:
                             12.5,
                           ),
                           suffixIcon:
-                          const Icon(
+                          Icon(
                             Icons.sentiment_satisfied_alt_rounded,
                             color:
                             AppColors.grey,
@@ -3571,11 +3574,11 @@ class _Composer
                           filled:
                           true,
                           fillColor:
-                          const Color(
+                          Color(
                             0xFFF4F6F8,
                           ),
                           contentPadding:
-                          const EdgeInsets.symmetric(
+                          EdgeInsets.symmetric(
                             horizontal:
                             14,
                             vertical:
@@ -3597,7 +3600,7 @@ class _Composer
                               24,
                             ),
                             borderSide:
-                            const BorderSide(
+                            BorderSide(
                               color:
                               AppColors.cardBorder,
                             ),
@@ -3609,7 +3612,7 @@ class _Composer
                               24,
                             ),
                             borderSide:
-                            const BorderSide(
+                            BorderSide(
                               color:
                               AppColors.logoTurquoise,
                               width:
@@ -3620,7 +3623,7 @@ class _Composer
                       ),
                     ),
 
-                    const SizedBox(
+                    SizedBox(
                       width:
                       7,
                     ),
@@ -3634,7 +3637,7 @@ class _Composer
                           : onStartVoice,
                     ),
 
-                    const SizedBox(
+                    SizedBox(
                       width:
                       7,
                     ),
@@ -3663,11 +3666,11 @@ class _Composer
                             .55,
                           ),
                           shape:
-                          const CircleBorder(),
+                          CircleBorder(),
                         ),
                         child:
                         sending
-                            ? const SizedBox(
+                            ? SizedBox(
                           width:
                           18,
                           height:
@@ -3680,7 +3683,7 @@ class _Composer
                             Colors.white,
                           ),
                         )
-                            : const Icon(
+                            : Icon(
                           Icons.send_rounded,
                           color:
                           Colors.white,
@@ -3721,7 +3724,7 @@ class _RecordingBar
       ) {
     return Container(
       padding:
-      const EdgeInsets.fromLTRB(
+      EdgeInsets.fromLTRB(
         11,
         7,
         7,
@@ -3730,7 +3733,7 @@ class _RecordingBar
       decoration:
       BoxDecoration(
         color:
-        const Color(
+        Color(
           0xFFF4F6F8,
         ),
         borderRadius:
@@ -3752,7 +3755,7 @@ class _RecordingBar
             height:
             10,
             decoration:
-            const BoxDecoration(
+            BoxDecoration(
               color:
               AppColors.red,
               shape:
@@ -3760,7 +3763,7 @@ class _RecordingBar
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             8,
           ),
@@ -3770,7 +3773,7 @@ class _RecordingBar
               duration,
             ),
             style:
-            const TextStyle(
+            TextStyle(
               color:
               AppColors.navy,
               fontSize:
@@ -3780,7 +3783,7 @@ class _RecordingBar
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             10,
           ),
@@ -3845,7 +3848,7 @@ class _RecordingBar
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             8,
           ),
@@ -3862,7 +3865,7 @@ class _RecordingBar
               ),
             ),
             icon:
-            const Icon(
+            Icon(
               Icons.delete_outline_rounded,
               color:
               AppColors.red,
@@ -3871,7 +3874,7 @@ class _RecordingBar
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             3,
           ),
@@ -3887,7 +3890,7 @@ class _RecordingBar
               Colors.white,
             ),
             icon:
-            const Icon(
+            Icon(
               Icons.send_rounded,
               size:
               19,
@@ -3923,7 +3926,7 @@ class _ComposerReplyBar
 
     return Container(
       padding:
-      const EdgeInsets.fromLTRB(
+      EdgeInsets.fromLTRB(
         11,
         8,
         7,
@@ -3938,7 +3941,7 @@ class _ComposerReplyBar
           14,
         ),
         border:
-        const Border(
+        Border(
           left:
           BorderSide(
             color:
@@ -3959,10 +3962,10 @@ class _ComposerReplyBar
               children: [
                 Text(
                   mine
-                      ? 'Replying to yourself'
-                      : 'Replying to $partnerName',
+                      ? _ui('Replying to yourself')
+                      : _ui('Replying to {name}').replaceFirst('{name}', partnerName),
                   style:
-                  const TextStyle(
+                  TextStyle(
                     color:
                     AppColors.logoTurquoiseDark,
                     fontSize:
@@ -3972,7 +3975,7 @@ class _ComposerReplyBar
                   ),
                 ),
 
-                const SizedBox(
+                SizedBox(
                   height:
                   2,
                 ),
@@ -3984,7 +3987,7 @@ class _ComposerReplyBar
                   overflow:
                   TextOverflow.ellipsis,
                   style:
-                  const TextStyle(
+                  TextStyle(
                     color:
                     AppColors.grey,
                     fontSize:
@@ -4001,7 +4004,7 @@ class _ComposerReplyBar
             visualDensity:
             VisualDensity.compact,
             icon:
-            const Icon(
+            Icon(
               Icons.close_rounded,
               color:
               AppColors.grey,
@@ -4033,11 +4036,11 @@ class _ComposerCircleButton
       ) {
     return Material(
       color:
-      const Color(
+      Color(
         0xFFF4F6F8,
       ),
       shape:
-      const CircleBorder(),
+      CircleBorder(),
       child:
       InkWell(
         onTap:
@@ -4047,7 +4050,7 @@ class _ComposerCircleButton
           onTap!();
         },
         customBorder:
-        const CircleBorder(),
+        CircleBorder(),
         child:
         SizedBox(
           width:
@@ -4094,7 +4097,7 @@ class _MediaSourceTile
       ) {
     return Material(
       color:
-      const Color(
+      Color(
         0xFFF7F9FA,
       ),
       borderRadius:
@@ -4112,7 +4115,7 @@ class _MediaSourceTile
         child:
         Padding(
           padding:
-          const EdgeInsets.all(
+          EdgeInsets.all(
             14,
           ),
           child:
@@ -4142,7 +4145,7 @@ class _MediaSourceTile
                 ),
               ),
 
-              const SizedBox(
+              SizedBox(
                 width:
                 11,
               ),
@@ -4156,7 +4159,7 @@ class _MediaSourceTile
                     Text(
                       title,
                       style:
-                      const TextStyle(
+                      TextStyle(
                         color:
                         AppColors.navy,
                         fontSize:
@@ -4165,14 +4168,14 @@ class _MediaSourceTile
                         FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(
+                    SizedBox(
                       height:
                       3,
                     ),
                     Text(
                       subtitle,
                       style:
-                      const TextStyle(
+                      TextStyle(
                         color:
                         AppColors.grey,
                         fontSize:
@@ -4183,7 +4186,7 @@ class _MediaSourceTile
                 ),
               ),
 
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 color:
                 AppColors.lightGrey,
@@ -4217,12 +4220,12 @@ class _MediaUploadingOverlay
         child:
         Container(
           constraints:
-          const BoxConstraints(
+          BoxConstraints(
             maxWidth:
             230,
           ),
           padding:
-          const EdgeInsets.symmetric(
+          EdgeInsets.symmetric(
             horizontal:
             18,
             vertical:
@@ -4246,7 +4249,7 @@ class _MediaUploadingOverlay
                 blurRadius:
                 24,
                 offset:
-                const Offset(
+                Offset(
                   0,
                   9,
                 ),
@@ -4254,7 +4257,7 @@ class _MediaUploadingOverlay
             ],
           ),
           child:
-          const Row(
+          Row(
             mainAxisSize:
             MainAxisSize.min,
             children: [
@@ -4278,7 +4281,7 @@ class _MediaUploadingOverlay
               Flexible(
                 child:
                 Text(
-                  'Uploading media...',
+                  _ui('Uploading media...'),
                   style:
                   TextStyle(
                     color:
@@ -4380,7 +4383,7 @@ class _ChatAvatar
                 decoration:
                 BoxDecoration(
                   color:
-                  const Color(
+                  Color(
                     0xFF25C76F,
                   ),
                   shape:
@@ -4417,7 +4420,7 @@ class _AvatarFallback
       alignment:
       Alignment.center,
       decoration:
-      const BoxDecoration(
+      BoxDecoration(
         gradient:
         LinearGradient(
           begin:
@@ -4434,7 +4437,7 @@ class _AvatarFallback
       Text(
         initial,
         style:
-        const TextStyle(
+        TextStyle(
           color:
           Colors.white,
           fontWeight:
@@ -4461,7 +4464,7 @@ class _EmptyConversation
       child:
       Padding(
         padding:
-        const EdgeInsets.all(
+        EdgeInsets.all(
           34,
         ),
         child:
@@ -4475,14 +4478,14 @@ class _EmptyConversation
               height:
               74,
               decoration:
-              const BoxDecoration(
+              BoxDecoration(
                 color:
                 AppColors.blueBg,
                 shape:
                 BoxShape.circle,
               ),
               child:
-              const Icon(
+              Icon(
                 Icons.chat_bubble_outline_rounded,
                 color:
                 AppColors.logoTurquoiseDark,
@@ -4491,13 +4494,13 @@ class _EmptyConversation
               ),
             ),
 
-            const SizedBox(
+            SizedBox(
               height:
               16,
             ),
 
-            const Text(
-              'Start a conversation',
+            Text(
+              _ui('Start a conversation'),
               style:
               TextStyle(
                 color:
@@ -4509,17 +4512,17 @@ class _EmptyConversation
               ),
             ),
 
-            const SizedBox(
+            SizedBox(
               height:
               6,
             ),
 
             Text(
-              'Send your first message to $partnerName.',
+              _ui('Send your first message to {name}.').replaceFirst('{name}', partnerName),
               textAlign:
               TextAlign.center,
               style:
-              const TextStyle(
+              TextStyle(
                 color:
                 AppColors.grey,
                 fontSize:
@@ -4541,7 +4544,7 @@ class _MessagesError
   Widget build(
       BuildContext context,
       ) {
-    return const Center(
+    return Center(
       child:
       Padding(
         padding:
@@ -4550,7 +4553,7 @@ class _MessagesError
         ),
         child:
         Text(
-          'Could not load messages.',
+          _ui('Could not load messages.'),
           style:
           TextStyle(
             color:

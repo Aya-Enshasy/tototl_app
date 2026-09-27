@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/storage/user_session_storage.dart';
 import '../models/chat_conversation.dart';
 import '../services/firebase_chat_service.dart';
 import 'chat_screen.dart';
 
+String _ui(String source) => AppLanguage.text(source);
+
 class ChatInboxScreen extends StatefulWidget {
-  const ChatInboxScreen({
+  ChatInboxScreen({
     super.key,
     this.defaultRecipientId,
     this.defaultRecipientName,
@@ -37,7 +40,7 @@ class _ChatInboxScreenState
   String? _userId;
 
   String _userName =
-      'User';
+  _ui('User');
 
   String _userPhotoUrl =
       '';
@@ -84,7 +87,7 @@ class _ChatInboxScreenState
       name?.trim().isNotEmpty ==
           true
           ? name!.trim()
-          : 'User';
+          : _ui('User');
 
       _userPhotoUrl =
           photo?.trim() ?? '';
@@ -129,7 +132,7 @@ class _ChatInboxScreenState
       BuildContext context,
       ) {
     if (_userId == null) {
-      return const ColoredBox(
+      return ColoredBox(
         color:
         AppColors.bg,
         child:
@@ -160,7 +163,7 @@ class _ChatInboxScreenState
 
             Padding(
               padding:
-              const EdgeInsets.fromLTRB(
+              EdgeInsets.fromLTRB(
                 18,
                 8,
                 18,
@@ -208,9 +211,9 @@ class _ChatInboxScreenState
                       child:
                       ListView(
                         physics:
-                        const AlwaysScrollableScrollPhysics(),
+                        AlwaysScrollableScrollPhysics(),
                         children:
-                        const [
+                        [
                           SizedBox(
                             height:
                             120,
@@ -223,7 +226,7 @@ class _ChatInboxScreenState
 
                   final chats =
                       snapshot.data ??
-                          const <
+                          <
                               ChatConversation>[];
 
                   final visible =
@@ -260,7 +263,7 @@ class _ChatInboxScreenState
                       child:
                       ListView(
                         physics:
-                        const AlwaysScrollableScrollPhysics(),
+                        AlwaysScrollableScrollPhysics(),
                         children: [
                           _InboxEmpty(
                             searching:
@@ -279,12 +282,12 @@ class _ChatInboxScreenState
                     child:
                     ListView.separated(
                       physics:
-                      const AlwaysScrollableScrollPhysics(
+                      AlwaysScrollableScrollPhysics(
                         parent:
                         BouncingScrollPhysics(),
                       ),
                       padding:
-                      const EdgeInsets.fromLTRB(
+                      EdgeInsets.fromLTRB(
                         18,
                         2,
                         18,
@@ -297,14 +300,14 @@ class _ChatInboxScreenState
                           _,
                           __,
                           ) =>
-                      const Divider(
-                        height:
-                        1,
-                        indent:
-                        64,
-                        color:
-                        AppColors.cardBorder,
-                      ),
+                          Divider(
+                            height:
+                            1,
+                            indent:
+                            64,
+                            color:
+                            AppColors.cardBorder,
+                          ),
                       itemBuilder:
                           (
                           context,
@@ -356,7 +359,7 @@ class _InboxHeader
       ) {
     return Container(
       padding:
-      const EdgeInsets.fromLTRB(
+      EdgeInsets.fromLTRB(
         18,
         12,
         18,
@@ -374,7 +377,7 @@ class _InboxHeader
             47,
           ),
 
-          const SizedBox(
+          SizedBox(
             width:
             11,
           ),
@@ -385,8 +388,8 @@ class _InboxHeader
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Chat',
+                Text(
+                  _ui('Chat'),
                   style:
                   TextStyle(
                     color:
@@ -401,7 +404,7 @@ class _InboxHeader
                     -.5,
                   ),
                 ),
-                const SizedBox(
+                SizedBox(
                   height:
                   5,
                 ),
@@ -412,7 +415,7 @@ class _InboxHeader
                   overflow:
                   TextOverflow.ellipsis,
                   style:
-                  const TextStyle(
+                  TextStyle(
                     color:
                     AppColors.grey,
                     fontSize:
@@ -431,14 +434,14 @@ class _InboxHeader
             height:
             40,
             decoration:
-            const BoxDecoration(
+            BoxDecoration(
               color:
               Colors.white,
               shape:
               BoxShape.circle,
             ),
             child:
-            const Icon(
+            Icon(
               Icons.chat_bubble_outline_rounded,
               color:
               AppColors.logoTurquoiseDark,
@@ -477,7 +480,7 @@ class _SearchBox
       textInputAction:
       TextInputAction.search,
       style:
-      const TextStyle(
+      TextStyle(
         color:
         AppColors.navy,
         fontSize:
@@ -488,16 +491,16 @@ class _SearchBox
       decoration:
       InputDecoration(
         hintText:
-        'Search conversations',
+        _ui('Search conversations'),
         hintStyle:
-        const TextStyle(
+        TextStyle(
           color:
           AppColors.lightGrey,
           fontSize:
           11.5,
         ),
         prefixIcon:
-        const Icon(
+        Icon(
           Icons.search_rounded,
           color:
           AppColors.grey,
@@ -509,7 +512,7 @@ class _SearchBox
         fillColor:
         Colors.white,
         contentPadding:
-        const EdgeInsets.symmetric(
+        EdgeInsets.symmetric(
           vertical:
           13,
         ),
@@ -520,7 +523,7 @@ class _SearchBox
             18,
           ),
           borderSide:
-          const BorderSide(
+          BorderSide(
             color:
             AppColors.cardBorder,
           ),
@@ -532,7 +535,7 @@ class _SearchBox
             18,
           ),
           borderSide:
-          const BorderSide(
+          BorderSide(
             color:
             AppColors.cardBorder,
           ),
@@ -544,7 +547,7 @@ class _SearchBox
             18,
           ),
           borderSide:
-          const BorderSide(
+          BorderSide(
             color:
             AppColors.logoTurquoise,
             width:
@@ -588,8 +591,8 @@ class _ConversationTile
     chat.lastMessage
         .trim()
         .isEmpty
-        ? 'No messages yet'
-        : '${mine ? 'You: ' : ''}${chat.lastMessage}';
+        ? _ui('No messages yet')
+        : "${mine ? '${_ui('You')}: ' : ''}${chat.lastMessage}";
 
     return Material(
       color:
@@ -605,7 +608,7 @@ class _ConversationTile
         child:
         Padding(
           padding:
-          const EdgeInsets.symmetric(
+          EdgeInsets.symmetric(
             vertical:
             11,
             horizontal:
@@ -625,7 +628,7 @@ class _ConversationTile
                 true,
               ),
 
-              const SizedBox(
+              SizedBox(
                 width:
                 12,
               ),
@@ -647,7 +650,7 @@ class _ConversationTile
                             overflow:
                             TextOverflow.ellipsis,
                             style:
-                            const TextStyle(
+                            TextStyle(
                               color:
                               AppColors.navy,
                               fontSize:
@@ -663,7 +666,7 @@ class _ConversationTile
                           Text(
                             time,
                             style:
-                            const TextStyle(
+                            TextStyle(
                               color:
                               AppColors.lightGrey,
                               fontSize:
@@ -675,7 +678,7 @@ class _ConversationTile
                       ],
                     ),
 
-                    const SizedBox(
+                    SizedBox(
                       height:
                       5,
                     ),
@@ -793,7 +796,7 @@ class _InboxAvatar
                 decoration:
                 BoxDecoration(
                   color:
-                  const Color(
+                  Color(
                     0xFF25C76F,
                   ),
                   shape:
@@ -830,7 +833,7 @@ class _InboxAvatarFallback
       alignment:
       Alignment.center,
       decoration:
-      const BoxDecoration(
+      BoxDecoration(
         gradient:
         LinearGradient(
           begin:
@@ -847,7 +850,7 @@ class _InboxAvatarFallback
       Text(
         initial,
         style:
-        const TextStyle(
+        TextStyle(
           color:
           Colors.white,
           fontSize:
@@ -874,7 +877,7 @@ class _InboxEmpty
       ) {
     return Padding(
       padding:
-      const EdgeInsets.fromLTRB(
+      EdgeInsets.fromLTRB(
         34,
         90,
         34,
@@ -889,14 +892,14 @@ class _InboxEmpty
             height:
             76,
             decoration:
-            const BoxDecoration(
+            BoxDecoration(
               color:
               AppColors.blueBg,
               shape:
               BoxShape.circle,
             ),
             child:
-            const Icon(
+            Icon(
               Icons.chat_bubble_outline_rounded,
               color:
               AppColors.logoTurquoiseDark,
@@ -905,19 +908,19 @@ class _InboxEmpty
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             height:
             17,
           ),
 
           Text(
             searching
-                ? 'No conversations found'
-                : 'No conversations yet',
+                ? _ui('No conversations found')
+                : _ui('No conversations yet'),
             textAlign:
             TextAlign.center,
             style:
-            const TextStyle(
+            TextStyle(
               color:
               AppColors.navy,
               fontSize:
@@ -927,19 +930,19 @@ class _InboxEmpty
             ),
           ),
 
-          const SizedBox(
+          SizedBox(
             height:
             6,
           ),
 
           Text(
             searching
-                ? 'Try another name or message.'
-                : 'Your direct conversations will appear here.',
+                ? _ui('Try another name or message.')
+                : _ui('Your direct conversations will appear here.'),
             textAlign:
             TextAlign.center,
             style:
-            const TextStyle(
+            TextStyle(
               color:
               AppColors.grey,
               fontSize:
@@ -962,7 +965,7 @@ class _InboxError
   Widget build(
       BuildContext context,
       ) {
-    return const Padding(
+    return Padding(
       padding:
       EdgeInsets.all(
         24,
@@ -982,7 +985,7 @@ class _InboxError
             10,
           ),
           Text(
-            'Could not load conversations.',
+            _ui('Could not load conversations.'),
             textAlign:
             TextAlign.center,
             style:

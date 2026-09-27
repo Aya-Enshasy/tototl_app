@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -18,9 +19,8 @@ class CompanyPublicProfileScreen extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               ),
-              const Expanded(
-                child: Text(
-                  'Company Profile',
+              Expanded(
+                child: Text(AppLanguage.text('Company Profile'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.navy,
@@ -65,18 +65,16 @@ class CompanyPublicProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 5),
-                const Text(
-                  'Renewable Energy · Mojave Desert, CA',
+                Text(AppLanguage.text('Renewable Energy · Mojave Desert, CA'),
                   style: TextStyle(color: AppColors.grey, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
-                const Row(
+                Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.star_rounded, color: AppColors.gold, size: 18),
                     SizedBox(width: 4),
-                    Text(
-                      '4.8 company rating',
+                    Text(AppLanguage.text('4.8 company rating'),
                       style: TextStyle(
                         color: AppColors.navy,
                         fontWeight: FontWeight.w700,
@@ -86,12 +84,12 @@ class CompanyPublicProfileScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 17),
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _Metric(value: '47', label: 'Jobs posted'),
-                    _Metric(value: '4', label: 'Pilots hired'),
-                    _Metric(value: '4 hr', label: 'Response time'),
+                    _Metric(value: '47', label: AppLanguage.text('Jobs posted')),
+                    _Metric(value: '4', label: AppLanguage.text('Pilots hired')),
+                    _Metric(value: '4 hr', label: AppLanguage.text('Response time')),
                   ],
                 ),
               ],
@@ -99,7 +97,7 @@ class CompanyPublicProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _Section(
-            title: 'About',
+            title: AppLanguage.text('About'),
             child: const Text(
               'SunTech Energy delivers large-scale solar operations, inspections, and field intelligence across California. Every field mission is planned with safety and deliverable quality in mind.',
               style: TextStyle(
@@ -111,14 +109,13 @@ class CompanyPublicProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _Section(
-            title: 'Company Verification',
-            child: const Row(
+            title: AppLanguage.text('Company Verification'),
+            child: Row(
               children: [
                 Icon(Icons.verified_rounded, color: AppColors.green),
                 SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Identity and business records verified',
+                  child: Text(AppLanguage.text('Identity and business records verified'),
                     style: TextStyle(
                       color: AppColors.navy,
                       fontSize: 13.5,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/chat/screens/chat_inbox_screen.dart';
@@ -35,7 +36,7 @@ class MessagesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!_hasDirectCompanyTarget) {
-      return const ChatInboxScreen();
+      return  ChatInboxScreen();
     }
 
     return _DirectCompanyChatBridge(
@@ -127,14 +128,14 @@ class _DirectCompanyChatBridgeState extends State<_DirectCompanyChatBridge> {
 
     if (_error != null || _currentUserId == null) {
       return _ChatBridgeError(
-        message: _error ?? 'Unable to open this conversation.',
+        message: AppLanguage.text(_error ?? 'Unable to open this conversation.'),
         onRetry: _loadSession,
       );
     }
 
     final partnerName = widget.companyName.trim().isNotEmpty
         ? widget.companyName.trim()
-        : 'Company';
+        : AppLanguage.text('Company');
 
     return ChatScreen(
       currentUserId: _currentUserId!.toString(),
@@ -298,9 +299,8 @@ class _ChatBridgeError extends StatelessWidget {
                       size: 18,
                     ),
                   ),
-                  const Expanded(
-                    child: Text(
-                      'Chat',
+                  Expanded(
+                    child: Text(AppLanguage.text('Chat'),
                       style: TextStyle(
                         color: AppColors.navy,
                         fontSize: 17,
@@ -332,8 +332,7 @@ class _ChatBridgeError extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Couldn’t open chat',
+                      Text(AppLanguage.text('Couldn’t open chat'),
                         style: TextStyle(
                           color: AppColors.navy,
                           fontSize: 17,
@@ -365,8 +364,7 @@ class _ChatBridgeError extends StatelessWidget {
                           ),
                         ),
                         icon: const Icon(Icons.refresh_rounded, size: 17),
-                        label: const Text(
-                          'Try Again',
+                        label: Text(AppLanguage.text('Try Again'),
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -381,3 +379,4 @@ class _ChatBridgeError extends StatelessWidget {
     );
   }
 }
+

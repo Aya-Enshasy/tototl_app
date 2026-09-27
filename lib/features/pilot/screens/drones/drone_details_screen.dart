@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +9,7 @@ import '../../models/drone_model.dart';
 import '../../services/drone_service.dart';
 
 import 'drone_form_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 const Color _bg = Color(0xFFF7F9FB);
 const Color _ink = Color(0xFF071A35);
@@ -168,8 +170,8 @@ class _DroneDetailsScreenState
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Remove this drone?',
+                Text(
+                  AppLanguage.text('Remove this drone?'),
                   style:
                   TextStyle(
                     color:
@@ -226,8 +228,8 @@ class _DroneDetailsScreenState
                           ),
                         ),
                         child:
-                        const Text(
-                          'Cancel',
+                        Text(
+                          AppLanguage.text('Cancel'),
                         ),
                       ),
                     ),
@@ -257,8 +259,8 @@ class _DroneDetailsScreenState
                           ),
                         ),
                         child:
-                        const Text(
-                          'Remove',
+                        Text(
+                          AppLanguage.text('Remove'),
                           style:
                           TextStyle(
                             fontWeight:
@@ -411,37 +413,37 @@ class _DroneDetailsScreenState
                     icon:
                     Icons.flight_takeoff_rounded,
                     title:
-                    'Aircraft',
+                    AppLanguage.text('Aircraft'),
                     child:
                     Column(
                       children: [
                         _InfoRow(
                           label:
-                          'Make',
+                          AppLanguage.text('Make'),
                           value:
                           _drone.make,
                         ),
                         _InfoRow(
                           label:
-                          'Model',
+                          AppLanguage.text('Model'),
                           value:
                           _drone.model,
                         ),
                         _InfoRow(
                           label:
-                          'Year',
+                          AppLanguage.text('Year'),
                           value:
                           _drone.yearLabel,
                         ),
                         _InfoRow(
                           label:
-                          'Serial number',
+                          AppLanguage.text('Serial number'),
                           value:
                           _drone.serialNumber,
                         ),
                         _InfoRow(
                           label:
-                          'Weight',
+                          AppLanguage.text('Weight'),
                           value:
                           _drone.weightLabel,
                           last:
@@ -457,7 +459,7 @@ class _DroneDetailsScreenState
                     icon:
                     Icons.auto_awesome_rounded,
                     title:
-                    'Capabilities',
+                    AppLanguage.text('Capabilities'),
                     child:
                     _drone.capabilities.isEmpty
                         ? const _EmptyText(
@@ -485,31 +487,31 @@ class _DroneDetailsScreenState
                     icon:
                     Icons.battery_charging_full_rounded,
                     title:
-                    'Power',
+                    AppLanguage.text('Power'),
                     child:
                     Column(
                       children: [
                         _InfoRow(
                           label:
-                          'Flight time',
+                          AppLanguage.text('Flight time'),
                           value:
                           _drone.flightTimeLabel,
                         ),
                         _InfoRow(
                           label:
-                          'Total batteries',
+                          AppLanguage.text('Total batteries'),
                           value:
                           _drone.batteriesLabel,
                         ),
                         _InfoRow(
                           label:
-                          'Battery type',
+                          AppLanguage.text('Battery type'),
                           value:
                           _drone.batteryType,
                         ),
                         _InfoRow(
                           label:
-                          'Battery usage fee',
+                          AppLanguage.text('Battery usage fee'),
                           value:
                           _drone.batteryUsageFeeLabel,
                           last:
@@ -701,7 +703,7 @@ class _PricingRow extends StatelessWidget {
               child:
               _PriceCard(
                 label:
-                'Hourly',
+                AppLanguage.text('Hourly'),
                 value:
                 drone.hourlyRateLabel,
                 compact:
@@ -713,7 +715,7 @@ class _PricingRow extends StatelessWidget {
               child:
               _PriceCard(
                 label:
-                'Daily',
+                AppLanguage.text('Daily'),
                 value:
                 drone.dailyRateLabel,
                 compact:
@@ -725,7 +727,7 @@ class _PricingRow extends StatelessWidget {
               child:
               _PriceCard(
                 label:
-                'Emergency',
+                AppLanguage.text('Emergency'),
                 value:
                 drone.emergencyRateLabel,
                 compact:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../core/theme/app_colors.dart';
  import '../pilot/screens/shared/pilot_data.dart';
@@ -37,9 +38,8 @@ class _CompanyOfferScreenState extends State<CompanyOfferScreen> {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               ),
-              const Expanded(
-                child: Text(
-                  'Create Offer',
+              Expanded(
+                child: Text(AppLanguage.text('Create Offer'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.navy,
@@ -66,15 +66,14 @@ class _CompanyOfferScreenState extends State<CompanyOfferScreen> {
             style: const TextStyle(color: AppColors.grey, fontSize: 13.5),
           ),
           const SizedBox(height: 24),
-          _label('Mission date'),
+          _label(AppLanguage.text('Mission date')),
           _field(_date, 'YYYY-MM-DD'),
-          _label('Mission hours'),
+          _label(AppLanguage.text('Mission hours')),
           _field(_hours, '8', type: TextInputType.number),
-          _label('Agreed amount (USD)'),
+          _label(AppLanguage.text('Agreed amount (USD)')),
           _field(_amount, '850', type: TextInputType.number),
           const SizedBox(height: 22),
-          const Text(
-            'The amount is held securely after the pilot accepts and is released only after work confirmation.',
+          Text(AppLanguage.text('The amount is held securely after the pilot accepts and is released only after work confirmation.'),
             style: TextStyle(
               color: AppColors.grey,
               fontSize: 12.5,
@@ -92,8 +91,7 @@ class _CompanyOfferScreenState extends State<CompanyOfferScreen> {
                   borderRadius: BorderRadius.circular(15),
                 ),
               ),
-              child: const Text(
-                'Send Offer',
+              child: Text(AppLanguage.text('Send Offer'),
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -107,8 +105,8 @@ class _CompanyOfferScreenState extends State<CompanyOfferScreen> {
     final hours = int.tryParse(_hours.text);
     if (amount == null || hours == null || _date.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a valid date, duration, and amount.'),
+        SnackBar(
+          content: Text(AppLanguage.text('Add a valid date, duration, and amount.')),
         ),
       );
       return;

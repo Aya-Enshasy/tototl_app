@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
@@ -698,9 +699,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
               color: AppColors.navy,
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Post a job',
+          Expanded(
+            child: Text(AppLanguage.text('Post a job'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.navy,
@@ -854,8 +854,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _basicInfoStep() {
     return _sectionCard(
       icon: Icons.description_outlined,
-      title: 'Basic information',
-      subtitle: 'Core mission details',
+      title: AppLanguage.text('Basic information'),
+      subtitle: AppLanguage.text('Core mission details'),
       child: Column(
         children: [
           _label('Job title *'),
@@ -899,8 +899,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _locationStep() {
     return _sectionCard(
       icon: Icons.location_on_outlined,
-      title: 'Location',
-      subtitle: 'Where the mission takes place',
+      title: AppLanguage.text('Location'),
+      subtitle: AppLanguage.text('Where the mission takes place'),
       child: Column(
         children: [
           _label('Country *'),
@@ -955,8 +955,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _scheduleStep() {
     return _sectionCard(
       icon: Icons.calendar_month_outlined,
-      title: 'Schedule',
-      subtitle: 'Mission date range',
+      title: AppLanguage.text('Schedule'),
+      subtitle: AppLanguage.text('Mission date range'),
       child: Column(
         children: [
           const SizedBox(height: 8),
@@ -964,7 +964,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             children: [
               Expanded(
                 child: _dateBox(
-                  label: 'Start',
+                  label: AppLanguage.text('Start'),
                   date: _startDate,
                   onTap: _pickStartDate,
                 ),
@@ -972,7 +972,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: _dateBox(
-                  label: 'End',
+                  label: AppLanguage.text('End'),
                   date: _endDate,
                   onTap: _pickEndDate,
                 ),
@@ -997,8 +997,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _requirementsStep() {
     return _sectionCard(
       icon: Icons.flight_outlined,
-      title: 'Requirements',
-      subtitle: 'Drone and pilot requirements',
+      title: AppLanguage.text('Requirements'),
+      subtitle: AppLanguage.text('Drone and pilot requirements'),
       child: Column(
         children: [
           _label('Drone size'),
@@ -1015,10 +1015,9 @@ class _PostJobScreenState extends State<PostJobScreen> {
             onChanged: _onDroneSizeChanged,
           ),
           const SizedBox(height: 7),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              'Choose Custom dimensions when you need an exact physical size.',
+            child: Text(AppLanguage.text('Choose Custom dimensions when you need an exact physical size.'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 10.8,
@@ -1086,8 +1085,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
           const SizedBox(height: 14),
           _toggle(
             icon: Icons.health_and_safety_outlined,
-            title: 'Safety training',
-            subtitle: 'Pilot must have completed safety training',
+            title: AppLanguage.text('Safety training'),
+            subtitle: AppLanguage.text('Pilot must have completed safety training'),
             value: _safetyTrainingRequired,
             onChanged: (value) {
               setState(() => _safetyTrainingRequired = value);
@@ -1096,8 +1095,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
           const SizedBox(height: 9),
           _toggle(
             icon: Icons.lock_outline_rounded,
-            title: 'NDA required',
-            subtitle: 'Pilot must agree to an NDA for this job',
+            title: AppLanguage.text('NDA required'),
+            subtitle: AppLanguage.text('Pilot must agree to an NDA for this job'),
             value: _ndaRequired,
             onChanged: (value) {
               setState(() => _ndaRequired = value);
@@ -1122,8 +1121,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
   Widget _budgetStep() {
     return _sectionCard(
       icon: Icons.payments_outlined,
-      title: 'Budget',
-      subtitle: 'Payment structure and range',
+      title: AppLanguage.text('Budget'),
+      subtitle: AppLanguage.text('Payment structure and range'),
       child: Column(
         children: [
           _label('Payment type *'),
@@ -1208,8 +1207,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       children: [
         _sectionCard(
           icon: Icons.attach_file_rounded,
-          title: 'Attachments',
-          subtitle: 'Optional mission files',
+          title: AppLanguage.text('Attachments'),
+          subtitle: AppLanguage.text('Optional mission files'),
           child: Column(
             children: [
               const SizedBox(height: 9),
@@ -1344,7 +1343,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.fact_check_outlined,
@@ -1352,8 +1351,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 size: 18,
               ),
               SizedBox(width: 8),
-              Text(
-                'Job summary',
+              Text(AppLanguage.text('Job summary'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 14,
@@ -1501,8 +1499,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                      : const Text(
-                    'Save draft',
+                      : Text(AppLanguage.text('Save draft'),
                     style: TextStyle(
                       fontSize: 11.8,
                       fontWeight: FontWeight.w900,
@@ -1537,8 +1534,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     Icons.publish_rounded,
                     size: 17,
                   ),
-                  label: const Text(
-                    'Publish',
+                  label: Text(AppLanguage.text('Publish'),
                     style: TextStyle(
                       fontSize: 11.8,
                       fontWeight: FontWeight.w900,
@@ -1565,8 +1561,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               Icons.arrow_forward_rounded,
               size: 17,
             ),
-            label: const Text(
-              'Continue',
+            label: Text(AppLanguage.text('Continue'),
               style: TextStyle(
                 fontSize: 12.4,
                 fontWeight: FontWeight.w900,
@@ -1767,8 +1762,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           width: 1.25,
         ),
       ),
-      hint: const Text(
-        'Select...',
+      hint: Text(AppLanguage.text('Select...'),
         style: TextStyle(
           color: AppColors.lightGrey,
           fontSize: 11.8,
@@ -1994,7 +1988,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.straighten_rounded,
@@ -2002,8 +1996,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 color: AppColors.blue,
               ),
               SizedBox(width: 7),
-              Text(
-                'Custom dimensions',
+              Text(AppLanguage.text('Custom dimensions'),
                 style: TextStyle(
                   color: AppColors.navy,
                   fontSize: 12.2,
@@ -2013,8 +2006,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Length × width are required. Height and maximum weight are optional.',
+          Text(AppLanguage.text('Length × width are required. Height and maximum weight are optional.'),
             style: TextStyle(
               color: AppColors.grey,
               fontSize: 10.3,
@@ -2027,7 +2019,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneLength,
-                  label: 'Length',
+                  label: AppLanguage.text('Length'),
                   suffix: 'cm',
                   hint: '60',
                 ),
@@ -2036,7 +2028,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneWidth,
-                  label: 'Width',
+                  label: AppLanguage.text('Width'),
                   suffix: 'cm',
                   hint: '50',
                 ),
@@ -2049,7 +2041,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneHeight,
-                  label: 'Height',
+                  label: AppLanguage.text('Height'),
                   suffix: 'cm',
                   hint: '20',
                 ),
@@ -2058,7 +2050,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               Expanded(
                 child: _compactMeasureField(
                   controller: _customDroneWeight,
-                  label: 'Max weight',
+                  label: AppLanguage.text('Max weight'),
                   suffix: 'kg',
                   hint: '4.5',
                 ),
