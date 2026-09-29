@@ -9,10 +9,16 @@ import 'package:tototl_app/core/localization/app_language.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../controllers/company_contract_controller.dart';
 import '../../controllers/company_job_controller.dart';
+import '../../models/company_contract_model.dart';
 import '../../models/company_job_application_model.dart';
 import '../../services/company_job_service.dart';
-import 'company_document_viewer_screen.dart';
+import '../../services/company_contract_service.dart';
+import '../applications/company_document_viewer_screen.dart';
+import '../contract/company_contract_detail_screen.dart';
+import '../contract/company_contracts_screen.dart';
+import '../contract/create_company_contract_screen.dart';
 
 class CompanyApplicantDetailScreen extends StatefulWidget {
   const CompanyApplicantDetailScreen({
@@ -32,14 +38,17 @@ class CompanyApplicantDetailScreen extends StatefulWidget {
 class _CompanyApplicantDetailScreenState
     extends State<CompanyApplicantDetailScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_applicant_detail_v5_';
+  static const String _cachePrefix = 'company_applicant_detail_v7_';
 
   late final CompanyJobController _controller;
+  late final CompanyContractService _contractService;
+  late final CompanyContractController _contractController;
   late CompanyJobApplicationModel _application;
 
   CompanyApplicantPilotModel? _pilot;
   CompanyApplicantDroneModel? _committedDrone;
   List<CompanyPilotCredentialModel> _credentials = const [];
+  CompanyContractModel? _createdContract;
 
   String? _cacheKey;
   String? _backgroundError;
@@ -49,6 +58,9 @@ class _CompanyApplicantDetailScreenState
   bool _backgroundRefreshing = false;
   bool _cacheReadFinished = false;
   bool _supportLoadedOnce = false;
+  bool _openingContractScreen = false;
+  bool _contractLookupLoading = true;
+  String? _contractLookupError;
 
   bool get _acting =>
       _controller.isAcceptingApplicant ||
@@ -63,9 +75,12 @@ class _CompanyApplicantDetailScreenState
   void initState() {
     super.initState();
 
+    final apiClient = ApiClient();
     _controller = CompanyJobController(
-      CompanyJobService(ApiClient()),
+      CompanyJobService(apiClient),
     );
+    _contractService = CompanyContractService(apiClient);
+    _contractController = CompanyContractController(_contractService);
 
     _application = widget.application;
     _pilot = widget.application.pilotProfile;
@@ -111,10 +126,12 @@ class _CompanyApplicantDetailScreenState
 
         final cachedApplication = map['application'];
         final cachedCredentials = map['credentials'];
+        final cachedContract = map['created_contract'];
 
         CompanyApplicantPilotModel? cachedPilot;
         CompanyApplicantDroneModel? cachedDrone;
         List<CompanyPilotCredentialModel> cachedCredentialModels = const [];
+        CompanyContractModel? cachedContractModel;
 
         if (cachedApplication is Map) {
           final cached = CompanyJobApplicationModel.fromJson(
@@ -122,6 +139,12 @@ class _CompanyApplicantDetailScreenState
           );
           cachedPilot = cached.pilotProfile;
           cachedDrone = cached.drone;
+        }
+
+        if (cachedContract is Map) {
+          cachedContractModel = CompanyContractModel.fromJson(
+            Map<String, dynamic>.from(cachedContract),
+          );
         }
 
         if (cachedCredentials is List) {
@@ -148,6 +171,10 @@ class _CompanyApplicantDetailScreenState
               current: _committedDrone,
               incoming: cachedDrone,
             );
+          }
+
+          if (cachedContractModel != null) {
+            _createdContract = cachedContractModel;
           }
 
           if (cachedCredentialModels.isNotEmpty) {
@@ -182,10 +209,11 @@ class _CompanyApplicantDetailScreenState
       await _storage.write(
         key: key,
         value: jsonEncode({
-          'version': 5,
+          'version': 7,
           'saved_at': DateTime.now().toIso8601String(),
           'application': enrichedApplication.toJson(),
           'credentials': _credentials.map((item) => item.toJson()).toList(),
+          'created_contract': _createdContract?.toJson(),
         }),
       );
     } catch (_) {}
@@ -304,6 +332,26 @@ class _CompanyApplicantDetailScreenState
         }
       }
 
+      CompanyContractModel? serverContract = _createdContract;
+      String? contractLookupError;
+      final applicationForContractCheck = freshApplication ?? _application;
+
+      if (applicationForContractCheck.isAccepted) {
+        final contractJobId = applicationForContractCheck.jobPostingId > 0
+            ? applicationForContractCheck.jobPostingId
+            : widget.jobId;
+
+        serverContract = await _contractController.loadExistingContract(
+          applicationId: applicationForContractCheck.id,
+          jobId: contractJobId,
+        );
+        contractLookupError =
+            _contractController.existingContractErrorMessage;
+      } else {
+        serverContract = null;
+        _contractController.clearApplicationContract();
+      }
+
       if (!mounted) return;
 
       setState(() {
@@ -316,6 +364,9 @@ class _CompanyApplicantDetailScreenState
         _pilot = resolvedPilot;
         _committedDrone = resolvedDrone;
         _credentials = resolvedCredentials;
+        _createdContract = serverContract;
+        _contractLookupLoading = false;
+        _contractLookupError = contractLookupError;
 
         _backgroundError = errorParts.isEmpty
             ? null
@@ -326,6 +377,9 @@ class _CompanyApplicantDetailScreenState
     } finally {
       _backgroundRefreshing = false;
       _supportLoadedOnce = true;
+      if (_contractLookupLoading && !_application.isAccepted) {
+        _contractLookupLoading = false;
+      }
       if (mounted) setState(() {});
     }
   }
@@ -445,6 +499,189 @@ class _CompanyApplicantDetailScreenState
 
     unawaited(_saveCache());
     _showSnack('Applicant rejected.');
+  }
+
+  Future<void> _openCreateContract() async {
+    if (!_application.isAccepted ||
+        _createdContract != null ||
+        _openingContractScreen) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+    setState(() {
+      _openingContractScreen = true;
+      _contractLookupLoading = true;
+      _contractLookupError = null;
+    });
+
+    try {
+      // Strong pre-flight guard: never open the Create Contract form until the
+      // server confirms that this application/job has no existing contract.
+      final contractJobId = _application.jobPostingId > 0
+          ? _application.jobPostingId
+          : widget.jobId;
+
+      final existing = await _contractController.loadExistingContract(
+        applicationId: _application.id,
+        jobId: contractJobId,
+      );
+
+      if (!mounted) return;
+
+      final lookupError = _contractController.existingContractErrorMessage;
+      if (lookupError != null && lookupError.trim().isNotEmpty) {
+        setState(() {
+          _contractLookupLoading = false;
+          _contractLookupError = lookupError;
+        });
+        _showSnack(
+          'Couldn’t verify the current contract status. Please retry before creating a contract.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (existing != null) {
+        setState(() {
+          _createdContract = existing;
+          _changed = true;
+          _contractLookupLoading = false;
+          _openingContractScreen = false;
+        });
+        unawaited(_saveCache());
+
+        final belongsToThisApplication =
+            existing.jobApplicationId == _application.id;
+        _showSnack(
+          belongsToThisApplication
+              ? 'This application already has a contract. Opening it instead.'
+              : 'This job already has an active contract. Opening the existing contract.',
+        );
+
+        await _openContractDetails();
+        return;
+      }
+
+      setState(() => _contractLookupLoading = false);
+
+      final contract = await Navigator.of(context).push<CompanyContractModel>(
+        MaterialPageRoute(
+          builder: (_) => CreateCompanyContractScreen(
+            jobId: widget.jobId,
+            application: _application.copyWith(
+              pilotProfile: _pilot,
+              drone: _committedDrone,
+            ),
+          ),
+        ),
+      );
+
+      if (!mounted || contract == null) return;
+
+      // The create screen returns either the newly-created contract or an
+      // already-existing contract recovered after a backend duplicate guard.
+      // In both cases the next screen is ALWAYS Contract Details.
+      setState(() {
+        _createdContract = contract;
+        _contractController.applicationContract = contract;
+        _changed = true;
+        _openingContractScreen = false;
+      });
+
+      unawaited(_saveCache());
+
+      if (contract.jobApplicationId == _application.id) {
+        _showSnack('Contract ready. Opening contract details.');
+      } else {
+        _showSnack('Existing job contract found. Opening it instead.');
+      }
+
+      await _openContractDetails();
+    } finally {
+      if (mounted && _openingContractScreen) {
+        setState(() {
+          _openingContractScreen = false;
+          _contractLookupLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openContractDetails() async {
+    final contract = _createdContract;
+    if (contract == null || _openingContractScreen) return;
+
+    HapticFeedback.selectionClick();
+    setState(() => _openingContractScreen = true);
+    try {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => CompanyContractDetailScreen(
+            contractId: contract.id,
+            initialContract: contract,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      if (changed == true) {
+        try {
+          final fresh = await _contractService.getContract(contract.id);
+          if (!mounted) return;
+          setState(() {
+            _createdContract = fresh;
+            _changed = true;
+          });
+          unawaited(_saveCache());
+        } catch (_) {
+          unawaited(_refreshInBackground());
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _openingContractScreen = false);
+    }
+  }
+
+  Future<void> _openAllContracts() async {
+    HapticFeedback.selectionClick();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const CompanyContractsScreen(),
+      ),
+    );
+    if (mounted) unawaited(_refreshInBackground());
+  }
+
+  Future<void> _retryContractLookup() async {
+    if (_contractLookupLoading) return;
+
+    setState(() {
+      _contractLookupLoading = true;
+      _contractLookupError = null;
+    });
+
+    final contractJobId = _application.jobPostingId > 0
+        ? _application.jobPostingId
+        : widget.jobId;
+
+    final contract = await _contractController.loadExistingContract(
+      applicationId: _application.id,
+      jobId: contractJobId,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _createdContract = contract;
+      _contractLookupError =
+          _contractController.existingContractErrorMessage;
+      _contractLookupLoading = false;
+    });
+
+    if (_contractLookupError == null) {
+      unawaited(_saveCache());
+    }
   }
 
   Future<bool?> _confirmDialog({
@@ -1474,34 +1711,310 @@ class _CompanyApplicantDetailScreenState
   }
 
   Widget _acceptedStateCard() {
+    final contract = _createdContract;
+    final belongsToThisApplication =
+        contract == null || contract.jobApplicationId == _application.id;
+
+    if (_contractLookupLoading && contract == null) {
+      return _section(
+        title: AppLanguage.text('Contract'),
+        icon: Icons.description_outlined,
+        accent: AppColors.blue,
+        accentBackground: AppColors.blueBg,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: AppColors.blueBg.withOpacity(0.58),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.blue,
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Checking the latest contract status from the server...',
+                  style: TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 11.2,
+                    height: 1.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_contractLookupError != null && contract == null) {
+      return _section(
+        title: AppLanguage.text('Contract'),
+        icon: Icons.cloud_off_outlined,
+        accent: AppColors.orange,
+        accentBackground: AppColors.orangeBg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _contractLookupError!,
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 11,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _retryContractLookup,
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: const Text('Retry Contract Check'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return _section(
-      title: AppLanguage.text('Accepted Application'),
-      icon: Icons.handshake_outlined,
+      title: AppLanguage.text(
+        contract == null
+            ? 'Accepted Application'
+            : belongsToThisApplication
+            ? 'Contract'
+            : 'Existing Job Contract',
+      ),
+      icon: contract == null
+          ? Icons.handshake_outlined
+          : Icons.description_outlined,
       accent: AppColors.green,
       accentBackground: AppColors.greenBg,
-      child: Container(
+      child: contract == null
+          ? Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: AppColors.greenBg.withOpacity(0.62),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.green,
-              size: 18,
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.green,
+                  size: 18,
+                ),
+                SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'This pilot has been selected. Create the contract to continue Phase 3.',
+                    style: TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 11.2,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: 9),
-            Expanded(
-              child: Text(AppLanguage.text('This pilot has been selected for the job. Mission setup actions can be added here in the next workflow stage.'),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _openingContractScreen
+                  ? null
+                  : _openCreateContract,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                backgroundColor: AppColors.green,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              icon: _openingContractScreen
+                  ? const SizedBox(
+                width: 17,
+                height: 17,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Icon(Icons.description_outlined, size: 18),
+              label: Text(
+                AppLanguage.text('Create Contract'),
+                style: const TextStyle(
+                  fontSize: 12.2,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      )
+          : Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: contract.isAccepted
+              ? AppColors.greenBg.withOpacity(0.72)
+              : AppColors.bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: contract.isAccepted
+                ? AppColors.green.withOpacity(0.14)
+                : AppColors.cardBorder,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: contract.isAccepted
+                        ? Colors.white
+                        : AppColors.blueBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    contract.isAccepted
+                        ? Icons.account_balance_wallet_rounded
+                        : Icons.description_outlined,
+                    color: contract.isAccepted
+                        ? AppColors.green
+                        : AppColors.blue,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Contract #${contract.id}',
+                        style: const TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 12.8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        !belongsToThisApplication
+                            ? 'This job already has a contract for another application'
+                            : contract.isAccepted
+                            ? 'Pilot accepted • Ready to fund'
+                            : contract.isPending
+                            ? 'Waiting for pilot response'
+                            : contract.statusLabel,
+                        style: TextStyle(
+                          color: contract.isAccepted
+                              ? AppColors.green
+                              : AppColors.grey,
+                          fontSize: 10.7,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: contract.isAccepted
+                        ? Colors.white
+                        : AppColors.blueBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    contract.statusLabel,
+                    style: TextStyle(
+                      color: contract.isAccepted
+                          ? AppColors.green
+                          : AppColors.blue,
+                      fontSize: 9.8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 11),
+            _compactInfoRow('Amount', contract.amountLabel),
+            _compactInfoRow('Payment', contract.paymentTypeLabel),
+            _compactInfoRow('Start', _formatDate(contract.startDate)),
+            if (contract.endDate != null)
+              _compactInfoRow('End', _formatDate(contract.endDate)),
+            const SizedBox(height: 11),
+            FilledButton.icon(
+              onPressed: _openingContractScreen
+                  ? null
+                  : _openContractDetails,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                backgroundColor:
+                contract.isAccepted && belongsToThisApplication
+                    ? AppColors.green
+                    : AppColors.navy,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              icon: Icon(
+                contract.isAccepted && belongsToThisApplication
+                    ? Icons.account_balance_wallet_rounded
+                    : Icons.open_in_new_rounded,
+                size: 18,
+              ),
+              label: Text(
+                contract.isAccepted && belongsToThisApplication
+                    ? 'Open & Fund Contract'
+                    : !belongsToThisApplication
+                    ? 'Open Existing Contract'
+                    : 'View Contract',
+                style: const TextStyle(
+                  fontSize: 12.1,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _openAllContracts,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 45),
+                foregroundColor: AppColors.navy,
+                side: const BorderSide(color: AppColors.cardBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              icon: const Icon(Icons.list_alt_rounded, size: 17),
+              label: const Text(
+                'All Contracts',
                 style: TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 11.2,
-                  height: 1.45,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 11.4,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -2493,3 +3006,4 @@ String _initials(String value) {
 
   return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }
+

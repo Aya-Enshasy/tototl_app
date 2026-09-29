@@ -1,8 +1,10 @@
-import '../screens/operations/company_applicant_list_item.dart';
+ import '../models/company_contract_model.dart';
+import '../models/company_create_contract_request.dart';
 import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
 import '../models/company_job_posting_model.dart';
 import '../models/company_update_job_request.dart';
+import '../screens/applications/company_applicant_list_item.dart';
 import '../services/company_job_service.dart';
 
 class CompanyJobController {
@@ -26,6 +28,7 @@ class CompanyJobController {
   bool isDeleting = false;
   bool isAcceptingApplicant = false;
   bool isRejectingApplicant = false;
+  bool isCreatingContract = false;
   int? actingApplicationId;
 
   String? errorMessage;
@@ -35,6 +38,7 @@ class CompanyJobController {
   String? applicantCredentialsErrorMessage;
   String? applicantDronesErrorMessage;
   String? applicantDocumentErrorMessage;
+  String? contractErrorMessage;
 
   List<CompanyJobPostingModel> jobs = const [];
   CompanyJobPostingModel? selectedJob;
@@ -45,6 +49,7 @@ class CompanyJobController {
   List<CompanyPilotCredentialModel> applicantCredentials = const [];
   List<CompanyApplicantDroneModel> applicantDrones = const [];
   CompanyApplicantDroneModel? committedApplicantDrone;
+  CompanyContractModel? createdContract;
 
   Future<bool> loadMyJobs() async {
     if (isLoadingJobs) return false;
@@ -308,6 +313,33 @@ class CompanyJobController {
     }
 
     applicants = mutable;
+  }
+
+  Future<CompanyContractModel?> createContract({
+    required int jobId,
+    required int applicationId,
+    required CompanyCreateContractRequest request,
+  }) async {
+    if (isCreatingContract) return null;
+
+    isCreatingContract = true;
+    contractErrorMessage = null;
+
+    try {
+      final contract = await service.createContract(
+        jobId: jobId,
+        applicationId: applicationId,
+        request: request,
+      );
+
+      createdContract = contract;
+      return contract;
+    } catch (e) {
+      contractErrorMessage = e.toString();
+      return null;
+    } finally {
+      isCreatingContract = false;
+    }
   }
 
   Future<CompanyJobPostingModel?> createJob(

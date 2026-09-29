@@ -7,7 +7,9 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
-import '../screens/operations/company_applicant_list_item.dart';
+import '../screens/applications/company_applicant_list_item.dart';
+ import '../models/company_contract_model.dart';
+import '../models/company_create_contract_request.dart';
 import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
 import '../models/company_job_posting_model.dart';
@@ -677,6 +679,82 @@ class CompanyJobService {
         _dioErrorMessage(
           e,
           fallback: 'Unable to reject applicant.',
+        ),
+      );
+    }
+  }
+
+  // ==========================================================================
+  // CREATE CONTRACT
+  // POST /company/job-postings/{jobId}/applicants/{applicationId}/contract
+  // Only an Accepted application can be used. Contract starts Pending.
+  // ==========================================================================
+
+  Future<CompanyContractModel> createContract({
+    required int jobId,
+    required int applicationId,
+    required CompanyCreateContractRequest request,
+  }) async {
+    final token = await _getToken();
+
+    final endpoint =
+        '$_jobsBase/$jobId/applicants/$applicationId/contract';
+
+    print('================ CREATE CONTRACT REQUEST ================');
+    print('CREATE CONTRACT URL: $endpoint');
+    print('CREATE CONTRACT BODY: ${request.toJson()}');
+
+    try {
+      final response = await apiClient.post(
+        endpoint,
+        data: request.toJson(),
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      print('CREATE CONTRACT STATUS: ${response.statusCode}');
+      print('CREATE CONTRACT RESPONSE: ${response.data}');
+
+      final body = _parseBody(response.data);
+
+      _ensureSuccess(
+        body,
+        fallback: 'Unable to create contract.',
+      );
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw const CompanyJobException(
+          'Created contract data is missing.',
+        );
+      }
+
+      final contract = CompanyContractModel.fromJson(
+        Map<String, dynamic>.from(rawData),
+      );
+
+      print(
+        'CREATE CONTRACT PARSED: '
+        'contract=${contract.id}, status=${contract.status}',
+      );
+      print('================ CREATE CONTRACT SUCCESS ================');
+
+      return contract;
+    } on DioException catch (e) {
+      print('================ CREATE CONTRACT ERROR ================');
+      print('STATUS: ${e.response?.statusCode}');
+      print('RESPONSE: ${e.response?.data}');
+
+      throw CompanyJobException(
+        _dioErrorMessage(
+          e,
+          fallback: 'Unable to create contract.',
         ),
       );
     }

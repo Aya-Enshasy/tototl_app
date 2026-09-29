@@ -99,7 +99,7 @@ class CompanyPublicProfileScreen extends StatelessWidget {
           _Section(
             title: AppLanguage.text('About'),
             child: const Text(
-              'SunTech Energy delivers large-scale solar operations, inspections, and field intelligence across California. Every field mission is planned with safety and deliverable quality in mind.',
+              'SunTech Energy delivers large-scale solar applications, inspections, and field intelligence across California. Every field mission is planned with safety and deliverable quality in mind.',
               style: TextStyle(
                 color: AppColors.text,
                 fontSize: 13.5,

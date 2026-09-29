@@ -60,7 +60,7 @@ class _MyDronesScreenState
       _onControllerChanged,
     );
 
-    // Local snapshot first. The controller starts a silent API refresh after
+    // Local snapshot first. The controllers starts a silent API refresh after
     // cached data is visible.
     unawaited(
       _controller.bootstrap(),

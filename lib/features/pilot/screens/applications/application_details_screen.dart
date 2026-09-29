@@ -8,10 +8,14 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 
 import '../../models/drone_model.dart';
 import '../../models/pilot_application_model.dart';
+import '../../models/pilot_contract_model.dart';
 import '../../models/pilot_job_model.dart';
 import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
+import '../../services/pilot_contract_service.dart';
 import '../../services/pilot_job_service.dart';
+import '../contract/pilot_contract_detail_screen.dart';
+import '../contract/pilot_contracts_screen.dart';
 import '../message/messages_screen.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
@@ -45,12 +49,15 @@ class ApplicationDetailsScreen extends StatefulWidget {
 
 class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
   late final PilotApplicationService _applicationService;
+  late final PilotContractService _contractService;
   late final PilotJobService _jobService;
   late final DroneService _droneService;
 
   PilotApplicationModel? _application;
   ApplicationCompanyChatTarget? _companyChatTarget;
   ApplicationPilotIdentity? _pilotIdentity;
+  PilotContractModel? _contract;
+  String? _contractError;
 
   bool _loading = true;
   bool _refreshing = false;
@@ -67,6 +74,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
 
     final apiClient = ApiClient();
     _applicationService = PilotApplicationService(apiClient);
+    _contractService = PilotContractService(apiClient);
     _jobService = PilotJobService(apiClient);
     _droneService = DroneService(apiClient);
 
@@ -109,6 +117,21 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
       // guaranteed by the API. Resolve both off-screen first.
       final hydrated = await _hydrateBeforePaint(result.application);
 
+      PilotContractModel? resolvedContract;
+      String? contractLookupError;
+
+      if (hydrated.isAccepted) {
+        try {
+          resolvedContract =
+              await _contractService.getContractForApplication(hydrated.id);
+        } catch (e) {
+          // The application itself is still authoritative. Contract lookup
+          // failure must not hide the accepted application screen.
+          resolvedContract = _contract;
+          contractLookupError = e.toString();
+        }
+      }
+
       if (!mounted || serial != _loadSerial) return;
 
       // One atomic swap: shimmer -> correct data. No fake/default intermediate.
@@ -116,6 +139,9 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
         _application = hydrated;
         _companyChatTarget = result.companyChatTarget;
         _pilotIdentity = result.pilotIdentity;
+        _contract = hydrated.isAccepted ? resolvedContract : null;
+        _contractError =
+            hydrated.isAccepted ? contractLookupError : null;
         _loading = false;
         _refreshing = false;
         _error = null;
@@ -351,6 +377,44 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     }
   }
 
+  Future<void> _openContract() async {
+    final contract = _contract;
+    if (contract == null) return;
+
+    HapticFeedback.selectionClick();
+
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PilotContractDetailScreen(
+          contractId: contract.id,
+          initialContract: contract,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (changed == true) {
+      _changed = true;
+    }
+
+    unawaited(_loadAuthoritative(manual: true));
+  }
+
+  Future<void> _openAllContracts() async {
+    HapticFeedback.selectionClick();
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PilotContractsScreen(),
+      ),
+    );
+
+    if (mounted) {
+      unawaited(_loadAuthoritative(manual: true));
+    }
+  }
+
   void _back() => Navigator.of(context).pop(_changed);
 
   // ---------------------------------------------------------------------------
@@ -437,6 +501,15 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
                 : application.companyLabel.trim(),
             busy: _openingChat,
             onTap: _openCompanyChat,
+          ),
+          const SizedBox(height: 14),
+          _AcceptedContractCard(
+            contract: _contract,
+            errorMessage: _contractError,
+            onOpenContract: _contract == null ? null : _openContract,
+            onOpenAllContracts: _openAllContracts,
+            onRetry: () =>
+                unawaited(_loadAuthoritative(manual: true)),
           ),
         ],
         const SizedBox(height: 14),
@@ -582,6 +655,220 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
           content: Text(message),
         ),
       );
+  }
+}
+
+
+class _AcceptedContractCard extends StatelessWidget {
+  const _AcceptedContractCard({
+    required this.contract,
+    required this.errorMessage,
+    required this.onOpenContract,
+    required this.onOpenAllContracts,
+    required this.onRetry,
+  });
+
+  final PilotContractModel? contract;
+  final String? errorMessage;
+  final VoidCallback? onOpenContract;
+  final VoidCallback onOpenAllContracts;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = contract;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(21),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.028),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: value == null
+                      ? AppColors.orangeBg
+                      : AppColors.greenBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  value == null
+                      ? Icons.pending_actions_rounded
+                      : Icons.description_outlined,
+                  color: value == null
+                      ? AppColors.orange
+                      : AppColors.green,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value == null && errorMessage != null
+                          ? AppLanguage.text('Contract Status')
+                          : value == null
+                              ? AppLanguage.text('Contract')
+                              : 'Contract #${value.id}',
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      value == null && errorMessage != null
+                          ? AppLanguage.text('Unable to refresh right now')
+                          : value == null
+                              ? AppLanguage.text(
+                                  'Waiting for the company to prepare your contract',
+                                )
+                              : '${value.statusLabel} · ${value.amountLabel}',
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value == null && errorMessage != null
+                ? AppLanguage.text(
+                    'Your application is accepted, but the latest contract status could not be loaded. Retry before assuming that no contract exists.',
+                  )
+                : value == null
+                    ? AppLanguage.text(
+                        'Your application is accepted. Once the company creates the contract, it will appear here for your review and decision.',
+                      )
+                    : value.isPending
+                    ? AppLanguage.text(
+                        'A contract is ready for your review. Open it to accept or reject the agreement.',
+                      )
+                    : value.isAccepted
+                        ? AppLanguage.text(
+                            'You accepted this contract. The company now needs to fund it before work can begin.',
+                          )
+                        : AppLanguage.text(
+                            'Open the contract to review its current workflow status.',
+                          ),
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 11.2,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 13),
+          if (value == null && errorMessage != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  backgroundColor: AppColors.orange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: Text(
+                  AppLanguage.text('Retry Contract Check'),
+                  style: const TextStyle(
+                    fontSize: 10.8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 9),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onOpenAllContracts,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 45),
+                    foregroundColor: AppColors.navy,
+                    side: const BorderSide(
+                      color: AppColors.cardBorder,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.list_alt_rounded,
+                    size: 16,
+                  ),
+                  label: Text(
+                    AppLanguage.text('All Contracts'),
+                    style: const TextStyle(
+                      fontSize: 10.8,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              if (value != null) ...[
+                const SizedBox(width: 9),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: onOpenContract,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 45),
+                      backgroundColor: AppColors.navy,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 16,
+                    ),
+                    label: Text(
+                      value.isPending
+                          ? AppLanguage.text('Review Contract')
+                          : AppLanguage.text('View Contract'),
+                      style: const TextStyle(
+                        fontSize: 10.8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -3052,4 +3339,5 @@ class _ShimmerBlock extends StatelessWidget {
     );
   }
 }
+
 

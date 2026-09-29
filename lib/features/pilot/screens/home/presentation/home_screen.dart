@@ -53,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     // IMPORTANT: do not wait for API/bootstrap before showing the page.
     // On a true first use the skeletons appear immediately; on later uses the
-    // controller swaps them for cached data as soon as local storage responds.
+    // controllers swaps them for cached data as soon as local storage responds.
     _entranceController.forward();
     unawaited(_bootstrap());
   }

@@ -2,7 +2,8 @@ class ApiEndpoints {
   ApiEndpoints._();
 
   // Base URL
-  static const String baseUrl = 'https://tototl.abdullahdheir.dev/api/v1';
+  static const String baseUrl =
+      'https://tototl.abdullahdheir.dev/api/v1';
 
   // Auth
   static const String login = '/auth/login';
@@ -43,11 +44,129 @@ class ApiEndpoints {
   }
 
   // ==========================================================================
+  // CONTRACTS
+  // ==========================================================================
+
+  /// GET /contracts
+  static const String contracts = '/contracts';
+
+  /// GET /contracts/{contract}
+  static String contract(int contractId) {
+    return '/contracts/$contractId';
+  }
+
+  /// POST /contracts/{contract}/accept
+  static String acceptContract(int contractId) {
+    return '/contracts/$contractId/accept';
+  }
+
+  /// POST /contracts/{contract}/reject
+  static String rejectContract(int contractId) {
+    return '/contracts/$contractId/reject';
+  }
+
+  /// POST /contracts/{contract}/start-work
+  static String startContractWork(int contractId) {
+    return '/contracts/$contractId/start-work';
+  }
+
+  /// GET /contracts/{contract}/location
+  static String contractLocation(int contractId) {
+    return '/contracts/$contractId/location';
+  }
+
+  /// GET /contracts/{contract}/submissions
+  /// POST /contracts/{contract}/submissions
+  static String contractSubmissions(int contractId) {
+    return '/contracts/$contractId/submissions';
+  }
+
+  /// GET /contracts/{contract}/submissions/{submission}
+  static String contractSubmission(
+    int contractId,
+    int submissionId,
+  ) {
+    return '/contracts/$contractId/submissions/$submissionId';
+  }
+
+  // ==========================================================================
+  // COMPANY CONTRACTS
+  // ==========================================================================
+
+  static const String companyContracts = '/company/contracts';
+
+  static String companyContract(int contractId) {
+    return '/company/contracts/$contractId';
+  }
+
+  static String fundCompanyContract(int contractId) {
+    return '/company/contracts/$contractId/fund';
+  }
+
+  static String cancelCompanyContract(int contractId) {
+    return '/company/contracts/$contractId/cancel';
+  }
+
+  static String terminateCompanyContract(int contractId) {
+    return '/company/contracts/$contractId/terminate';
+  }
+
+  static String companyContractLocation(int contractId) {
+    return '/company/contracts/$contractId/location';
+  }
+
+  static String companyContractSubmissions(int contractId) {
+    return '/company/contracts/$contractId/submissions';
+  }
+
+  static String companyContractSubmission(
+    int contractId,
+    int submissionId,
+  ) {
+    return '/company/contracts/$contractId/submissions/$submissionId';
+  }
+
+  static String approveCompanyContractSubmission(
+    int contractId,
+    int submissionId,
+  ) {
+    return '/company/contracts/$contractId/submissions/$submissionId/approve';
+  }
+
+  static String requestRevisionCompanyContractSubmission(
+    int contractId,
+    int submissionId,
+  ) {
+    return '/company/contracts/$contractId/submissions/$submissionId/request-revision';
+  }
+
+
+
+  // ==========================================================================
+  // PAYMENTS
+  // ==========================================================================
+
+  /// GET /payments
+  static const String payments = '/payments';
+
+  /// GET /payments/{payment}
+  static String payment(int paymentId) {
+    return '/payments/$paymentId';
+  }
+
+  /// GET /company/payments
+  static const String companyPayments = '/company/payments';
+
+  /// GET /company/payments/{payment}
+  static String companyPayment(int paymentId) {
+    return '/company/payments/$paymentId';
+  }
+
+  // ==========================================================================
   // ADMIN
   // ==========================================================================
 
   static const String adminPendingPilots = '/admin/pilots/pending';
-
   static const String adminPendingCompanies = '/admin/companies/pending';
 
   /// GET /admin/companies

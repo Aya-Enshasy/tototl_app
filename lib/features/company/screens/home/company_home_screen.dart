@@ -17,7 +17,7 @@ import '../../models/company_dashboard_model.dart';
 import '../../services/company_job_service.dart';
 import '../jobs/company_job_detail_screen.dart';
 import '../jobs/post_job_screen.dart';
-import '../operations/company_applicant_detail_screen.dart';
+import '../applications/company_applicant_detail_screen.dart';
 
 class CompanyHomeScreen extends StatefulWidget {
   const CompanyHomeScreen({super.key});

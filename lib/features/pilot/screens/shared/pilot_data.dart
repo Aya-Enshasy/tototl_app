@@ -326,7 +326,7 @@ const pilotProfiles = <PilotProfile>[
     successRate: '96%',
     missions: 126,
     about:
-        'Commercial drone pilot focused on energy site documentation, aerial imaging, and compliant field operations.',
+        'Commercial drone pilot focused on energy site documentation, aerial imaging, and compliant field applications.',
     skills: ['Imaging', 'Night Vision', 'Thermal'],
     drones: [
       PilotDrone(

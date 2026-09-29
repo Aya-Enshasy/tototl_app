@@ -461,7 +461,7 @@
 //                 if (_selectedJobTypes.contains('Other')) ...[
 //                   const SizedBox(height: 10),
 //                   _buildTextField(
-//                     controller: _otherJobTypeController,
+//                     controllers: _otherJobTypeController,
 //                     hintText: 'Please specify the job type',
 //                   ),
 //                 ],
@@ -582,7 +582,7 @@
 //                 ),
 //                 const SizedBox(height: 8),
 //                 _buildTextField(
-//                   controller: _otherRequirementsController,
+//                   controllers: _otherRequirementsController,
 //                   hintText:
 //                   'Any special permissions, insurance, or pilot experience...',
 //                   maxLines: 3,
@@ -792,7 +792,7 @@
 //   }
 //
 //   Widget _buildTextField({
-//     required TextEditingController controller,
+//     required TextEditingController controllers,
 //     required String hintText,
 //     int maxLines = 1,
 //     String? Function(String?)? validator,
@@ -803,7 +803,7 @@
 //         borderRadius: BorderRadius.circular(16),
 //       ),
 //       child: TextFormField(
-//         controller: controller,
+//         controllers: controllers,
 //         maxLines: maxLines,
 //         validator: validator,
 //         style: const TextStyle(

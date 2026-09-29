@@ -15,7 +15,7 @@ import '../../models/company_job_application_model.dart';
 import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
 
-import '../operations/company_applicant_detail_screen.dart';
+import '../applications/company_applicant_detail_screen.dart';
 import 'edit_company_job_screen.dart';
 
 class CompanyJobDetailScreen extends StatefulWidget {
