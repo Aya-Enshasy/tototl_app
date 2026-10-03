@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
@@ -219,9 +218,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 110),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
       itemCount: applications.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 9),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final application = applications[index];
 
@@ -252,6 +251,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 // BACKDROP
 // =============================================================================
 
+
 class _ApplicationsBackdrop extends StatelessWidget {
   const _ApplicationsBackdrop();
 
@@ -262,16 +262,16 @@ class _ApplicationsBackdrop extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              top: -175,
-              right: -125,
+              top: -155,
+              right: -130,
               child: Container(
-                width: 350,
-                height: 350,
+                width: 320,
+                height: 320,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF16C6C7).withOpacity(0.12),
+                      const Color(0xFF15B9C3).withOpacity(0.085),
                       Colors.transparent,
                     ],
                   ),
@@ -279,8 +279,8 @@ class _ApplicationsBackdrop extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: 320,
-              left: -160,
+              top: 370,
+              left: -175,
               child: Container(
                 width: 300,
                 height: 300,
@@ -288,7 +288,7 @@ class _ApplicationsBackdrop extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppColors.blue.withOpacity(0.055),
+                      AppColors.blue.withOpacity(0.035),
                       Colors.transparent,
                     ],
                   ),
@@ -305,6 +305,7 @@ class _ApplicationsBackdrop extends StatelessWidget {
 // =============================================================================
 // HEADER
 // =============================================================================
+
 
 class _Header extends StatelessWidget {
   const _Header({
@@ -326,39 +327,24 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 13),
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 11),
       child: Column(
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 43,
+                height: 43,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFE7FAFA),
-                      Color(0xFFF2F7FB),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(13),
+                  color: const Color(0xFFE9F8F8),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppColors.logoTurquoiseDark.withOpacity(0.10),
+                    color: const Color(0xFF0EA7B4).withOpacity(.08),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.navy.withOpacity(0.035),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: const Icon(
-                  Icons.route_rounded,
-                  color: AppColors.logoTurquoiseDark,
+                  Icons.assignment_turned_in_outlined,
+                  color: Color(0xFF078FA5),
                   size: 20,
                 ),
               ),
@@ -368,47 +354,37 @@ class _Header extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppLanguage.text('APPLICATIONS'),
-                      style: TextStyle(
-                        color: AppColors.logoTurquoiseDark,
-                        fontSize: 8.6,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.25,
-                      ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      AppLanguage.text('Mission Pipeline'),
-                      style: TextStyle(
+                      AppLanguage.text('Applications'),
+                      style: const TextStyle(
                         color: AppColors.navy,
-                        fontSize: 21.5,
-                        height: 1.05,
+                        fontSize: 16.2,
+                        height: 1.04,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: -0.55,
+                        letterSpacing: -0.35,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      AppLanguage.text('Track every application and decision.'),
+                      AppLanguage.text('Track your proposals and mission decisions'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.grey,
-                        fontSize: 10.5,
-                        height: 1.25,
+                        fontSize: 9.6,
+                        height: 1.18,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               refreshing
                   ? const _LiveRefreshBadge(compact: true)
                   : _RefreshButton(onTap: onRefresh),
             ],
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 11),
           _PipelineHero(
             total: total,
             pending: pending,
@@ -438,195 +414,157 @@ class _PipelineHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(23),
+        borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF071B2D),
-            Color(0xFF0A3F54),
-            Color(0xFF087C84),
+            Color(0xFF08273D),
+            Color(0xFF0A4A5C),
+            Color(0xFF078B96),
           ],
-          stops: [0, 0.62, 1],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF063B4A).withOpacity(0.20),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+            color: const Color(0xFF0B5664).withOpacity(.12),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
         children: [
-          Positioned(
-            right: -48,
-            top: -58,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.055),
-                  width: 19,
+          Row(
+            children: [
+              const Icon(
+                Icons.route_rounded,
+                color: Color(0xFF7BE1DD),
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                AppLanguage.text('Application overview'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9.7,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ),
+              const Spacer(),
+              Text(
+                '$total total',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(.65),
+                  fontSize: 8.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-          Positioned(
-            right: 18,
-            bottom: -38,
-            child: Icon(
-              Icons.flight_takeoff_rounded,
-              color: Colors.white.withOpacity(0.035),
-              size: 128,
-            ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _PipelineMetric(
+                  label: AppLanguage.text('Pending'),
+                  value: pending,
+                  icon: Icons.schedule_rounded,
+                  accent: const Color(0xFFFFCC72),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _PipelineMetric(
+                  label: AppLanguage.text('Accepted'),
+                  value: accepted,
+                  icon: Icons.check_circle_outline_rounded,
+                  accent: const Color(0xFF7DE2B2),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _PipelineMetric(
+                  label: AppLanguage.text('Rejected'),
+                  value: rejected,
+                  icon: Icons.cancel_outlined,
+                  accent: const Color(0xFFFFA7A7),
+                ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        ],
+      ),
+    );
+  }
+}
+
+class _PipelineMetric extends StatelessWidget {
+  const _PipelineMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accent,
+  });
+
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.075),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(.055)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 27,
+            height: 27,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(.12),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: accent, size: 14),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.09),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.09),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.radar_rounded,
-                            size: 12,
-                            color: Color(0xFF73E1DD),
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            AppLanguage.text('LIVE PIPELINE'),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.65,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$total total',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.70),
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.2,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _HeroMetric(
-                        value: '$pending',
-                        label: AppLanguage.text('Pending'),
-                        icon: Icons.schedule_rounded,
-                        tint: const Color(0xFFFFCC72),
-                      ),
-                    ),
-                    const _HeroDivider(),
-                    Expanded(
-                      child: _HeroMetric(
-                        value: '$accepted',
-                        label: AppLanguage.text('Accepted'),
-                        icon: Icons.verified_rounded,
-                        tint: const Color(0xFF7DE2B2),
-                      ),
-                    ),
-                    const _HeroDivider(),
-                    Expanded(
-                      child: _HeroMetric(
-                        value: '$rejected',
-                        label: AppLanguage.text('Rejected'),
-                        icon: Icons.cancel_outlined,
-                        tint: const Color(0xFFFFA0A0),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.58),
+                    fontSize: 7.8,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.tint,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color tint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: tint, size: 15.5),
-        const SizedBox(height: 5),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 17.5,
-            height: 1,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.61),
-            fontSize: 8.8,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HeroDivider extends StatelessWidget {
-  const _HeroDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 45,
-      color: Colors.white.withOpacity(0.10),
     );
   }
 }
@@ -769,6 +707,7 @@ class _PulseDotsState extends State<_PulseDots>
 // APPLICATION CARD
 // =============================================================================
 
+
 class _ApplicationCard extends StatelessWidget {
   const _ApplicationCard({
     required this.application,
@@ -786,12 +725,14 @@ class _ApplicationCard extends StatelessWidget {
     final job = application.job;
     final company = job?.company;
 
-    final realTitle = job?.title.trim() ?? '';
-    final title = realTitle.isNotEmpty
-        ? realTitle
-        : 'Mission #${application.jobPostingId}';
+    final title = (job?.title.trim().isNotEmpty ?? false)
+        ? job!.title.trim()
+        : AppLanguage.text('Mission details unavailable');
 
-    final realCompany = job == null ? '' : application.companyLabel.trim();
+    final category = job?.categoryLabel.trim() ?? '';
+    final companyName = company?.displayName.trim().isNotEmpty == true
+        ? company!.displayName.trim()
+        : application.companyLabel.trim();
 
     final rawLocation = job?.detailedLocationLabel.trim() ?? '';
     final location = rawLocation.toLowerCase() == 'not specified'
@@ -806,190 +747,320 @@ class _ApplicationCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(compact ? 17 : 19),
         child: Ink(
+          padding: EdgeInsets.all(compact ? 9 : 10),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Color(0xFFFCFDFE),
-              ],
-            ),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(compact ? 17 : 19),
             border: Border.all(
-              color: AppColors.cardBorder,
-              width: 0.8,
+              color: AppColors.cardBorder.withOpacity(.90),
+              width: .8,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.navy.withOpacity(compact ? 0.022 : 0.032),
-                blurRadius: compact ? 10 : 15,
+                color: AppColors.navy.withOpacity(compact ? .018 : .028),
+                blurRadius: compact ? 9 : 14,
                 offset: Offset(0, compact ? 3 : 5),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(compact ? 17 : 19),
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0,
-                  top: 10,
-                  bottom: 10,
-                  child: Container(
-                    width: 3.2,
-                    decoration: BoxDecoration(
-                      color: visual.foreground.withOpacity(0.82),
-                      borderRadius: const BorderRadius.horizontal(
-                        right: Radius.circular(8),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ApplicationCategoryImage(
+                    category: job?.serviceCategory ?? '',
+                    compact: compact,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: compact ? 59 : 72,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  maxLines: compact ? 1 : 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: AppColors.navy,
+                                    fontSize: compact ? 12.1 : 12.8,
+                                    height: 1.14,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -.15,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              _StatusPill(
+                                label: application.statusLabel,
+                                visual: visual,
+                                compact: true,
+                              ),
+                            ],
+                          ),
+                          if (category.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              category,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.lightGrey,
+                                fontSize: 8.4,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          if (companyName.isNotEmpty)
+                            Row(
+                              children: [
+                                Icon(
+                                  company?.verified == true
+                                      ? Icons.verified_rounded
+                                      : Icons.business_outlined,
+                                  color: company?.verified == true
+                                      ? AppColors.green
+                                      : AppColors.grey,
+                                  size: 11,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    companyName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.grey,
+                                      fontSize: 8.9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
                     ),
                   ),
+                ],
+              ),
+              if (!compact) ...[
+                const SizedBox(height: 9),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ApplicationMeta(
+                        icon: Icons.schedule_rounded,
+                        text: application.submittedLabel,
+                      ),
+                    ),
+                    if (location.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ApplicationMeta(
+                          icon: Icons.location_on_outlined,
+                          text: location,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    compact ? 12 : 13,
-                    compact ? 11 : 12,
-                    compact ? 10 : 11,
-                    compact ? 11 : 12,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                const SizedBox(height: 9),
+                Row(
+                  children: [
+                    if (pay.isNotEmpty)
+                      Expanded(
+                        child: _ApplicationPayTag(text: pay),
+                      )
+                    else
+                      const Spacer(),
+                    if (pay.isNotEmpty) const SizedBox(width: 9),
+                    Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 11),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE9F8F8),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _CompanyLogo(
-                            photoUrl: company?.profilePhoto.trim() ?? '',
-                            compact: compact,
-                            fallbackColor: visual.background,
-                            fallbackIconColor: visual.foreground,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: AppColors.navy,
-                                          fontSize: compact ? 12.8 : 14,
-                                          height: 1.1,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: -0.18,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 7),
-                                    _StatusPill(
-                                      label: application.statusLabel,
-                                      visual: visual,
-                                      compact: true,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: company != null
-                                          ? _CompanyMeta(
-                                        name: company.displayName,
-                                        verified: company.verified,
-                                        compact: true,
-                                      )
-                                          : _MetaLine(
-                                        icon: realCompany.isNotEmpty
-                                            ? Icons.business_outlined
-                                            : Icons.tag_rounded,
-                                        text: realCompany.isNotEmpty
-                                            ? realCompany
-                                            : 'Job #${application.jobPostingId}',
-                                        compact: true,
-                                        lighter: realCompany.isEmpty,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'APP #${application.id}',
-                                      style: TextStyle(
-                                        color: AppColors.lightGrey.withOpacity(0.95),
-                                        fontSize: 7.8,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.25,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                          Text(
+                            'View details',
+                            style: TextStyle(
+                              color: Color(0xFF078FA5),
+                              fontSize: 8.8,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(width: 7),
-                          Container(
-                            width: compact ? 25 : 27,
-                            height: compact ? 25 : 27,
-                            decoration: BoxDecoration(
-                              color: AppColors.bg,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.cardBorder),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 9,
-                              color: AppColors.blue,
-                            ),
+                          SizedBox(width: 5),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Color(0xFF078FA5),
+                            size: 13,
                           ),
                         ],
                       ),
-                      if (!compact) ...[
-                        const SizedBox(height: 9),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 1),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _InlineDetail(
-                                  icon: Icons.schedule_rounded,
-                                  text: application.submittedLabel,
-                                ),
-                              ),
-                              if (location.isNotEmpty) ...[
-                                const SizedBox(width: 11),
-                                Expanded(
-                                  child: _InlineDetail(
-                                    icon: Icons.location_on_outlined,
-                                    text: location,
-                                  ),
-                                ),
-                              ] else if (pay.isNotEmpty) ...[
-                                const SizedBox(width: 11),
-                                Expanded(
-                                  child: _InlineDetail(
-                                    icon: Icons.payments_outlined,
-                                    text: pay,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+
+class _ApplicationCategoryImage extends StatelessWidget {
+  const _ApplicationCategoryImage({
+    required this.category,
+    required this.compact,
+  });
+
+  final String category;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = compact ? 52.0 : 72.0;
+    final height = compact ? 59.0 : 72.0;
+
+    return Container(
+      width: width,
+      height: height,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F7F8),
+        borderRadius: BorderRadius.circular(compact ? 12 : 14),
+        border: Border.all(
+          color: const Color(0xFFDDE8EB),
+          width: .7,
+        ),
+      ),
+      child: Image.asset(
+        _applicationCategoryAsset(category),
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => Container(
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF1FBFB), Color(0xFFEAF3F6)],
+            ),
+          ),
+          child: Icon(
+            _applicationCategoryFallbackIcon(category),
+            color: const Color(0xFF078FA5),
+            size: compact ? 21 : 25,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplicationMeta extends StatelessWidget {
+  const _ApplicationMeta({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 11, color: AppColors.grey),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 8.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ApplicationPayTag extends StatelessWidget {
+  const _ApplicationPayTag({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF9F5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.green,
+          fontSize: 9.1,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+String _applicationCategoryAsset(String rawCategory) {
+  final value = rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) return 'assets/images/Inspection.png';
+  if (value.contains('mapping')) return 'assets/images/Mapping.png';
+  if (value.contains('photography') || value.contains('photo')) {
+    return 'assets/images/Photography.png';
+  }
+  if (value.contains('construction')) return 'assets/images/Construction.png';
+  if (value.contains('surveying') || value.contains('survey')) {
+    return 'assets/images/Surveying.png';
+  }
+  return 'assets/images/Other.png';
+}
+
+IconData _applicationCategoryFallbackIcon(String rawCategory) {
+  final value = rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) return Icons.manage_search_rounded;
+  if (value.contains('mapping')) return Icons.map_outlined;
+  if (value.contains('photography') || value.contains('photo')) {
+    return Icons.photo_camera_outlined;
+  }
+  if (value.contains('construction')) return Icons.construction_outlined;
+  if (value.contains('surveying') || value.contains('survey')) {
+    return Icons.straighten_rounded;
+  }
+  return Icons.flight_takeoff_rounded;
+}
+
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
@@ -1005,35 +1076,40 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: const BoxConstraints(maxWidth: 78),
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 7 : 8,
-        vertical: compact ? 3.5 : 4,
+        vertical: compact ? 4 : 4.5,
       ),
       decoration: BoxDecoration(
         color: visual.background,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: visual.foreground.withOpacity(0.09),
+          color: visual.foreground.withOpacity(.10),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 4.5,
-            height: 4.5,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(
               color: visual.foreground,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 4.5),
-          Text(
-            label,
-            style: TextStyle(
-              color: visual.foreground,
-              fontSize: compact ? 8.2 : 8.8,
-              fontWeight: FontWeight.w900,
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: visual.foreground,
+                fontSize: compact ? 7.7 : 8.2,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],

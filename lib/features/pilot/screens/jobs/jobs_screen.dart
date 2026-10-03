@@ -1159,72 +1159,65 @@ class _JobPreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final companyPhoto =
-    (job.company?.profilePhoto ?? '')
-        .trim();
-
-    String attachmentPhoto = '';
-
-    for (final attachment
-    in job.attachments) {
-      if (attachment.isImage &&
-          attachment.url
-              .trim()
-              .isNotEmpty) {
-        attachmentPhoto =
-            attachment.url.trim();
-        break;
-      }
-    }
-
-    // Pilot-side priority:
-    // 1) real company profile photo when the list response provides it;
-    // 2) real job image attachment from this same /jobs response;
-    // 3) clean service icon. Never use a fake category image.
-    final imageUrl =
-    companyPhoto.isNotEmpty
-        ? companyPhoto
-        : attachmentPhoto;
+    final assetPath = _jobCategoryAsset(job.serviceCategory);
 
     return Container(
       width: 94,
       height: 88,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color:
-        const Color(0xFFF1F7F8),
-        borderRadius:
-        BorderRadius.circular(11),
+        color: const Color(0xFFF1F7F8),
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(
-          color:
-          const Color(0xFFE0E9EC),
+          color: const Color(0xFFE0E9EC),
           width: .7,
         ),
       ),
-      child: imageUrl.isNotEmpty
-          ? Image.network(
-        imageUrl,
+      child: Image.asset(
+        assetPath,
+        width: 94,
+        height: 88,
         fit: BoxFit.cover,
-        gaplessPlayback: true,
-        filterQuality:
-        FilterQuality.high,
-        errorBuilder:
-            (_, __, ___) =>
-            _JobImageFallback(
-              category:
-              job.serviceCategory,
-            ),
-      )
-          : _JobImageFallback(
-        category:
-        job.serviceCategory,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) {
+          return _JobImageFallback(
+            category: job.serviceCategory,
+          );
+        },
       ),
     );
   }
 }
 
-class _JobImageFallback
-    extends StatelessWidget {
+String _jobCategoryAsset(String rawCategory) {
+  final value = rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) {
+    return 'assets/images/Inspection.png';
+  }
+
+  if (value.contains('mapping')) {
+    return 'assets/images/Mapping.png';
+  }
+
+  if (value.contains('photography') ||
+      value.contains('photo')) {
+    return 'assets/images/Photography.png';
+  }
+
+  if (value.contains('construction')) {
+    return 'assets/images/Construction.png';
+  }
+
+  if (value.contains('surveying') ||
+      value.contains('survey')) {
+    return 'assets/images/Surveying.png';
+  }
+
+  return 'assets/images/Other.png';
+}
+
+class _JobImageFallback extends StatelessWidget {
   const _JobImageFallback({
     required this.category,
   });
@@ -1235,12 +1228,10 @@ class _JobImageFallback
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.center,
-      decoration:
-      const BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
-          end:
-          Alignment.bottomRight,
+          end: Alignment.bottomRight,
           colors: [
             Color(0xFFF1FBFB),
             Color(0xFFEAF4F6),
@@ -1248,38 +1239,40 @@ class _JobImageFallback
         ),
       ),
       child: Icon(
-        _categoryIcon(category),
-        color:
-        const Color(0xFF078FA5),
+        _jobCategoryFallbackIcon(category),
+        color: const Color(0xFF078FA5),
         size: 27,
       ),
     );
   }
+}
 
-  IconData _categoryIcon(
-      String category,
-      ) {
-    switch (
-    category.trim().toLowerCase()) {
-      case 'inspection':
-        return Icons
-            .manage_search_rounded;
-      case 'mapping':
-        return Icons.map_outlined;
-      case 'photography':
-        return Icons
-            .photo_camera_outlined;
-      case 'construction':
-        return Icons
-            .construction_outlined;
-      case 'surveying':
-        return Icons
-            .straighten_rounded;
-      default:
-        return Icons
-            .flight_takeoff_rounded;
-    }
+IconData _jobCategoryFallbackIcon(String rawCategory) {
+  final value = rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) {
+    return Icons.manage_search_rounded;
   }
+
+  if (value.contains('mapping')) {
+    return Icons.map_outlined;
+  }
+
+  if (value.contains('photography') ||
+      value.contains('photo')) {
+    return Icons.photo_camera_outlined;
+  }
+
+  if (value.contains('construction')) {
+    return Icons.construction_outlined;
+  }
+
+  if (value.contains('surveying') ||
+      value.contains('survey')) {
+    return Icons.straighten_rounded;
+  }
+
+  return Icons.flight_takeoff_rounded;
 }
 
 class _ReferenceJobInfo

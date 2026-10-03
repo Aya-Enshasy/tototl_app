@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -206,6 +205,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     );
   }
 
+
   Widget? _buildBottomAction() {
     final job = _job;
 
@@ -220,17 +220,17 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       return SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 11),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Colors.white.withOpacity(.98),
             border: const Border(
-              top: BorderSide(color: AppColors.cardBorder),
+              top: BorderSide(color: Color(0xFFE2E9EC), width: .8),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.navy.withOpacity(0.045),
-                blurRadius: 22,
-                offset: const Offset(0, -7),
+                color: const Color(0xFF0A2D46).withOpacity(.055),
+                blurRadius: 18,
+                offset: const Offset(0, -6),
               ),
             ],
           ),
@@ -238,13 +238,14 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             children: [
               Expanded(
                 child: Container(
-                  height: 52,
-                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     color: visual.background,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: visual.foreground.withOpacity(0.12),
+                      color: visual.foreground.withOpacity(.12),
+                      width: .7,
                     ),
                   ),
                   child: Row(
@@ -253,27 +254,28 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                         width: 29,
                         height: 29,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.72),
-                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(.76),
+                          borderRadius: BorderRadius.circular(9),
                         ),
                         child: Icon(
-                          Icons.check_rounded,
+                          _applicationIcon(application?.status ?? ''),
                           color: visual.foreground,
-                          size: 16,
+                          size: 14.5,
                         ),
                       ),
-                      const SizedBox(width: 9),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              AppLanguage.text('Application'),
+                            const Text(
+                              'APPLICATION',
                               style: TextStyle(
-                                color: AppColors.grey,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF7E8F9B),
+                                fontSize: 6.9,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .6,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -285,7 +287,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: visual.foreground,
-                                fontSize: 12.2,
+                                fontSize: 10.2,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -297,10 +299,10 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                 ),
               ),
               if (applicationId != null) ...[
-                const SizedBox(width: 9),
+                const SizedBox(width: 8),
                 SizedBox(
-                  height: 52,
-                  child: FilledButton.icon(
+                  height: 48,
+                  child: FilledButton(
                     onPressed: () async {
                       HapticFeedback.selectionClick();
 
@@ -317,23 +319,27 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                       }
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.navy,
+                      elevation: 0,
+                      backgroundColor: const Color(0xFF0B3147),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 17),
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    icon: const Icon(
-                      Icons.arrow_outward_rounded,
-                      size: 16,
-                    ),
-                    label: Text(
-                      AppLanguage.text('View'),
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.arrow_outward_rounded, size: 14),
+                      ],
                     ),
                   ),
                 ),
@@ -347,68 +353,85 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 11),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.withOpacity(.98),
           border: const Border(
-            top: BorderSide(color: AppColors.cardBorder),
+            top: BorderSide(color: Color(0xFFE2E9EC), width: .8),
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.navy.withOpacity(0.045),
-              blurRadius: 22,
-              offset: const Offset(0, -7),
+              color: const Color(0xFF0A2D46).withOpacity(.055),
+              blurRadius: 18,
+              offset: const Offset(0, -6),
             ),
           ],
         ),
         child: SizedBox(
           width: double.infinity,
-          height: 54,
-          child: FilledButton(
-            onPressed: () async {
-              HapticFeedback.mediumImpact();
-
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ApplyForJobScreen(job: job),
-                ),
-              );
-
-              if (mounted) {
-                unawaited(_load());
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(17),
+          height: 49,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF0A9AAA),
+                  Color(0xFF087D92),
+                ],
               ),
-              elevation: 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  AppLanguage.text('Apply for this mission'),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-                SizedBox(width: 9),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 18,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0A9AAA).withOpacity(.18),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
                 ),
               ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () async {
+                  HapticFeedback.mediumImpact();
+
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ApplyForJobScreen(job: job),
+                    ),
+                  );
+
+                  if (mounted) {
+                    unawaited(_load());
+                  }
+                },
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 15.5,
+                    ),
+                    SizedBox(width: 7),
+                    Text(
+                      'Apply for this mission',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.05,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
 
   Widget _content() {
     final job = _job!;
@@ -420,19 +443,19 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 34),
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 28),
         children: [
           _animatedEntry(
             index: 0,
             child: _MissionHero(job: job),
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 10),
           _animatedEntry(
             index: 1,
             child: _MissionSnapshot(job: job),
           ),
           if (job.application?.hasApplied == true) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _animatedEntry(
               index: 2,
               child: _ApplicationStatusBanner(
@@ -440,25 +463,25 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
               ),
             ),
           ],
-          const SizedBox(height: 13),
+          const SizedBox(height: 10),
           _animatedEntry(
             index: 3,
             child: _MissionBriefCard(job: job),
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 10),
           _animatedEntry(
             index: 4,
             child: _MissionLogisticsCard(job: job),
           ),
           if (job.requirementLines.isNotEmpty) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _animatedEntry(
               index: 5,
               child: _RequirementsCard(job: job),
             ),
           ],
           if (job.requiredCapabilities.isNotEmpty) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _animatedEntry(
               index: 6,
               child: _CapabilitiesCard(
@@ -467,7 +490,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             ),
           ],
           if (job.attachments.isNotEmpty) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _animatedEntry(
               index: 7,
               child: _AttachmentsCard(
@@ -476,7 +499,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             ),
           ],
           if (job.company != null) ...[
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _animatedEntry(
               index: 8,
               child: _CompanyPreviewCard(
@@ -519,52 +542,56 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
 // PAGE BACKGROUND
 // ============================================================================
 
+
 class _JobDetailsBackground extends StatelessWidget {
   const _JobDetailsBackground();
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -145,
-          right: -130,
-          child: IgnorePointer(
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.blue.withOpacity(0.09),
-                    Colors.transparent,
-                  ],
+    return Container(
+      color: const Color(0xFFF7FAFB),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -150,
+            right: -120,
+            child: IgnorePointer(
+              child: Container(
+                width: 310,
+                height: 310,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF10AEB8).withOpacity(.10),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          top: 470,
-          left: -170,
-          child: IgnorePointer(
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.logoTurquoise.withOpacity(0.05),
-                    Colors.transparent,
-                  ],
+          Positioned(
+            top: 430,
+            left: -170,
+            child: IgnorePointer(
+              child: Container(
+                width: 290,
+                height: 290,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF0A2D46).withOpacity(.045),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -572,6 +599,7 @@ class _JobDetailsBackground extends StatelessWidget {
 // ============================================================================
 // TOP BAR
 // ============================================================================
+
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
@@ -589,7 +617,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(13, 8, 13, 7),
+      padding: const EdgeInsets.fromLTRB(14, 9, 14, 8),
       child: Row(
         children: [
           _TopCircleButton(
@@ -597,29 +625,29 @@ class _TopBar extends StatelessWidget {
             icon: Icons.arrow_back_ios_new_rounded,
             onTap: onBack,
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   AppLanguage.text('Mission Details'),
-                  style: TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 16.5,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 15.4,
                     height: 1,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.45,
+                    letterSpacing: -.35,
                   ),
                 ),
-                SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(
-                  AppLanguage.text('Review the opportunity before you apply'),
+                  AppLanguage.text('Everything you need before applying'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 10.5,
+                  style: const TextStyle(
+                    color: Color(0xFF7D8E9B),
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -631,28 +659,29 @@ class _TopBar extends StatelessWidget {
             child: updating
                 ? Container(
               key: const ValueKey('updating'),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 9,
-                vertical: 6,
-              ),
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: AppColors.blue.withOpacity(0.055),
-                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFFEAF8F8),
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.sync_rounded,
-                    size: 13,
-                    color: AppColors.blue,
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.7,
+                      color: Color(0xFF079DAB),
+                    ),
                   ),
-                  SizedBox(width: 4),
+                  SizedBox(width: 6),
                   Text(
-                    AppLanguage.text('Updating'),
+                    'Updating',
                     style: TextStyle(
-                      color: AppColors.blue,
-                      fontSize: 9.5,
+                      color: Color(0xFF079DAB),
+                      fontSize: 8.8,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -674,6 +703,7 @@ class _TopBar extends StatelessWidget {
     );
   }
 }
+
 
 class _TopCircleButton extends StatelessWidget {
   const _TopCircleButton({
@@ -700,31 +730,33 @@ class _TopCircleButton extends StatelessWidget {
           customBorder: const CircleBorder(),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 42,
-            height: 42,
+            width: 39,
+            height: 39,
             decoration: BoxDecoration(
               color: selected
-                  ? AppColors.blue.withOpacity(0.09)
+                  ? const Color(0xFFE7F8F8)
                   : Colors.white,
               shape: BoxShape.circle,
               border: Border.all(
                 color: selected
-                    ? AppColors.blue.withOpacity(0.18)
-                    : AppColors.cardBorder,
-                width: 0.8,
+                    ? const Color(0xFF12AAB5).withOpacity(.20)
+                    : const Color(0xFFDDE6EA),
+                width: .8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.navy.withOpacity(0.03),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: const Color(0xFF0A2D46).withOpacity(.035),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Icon(
               icon,
-              color: selected ? AppColors.blue : AppColors.navy,
-              size: 17.5,
+              color: selected
+                  ? const Color(0xFF079DAB)
+                  : const Color(0xFF0A2D46),
+              size: 16.5,
             ),
           ),
         ),
@@ -737,6 +769,7 @@ class _TopCircleButton extends StatelessWidget {
 // HERO
 // ============================================================================
 
+
 class _MissionHero extends StatelessWidget {
   const _MissionHero({
     required this.job,
@@ -748,149 +781,154 @@ class _MissionHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final company = job.company;
     final location = job.detailedLocationLabel.trim();
+    final asset = _jobCategoryAsset(job.serviceCategory);
 
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 220),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF071D39),
-            Color(0xFF0A4055),
-            Color(0xFF087E91),
-          ],
-          stops: [0.0, 0.56, 1.0],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFDCE6E9),
+          width: .8,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF087E91).withOpacity(0.18),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+            color: const Color(0xFF0A2D46).withOpacity(.055),
+            blurRadius: 24,
+            offset: const Offset(0, 9),
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -48,
-            top: -62,
-            child: Container(
-              width: 195,
-              height: 195,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.055),
-                  width: 28,
+          SizedBox(
+            height: 176,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  asset,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFFE9F5F6),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      _categoryIcon(job.serviceCategory),
+                      color: const Color(0xFF0A9AAA),
+                      size: 42,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 13,
-            child: Icon(
-              _categoryIcon(job.serviceCategory),
-              color: Colors.white.withOpacity(0.065),
-              size: 104,
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x18051A2B),
+                        Color(0x32051A2B),
+                        Color(0xC20A2437),
+                      ],
+                      stops: [0, .48, 1],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 13,
+                  top: 13,
+                  child: _HeroChip(
+                    icon: _categoryIcon(job.serviceCategory),
+                    label: job.categoryLabel,
+                  ),
+                ),
+                if (company?.verified == true)
+                  const Positioned(
+                    right: 13,
+                    top: 13,
+                    child: _VerifiedHeroChip(),
+                  ),
+                Positioned(
+                  left: 15,
+                  right: 15,
+                  bottom: 14,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        job.title.trim().isEmpty
+                            ? 'Untitled Mission'
+                            : job.title.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.8,
+                          height: 1.15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -.25,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.business_rounded,
+                            color: Color(0xFFD6ECEF),
+                            size: 12.5,
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              company?.displayName ?? 'Hiring company',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFFE9F4F5),
+                                fontSize: 9.8,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (location.isNotEmpty &&
+                              !location.toLowerCase().contains('not specified'))
+                            Flexible(
+                              child: _HeroLocation(text: location),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(19, 19, 19, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    _HeroChip(
-                      icon: _categoryIcon(job.serviceCategory),
-                      label: job.categoryLabel,
-                    ),
-                    const Spacer(),
-                    if (company?.verified == true)
-                      const _VerifiedHeroChip(),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  job.title.trim().isEmpty ? 'Untitled Mission' : job.title,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 23,
-                    height: 1.16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.55,
+                Expanded(
+                  child: _HeroBottomStat(
+                    label: 'MISSION VALUE',
+                    value: job.payLabel,
+                    icon: Icons.payments_outlined,
+                    accent: const Color(0xFF089B91),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.business_rounded,
-                      color: Colors.white.withOpacity(0.64),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        company?.displayName ?? 'Hiring company',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.78),
-                          fontSize: 12.2,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 1,
+                  height: 34,
+                  color: const Color(0xFFE2E9EC),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            AppLanguage.text('MISSION VALUE'),
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.52),
-                              fontSize: 8.4,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.15,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            job.payLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.logoTurquoiseLight,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (location.isNotEmpty &&
-                        location.toLowerCase() != 'not specified')
-                      Flexible(
-                        child: _HeroLocation(
-                          text: location,
-                        ),
-                      ),
-                  ],
+                Expanded(
+                  child: _HeroBottomStat(
+                    label: 'SCHEDULE',
+                    value: job.dateLabel,
+                    icon: Icons.calendar_today_outlined,
+                  ),
                 ),
               ],
             ),
@@ -900,6 +938,69 @@ class _MissionHero extends StatelessWidget {
     );
   }
 }
+
+class _HeroBottomStat extends StatelessWidget {
+  const _HeroBottomStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.accent = const Color(0xFF0A2D46),
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      child: Row(
+        children: [
+          Container(
+            width: 31,
+            height: 31,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(.075),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: accent, size: 14.5),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF8B9AA5),
+                    fontSize: 7.2,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .65,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 10.4,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _HeroChip extends StatelessWidget {
   const _HeroChip({
@@ -914,15 +1015,13 @@ class _HeroChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 180),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.09),
-        borderRadius: BorderRadius.circular(30),
+        color: const Color(0xFF071D2C).withOpacity(.58),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withOpacity(.14),
+          width: .7,
         ),
       ),
       child: Row(
@@ -930,8 +1029,8 @@ class _HeroChip extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: AppColors.logoTurquoiseLight,
-            size: 13,
+            color: const Color(0xFF6DE1DA),
+            size: 12,
           ),
           const SizedBox(width: 5),
           Flexible(
@@ -941,7 +1040,7 @@ class _HeroChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 9.8,
+                fontSize: 8.8,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -952,34 +1051,36 @@ class _HeroChip extends StatelessWidget {
   }
 }
 
+
 class _VerifiedHeroChip extends StatelessWidget {
   const _VerifiedHeroChip();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(30),
+        color: const Color(0xFF071D2C).withOpacity(.58),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(.14),
+          width: .7,
+        ),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.verified_rounded,
-            color: AppColors.logoTurquoiseLight,
-            size: 14,
+            color: Color(0xFF6DE1DA),
+            size: 12.5,
           ),
           SizedBox(width: 4),
           Text(
-            AppLanguage.text('Verified'),
+            'Verified',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 9.3,
+              fontSize: 8.4,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -988,6 +1089,7 @@ class _VerifiedHeroChip extends StatelessWidget {
     );
   }
 }
+
 
 class _HeroLocation extends StatelessWidget {
   const _HeroLocation({
@@ -998,41 +1100,29 @@ class _HeroLocation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.09),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.07),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.location_on_outlined,
+          color: Color(0xFFD5E9EB),
+          size: 11.5,
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_on_outlined,
-            color: Colors.white.withOpacity(0.72),
-            size: 12,
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.76),
-                fontSize: 9.4,
-                fontWeight: FontWeight.w600,
-              ),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              color: Color(0xFFD5E9EB),
+              fontSize: 8.8,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1040,6 +1130,7 @@ class _HeroLocation extends StatelessWidget {
 // ============================================================================
 // SNAPSHOT
 // ============================================================================
+
 
 class _MissionSnapshot extends StatelessWidget {
   const _MissionSnapshot({
@@ -1050,56 +1141,45 @@ class _MissionSnapshot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PremiumSurface(
-      padding: const EdgeInsets.fromLTRB(15, 15, 15, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            eyebrow: 'AT A GLANCE',
-            title: AppLanguage.text('Mission snapshot'),
+    return Row(
+      children: [
+        Expanded(
+          child: _SnapshotMetric(
+            icon: Icons.payments_outlined,
+            label: AppLanguage.text('Budget'),
+            value: job.payLabel,
+            accent: const Color(0xFF07998F),
           ),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: _SnapshotMetric(
-                  icon: Icons.payments_outlined,
-                  label: AppLanguage.text('Budget'),
-                  value: job.payLabel,
-                  accent: AppColors.green,
-                ),
-              ),
-              const _MetricDivider(),
-              Expanded(
-                child: _SnapshotMetric(
-                  icon: Icons.calendar_today_outlined,
-                  label: AppLanguage.text('Mission'),
-                  value: job.dateLabel,
-                ),
-              ),
-              const _MetricDivider(),
-              Expanded(
-                child: _SnapshotMetric(
-                  icon: Icons.flight_takeoff_rounded,
-                  label: AppLanguage.text('Service'),
-                  value: job.categoryLabel,
-                ),
-              ),
-            ],
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SnapshotMetric(
+            icon: Icons.calendar_today_outlined,
+            label: AppLanguage.text('Mission'),
+            value: job.dateLabel,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SnapshotMetric(
+            icon: Icons.flight_takeoff_rounded,
+            label: AppLanguage.text('Service'),
+            value: job.categoryLabel,
+            accent: const Color(0xFF7A66C7),
+          ),
+        ),
+      ],
     );
   }
 }
+
 
 class _SnapshotMetric extends StatelessWidget {
   const _SnapshotMetric({
     required this.icon,
     required this.label,
     required this.value,
-    this.accent = AppColors.blue,
+    this.accent = const Color(0xFF0B92B0),
   });
 
   final IconData icon;
@@ -1109,42 +1189,56 @@ class _SnapshotMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+    return Container(
+      height: 94,
+      padding: const EdgeInsets.fromLTRB(10, 11, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: const Color(0xFFDDE6EA),
+          width: .75,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0A2D46).withOpacity(.028),
+            blurRadius: 13,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 33,
-            height: 33,
+            width: 29,
+            height: 29,
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.065),
-              borderRadius: BorderRadius.circular(10),
+              color: accent.withOpacity(.08),
+              borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(
-              icon,
-              color: accent,
-              size: 16,
-            ),
+            child: Icon(icon, color: accent, size: 14),
           ),
-          const SizedBox(height: 7),
+          const Spacer(),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 8.8,
+              color: Color(0xFF8796A2),
+              fontSize: 8.1,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 3),
           Text(
             value,
-            textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.navy,
-              fontSize: 10.2,
-              height: 1.18,
+              color: Color(0xFF0A2D46),
+              fontSize: 9.5,
+              height: 1.15,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1154,23 +1248,20 @@ class _SnapshotMetric extends StatelessWidget {
   }
 }
 
+
 class _MetricDivider extends StatelessWidget {
   const _MetricDivider();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 58,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: AppColors.cardBorder,
-    );
+    return const SizedBox(width: 8);
   }
 }
 
 // ============================================================================
 // MISSION BRIEF
 // ============================================================================
+
 
 class _MissionBriefCard extends StatelessWidget {
   const _MissionBriefCard({
@@ -1190,17 +1281,17 @@ class _MissionBriefCard extends StatelessWidget {
           _CardHeader(
             icon: Icons.notes_rounded,
             title: AppLanguage.text('Mission Brief'),
-            subtitle: AppLanguage.text('Scope and expectations from the company'),
+            subtitle: AppLanguage.text('Scope and expectations'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Text(
             description.isEmpty
                 ? 'No mission description was provided.'
                 : description,
             style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 12.7,
-              height: 1.66,
+              color: Color(0xFF425665),
+              fontSize: 11.2,
+              height: 1.55,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1213,6 +1304,7 @@ class _MissionBriefCard extends StatelessWidget {
 // ============================================================================
 // LOGISTICS
 // ============================================================================
+
 
 class _MissionLogisticsCard extends StatelessWidget {
   const _MissionLogisticsCard({
@@ -1230,9 +1322,9 @@ class _MissionLogisticsCard extends StatelessWidget {
           _CardHeader(
             icon: Icons.route_outlined,
             title: AppLanguage.text('Mission Logistics'),
-            subtitle: AppLanguage.text('Where, when and how the mission is funded'),
+            subtitle: AppLanguage.text('Location, schedule and payment'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           _LogisticsTile(
             icon: Icons.location_on_outlined,
             label: AppLanguage.text('Location'),
@@ -1249,7 +1341,7 @@ class _MissionLogisticsCard extends StatelessWidget {
             icon: Icons.payments_outlined,
             label: AppLanguage.text('Payment'),
             value: '${job.paymentTypeLabel} • ${job.payLabel}',
-            valueColor: AppColors.green,
+            valueColor: const Color(0xFF07998F),
           ),
         ],
       ),
@@ -1275,12 +1367,13 @@ class _MissionLogisticsCard extends StatelessWidget {
   }
 }
 
+
 class _LogisticsTile extends StatelessWidget {
   const _LogisticsTile({
     required this.icon,
     required this.label,
     required this.value,
-    this.valueColor = AppColors.navy,
+    this.valueColor = const Color(0xFF0A2D46),
   });
 
   final IconData icon;
@@ -1290,58 +1383,56 @@ class _LogisticsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.blue.withOpacity(0.055),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: AppColors.blue,
-              size: 17,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF7F8),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            color: const Color(0xFF0A9AAA),
+            size: 15.5,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF8A99A4),
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: valueColor,
+                    fontSize: 10.8,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: AppColors.grey,
-                      fontSize: 9.4,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      color: valueColor,
-                      fontSize: 12.2,
-                      height: 1.35,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
+
 
 class _SoftDivider extends StatelessWidget {
   const _SoftDivider();
@@ -1349,10 +1440,10 @@ class _SoftDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.symmetric(vertical: 9),
       child: Divider(
         height: 1,
-        color: AppColors.cardBorder,
+        color: Color(0xFFE7ECEF),
       ),
     );
   }
@@ -1361,6 +1452,7 @@ class _SoftDivider extends StatelessWidget {
 // ============================================================================
 // REQUIREMENTS
 // ============================================================================
+
 
 class _RequirementsCard extends StatelessWidget {
   const _RequirementsCard({
@@ -1378,38 +1470,38 @@ class _RequirementsCard extends StatelessWidget {
           _CardHeader(
             icon: Icons.fact_check_outlined,
             title: AppLanguage.text('Pilot Requirements'),
-            subtitle: AppLanguage.text('What the company expects from the selected pilot'),
+            subtitle: AppLanguage.text('What the company expects'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           ...job.requirementLines.map(
                 (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 27,
-                    height: 27,
+                    width: 23,
+                    height: 23,
                     decoration: BoxDecoration(
-                      color: AppColors.green.withOpacity(0.065),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFEAF8F4),
+                      borderRadius: BorderRadius.circular(7),
                     ),
                     child: const Icon(
                       Icons.check_rounded,
-                      color: AppColors.green,
-                      size: 14,
+                      color: Color(0xFF139979),
+                      size: 12,
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 3),
+                      padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         item,
                         style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 12.3,
-                          height: 1.45,
+                          color: Color(0xFF425665),
+                          fontSize: 10.7,
+                          height: 1.4,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1429,6 +1521,7 @@ class _RequirementsCard extends StatelessWidget {
 // CAPABILITIES
 // ============================================================================
 
+
 class _CapabilitiesCard extends StatelessWidget {
   const _CapabilitiesCard({
     required this.capabilities,
@@ -1445,23 +1538,22 @@ class _CapabilitiesCard extends StatelessWidget {
           _CardHeader(
             icon: Icons.memory_rounded,
             title: AppLanguage.text('Aircraft Match'),
-            subtitle: AppLanguage.text('Drone capabilities requested for this mission'),
+            subtitle: AppLanguage.text('Required drone capabilities'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Wrap(
-            spacing: 7,
-            runSpacing: 7,
+            spacing: 6,
+            runSpacing: 6,
             children: capabilities
-                .map(
-                  (item) => _CapabilityChip(label: item),
-            )
-                .toList(),
+                .map((item) => _CapabilityChip(label: item))
+                .toList(growable: false),
           ),
         ],
       ),
     );
   }
 }
+
 
 class _CapabilityChip extends StatelessWidget {
   const _CapabilityChip({
@@ -1473,31 +1565,29 @@ class _CapabilityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.green.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(11),
+        color: const Color(0xFFEAF8F5),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: AppColors.green.withOpacity(0.10),
+          color: const Color(0xFF159B7A).withOpacity(.11),
+          width: .7,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
-            Icons.check_circle_outline_rounded,
-            color: AppColors.green,
-            size: 13,
+            Icons.check_circle_rounded,
+            color: Color(0xFF159B7A),
+            size: 11.5,
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
-              color: AppColors.green,
-              fontSize: 10.2,
+              color: Color(0xFF14795F),
+              fontSize: 8.9,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1510,6 +1600,7 @@ class _CapabilityChip extends StatelessWidget {
 // ============================================================================
 // ATTACHMENTS
 // ============================================================================
+
 
 class _AttachmentsCard extends StatelessWidget {
   const _AttachmentsCard({
@@ -1528,38 +1619,49 @@ class _AttachmentsCard extends StatelessWidget {
             icon: Icons.attach_file_rounded,
             title: AppLanguage.text('Mission Files'),
             subtitle:
-            '${attachments.length} ${attachments.length == 1 ? 'attachment' : 'attachments'} shared by the company',
+            '${attachments.length} ${attachments.length == 1 ? 'attachment' : 'attachments'} shared',
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 12),
           ...attachments.map(
                 (attachment) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(11),
+              margin: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(14),
+                color: const Color(0xFFF8FBFC),
+                borderRadius: BorderRadius.circular(13),
                 border: Border.all(
-                  color: AppColors.cardBorder.withOpacity(0.72),
+                  color: const Color(0xFFE3EAED),
+                  width: .7,
                 ),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 42,
+                    height: 42,
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
-                      color: AppColors.blue.withOpacity(0.06),
+                      color: const Color(0xFFEAF7F8),
                       borderRadius: BorderRadius.circular(11),
                     ),
-                    child: Icon(
-                      attachment.isImage
-                          ? Icons.image_outlined
-                          : Icons.insert_drive_file_outlined,
-                      color: AppColors.blue,
+                    child: attachment.isImage &&
+                        attachment.url.trim().isNotEmpty
+                        ? Image.network(
+                      attachment.url.trim(),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.image_outlined,
+                        color: Color(0xFF0A9AAA),
+                        size: 17,
+                      ),
+                    )
+                        : const Icon(
+                      Icons.insert_drive_file_outlined,
+                      color: Color(0xFF0A9AAA),
                       size: 17,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1567,13 +1669,13 @@ class _AttachmentsCard extends StatelessWidget {
                         Text(
                           attachment.name.trim().isEmpty
                               ? 'Attachment'
-                              : attachment.name,
+                              : attachment.name.trim(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: AppColors.navy,
-                            fontSize: 11.7,
-                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0A2D46),
+                            fontSize: 10.4,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         if (attachment.size > 0) ...[
@@ -1581,8 +1683,8 @@ class _AttachmentsCard extends StatelessWidget {
                           Text(
                             _fileSize(attachment.size),
                             style: const TextStyle(
-                              color: AppColors.grey,
-                              fontSize: 9.3,
+                              color: Color(0xFF8A99A4),
+                              fontSize: 8.5,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1591,9 +1693,9 @@ class _AttachmentsCard extends StatelessWidget {
                     ),
                   ),
                   const Icon(
-                    Icons.description_outlined,
-                    color: AppColors.grey,
-                    size: 16,
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF91A0A9),
+                    size: 17,
                   ),
                 ],
               ),
@@ -1609,6 +1711,7 @@ class _AttachmentsCard extends StatelessWidget {
 // COMPANY PREVIEW
 // ============================================================================
 
+
 class _CompanyPreviewCard extends StatelessWidget {
   const _CompanyPreviewCard({
     required this.company,
@@ -1623,160 +1726,155 @@ class _CompanyPreviewCard extends StatelessWidget {
     final name = company.displayName.trim().isEmpty
         ? 'Hiring Company'
         : company.displayName.trim();
+    final location = company.locationLabel.trim();
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(23),
+      borderRadius: BorderRadius.circular(19),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(23),
-        child: _PremiumSurface(
-          padding: EdgeInsets.zero,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(23),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -42,
-                  top: -48,
-                  child: Container(
-                    width: 145,
-                    height: 145,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AppColors.logoTurquoise.withOpacity(0.09),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
+        borderRadius: BorderRadius.circular(19),
+        child: Ink(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B3147),
+            borderRadius: BorderRadius.circular(19),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0A2D46).withOpacity(.12),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(.8),
+                    width: 1.2,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFE8FBFB),
-                              Color(0xFFD9F1F6),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: company.hasProfilePhoto
-                            ? Image.network(
-                          company.profilePhoto,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Center(
-                            child: Text(
-                              _initials(name),
-                              style: const TextStyle(
-                                color: AppColors.navy,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                          ),
-                        )
-                            : Center(
+                child: company.hasProfilePhoto
+                    ? Image.network(
+                  company.profilePhoto,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _CompanyInitials(
+                    value: name,
+                  ),
+                )
+                    : _CompanyInitials(value: name),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'HIRING COMPANY',
+                      style: TextStyle(
+                        color: Color(0xFF75DCD6),
+                        fontSize: 7.2,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .7,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Flexible(
                           child: Text(
-                            _initials(name),
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 17,
+                              color: Colors.white,
+                              fontSize: 11.8,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: -0.3,
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 13),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppLanguage.text('HIRING COMPANY'),
-                              style: TextStyle(
-                                color: AppColors.grey,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.9,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.navy,
-                                      fontSize: 15.2,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.25,
-                                    ),
-                                  ),
-                                ),
-                                if (company.verified) ...[
-                                  const SizedBox(width: 5),
-                                  const Icon(
-                                    Icons.verified_rounded,
-                                    color: AppColors.logoTurquoise,
-                                    size: 16,
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              company.verified
-                                  ? 'Verified company on TOTOTL'
-                                  : 'Company on TOTOTL',
-                              style: const TextStyle(
-                                color: AppColors.grey,
-                                fontSize: 10.2,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: AppColors.blue.withOpacity(0.045),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_outward_rounded,
-                          color: AppColors.blue,
-                          size: 16,
+                        if (company.verified) ...[
+                          const SizedBox(width: 5),
+                          const Icon(
+                            Icons.verified_rounded,
+                            color: Color(0xFF75DCD6),
+                            size: 13.5,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (location.isNotEmpty &&
+                        !location.toLowerCase().contains('not specified')) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        location,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFB9CBD2),
+                          fontSize: 8.8,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_outward_rounded,
+                  color: Color(0xFF75DCD6),
+                  size: 14.5,
+                ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompanyInitials extends StatelessWidget {
+  const _CompanyInitials({
+    required this.value,
+  });
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFE7FBF9),
+            Color(0xFFDCEFF3),
+          ],
+        ),
+      ),
+      child: Text(
+        _initials(value),
+        style: const TextStyle(
+          color: Color(0xFF0A2D46),
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -1786,6 +1884,7 @@ class _CompanyPreviewCard extends StatelessWidget {
 // ============================================================================
 // APPLICATION STATUS
 // ============================================================================
+
 
 class _ApplicationStatusBanner extends StatelessWidget {
   const _ApplicationStatusBanner({
@@ -1799,50 +1898,51 @@ class _ApplicationStatusBanner extends StatelessWidget {
     final visual = _applicationVisual(application.status);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: visual.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: visual.foreground.withOpacity(0.15),
+          color: visual.foreground.withOpacity(.14),
+          width: .75,
         ),
       ),
       child: Row(
         children: [
           Container(
-            width: 39,
-            height: 39,
+            width: 33,
+            height: 33,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.72),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(.78),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               _applicationIcon(application.status),
               color: visual.foreground,
-              size: 19,
+              size: 16,
             ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  AppLanguage.text('Your application'),
+                const Text(
+                  'Your application',
                   style: TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 11.7,
-                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF536875),
+                    fontSize: 8.6,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   application.statusLabel.trim().isEmpty
                       ? 'Submitted'
                       : application.statusLabel,
                   style: TextStyle(
                     color: visual.foreground,
-                    fontSize: 10.8,
+                    fontSize: 10.4,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1851,8 +1951,8 @@ class _ApplicationStatusBanner extends StatelessWidget {
           ),
           Icon(
             Icons.arrow_outward_rounded,
-            color: visual.foreground.withOpacity(0.65),
-            size: 17,
+            color: visual.foreground.withOpacity(.60),
+            size: 15,
           ),
         ],
       ),
@@ -1864,10 +1964,11 @@ class _ApplicationStatusBanner extends StatelessWidget {
 // COMMON SURFACES
 // ============================================================================
 
+
 class _PremiumSurface extends StatelessWidget {
   const _PremiumSurface({
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(14),
   });
 
   final Widget child;
@@ -1880,16 +1981,16 @@ class _PremiumSurface extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(23),
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(
-          color: AppColors.cardBorder.withOpacity(0.90),
-          width: 0.8,
+          color: const Color(0xFFDDE6EA),
+          width: .75,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(0.032),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF0A2D46).withOpacity(.028),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1897,6 +1998,7 @@ class _PremiumSurface extends StatelessWidget {
     );
   }
 }
+
 
 class _SectionHeading extends StatelessWidget {
   const _SectionHeading({
@@ -1915,26 +2017,27 @@ class _SectionHeading extends StatelessWidget {
         Text(
           eyebrow,
           style: const TextStyle(
-            color: AppColors.blue,
-            fontSize: 8.2,
+            color: Color(0xFF0A9AAA),
+            fontSize: 7.2,
             fontWeight: FontWeight.w900,
-            letterSpacing: 1.0,
+            letterSpacing: .75,
           ),
         ),
         const SizedBox(height: 3),
         Text(
           title,
           style: const TextStyle(
-            color: AppColors.navy,
-            fontSize: 14.3,
+            color: Color(0xFF0A2D46),
+            fontSize: 12.7,
             fontWeight: FontWeight.w900,
-            letterSpacing: -0.2,
+            letterSpacing: -.12,
           ),
         ),
       ],
     );
   }
 }
+
 
 class _CardHeader extends StatelessWidget {
   const _CardHeader({
@@ -1953,43 +2056,48 @@ class _CardHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 38,
-          height: 38,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            color: AppColors.blue.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFFEAF7F8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: AppColors.blue,
-            size: 18,
+            color: const Color(0xFF0A9AAA),
+            size: 15.5,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 9),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.15,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: AppColors.grey,
-                  fontSize: 9.6,
-                  height: 1.3,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF8796A2),
+                    fontSize: 8.6,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -2038,17 +2146,17 @@ class _PremiumJobDetailShimmerState extends State<_PremiumJobDetailShimmer>
 
         return ListView(
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 34),
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 28),
           children: [
             _HeroSkeleton(t: t),
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _SnapshotSkeleton(t: t),
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _SectionSkeleton(
               t: t,
               lines: const [0.92, 0.84, 0.70],
             ),
-            const SizedBox(height: 13),
+            const SizedBox(height: 10),
             _LogisticsSkeleton(t: t),
           ],
         );
@@ -2598,6 +2706,28 @@ IconData _categoryIcon(String category) {
   }
 }
 
+
+String _jobCategoryAsset(String rawCategory) {
+  final value = rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) {
+    return 'assets/images/Inspection.png';
+  }
+  if (value.contains('mapping')) {
+    return 'assets/images/Mapping.png';
+  }
+  if (value.contains('photography') || value.contains('photo')) {
+    return 'assets/images/Photography.png';
+  }
+  if (value.contains('construction')) {
+    return 'assets/images/Construction.png';
+  }
+  if (value.contains('surveying') || value.contains('survey')) {
+    return 'assets/images/Surveying.png';
+  }
+  return 'assets/images/Other.png';
+}
+
 String _formatDate(DateTime? date) {
   if (date == null) return 'Not specified';
 
@@ -2640,4 +2770,3 @@ String _initials(String value) {
 
   return parts.map((part) => part[0].toUpperCase()).join();
 }
-
