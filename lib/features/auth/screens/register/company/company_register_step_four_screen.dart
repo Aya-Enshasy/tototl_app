@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
-
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/navigation/company_shell_screen.dart';
+import '../../../../company/services/CompanyProfileSync.dart';
 
 // ============================================================================
 // COMPANY REGISTRATION - STEP 3
@@ -175,6 +177,12 @@ class _CompanyRegisterStepThreeScreenState
 
   void _goHome() {
     if (!mounted) return;
+
+    // Registration already persisted token/session. Start the full profile
+    // refresh now, but never delay entering Home.
+    unawaited(
+      CompanyProfileSync.instance.refreshFromApi(),
+    );
 
     Navigator.of(
       context,

@@ -20,9 +20,20 @@ import '../applications/company_applicant_detail_screen.dart';
 import 'edit_company_job_screen.dart';
 
 class CompanyJobDetailScreen extends StatefulWidget {
-  const CompanyJobDetailScreen({super.key, required this.jobId});
+  const CompanyJobDetailScreen({
+    super.key,
+    required this.jobId,
+    this.expectedApplicantsCount = -1,
+  });
 
+  /// Real job-posting id from Company -> My Jobs.
   final int jobId;
+
+  /// Count shown by My Jobs. Used only as a consistency hint:
+  /// if the job-specific applicants endpoint unexpectedly returns an empty
+  /// list while this value is > 0, we make one safe fallback request to
+  /// /company/applicants and filter by job_posting_id.
+  final int expectedApplicantsCount;
 
   @override
   State<CompanyJobDetailScreen> createState() => _CompanyJobDetailScreenState();
@@ -30,9 +41,13 @@ class CompanyJobDetailScreen extends StatefulWidget {
 
 class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_job_detail_v4_';
+  static const String _cachePrefix = 'company_job_detail_v5_';
 
+  late final CompanyJobService _jobService;
   late final CompanyJobController _controller;
+
+  final Map<int, List<CompanyApplicantDroneModel>>
+  _pilotDronesCache = <int, List<CompanyApplicantDroneModel>>{};
 
   _JobDetailSnapshot? _job;
   List<_ApplicantSnapshot> _applicants = const [];
@@ -48,6 +63,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   bool _actionLoading = false;
 
   String _companyPhotoUrl = '';
+  String _localCompanyName = '';
+  String _localCompanyMeta = '';
 
   bool get _hasCachedOrLiveData => _job != null;
   bool get _hasLiveJob => _controller.selectedJob != null;
@@ -56,7 +73,15 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   void initState() {
     super.initState();
 
-    _controller = CompanyJobController(CompanyJobService(ApiClient()));
+    final apiClient = ApiClient();
+    _jobService = CompanyJobService(apiClient);
+    _controller = CompanyJobController(_jobService);
+
+    debugPrint(
+      'COMPANY JOB DETAIL INIT -> '
+          'jobId=${widget.jobId}, '
+          'expectedApplicants=${widget.expectedApplicantsCount}',
+    );
 
     unawaited(_bootstrap());
   }
@@ -88,10 +113,38 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         orElse: () => '',
       );
 
+      final companyName = <String>[
+        profile?['company_name']?.toString().trim() ?? '',
+        profile?['name']?.toString().trim() ?? '',
+      ].firstWhere(
+            (value) => value.isNotEmpty,
+        orElse: () => '',
+      );
+
+      final locationParts = <String>[
+        profile?['city']?.toString().trim() ?? '',
+        profile?['state']?.toString().trim() ?? '',
+        profile?['country']?.toString().trim() ?? '',
+      ].where((value) => value.isNotEmpty).toList();
+
+      final companyMeta = <String>[
+        profile?['industry_type']?.toString().trim() ?? '',
+        profile?['address']?.toString().trim() ?? '',
+        if (locationParts.isNotEmpty) locationParts.join(', '),
+      ].firstWhere(
+            (value) => value.isNotEmpty,
+        orElse: () => '',
+      );
+
       if (!mounted) return;
-      setState(() => _companyPhotoUrl = photo);
+      setState(() {
+        _companyPhotoUrl = photo;
+        _localCompanyName = companyName;
+        _localCompanyMeta = companyMeta;
+      });
     } catch (_) {
-      // Keep the company initials fallback if no stored image is available.
+      // The API company_profile remains the primary source. Local identity is
+      // only a fallback for this signed-in company's own job.
     }
   }
 
@@ -160,7 +213,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (key == null || job == null) return;
 
     final payload = <String, dynamic>{
-      'version': 4,
+      'version': 5,
       'saved_at': DateTime.now().toIso8601String(),
       'job': job.toJson(),
       'applicants': _applicants.map((item) => item.toJson()).toList(),
@@ -228,32 +281,313 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     }
   }
 
+
+  int _applicationRank(CompanyJobApplicationModel value) {
+    switch (value.status.trim().toLowerCase()) {
+      case 'pending':
+        return 0;
+      case 'accepted':
+        return 1;
+      case 'rejected':
+        return 2;
+      case 'withdrawn':
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
+  List<CompanyJobApplicationModel> _sortedApplicationModels(
+      List<CompanyJobApplicationModel> values,
+      ) {
+    final result =
+    List<CompanyJobApplicationModel>.from(values);
+
+    result.sort((a, b) {
+      final status =
+      _applicationRank(a).compareTo(
+        _applicationRank(b),
+      );
+
+      if (status != 0) return status;
+
+      final aDate =
+          a.createdAt ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+
+      final bDate =
+          b.createdAt ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+
+      return bDate.compareTo(aDate);
+    });
+
+    return result;
+  }
+
+  Future<CompanyJobApplicationModel> _withFullDroneImage(
+      CompanyJobApplicationModel application, {
+        bool precache = false,
+      }) async {
+    final currentDrone = application.drone;
+
+    if (currentDrone?.imageUrl.trim().isNotEmpty == true) {
+      if (precache && mounted) {
+        try {
+          await precacheImage(
+            NetworkImage(
+              currentDrone!.imageUrl.trim(),
+            ),
+            context,
+          );
+        } catch (_) {}
+      }
+
+      return application;
+    }
+
+    if (application.pilotProfileId <= 0 ||
+        application.droneId <= 0) {
+      return application;
+    }
+
+    try {
+      var drones =
+      _pilotDronesCache[application.pilotProfileId];
+
+      if (drones == null) {
+        drones = await _jobService.getCompanyPilotDrones(
+          application.pilotProfileId,
+        );
+
+        _pilotDronesCache[
+        application.pilotProfileId
+        ] = drones;
+      }
+
+      CompanyApplicantDroneModel? committedDrone;
+
+      for (final drone in drones) {
+        if (drone.id == application.droneId) {
+          committedDrone = drone;
+          break;
+        }
+      }
+
+      if (committedDrone == null) {
+        return application;
+      }
+
+      final imageUrl =
+      committedDrone.imageUrl.trim();
+
+      debugPrint(
+        'JOB DETAILS DRONE IMAGE -> '
+            'application=${application.id}, '
+            'drone=${application.droneId}, '
+            'url=${imageUrl.isEmpty ? 'EMPTY' : imageUrl}',
+      );
+
+      if (precache &&
+          imageUrl.isNotEmpty &&
+          mounted) {
+        try {
+          await precacheImage(
+            NetworkImage(imageUrl),
+            context,
+          );
+        } catch (_) {}
+      }
+
+      return application.copyWith(
+        drone: committedDrone,
+      );
+    } catch (e) {
+      debugPrint(
+        'JOB DETAILS DRONE IMAGE LOAD FAILED -> '
+            'application=${application.id}, error=$e',
+      );
+
+      return application;
+    }
+  }
+
+  Future<List<CompanyJobApplicationModel>>
+  _enrichVisibleApplicantDrones(
+      List<CompanyJobApplicationModel> applications,
+      ) async {
+    if (applications.isEmpty) {
+      return applications;
+    }
+
+    final sorted =
+    _sortedApplicationModels(applications);
+
+    final priorityIds = sorted
+        .take(2)
+        .map((item) => item.id)
+        .toSet();
+
+    final enriched =
+    <CompanyJobApplicationModel>[];
+
+    for (final application in applications) {
+      if (priorityIds.contains(application.id)) {
+        enriched.add(
+          await _withFullDroneImage(
+            application,
+            precache: true,
+          ),
+        );
+      } else {
+        enriched.add(application);
+      }
+    }
+
+    return enriched;
+  }
+
+  Future<void> _enrichRemainingApplicantDrones(
+      List<CompanyJobApplicationModel> applications,
+      ) async {
+    if (!mounted || applications.isEmpty) return;
+
+    var changed = false;
+    final enriched =
+    <CompanyJobApplicationModel>[];
+
+    for (final application in applications) {
+      final before =
+          application.drone?.imageUrl.trim() ?? '';
+
+      final resolved =
+      await _withFullDroneImage(application);
+
+      final after =
+          resolved.drone?.imageUrl.trim() ?? '';
+
+      if (before != after && after.isNotEmpty) {
+        changed = true;
+      }
+
+      enriched.add(resolved);
+    }
+
+    if (!mounted || !changed) return;
+
+    _controller.applicants = enriched;
+
+    final fresh = enriched
+        .map(_ApplicantSnapshot.fromModel)
+        .toList(growable: false);
+
+    setState(() {
+      _applicants = fresh;
+    });
+
+    unawaited(_saveCache());
+  }
+
   Future<void> _refreshApplicantsFromNetwork() async {
     if (_applicantsRefreshing) return;
     _applicantsRefreshing = true;
 
     try {
-      final success = await _controller.loadApplicants(widget.jobId);
+      final success =
+      await _controller.loadApplicants(widget.jobId);
+
       if (!mounted) return;
 
-      if (success) {
-        final fresh = _controller.applicants
-            .map(_ApplicantSnapshot.fromModel)
-            .toList(growable: false);
-
+      if (!success) {
         setState(() {
-          _applicants = fresh;
-          _applicantsError = null;
+          _applicantsError =
+              _controller.applicantsErrorMessage;
         });
-        unawaited(_saveCache());
-      } else {
-        setState(() {
-          _applicantsError = _controller.applicantsErrorMessage;
-        });
+        return;
       }
+
+      var applications =
+      List<CompanyJobApplicationModel>.from(
+        _controller.applicants,
+      );
+
+      // A successful [] response is valid when the job really has no
+      // applicants. However, if My Jobs already reported a positive count,
+      // cross-check once through /company/applicants instead of showing an
+      // incorrect empty state.
+      if (applications.isEmpty &&
+          widget.expectedApplicantsCount > 0) {
+        debugPrint(
+          'JOB ${widget.jobId}: job-specific applicants returned 0 '
+              'but My Jobs expected ${widget.expectedApplicantsCount}. '
+              'Trying company-applicants fallback once.',
+        );
+
+        final fallbackSuccess =
+        await _controller.loadCompanyApplicants(
+          perPage: 100,
+        );
+
+        if (!mounted) return;
+
+        if (fallbackSuccess) {
+          applications = _controller.companyApplicants
+              .where(
+                (item) =>
+            item.application.jobPostingId ==
+                widget.jobId,
+          )
+              .map((item) => item.application)
+              .toList(growable: false);
+
+          // Keep _openApplicant() working with the same authoritative objects.
+          _controller.applicants = applications;
+        }
+      }
+
+      // The job-applicants endpoint can contain the committed drone without
+      // its media relation. Before painting the two visible application cards,
+      // resolve those committed drones from /company/pilots/{pilot}/drones.
+      // That endpoint carries the public drone media/original_url.
+      applications =
+      await _enrichVisibleApplicantDrones(
+        applications,
+      );
+
+      if (!mounted) return;
+
+      // _openApplicant() should receive the same enriched application object.
+      _controller.applicants = applications;
+
+      final fresh = applications
+          .map(_ApplicantSnapshot.fromModel)
+          .toList(growable: false);
+
+      setState(() {
+        _applicants = fresh;
+        _applicantsError = null;
+      });
+
+      unawaited(_saveCache());
+
+      // Only the first two are visible in Job Details. Finish the rest after
+      // first paint so "View all" also gets real drone images without slowing
+      // down the main Job Details screen.
+      unawaited(
+        _enrichRemainingApplicantDrones(
+          applications,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _applicantsError = e.toString();
+      });
     } finally {
       _applicantsRefreshing = false;
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -663,9 +997,12 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     }
   }
 
+  // Do not paint a half-filled detail screen on first entry.
+  // _refreshFromNetwork waits for both the job and its applicants before
+  // setting _firstNetworkAttemptFinished = true.
   bool get _showInitialShimmer =>
       !_cacheReadFinished ||
-          (_job == null && !_firstNetworkAttemptFinished && _pageError == null);
+          !_firstNetworkAttemptFinished;
 
   @override
   Widget build(BuildContext context) {
@@ -849,17 +1186,24 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   Widget _referenceJobHeader(_JobDetailSnapshot job) {
     final visual = _statusVisual(job.status);
     final company = job.company;
-    final imageUrl = (company?.imageUrl.trim().isNotEmpty ?? false)
-        ? company!.imageUrl.trim()
-        : _companyPhotoUrl.trim();
-    final companyName = (company?.companyName.trim().isNotEmpty ?? false)
+    final companyName =
+    (company?.companyName.trim().isNotEmpty ?? false)
         ? company!.companyName.trim()
-        : 'Company';
-    final companyMeta = (company?.industryType.trim().isNotEmpty ?? false)
+        : (_localCompanyName.trim().isNotEmpty
+        ? _localCompanyName.trim()
+        : 'Company');
+
+    final companyMeta =
+    (company?.industryType.trim().isNotEmpty ?? false)
         ? company!.industryType.trim()
         : ((company?.address.trim().isNotEmpty ?? false)
         ? company!.address.trim()
-        : 'Job owner');
+        : _localCompanyMeta.trim());
+
+    final categoryAsset =
+    _companyJobCategoryAsset(
+      job.serviceCategory,
+    );
 
     return _ReferenceSectionCard(
       padding: const EdgeInsets.all(14),
@@ -888,17 +1232,19 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      companyMeta,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ReferenceJobPalette.warmBrown,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                    if (companyMeta.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        companyMeta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _ReferenceJobPalette.warmBrown,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -914,15 +1260,24 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                   width: 88,
                   height: 82,
                   color: const Color(0xFFE8F0F3),
-                  child: imageUrl.isEmpty
-                      ? _ReferenceCompanyImageFallback(name: companyName)
-                      : Image.network(
-                    imageUrl,
+                  child: Image.asset(
+                    categoryAsset,
                     width: 88,
                     height: 82,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        _ReferenceCompanyImageFallback(name: companyName),
+                    alignment: Alignment.center,
+                    filterQuality: FilterQuality.high,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: const Color(0xFFE8F0F3),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        _companyJobCategoryFallbackIcon(
+                          job.serviceCategory,
+                        ),
+                        color: _ReferenceJobPalette.teal,
+                        size: 28,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -952,7 +1307,9 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${job.serviceCategory.isEmpty ? 'Job' : _pretty(job.serviceCategory)} · #${job.id}',
+                                job.serviceCategory.isEmpty
+                                    ? 'Job'
+                                    : _pretty(job.serviceCategory),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -2992,6 +3349,7 @@ class _ApplicantSnapshot {
     required this.pilotLocation,
     required this.experienceYears,
     required this.droneName,
+    required this.droneImage,
     required this.droneCapabilities,
     required this.createdAt,
   });
@@ -3007,6 +3365,7 @@ class _ApplicantSnapshot {
   final String pilotLocation;
   final int? experienceYears;
   final String droneName;
+  final String droneImage;
   final List<String> droneCapabilities;
   final DateTime? createdAt;
 
@@ -3026,7 +3385,11 @@ class _ApplicantSnapshot {
       pilotLocation: pilot?.location ?? '',
       experienceYears: pilot?.experienceYears,
       droneName: drone?.displayName ?? '',
-      droneCapabilities: List<String>.from(drone?.capabilities ?? const <String>[]),
+      droneImage: drone?.imageUrl ?? '',
+      droneCapabilities:
+      List<String>.from(
+        drone?.capabilities ?? const <String>[],
+      ),
       createdAt: application.createdAt,
     );
   }
@@ -3044,6 +3407,7 @@ class _ApplicantSnapshot {
       pilotLocation: _asString(json['pilot_location']),
       experienceYears: _asNullableInt(json['experience_years']),
       droneName: _asString(json['drone_name']),
+      droneImage: _asString(json['drone_image']),
       droneCapabilities: _stringList(json['drone_capabilities']),
       createdAt: _asDate(json['created_at']),
     );
@@ -3061,6 +3425,7 @@ class _ApplicantSnapshot {
     'pilot_location': pilotLocation,
     'experience_years': experienceYears,
     'drone_name': droneName,
+    'drone_image': droneImage,
     'drone_capabilities': droneCapabilities,
     'created_at': createdAt?.toIso8601String(),
   };
@@ -3558,19 +3923,30 @@ class _ReferenceApplicantRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = application.pilotName.trim().isEmpty
-        ? 'Pilot #${application.pilotProfileId}'
-        : application.pilotName.trim();
-    final visual = _applicationVisual(application.status);
-    final details = <String>[];
-    if (application.experienceYears != null) {
-      details.add('${application.experienceYears} yrs experience');
-    }
-    if (application.droneCapabilities.isNotEmpty) {
-      details.add(application.droneCapabilities.take(2).join(', '));
-    } else if (application.droneName.trim().isNotEmpty) {
-      details.add(application.droneName.trim());
-    }
+    final pilotName =
+    application.pilotName.trim();
+
+    final pilotLocation =
+    application.pilotLocation.trim();
+
+    final pilotDetails = <String>[
+      if (pilotLocation.isNotEmpty)
+        pilotLocation,
+      if (application.experienceYears != null)
+        '${application.experienceYears} yrs experience',
+    ];
+
+    final droneName =
+    application.droneName.trim();
+
+    final droneCapabilities =
+    application.droneCapabilities
+        .where((value) => value.trim().isNotEmpty)
+        .take(2)
+        .join(', ');
+
+    final visual =
+    _applicationVisual(application.status);
 
     return Material(
       color: Colors.transparent,
@@ -3578,99 +3954,259 @@ class _ReferenceApplicantRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
+          padding: const EdgeInsets.symmetric(
+            vertical: 8,
+          ),
+          child: Column(
             children: [
-              Container(
-                width: 43,
-                height: 43,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFFEAF2F4),
-                ),
-                child: ClipOval(
-                  child: application.pilotPhoto.trim().isEmpty
-                      ? Center(
-                    child: Text(
-                      _initials(name),
-                      style: const TextStyle(
-                        color: _ReferenceJobPalette.teal,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  )
-                      : Image.network(
-                    application.pilotPhoto.trim(),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Center(
-                      child: Text(
-                        _initials(name),
-                        style: const TextStyle(
-                          color: _ReferenceJobPalette.teal,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  _PilotPhoto(
+                    url: application.pilotPhoto,
+                    name: pilotName,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pilotName.isEmpty
+                              ? 'Pilot profile unavailable'
+                              : pilotName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color:
+                            _ReferenceJobPalette.navy,
+                            fontSize: 11.8,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
+                        if (pilotDetails.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            pilotDetails.join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color:
+                              _ReferenceJobPalette.muted,
+                              fontSize: 9.7,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ReferenceJobPalette.navy,
-                        fontSize: 11.8,
+                  const SizedBox(width: 7),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: visual.background,
+                      borderRadius:
+                      BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      application.statusLabel.isEmpty
+                          ? _titleCase(application.status)
+                          : application.statusLabel,
+                      style: TextStyle(
+                        color: visual.foreground,
+                        fontSize: 9.3,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      details.isEmpty ? 'Pilot application' : details.join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ReferenceJobPalette.muted,
-                        fontSize: 9.8,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: _ReferenceJobPalette.muted,
+                  ),
+                ],
               ),
-              const SizedBox(width: 7),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: visual.background,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  application.statusLabel.isEmpty
-                      ? _titleCase(application.status)
-                      : application.statusLabel,
-                  style: TextStyle(
-                    color: visual.foreground,
-                    fontSize: 9.4,
-                    fontWeight: FontWeight.w600,
+              if (application.droneId > 0) ...[
+                const SizedBox(height: 9),
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAFB),
+                    borderRadius:
+                    BorderRadius.circular(11),
+                    border: Border.all(
+                      color:
+                      _ReferenceJobPalette.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _DronePhoto(
+                        url: application.droneImage,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              droneName.isEmpty
+                                  ? 'Selected drone'
+                                  : droneName,
+                              maxLines: 1,
+                              overflow:
+                              TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color:
+                                _ReferenceJobPalette.navy,
+                                fontSize: 10.4,
+                                fontWeight:
+                                FontWeight.w700,
+                              ),
+                            ),
+                            if (droneCapabilities.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                droneCapabilities,
+                                maxLines: 1,
+                                overflow:
+                                TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color:
+                                  _ReferenceJobPalette.muted,
+                                  fontSize: 9.2,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 5),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 19,
-                color: _ReferenceJobPalette.muted,
-              ),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PilotPhoto extends StatelessWidget {
+  const _PilotPhoto({
+    required this.url,
+    required this.name,
+  });
+
+  final String url;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanUrl = url.trim();
+
+    Widget fallback() => Center(
+      child: name.trim().isEmpty
+          ? const Icon(
+        Icons.person_outline_rounded,
+        color: _ReferenceJobPalette.teal,
+        size: 20,
+      )
+          : Text(
+        _initials(name),
+        style: const TextStyle(
+          color: _ReferenceJobPalette.teal,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+
+    return Container(
+      width: 44,
+      height: 44,
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFFEAF2F4),
+      ),
+      child: cleanUrl.isEmpty
+          ? fallback()
+          : Image.network(
+        cleanUrl,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) =>
+            fallback(),
+      ),
+    );
+  }
+}
+
+class _DronePhoto extends StatelessWidget {
+  const _DronePhoto({
+    required this.url,
+  });
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanUrl = url.trim();
+
+    Widget fallback() => const Center(
+      child: Icon(
+        Icons.flight_rounded,
+        size: 20,
+        color: _ReferenceJobPalette.teal,
+      ),
+    );
+
+    return Container(
+      width: 52,
+      height: 40,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF2F4),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: cleanUrl.isEmpty
+          ? fallback()
+          : Image.network(
+        cleanUrl,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        filterQuality: FilterQuality.high,
+        gaplessPlayback: true,
+        loadingBuilder: (
+            context,
+            child,
+            progress,
+            ) {
+          if (progress == null) {
+            return child;
+          }
+
+          return const Center(
+            child: SizedBox(
+              width: 15,
+              height: 15,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.8,
+                color: _ReferenceJobPalette.teal,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) =>
+            fallback(),
       ),
     );
   }
@@ -4842,6 +5378,68 @@ _VisualPair _applicationVisual(String status) {
     default:
       return const _VisualPair(AppColors.blue, AppColors.blueBg);
   }
+}
+
+String _companyJobCategoryAsset(
+    String rawCategory,
+    ) {
+  final value =
+  rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) {
+    return 'assets/images/Inspection.png';
+  }
+
+  if (value.contains('mapping')) {
+    return 'assets/images/Mapping.png';
+  }
+
+  if (value.contains('photography') ||
+      value.contains('photo')) {
+    return 'assets/images/Photography.png';
+  }
+
+  if (value.contains('construction')) {
+    return 'assets/images/Construction.png';
+  }
+
+  if (value.contains('surveying') ||
+      value.contains('survey')) {
+    return 'assets/images/Surveying.png';
+  }
+
+  return 'assets/images/Other.png';
+}
+
+IconData _companyJobCategoryFallbackIcon(
+    String rawCategory,
+    ) {
+  final value =
+  rawCategory.trim().toLowerCase();
+
+  if (value.contains('inspection')) {
+    return Icons.manage_search_rounded;
+  }
+
+  if (value.contains('mapping')) {
+    return Icons.map_outlined;
+  }
+
+  if (value.contains('photography') ||
+      value.contains('photo')) {
+    return Icons.photo_camera_outlined;
+  }
+
+  if (value.contains('construction')) {
+    return Icons.construction_outlined;
+  }
+
+  if (value.contains('surveying') ||
+      value.contains('survey')) {
+    return Icons.straighten_rounded;
+  }
+
+  return Icons.flight_takeoff_rounded;
 }
 
 String _readDynamicJobImage(dynamic job) {

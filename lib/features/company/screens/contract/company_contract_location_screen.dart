@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -91,6 +92,76 @@ class _CompanyContractLocationScreenState
 
     _snack('Exact job location saved.', success: true);
     Navigator.of(context).pop(saved);
+  }
+
+  Future<void> _openCurrentCoordinatesInMaps() async {
+    final latitude =
+    double.tryParse(
+      _latitudeController.text.trim(),
+    );
+
+    final longitude =
+    double.tryParse(
+      _longitudeController.text.trim(),
+    );
+
+    if (latitude == null ||
+        longitude == null ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      _snack(
+        'Enter valid latitude and longitude first.',
+        error: true,
+      );
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+
+    try {
+      final geoUri = Uri.parse(
+        'geo:$latitude,$longitude'
+            '?q=$latitude,$longitude',
+      );
+
+      if (await canLaunchUrl(geoUri)) {
+        await launchUrl(
+          geoUri,
+          mode: LaunchMode.externalApplication,
+        );
+        return;
+      }
+
+      final webUri = Uri.https(
+        'www.google.com',
+        '/maps/search/',
+        <String, String>{
+          'api': '1',
+          'query': '$latitude,$longitude',
+        },
+      );
+
+      final opened = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened && mounted) {
+        _snack(
+          'No map application could open these coordinates.',
+          error: true,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        _snack(
+          'Unable to open Maps.',
+          error: true,
+        );
+      }
+    }
   }
 
   @override
@@ -222,6 +293,37 @@ class _CompanyContractLocationScreenState
                         ),
                       ],
                     ),
+                    if (editing) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed:
+                        _openCurrentCoordinatesInMaps,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize:
+                          const Size(double.infinity, 44),
+                          foregroundColor:
+                          AppColors.blue,
+                          side: const BorderSide(
+                            color: AppColors.cardBorder,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(13),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.map_outlined,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Open in Maps',
+                          style: TextStyle(
+                            fontWeight:
+                            FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -270,20 +372,20 @@ class _CompanyContractLocationScreenState
             ),
             icon: _controller.isSavingLocation
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
                 : const Icon(Icons.location_on_rounded, size: 19),
             label: Text(
               _controller.isSavingLocation
                   ? 'Saving Location...'
                   : editing
-                      ? 'Save Location Changes'
-                      : 'Save Exact Location',
+                  ? 'Save Location Changes'
+                  : 'Save Exact Location',
               style: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
@@ -404,11 +506,11 @@ class _CompanyContractLocationScreenState
   }
 
   String? _coordinateValidator(
-    String? value, {
-    required double min,
-    required double max,
-    required String label,
-  }) {
+      String? value, {
+        required double min,
+        required double max,
+        required String label,
+      }) {
     final clean = value?.trim() ?? '';
     if (clean.isEmpty) return '$label is required.';
     final number = double.tryParse(clean);
@@ -429,8 +531,8 @@ class _CompanyContractLocationScreenState
           backgroundColor: error
               ? AppColors.red
               : success
-                  ? AppColors.green
-                  : AppColors.navy,
+              ? AppColors.green
+              : AppColors.navy,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),

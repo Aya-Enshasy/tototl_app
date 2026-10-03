@@ -3,11 +3,16 @@ import '../../models/company_job_posting_model.dart';
 
 /// One row returned by GET /company/applicants.
 ///
-/// The endpoint returns the application itself plus a nested job_posting,
-/// pilot_profile and drone. [CompanyJobApplicationModel] already parses the
-/// application/pilot/drone portion, while this wrapper keeps the nested job
-/// posting available for the Applications list UI and preserves the original
-/// JSON for local caching.
+/// The backend response already contains:
+/// - application scalar fields
+/// - nested job_posting
+/// - nested pilot_profile
+/// - nested drone
+///
+/// Important:
+/// The current /company/applicants response DOES NOT contain a drone image URL.
+/// Drone images must be enriched separately from the pilot-drones endpoint when
+/// a screen actually needs to display the drone photo.
 class CompanyApplicantListItem {
   const CompanyApplicantListItem({
     required this.application,
@@ -25,7 +30,10 @@ class CompanyApplicantListItem {
     final rawJob = json['job_posting'];
 
     return CompanyApplicantListItem(
-      application: CompanyJobApplicationModel.fromJson(json),
+      application:
+      CompanyJobApplicationModel.fromJson(
+        json,
+      ),
       jobPosting: rawJob is Map
           ? CompanyJobPostingModel.fromJson(
         Map<String, dynamic>.from(rawJob),
@@ -35,22 +43,21 @@ class CompanyApplicantListItem {
     );
   }
 
-  Map<String, dynamic> toJson() => _deepCopyMap(sourceJson);
+  Map<String, dynamic> toJson() =>
+      _deepCopyMap(sourceJson);
 
   CompanyApplicantListItem copyWithApplication(
       CompanyJobApplicationModel value,
       ) {
+    // Keep job_posting from the original row while updating the complete
+    // application, including nested pilot_profile and drone. This avoids
+    // stale cache data after accept/reject or detail enrichment.
     final next = _deepCopyMap(sourceJson)
-      ..['id'] = value.id
-      ..['job_posting_id'] = value.jobPostingId
-      ..['pilot_profile_id'] = value.pilotProfileId
-      ..['drone_id'] = value.droneId
-      ..['cover_message'] = value.coverMessage
-      ..['status'] = value.status
-      ..['decided_at'] = value.decidedAt?.toIso8601String()
-      ..['withdrawn_at'] = value.withdrawnAt?.toIso8601String()
-      ..['created_at'] = value.createdAt?.toIso8601String()
-      ..['rejection_reason'] = value.rejectionReason;
+      ..addAll(
+        _deepCopyMap(
+          value.toJson(),
+        ),
+      );
 
     return CompanyApplicantListItem(
       application: value,
@@ -60,11 +67,14 @@ class CompanyApplicantListItem {
   }
 }
 
-Map<String, dynamic> _deepCopyMap(Map source) {
+Map<String, dynamic> _deepCopyMap(
+    Map source,
+    ) {
   final result = <String, dynamic>{};
 
   source.forEach((key, value) {
-    result[key.toString()] = _deepCopyValue(value);
+    result[key.toString()] =
+        _deepCopyValue(value);
   });
 
   return result;
@@ -76,7 +86,9 @@ dynamic _deepCopyValue(dynamic value) {
   }
 
   if (value is List) {
-    return value.map(_deepCopyValue).toList(growable: false);
+    return value
+        .map(_deepCopyValue)
+        .toList(growable: false);
   }
 
   return value;

@@ -140,7 +140,6 @@ class CompanyApplicantPilotModel {
   final String state;
   final String city;
   final List<CompanyPilotWorkRegionModel> workRegions;
-  final List<CompanyPilotCredentialModel> licenses;
 
   const CompanyApplicantPilotModel({
     required this.id,
@@ -159,7 +158,6 @@ class CompanyApplicantPilotModel {
     this.state = '',
     this.city = '',
     this.workRegions = const [],
-    this.licenses = const [],
   });
 
   factory CompanyApplicantPilotModel.fromJson(
@@ -220,9 +218,6 @@ class CompanyApplicantPilotModel {
       workRegions: _asMapList(json['work_regions'])
           .map(CompanyPilotWorkRegionModel.fromJson)
           .toList(growable: false),
-      licenses: _asMapList(json['licenses'])
-          .map(CompanyPilotCredentialModel.fromJson)
-          .toList(growable: false),
     );
   }
 
@@ -243,7 +238,6 @@ class CompanyApplicantPilotModel {
     'current_state': state,
     'current_city': city,
     'work_regions': workRegions.map((e) => e.toJson()).toList(),
-    'licenses': licenses.map((e) => e.toJson()).toList(),
   };
 
   CompanyApplicantPilotModel mergeWith(
@@ -275,7 +269,6 @@ class CompanyApplicantPilotModel {
       city: other.city.trim().isNotEmpty ? other.city : city,
       workRegions:
       other.workRegions.isNotEmpty ? other.workRegions : workRegions,
-      licenses: other.licenses.isNotEmpty ? other.licenses : licenses,
     );
   }
 
@@ -388,29 +381,121 @@ class CompanyApplicantDroneModel {
       ) {
     String image = '';
 
-    final rawImage = json['image'] ?? json['image_url'] ?? json['photo'];
-    if (rawImage is String) {
-      image = rawImage.trim();
-    } else if (rawImage is Map) {
-      image = _firstNonEmpty([
-        _asString(rawImage['url']),
-        _asString(rawImage['original_url']),
+    // IMPORTANT:
+    // A drone image must come from a drone-specific image field/media item.
+    // Do NOT use a generic `photo` fallback here because some applicant/pilot
+    // serializers can expose the pilot profile photo under a generic key.
+    final directCandidates = <dynamic>[
+      json['image_url'],
+      json['drone_image_url'],
+      json['drone_image'],
+      json['image'],
+      json['original_url'],
+    ];
+
+    for (final candidate in directCandidates) {
+      if (candidate is String) {
+        final value = candidate.trim();
+        if (value.isNotEmpty) {
+          image = value;
+          break;
+        }
+      } else if (candidate is Map) {
+        final value = _firstNonEmpty([
+          _asString(candidate['original_url']),
+          _asString(candidate['url']),
+        ]);
+
+        if (value.isNotEmpty) {
+          image = value;
+          break;
+        }
+      }
+    }
+
+    String mediaValue(Map item) {
+      return _firstNonEmpty([
+        _asString(item['original_url']),
+        _asString(item['url']),
       ]);
     }
 
+    bool isDroneImageCollection(Map item) {
+      final collection = _asString(
+        item['collection_name'] ??
+            item['collection'] ??
+            item['name'],
+      ).toLowerCase();
+
+      return collection == 'image' ||
+          collection == 'drone_image' ||
+          collection == 'drone-image' ||
+          collection == 'drone_photo' ||
+          collection == 'drone-photo';
+    }
+
+    bool isKnownNonDroneCollection(Map item) {
+      final collection = _asString(
+        item['collection_name'] ??
+            item['collection'] ??
+            item['name'],
+      ).toLowerCase();
+
+      return collection == 'profile_photo' ||
+          collection == 'profile-photo' ||
+          collection == 'avatar' ||
+          collection == 'company_photo' ||
+          collection == 'company_logo';
+    }
+
     final rawMedia = json['media'];
+
     if (image.isEmpty && rawMedia is List) {
-      for (final item in rawMedia) {
-        if (item is Map) {
-          final value = _firstNonEmpty([
-            _asString(item['url']),
-            _asString(item['original_url']),
-          ]);
+      // First pass: only accept the documented drone-image collection.
+      for (final rawItem in rawMedia) {
+        if (rawItem is! Map) continue;
+
+        final item = Map<String, dynamic>.from(rawItem);
+
+        if (!isDroneImageCollection(item)) continue;
+
+        final value = mediaValue(item);
+        if (value.isNotEmpty) {
+          image = value;
+          break;
+        }
+      }
+
+      // Compatibility pass for older responses that omitted collection_name.
+      // Explicit profile/avatar media is NEVER accepted as a drone image.
+      if (image.isEmpty) {
+        for (final rawItem in rawMedia) {
+          if (rawItem is! Map) continue;
+
+          final item = Map<String, dynamic>.from(rawItem);
+
+          if (isKnownNonDroneCollection(item)) continue;
+
+          final collection = _asString(
+            item['collection_name'] ??
+                item['collection'] ??
+                item['name'],
+          ).trim();
+
+          if (collection.isNotEmpty) continue;
+
+          final value = mediaValue(item);
           if (value.isNotEmpty) {
             image = value;
             break;
           }
         }
+      }
+    } else if (image.isEmpty && rawMedia is Map) {
+      final item = Map<String, dynamic>.from(rawMedia);
+
+      if (!isKnownNonDroneCollection(item)) {
+        image = mediaValue(item);
       }
     }
 
@@ -462,6 +547,61 @@ class CompanyApplicantDroneModel {
         }
       ],
   };
+
+  CompanyApplicantDroneModel copyWith({
+    int? id,
+    int? pilotProfileId,
+    String? make,
+    String? model,
+    int? manufactureYear,
+    String? serialNumber,
+    double? weightKg,
+    List<String>? capabilities,
+    int? flightTimePerBatteryMinutes,
+    int? chargingTimeMinutes,
+    int? totalBatteries,
+    String? batteryType,
+    double? batteryUsageFee,
+    double? hourlyRate,
+    double? dailyRate,
+    double? emergencyCalloutFee,
+    String? imageUrl,
+  }) {
+    return CompanyApplicantDroneModel(
+      id: id ?? this.id,
+      pilotProfileId:
+      pilotProfileId ?? this.pilotProfileId,
+      make: make ?? this.make,
+      model: model ?? this.model,
+      manufactureYear:
+      manufactureYear ?? this.manufactureYear,
+      serialNumber:
+      serialNumber ?? this.serialNumber,
+      weightKg: weightKg ?? this.weightKg,
+      capabilities:
+      capabilities ?? this.capabilities,
+      flightTimePerBatteryMinutes:
+      flightTimePerBatteryMinutes ??
+          this.flightTimePerBatteryMinutes,
+      chargingTimeMinutes:
+      chargingTimeMinutes ??
+          this.chargingTimeMinutes,
+      totalBatteries:
+      totalBatteries ?? this.totalBatteries,
+      batteryType:
+      batteryType ?? this.batteryType,
+      batteryUsageFee:
+      batteryUsageFee ?? this.batteryUsageFee,
+      hourlyRate:
+      hourlyRate ?? this.hourlyRate,
+      dailyRate:
+      dailyRate ?? this.dailyRate,
+      emergencyCalloutFee:
+      emergencyCalloutFee ??
+          this.emergencyCalloutFee,
+      imageUrl: imageUrl ?? this.imageUrl,
+    );
+  }
 
   String get displayName {
     final value = <String>[make, model]
@@ -683,4 +823,3 @@ String _pretty(String value) {
   )
       .join(' ');
 }
-

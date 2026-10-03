@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -33,6 +32,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
 
   Timer? _searchDebounce;
   bool _suppressSearchListener = false;
+  Future<void>? _initialLoadFuture;
 
   @override
   void initState() {
@@ -52,7 +52,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
 
-    _controller.loadInitial();
+    _initialLoadFuture = _controller.loadInitial();
   }
 
   @override
@@ -63,7 +63,25 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
     _searchController.dispose();
     _scrollController.dispose();
     _pageAnimationController.dispose();
-    _controller.dispose();
+
+    // loadInitial() may still be awaiting the jobs API when the user leaves
+    // this screen. Disposing the ChangeNotifier before that Future finishes
+    // causes its finally/notifyListeners() to throw:
+    // "PilotJobController was used after being disposed."
+    //
+    // Defer disposal until that first request is fully settled.
+    final pending = _initialLoadFuture;
+
+    if (pending == null) {
+      _controller.dispose();
+    } else {
+      unawaited(
+        pending.whenComplete(
+              () => _controller.dispose(),
+        ),
+      );
+    }
+
     super.dispose();
   }
 
@@ -202,7 +220,7 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
       animation: _controller,
       builder: (context, _) {
         return Scaffold(
-          backgroundColor: AppColors.bg,
+          backgroundColor: const Color(0xFFF8FBFC),
           body: Stack(
             children: [
               _backgroundGlow(),
@@ -210,27 +228,40 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        0,
+                      ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
                         children: [
-                          _animatedEntry(index: 0, child: _header()),
-                          const SizedBox(height: 18),
+                          _animatedEntry(
+                            index: 0,
+                            child: _header(),
+                          ),
+                          const SizedBox(height: 14),
                           _animatedEntry(
                             index: 1,
                             child: _searchAndFilter(),
                           ),
-                          if (_controller.filters.hasAdvancedFilters) ...[
-                            const SizedBox(height: 11),
+                          if (_controller
+                              .filters
+                              .hasAdvancedFilters) ...[
+                            const SizedBox(height: 9),
                             _activeFilters(),
                           ],
-                          const SizedBox(height: 14),
-                          _resultsRow(),
                           const SizedBox(height: 13),
+                          _resultsRow(),
+                          const SizedBox(height: 9),
                         ],
                       ),
                     ),
-                    Expanded(child: _body()),
+                    Expanded(
+                      child: _body(),
+                    ),
                   ],
                 ),
               ),
@@ -245,36 +276,18 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
     return Stack(
       children: [
         Positioned(
-          top: -160,
-          right: -130,
+          top: -145,
+          right: -135,
           child: IgnorePointer(
             child: Container(
-              width: 330,
-              height: 330,
+              width: 315,
+              height: 315,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.blue.withOpacity(0.10),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 470,
-          left: -150,
-          child: IgnorePointer(
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.logoTurquoise.withOpacity(0.035),
+                    const Color(0xFF12B8C0)
+                        .withOpacity(.075),
                     Colors.transparent,
                   ],
                 ),
@@ -288,41 +301,50 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
 
   Widget _header() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.blue.withOpacity(0.08),
+            color: const Color(0xFFE9F8F8),
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
             Icons.travel_explore_rounded,
-            color: AppColors.blue,
+            color: Color(0xFF078FA5),
             size: 21,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 11),
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
             children: [
               Text(
-                AppLanguage.text('Find Drone Jobs'),
-                style: TextStyle(
-                  color: AppColors.navy,
+                AppLanguage.text(
+                  'Find Drone Jobs',
+                ),
+                style: const TextStyle(
+                  color: Color(0xFF0A2D46),
                   fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.45,
-                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -.35,
+                  height: 1.04,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                AppLanguage.text('Published opportunities ready for pilots'),
-                style: TextStyle(
-                  color: AppColors.grey,
-                  fontSize: 11.5,
+                AppLanguage.text(
+                  'Published opportunities ready for pilots',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF7F91A0),
+                  fontSize: 9.9,
+                  height: 1.15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -337,98 +359,124 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
     return Row(
       children: [
         Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(17),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.navy.withOpacity(0.025),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
+          child: SizedBox(
+            height: 49,
             child: TextField(
               controller: _searchController,
-              textInputAction: TextInputAction.search,
+              textInputAction:
+              TextInputAction.search,
               onSubmitted: _submitSearch,
               style: const TextStyle(
-                color: AppColors.navy,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w500,
+                color: Color(0xFF0A2D46),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
-                hintText: AppLanguage.text('Search job title or description...'),
-                hintStyle: TextStyle(
-                  color: AppColors.grey.withOpacity(0.78),
-                  fontSize: 12.2,
+                hintText: AppLanguage.text(
+                  'Search job title or description...',
+                ),
+                hintStyle: const TextStyle(
+                  color: Color(0xFF91A0AA),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
                 ),
                 prefixIcon: Container(
-                  margin: const EdgeInsets.all(11),
+                  margin:
+                  const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.blue.withOpacity(0.07),
-                    borderRadius: BorderRadius.circular(10),
+                    color:
+                    const Color(0xFFE8F8F8),
+                    borderRadius:
+                    BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.search_rounded,
-                    color: AppColors.blue,
+                    color: Color(0xFF078FA5),
                     size: 18,
                   ),
                 ),
-                suffixIcon: _searchController.text.isEmpty
+                suffixIcon:
+                _searchController.text.isEmpty
                     ? null
                     : IconButton(
-                  tooltip: AppLanguage.text('Clear search'),
+                  tooltip:
+                  AppLanguage.text(
+                    'Clear search',
+                  ),
                   onPressed: () {
-                    HapticFeedback.selectionClick();
-                    _searchDebounce?.cancel();
+                    HapticFeedback
+                        .selectionClick();
+                    _searchDebounce
+                        ?.cancel();
 
-                    _suppressSearchListener = true;
-                    _searchController.clear();
-                    _suppressSearchListener = false;
+                    _suppressSearchListener =
+                    true;
+                    _searchController
+                        .clear();
+                    _suppressSearchListener =
+                    false;
 
                     setState(() {});
-                    _controller.updateSearch('');
+                    _controller
+                        .updateSearch('');
                   },
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: AppColors.grey,
-                    size: 18,
+                  icon:
+                  const Icon(
+                    Icons
+                        .close_rounded,
+                    color: Color(
+                        0xFF7F91A0),
+                    size: 17,
                   ),
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                border: _inputBorder(AppColors.cardBorder),
-                enabledBorder: _inputBorder(AppColors.cardBorder),
-                focusedBorder: _inputBorder(AppColors.blue, width: 1.25),
+                contentPadding:
+                const EdgeInsets.symmetric(
+                  vertical: 12,
+                ),
+                border: _inputBorder(
+                  const Color(0xFFDDE7EB),
+                ),
+                enabledBorder: _inputBorder(
+                  const Color(0xFFDDE7EB),
+                ),
+                focusedBorder: _inputBorder(
+                  const Color(0xFF11AEBB),
+                  width: 1.15,
+                ),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 9),
         _filterButton(),
       ],
     );
   }
 
   Widget _filterButton() {
-    final count = _controller.filters.activeFilterCount;
+    final count =
+        _controller.filters.activeFilterCount;
 
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(17),
+      borderRadius: BorderRadius.circular(15),
       child: InkWell(
-        borderRadius: BorderRadius.circular(17),
         onTap: _openFilters,
+        borderRadius:
+        BorderRadius.circular(15),
         child: Container(
-          width: 52,
-          height: 52,
+          width: 49,
+          height: 49,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
+            borderRadius:
+            BorderRadius.circular(15),
             border: Border.all(
-              color: count > 0 ? AppColors.blue : AppColors.cardBorder,
-              width: count > 0 ? 1.15 : 0.8,
+              color: count > 0
+                  ? const Color(0xFF11AEBB)
+                  : const Color(0xFFDDE7EB),
+              width: count > 0 ? 1.15 : .85,
             ),
           ),
           child: Stack(
@@ -436,27 +484,33 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
             children: [
               Icon(
                 Icons.tune_rounded,
-                color: count > 0 ? AppColors.blue : AppColors.navy,
-                size: 20,
+                color: count > 0
+                    ? const Color(0xFF078FA5)
+                    : const Color(0xFF0A2D46),
+                size: 19,
               ),
               if (count > 0)
                 Positioned(
-                  top: 7,
-                  right: 7,
+                  top: 6,
+                  right: 6,
                   child: Container(
-                    width: 17,
-                    height: 17,
+                    width: 15,
+                    height: 15,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.blue,
+                    decoration:
+                    const BoxDecoration(
+                      color:
+                      Color(0xFF11AEBB),
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '$count',
-                      style: const TextStyle(
+                      style:
+                      const TextStyle(
                         color: Colors.white,
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 7.5,
+                        fontWeight:
+                        FontWeight.w800,
                       ),
                     ),
                   ),
@@ -472,59 +526,84 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
     final f = _controller.filters;
 
     final labels = <String>[
-      if (f.category.isNotEmpty) _pretty(f.category),
+      if (f.category.isNotEmpty)
+        _pretty(f.category),
       if (f.country.isNotEmpty) f.country,
       if (f.state.isNotEmpty) f.state,
       if (f.city.isNotEmpty) f.city,
       if (f.region.isNotEmpty) f.region,
-      if (f.paymentMin != null || f.paymentMax != null) 'Budget',
-      if (f.dateFrom != null || f.dateTo != null) 'Dates',
+      if (f.paymentMin != null ||
+          f.paymentMax != null)
+        'Budget',
+      if (f.dateFrom != null ||
+          f.dateTo != null)
+        'Dates',
       if (f.capabilities.isNotEmpty)
         '${f.capabilities.length} ${f.capabilities.length == 1 ? 'capability' : 'capabilities'}',
-      if (f.sort != 'newest') 'Sort: ${_sortLabel(f.sort)}',
+      if (f.sort != 'newest')
+        'Sort: ${_sortLabel(f.sort)}',
     ];
 
     return SizedBox(
-      height: 31,
+      height: 29,
       child: ListView(
         scrollDirection: Axis.horizontal,
+        physics:
+        const BouncingScrollPhysics(),
         children: [
           ...labels.map(
                 (label) => Padding(
-              padding: const EdgeInsets.only(right: 7),
+              padding:
+              const EdgeInsets.only(
+                right: 6,
+              ),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 6,
+                padding:
+                const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.blue.withOpacity(0.055),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.blue.withOpacity(0.08),
-                  ),
+                  color:
+                  const Color(0xFFE9F8F8),
+                  borderRadius:
+                  BorderRadius.circular(20),
                 ),
                 child: Text(
                   label,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
+                  style:
+                  const TextStyle(
+                    color:
+                    Color(0xFF078FA5),
+                    fontSize: 8.4,
+                    fontWeight:
+                    FontWeight.w700,
                   ),
                 ),
               ),
             ),
           ),
           TextButton(
-            onPressed: _controller.clearAdvancedFilters,
+            onPressed:
+            _controller
+                .clearAdvancedFilters,
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 7),
+              padding:
+              const EdgeInsets.symmetric(
+                horizontal: 5,
+              ),
+              visualDensity:
+              VisualDensity.compact,
             ),
             child: Text(
               AppLanguage.text('Clear'),
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
+              style:
+              const TextStyle(
+                color:
+                Color(0xFF078FA5),
+                fontSize: 8.5,
+                fontWeight:
+                FontWeight.w700,
               ),
             ),
           ),
@@ -534,63 +613,97 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
   }
 
   Widget _resultsRow() {
-    final count = _controller.total > 0
+    if (_controller.isInitialLoading &&
+        _controller.jobs.isEmpty) {
+      return const Row(
+        children: [
+          _ReferenceMiniSkeleton(
+            width: 82,
+            height: 15,
+          ),
+          Spacer(),
+          _ReferenceMiniSkeleton(
+            width: 76,
+            height: 30,
+            radius: 16,
+          ),
+        ],
+      );
+    }
+
+    final count =
+    _controller.total > 0
         ? _controller.total
         : _controller.jobs.length;
 
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.blue.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.work_history_outlined,
-                color: AppColors.blue,
-                size: 13,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                '$count jobs found',
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+        Text(
+          '$count jobs found',
+          style: const TextStyle(
+            color: Color(0xFF0A2D46),
+            fontSize: 11.2,
+            fontWeight: FontWeight.w800,
           ),
         ),
         const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.swap_vert_rounded,
-                color: AppColors.blue,
-                size: 13,
+        Material(
+          color: Colors.white,
+          borderRadius:
+          BorderRadius.circular(18),
+          child: InkWell(
+            onTap: _openFilters,
+            borderRadius:
+            BorderRadius.circular(18),
+            child: Container(
+              height: 31,
+              padding:
+              const EdgeInsets.symmetric(
+                horizontal: 11,
               ),
-              const SizedBox(width: 4),
-              Text(
-                _sortLabel(_controller.filters.sort),
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
+              decoration: BoxDecoration(
+                borderRadius:
+                BorderRadius.circular(18),
+                border: Border.all(
+                  color:
+                  const Color(0xFFDDE7EB),
                 ),
               ),
-            ],
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons
+                        .swap_vert_rounded,
+                    color:
+                    Color(0xFF078FA5),
+                    size: 13,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _sortLabel(
+                      _controller
+                          .filters.sort,
+                    ),
+                    style:
+                    const TextStyle(
+                      color:
+                      Color(0xFF0A2D46),
+                      fontSize: 9.5,
+                      fontWeight:
+                      FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons
+                        .keyboard_arrow_down_rounded,
+                    color:
+                    Color(0xFF078FA5),
+                    size: 15,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -598,45 +711,75 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
   }
 
   Widget _body() {
-    if (_controller.isInitialLoading) {
+    if (_controller.isInitialLoading &&
+        _controller.jobs.isEmpty) {
       return const _JobsShimmer();
     }
 
-    if (_controller.errorMessage != null && _controller.jobs.isEmpty) {
+    if (_controller.errorMessage != null &&
+        _controller.jobs.isEmpty) {
       return _JobsError(
-        message: _controller.errorMessage!,
-        onRetry: _controller.loadInitial,
+        message:
+        _controller.errorMessage!,
+        onRetry:
+        _controller.loadInitial,
       );
     }
 
     if (_controller.jobs.isEmpty) {
-      return _NoResults(onClear: _clearAll);
+      return _NoResults(
+        onClear: _clearAll,
+      );
     }
 
     return RefreshIndicator(
-      onRefresh: _controller.refresh,
+      color: const Color(0xFF11AEBB),
+      onRefresh:
+      _controller.refresh,
       child: ListView.separated(
         controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
+        physics:
+        const AlwaysScrollableScrollPhysics(
+          parent:
+          BouncingScrollPhysics(),
         ),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+        keyboardDismissBehavior:
+        ScrollViewKeyboardDismissBehavior
+            .onDrag,
+        padding:
+        const EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          120,
+        ),
         itemCount:
-        _controller.jobs.length + (_controller.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        _controller.jobs.length +
+            (_controller.isLoadingMore
+                ? 1
+                : 0),
+        separatorBuilder:
+            (_, __) =>
+        const SizedBox(height: 8),
         itemBuilder: (context, index) {
-          if (index >= _controller.jobs.length) {
+          if (index >=
+              _controller.jobs.length) {
             return const _InlineShimmer();
           }
 
-          final job = _controller.jobs[index];
+          final job =
+          _controller.jobs[index];
 
           return _animatedEntry(
-            index: 3 + (index > 6 ? 6 : index),
+            index:
+            3 +
+                (index > 6
+                    ? 6
+                    : index),
             child: _JobListCard(
               job: job,
-              onTap: () => _openJob(job),
+              onTap: () =>
+                  _openJob(job),
             ),
           );
         },
@@ -685,10 +828,12 @@ class _JobListCard extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<_JobListCard> createState() => _JobListCardState();
+  State<_JobListCard> createState() =>
+      _JobListCardState();
 }
 
-class _JobListCardState extends State<_JobListCard> {
+class _JobListCardState
+    extends State<_JobListCard> {
   bool _pressed = false;
 
   @override
@@ -696,165 +841,304 @@ class _JobListCardState extends State<_JobListCard> {
     final job = widget.job;
 
     return AnimatedScale(
-      duration: const Duration(milliseconds: 120),
-      scale: _pressed ? 0.985 : 1,
+      duration:
+      const Duration(milliseconds: 110),
+      scale: _pressed ? .987 : 1,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTapDown: (_) => setState(() => _pressed = true),
-          onTapCancel: () => setState(() => _pressed = false),
-          onTapUp: (_) => setState(() => _pressed = false),
+          borderRadius:
+          BorderRadius.circular(17),
+          onTapDown: (_) =>
+              setState(
+                    () => _pressed = true,
+              ),
+          onTapCancel: () =>
+              setState(
+                    () => _pressed = false,
+              ),
+          onTapUp: (_) =>
+              setState(
+                    () => _pressed = false,
+              ),
           onTap: widget.onTap,
           child: Ink(
-            padding: const EdgeInsets.all(16),
+            padding:
+            const EdgeInsets.fromLTRB(
+              10,
+              10,
+              10,
+              10,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius:
+              BorderRadius.circular(17),
               border: Border.all(
-                color: AppColors.cardBorder.withOpacity(0.9),
-                width: 0.8,
+                color:
+                const Color(0xFFDDE7EB),
+                width: .8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.navy.withOpacity(0.035),
-                  blurRadius: 18,
-                  offset: const Offset(0, 7),
+                  color:
+                  const Color(
+                      0xFF0A2D46)
+                      .withOpacity(.025),
+                  blurRadius: 14,
+                  offset:
+                  const Offset(0, 5),
                 ),
               ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.blueBg,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        _categoryIcon(job.serviceCategory),
-                        color: AppColors.blue,
-                        size: 22,
-                      ),
+                    _JobPreviewImage(
+                      job: job,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            job.title.isEmpty ? 'Untitled Job' : job.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w800,
-                              height: 1.25,
-                              letterSpacing: -0.15,
+                      child: SizedBox(
+                        height: 88,
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                          children: [
+                            Row(
+                              crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    job.title
+                                        .trim()
+                                        .isEmpty
+                                        ? 'Untitled Job'
+                                        : job.title
+                                        .trim(),
+                                    maxLines: 2,
+                                    overflow:
+                                    TextOverflow
+                                        .ellipsis,
+                                    style:
+                                    const TextStyle(
+                                      color:
+                                      Color(
+                                          0xFF0A2D46),
+                                      fontSize:
+                                      12.2,
+                                      fontWeight:
+                                      FontWeight
+                                          .w900,
+                                      height: 1.13,
+                                      letterSpacing:
+                                      -.15,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(
+                                    width: 5),
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration:
+                                  const BoxDecoration(
+                                    color:
+                                    Color(
+                                        0xFFE9F8F8),
+                                    shape:
+                                    BoxShape
+                                        .circle,
+                                  ),
+                                  child:
+                                  const Icon(
+                                    Icons
+                                        .chevron_right_rounded,
+                                    color:
+                                    Color(
+                                        0xFF078FA5),
+                                    size: 18,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _subtitle(job),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.grey,
-                              fontSize: 11.8,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 2),
+                            Text(
+                              job.categoryLabel,
+                              maxLines: 1,
+                              overflow:
+                              TextOverflow
+                                  .ellipsis,
+                              style:
+                              const TextStyle(
+                                color:
+                                Color(
+                                    0xFF7F91A0),
+                                fontSize: 9.1,
+                                height: 1.2,
+                                fontWeight:
+                                FontWeight
+                                    .w500,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Container(
-                      width: 31,
-                      height: 31,
-                      decoration: BoxDecoration(
-                        color: AppColors.blue.withOpacity(0.055),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.blue,
-                        size: 19,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _InfoItem(
-                        icon: Icons.location_on_outlined,
-                        text: job.locationLabel,
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Flexible(
-                      child: _InfoItem(
-                        icon: Icons.calendar_today_outlined,
-                        text: job.dateLabel,
-                      ),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Divider(height: 1, color: AppColors.cardBorder),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 7,
+                            const SizedBox(height: 7),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child:
+                                  _ReferenceJobInfo(
+                                    icon: Icons
+                                        .location_on_outlined,
+                                    text: job
+                                        .locationLabel,
+                                  ),
+                                ),
+                                const SizedBox(
+                                    width: 7),
+                                Flexible(
+                                  child:
+                                  _ReferenceJobInfo(
+                                    icon: Icons
+                                        .calendar_today_outlined,
+                                    text: job
+                                        .dateLabel,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (job
+                                .requiredCapabilities
+                                .isNotEmpty) ...[
+                              const Spacer(),
+                              Wrap(
+                                spacing: 5,
+                                runSpacing: 4,
+                                children: job
+                                    .requiredCapabilities
+                                    .take(2)
+                                    .map(
+                                      (item) =>
+                                      _CapabilityPill(
+                                        label:
+                                        item,
+                                      ),
+                                )
+                                    .toList(
+                                  growable:
+                                  false,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.green.withOpacity(0.075),
-                          borderRadius: BorderRadius.circular(11),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 36,
+                        padding:
+                        const EdgeInsets
+                            .symmetric(
+                          horizontal: 10,
+                        ),
+                        alignment:
+                        Alignment
+                            .centerLeft,
+                        decoration:
+                        BoxDecoration(
+                          color:
+                          const Color(
+                              0xFFE8F8F7),
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                              10),
                         ),
                         child: Text(
                           job.payLabel,
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.green,
-                            fontSize: 13.2,
-                            fontWeight: FontWeight.w800,
+                          overflow:
+                          TextOverflow
+                              .ellipsis,
+                          style:
+                          const TextStyle(
+                            color:
+                            Color(
+                                0xFF079D9A),
+                            fontSize: 10.4,
+                            fontWeight:
+                            FontWeight
+                                .w900,
                           ),
                         ),
                       ),
                     ),
-                    if (job.requiredCapabilities.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Wrap(
-                          alignment: WrapAlignment.end,
-                          spacing: 6,
-                          runSpacing: 5,
+                    const SizedBox(width: 9),
+                    SizedBox(
+                      width: 126,
+                      height: 36,
+                      child: FilledButton(
+                        onPressed:
+                        widget.onTap,
+                        style:
+                        FilledButton
+                            .styleFrom(
+                          elevation: 0,
+                          backgroundColor:
+                          const Color(
+                              0xFF08A5B5),
+                          foregroundColor:
+                          Colors.white,
+                          padding:
+                          const EdgeInsets
+                              .symmetric(
+                            horizontal: 10,
+                          ),
+                          shape:
+                          RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius
+                                .circular(
+                                10),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment:
+                          MainAxisAlignment
+                              .center,
                           children: [
-                            ...job.requiredCapabilities.take(2).map(
-                                  (item) => _CapabilityPill(label: item),
-                            ),
-                            if (job.requiredCapabilities.length > 2)
-                              _CapabilityPill(
-                                label: '+${job.requiredCapabilities.length - 2}',
+                            Text(
+                              'View job',
+                              style:
+                              TextStyle(
+                                fontSize:
+                                9.9,
+                                fontWeight:
+                                FontWeight
+                                    .w700,
                               ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(
+                              Icons
+                                  .arrow_forward_rounded,
+                              size: 14,
+                            ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ],
@@ -864,49 +1148,146 @@ class _JobListCardState extends State<_JobListCard> {
       ),
     );
   }
+}
 
-  String _subtitle(PilotJobModel job) {
-    final values = <String>[job.categoryLabel];
+class _JobPreviewImage extends StatelessWidget {
+  const _JobPreviewImage({
+    required this.job,
+  });
 
-    if (job.droneSize.isNotEmpty) {
-      values.add('${_pretty(job.droneSize)} drone');
+  final PilotJobModel job;
+
+  @override
+  Widget build(BuildContext context) {
+    final companyPhoto =
+    (job.company?.profilePhoto ?? '')
+        .trim();
+
+    String attachmentPhoto = '';
+
+    for (final attachment
+    in job.attachments) {
+      if (attachment.isImage &&
+          attachment.url
+              .trim()
+              .isNotEmpty) {
+        attachmentPhoto =
+            attachment.url.trim();
+        break;
+      }
     }
 
-    return values.join(' · ');
-  }
+    // Pilot-side priority:
+    // 1) real company profile photo when the list response provides it;
+    // 2) real job image attachment from this same /jobs response;
+    // 3) clean service icon. Never use a fake category image.
+    final imageUrl =
+    companyPhoto.isNotEmpty
+        ? companyPhoto
+        : attachmentPhoto;
 
-  IconData _categoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'inspection':
-        return Icons.manage_search_rounded;
-      case 'mapping':
-        return Icons.map_outlined;
-      case 'photography':
-        return Icons.photo_camera_outlined;
-      case 'construction':
-        return Icons.construction_outlined;
-      case 'surveying':
-        return Icons.straighten_rounded;
-      default:
-        return Icons.flight_takeoff_rounded;
-    }
-  }
-
-  String _pretty(String value) {
-    if (value.trim().isEmpty) return '';
-    return value
-        .split(RegExp(r'[_\s-]+'))
-        .where((part) => part.isNotEmpty)
-        .map(
-          (part) =>
-      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-    )
-        .join(' ');
+    return Container(
+      width: 94,
+      height: 88,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color:
+        const Color(0xFFF1F7F8),
+        borderRadius:
+        BorderRadius.circular(11),
+        border: Border.all(
+          color:
+          const Color(0xFFE0E9EC),
+          width: .7,
+        ),
+      ),
+      child: imageUrl.isNotEmpty
+          ? Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality:
+        FilterQuality.high,
+        errorBuilder:
+            (_, __, ___) =>
+            _JobImageFallback(
+              category:
+              job.serviceCategory,
+            ),
+      )
+          : _JobImageFallback(
+        category:
+        job.serviceCategory,
+      ),
+    );
   }
 }
 
-class _InfoItem extends StatelessWidget {
-  const _InfoItem({required this.icon, required this.text});
+class _JobImageFallback
+    extends StatelessWidget {
+  const _JobImageFallback({
+    required this.category,
+  });
+
+  final String category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.center,
+      decoration:
+      const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end:
+          Alignment.bottomRight,
+          colors: [
+            Color(0xFFF1FBFB),
+            Color(0xFFEAF4F6),
+          ],
+        ),
+      ),
+      child: Icon(
+        _categoryIcon(category),
+        color:
+        const Color(0xFF078FA5),
+        size: 27,
+      ),
+    );
+  }
+
+  IconData _categoryIcon(
+      String category,
+      ) {
+    switch (
+    category.trim().toLowerCase()) {
+      case 'inspection':
+        return Icons
+            .manage_search_rounded;
+      case 'mapping':
+        return Icons.map_outlined;
+      case 'photography':
+        return Icons
+            .photo_camera_outlined;
+      case 'construction':
+        return Icons
+            .construction_outlined;
+      case 'surveying':
+        return Icons
+            .straighten_rounded;
+      default:
+        return Icons
+            .flight_takeoff_rounded;
+    }
+  }
+}
+
+class _ReferenceJobInfo
+    extends StatelessWidget {
+  const _ReferenceJobInfo({
+    required this.icon,
+    required this.text,
+  });
 
   final IconData icon;
   final String text;
@@ -916,17 +1297,26 @@ class _InfoItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppColors.grey),
-        const SizedBox(width: 4),
+        Icon(
+          icon,
+          size: 11,
+          color:
+          const Color(0xFF758B9A),
+        ),
+        const SizedBox(width: 3),
         Flexible(
           child: Text(
             text,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.grey.withOpacity(0.9),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w500,
+            overflow:
+            TextOverflow.ellipsis,
+            style: const TextStyle(
+              color:
+              Color(0xFF758B9A),
+              fontSize: 8.1,
+              height: 1.1,
+              fontWeight:
+              FontWeight.w500,
             ),
           ),
         ),
@@ -935,29 +1325,71 @@ class _InfoItem extends StatelessWidget {
   }
 }
 
-class _CapabilityPill extends StatelessWidget {
-  const _CapabilityPill({required this.label});
+class _CapabilityPill
+    extends StatelessWidget {
+  const _CapabilityPill({
+    required this.label,
+  });
 
   final String label;
 
   @override
   Widget build(BuildContext context) {
+    final clean =
+    label.trim().isEmpty
+        ? 'Capability'
+        : label.trim();
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding:
+      const EdgeInsets.symmetric(
+        horizontal: 7,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
-        color: AppColors.blue.withOpacity(0.055),
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: AppColors.blue.withOpacity(0.08)),
+        color:
+        const Color(0xFFE9F8F8),
+        borderRadius:
+        BorderRadius.circular(20),
       ),
       child: Text(
-        label,
+        clean,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        overflow:
+        TextOverflow.ellipsis,
         style: const TextStyle(
-          color: AppColors.navy,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w600,
+          color: Color(0xFF078FA5),
+          fontSize: 7.5,
+          height: 1.05,
+          fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+class _ReferenceMiniSkeleton
+    extends StatelessWidget {
+  const _ReferenceMiniSkeleton({
+    required this.width,
+    required this.height,
+    this.radius = 5,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color:
+        const Color(0xFFE8EFF1),
+        borderRadius:
+        BorderRadius.circular(radius),
       ),
     );
   }
@@ -1777,28 +2209,31 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
           const SizedBox(height: 11),
           SizedBox(
             width: double.infinity,
-            height: 53,
+            height: 52,
             child: FilledButton(
               onPressed: _apply,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.blue,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor:
+                AppColors.blue.withOpacity(.45),
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
                 ),
+                shape: const StadiumBorder(),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.tune_rounded,
                     size: 17,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     AppLanguage.text('Apply Filters'),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                     ),
@@ -2194,4 +2629,3 @@ class _ShimmerJobCard extends StatelessWidget {
     );
   }
 }
-

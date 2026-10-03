@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../chat/screens/chat_inbox_screen.dart';
+import '../../../chat/screens/chat_list_screen.dart';
 
 class CompanyMessagesScreen extends StatelessWidget {
   const CompanyMessagesScreen({super.key});

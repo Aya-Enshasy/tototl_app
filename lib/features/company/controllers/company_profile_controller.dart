@@ -1,4 +1,5 @@
-import '../../../core/storage/user_session_storage.dart';
+import 'package:tototl_app/core/storage/user_session_storage.dart';
+
 import '../models/company_profile_model.dart';
 import '../models/company_profile_update_model.dart';
 import '../services/company_profile_service.dart';
@@ -34,7 +35,7 @@ class CompanyProfileController {
         account: account,
         profile: profile,
         profilePhotoUrl:
-        photoUrl.isNotEmpty ? photoUrl : profile.profilePhoto,
+            photoUrl.isNotEmpty ? photoUrl : profile.profilePhoto,
       );
     } catch (_) {
       return null;
@@ -42,8 +43,8 @@ class CompanyProfileController {
   }
 
   Future<CompanyProfileViewData> _buildViewData(
-      CompanyProfileModel profile,
-      ) async {
+    CompanyProfileModel profile,
+  ) async {
     final userJson = await UserSessionStorage.getUser();
     final photoUrl = await UserSessionStorage.getProfilePhotoUrl() ?? '';
 
@@ -55,13 +56,13 @@ class CompanyProfileController {
       account: account,
       profile: profile,
       profilePhotoUrl:
-      photoUrl.isNotEmpty ? photoUrl : profile.profilePhoto,
+          photoUrl.isNotEmpty ? photoUrl : profile.profilePhoto,
     );
   }
 
   Future<CompanyProfileModel> _readMergedProfile(
-      CompanyProfileModel fallback,
-      ) async {
+    CompanyProfileModel fallback,
+  ) async {
     final mergedJson = await UserSessionStorage.getProfile();
     if (mergedJson == null) return fallback;
     return CompanyProfileModel.fromJson(mergedJson);
@@ -112,8 +113,8 @@ class CompanyProfileController {
   }
 
   Future<CompanyProfileViewData?> updateProfile(
-      CompanyProfileUpdateRequest request,
-      ) async {
+    CompanyProfileUpdateRequest request,
+  ) async {
     if (isUpdating) return null;
 
     isUpdating = true;
@@ -147,12 +148,29 @@ class CompanyProfileController {
     errorMessage = null;
 
     try {
-      final url = await service.uploadProfilePhoto(filePath: filePath);
+      final url = await service.uploadProfilePhoto(
+        filePath: filePath,
+      );
 
-      // Keep the direct URL locally so the profile paints the new photo
-      // immediately on the next visit, before the background API refresh.
-      await UserSessionStorage.updateProfilePhotoUrl(url);
-      await UserSessionStorage.mergeProfile({'profile_photo': url});
+      final cleanUrl = url.trim();
+
+      if (cleanUrl.isEmpty) {
+        throw Exception('Profile photo URL is missing.');
+      }
+
+      // Same behavior as Pilot:
+      // 1) persist the direct photo URL for the fastest first paint;
+      // 2) keep profile_photo aligned with the profile shape.
+      //
+      // Both writes trigger UserSessionStorage.revision, so Company Home
+      // refreshes the avatar automatically while it is mounted.
+      await UserSessionStorage.updateProfilePhotoUrl(
+        cleanUrl,
+      );
+
+      await UserSessionStorage.mergeProfile({
+        'profile_photo': cleanUrl,
+      });
 
       return await loadLocalProfile();
     } catch (e) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
@@ -7,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 
 import '../../../../core/navigation/company_shell_screen.dart';
 
+import '../../../company/services/CompanyProfileSync.dart';
 import '../../controllers/auth_controller.dart';
 
 import '../chooseAccount/choose_account.dart';
@@ -217,6 +220,17 @@ class _LoginScreenState extends State<LoginScreen>
       _loginSuccess = true;
     });
 
+    final normalizedRole =
+    role.trim().toLowerCase();
+
+    // Use the success animation time to begin fetching the authoritative
+    // company profile. Do not await it, so navigation remains fast.
+    if (normalizedRole == 'company') {
+      unawaited(
+        CompanyProfileSync.instance.refreshFromApi(),
+      );
+    }
+
     // نخلي المستخدم يشوف حركة النجاح للحظة بسيطة
     await Future.delayed(
       const Duration(milliseconds: 450),
@@ -227,11 +241,6 @@ class _LoginScreenState extends State<LoginScreen>
     // ==========================================================
     // ROLE NAVIGATION
     // ==========================================================
-
-    final normalizedRole =
-    role
-        .trim()
-        .toLowerCase();
     if (normalizedRole == 'admin') {
       Navigator.pushReplacement(
         context,

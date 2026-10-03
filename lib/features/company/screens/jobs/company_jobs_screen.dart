@@ -14,6 +14,7 @@ import '../../controllers/company_job_controller.dart';
 import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
 
+import '../../utils/Category Assets Helper.dart';
 import 'company_job_detail_screen.dart';
 import 'post_job_screen.dart';
 
@@ -193,11 +194,25 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
     unawaited(_refreshFromNetwork());
   }
 
-  Future<void> _openJob(int jobId) async {
+  Future<void> _openJob(
+      _JobListSnapshot job,
+      ) async {
     HapticFeedback.selectionClick();
+
+    // This is the real job-posting id returned by My Jobs.
+    // Do not pass an application id, company id, or list index here.
+    debugPrint(
+      'OPEN COMPANY JOB DETAILS -> '
+          'jobId=${job.id}, title=${job.title}, '
+          'applicants=${job.applicantsCount}',
+    );
+
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => CompanyJobDetailScreen(jobId: jobId),
+        builder: (_) => CompanyJobDetailScreen(
+          jobId: job.id,
+          expectedApplicantsCount: job.applicantsCount,
+        ),
       ),
     );
 
@@ -371,7 +386,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
                 final job = visible[index];
                 return _CompanyJobCard(
                   job: job,
-                  onTap: () => _openJob(job.id),
+                  onTap: () => _openJob(job),
                 );
               },
             ),
@@ -467,48 +482,39 @@ class _JobsPalette {
 }
 
 class _PostJobFloatingButton extends StatelessWidget {
-  const _PostJobFloatingButton({required this.onTap});
+  const _PostJobFloatingButton({
+    required this.onTap,
+  });
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(26),
-        child: Ink(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF17A9BE), Color(0xFF108EA6)],
-            ),
-            borderRadius: BorderRadius.circular(26),
-            boxShadow: [
-              BoxShadow(
-                color: _JobsPalette.teal.withOpacity(.24),
-                blurRadius: 18,
-                offset: const Offset(0, 7),
-              ),
-            ],
+    return SizedBox(
+      height: 52,
+      child: FilledButton.icon(
+        onPressed: onTap,
+        icon: const Icon(
+          Icons.add_rounded,
+          size: 22,
+        ),
+        label: const Text(
+          'Post Job',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add_rounded, color: Colors.white, size: 24),
-              SizedBox(width: 7),
-              Text(
-                'Post Job',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: _JobsPalette.teal,
+          foregroundColor: Colors.white,
+          elevation: 5,
+          shadowColor:
+          _JobsPalette.teal.withOpacity(.24),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
           ),
+          shape: const StadiumBorder(),
         ),
       ),
     );
@@ -711,56 +717,44 @@ class _CompanyJobCard extends StatelessWidget {
 }
 
 class _JobThumbnail extends StatelessWidget {
-  const _JobThumbnail({required this.job});
+  const _JobThumbnail({
+    required this.job,
+  });
 
   final _JobListSnapshot job;
 
   @override
   Widget build(BuildContext context) {
+    final assetPath =
+    CompanyJobCategoryAssets.forCategory(
+      job.serviceCategory,
+    );
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(11),
+      borderRadius: BorderRadius.circular(12),
       child: SizedBox(
         width: 78,
         height: 70,
-        child: job.imageUrl.isNotEmpty
-            ? Image.network(
-          job.imageUrl,
+        child: Image.asset(
+          assetPath,
           fit: BoxFit.cover,
           alignment: Alignment.center,
-          errorBuilder: (_, __, ___) => _CategoryThumbnail(category: job.serviceCategory),
-        )
-            : _CategoryThumbnail(category: job.serviceCategory),
-      ),
-    );
-  }
-}
-
-class _CategoryThumbnail extends StatelessWidget {
-  const _CategoryThumbnail({required this.category});
-
-  final String category;
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryLower = category.toLowerCase();
-    final icon = categoryLower.contains('survey') || categoryLower.contains('mapping')
-        ? Icons.solar_power_outlined
-        : categoryLower.contains('inspection')
-        ? Icons.cell_tower_rounded
-        : categoryLower.contains('photo')
-        ? Icons.landscape_outlined
-        : Icons.flight_takeoff_rounded;
-
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4B9BB1), Color(0xFF1B526C)],
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, __, ___) {
+            return Container(
+              color: _JobsPalette.softBlue,
+              alignment: Alignment.center,
+              child: Icon(
+                CompanyJobCategoryAssets.fallbackIcon(
+                  job.serviceCategory,
+                ),
+                color: _JobsPalette.tealDark,
+                size: 25,
+              ),
+            );
+          },
         ),
       ),
-      alignment: Alignment.center,
-      child: Icon(icon, color: Colors.white, size: 26),
     );
   }
 }

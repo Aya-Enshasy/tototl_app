@@ -119,13 +119,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
                   },
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(18, 2, 18, 9),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _AllPill(),
-                ),
-              ),
+
               Expanded(
                 child: StreamBuilder<List<ChatConversation>>(
                   stream: FirebaseChatService.instance.conversationsFor(
@@ -324,30 +318,6 @@ class _SearchBox extends StatelessWidget {
   }
 }
 
-class _AllPill extends StatelessWidget {
-  const _AllPill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 35,
-      padding: const EdgeInsets.symmetric(horizontal: 23),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.logoTurquoise.withOpacity(.14),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        _ui('All'),
-        style: const TextStyle(
-          color: AppColors.logoTurquoiseDark,
-          fontSize: 10.6,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
 
 class _ConversationTile extends StatelessWidget {
   const _ConversationTile({

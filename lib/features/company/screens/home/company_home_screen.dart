@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
-
 import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -14,6 +13,7 @@ import '../../../pilot/screens/notification/NotificationsScreen.dart';
 import '../../../pilot/services/company_dashboard_service.dart';
 import '../../controllers/company_dashboard_controller.dart';
 import '../../models/company_dashboard_model.dart';
+import '../../services/CompanyProfileSync.dart';
 import '../../services/company_job_service.dart';
 import '../jobs/company_job_detail_screen.dart';
 import '../jobs/post_job_screen.dart';
@@ -24,7 +24,7 @@ import 'package:tototl_app/features/payments/services/payment_service.dart';
 import 'package:tototl_app/features/company/screens/contract/company_contracts_screen.dart';
 import 'package:tototl_app/features/shared/models/phase3_account_summary.dart';
 import 'package:tototl_app/features/shared/services/phase3_dashboard_service.dart';
- import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
+import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
 
 class CompanyHomeScreen extends StatefulWidget {
   const CompanyHomeScreen({super.key});
@@ -41,6 +41,9 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
   late final CompanyDashboardController _controller;
   late final AnimationController _entrance;
   late final Phase3DashboardService _phase3Service;
+  late final CompanyProfileSync _profileSync;
+
+  bool _identityReloadQueued = false;
 
   Phase3AccountSummary _phase3Summary = const Phase3AccountSummary();
   bool _phase3Loading = true;
@@ -67,6 +70,9 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     _controller = CompanyDashboardController(
       CompanyDashboardService(ApiClient()),
     );
+
+    _profileSync = CompanyProfileSync.instance;
+    UserSessionStorage.revision.addListener(_onSessionRevision);
 
     _phase3Service = Phase3DashboardService(
       ApiClient(),
@@ -122,6 +128,8 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
   }
 
   Future<void> _openPhase3Payments() async {
+    HapticFeedback.selectionClick();
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const PaymentHistoryScreen(
@@ -129,7 +137,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
         ),
       ),
     );
-    if (mounted) unawaited(_loadPhase3());
+
+    if (mounted) {
+      unawaited(_loadPhase3());
+    }
   }
 
   Future<void> _openSubscriptionCenter() async {
@@ -146,38 +157,74 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     ]);
 
     if (!mounted) return;
+
+    // Start both network refreshes only AFTER cached/local UI is painted.
+    unawaited(_profileSync.refreshFromApi());
     unawaited(_refreshDashboardFromNetwork(initial: true));
   }
 
+  void _onSessionRevision() {
+    if (!mounted || _identityReloadQueued) return;
+    _identityReloadQueued = true;
+
+    scheduleMicrotask(() async {
+      _identityReloadQueued = false;
+      if (!mounted) return;
+      await _loadCompanyIdentity();
+    });
+  }
+
   Future<void> _loadCompanyIdentity() async {
-    final profile = await UserSessionStorage.getProfile();
-    final status = await UserSessionStorage.getStatus();
-    final storedPhoto = await UserSessionStorage.getProfilePhotoUrl();
+    final session = await UserSessionStorage.getSession();
 
-    final profileName = profile?['company_name']?.toString().trim() ?? '';
-    final fallbackName = profile?['name']?.toString().trim() ?? '';
-    final profilePhoto = profile?['profile_photo']?.toString().trim() ?? '';
+    final rawProfile = session?['profile'];
+    final profile = rawProfile is Map
+        ? Map<String, dynamic>.from(rawProfile)
+        : <String, dynamic>{};
+
+    final rawUser = session?['user'];
+    final user = rawUser is Map
+        ? Map<String, dynamic>.from(rawUser)
+        : <String, dynamic>{};
+
+    final profileName =
+        profile['company_name']?.toString().trim() ?? '';
+    final profileFallbackName =
+        profile['name']?.toString().trim() ?? '';
+    final userFallbackName =
+        user['name']?.toString().trim() ?? '';
+
+    final profilePhoto =
+        profile['profile_photo']?.toString().trim() ?? '';
     final alternatePhoto =
-        profile?['profile_photo_url']?.toString().trim() ?? '';
+        profile['profile_photo_url']?.toString().trim() ?? '';
+    final storedPhoto =
+        session?['profile_photo_url']?.toString().trim() ?? '';
 
-    final statusValue = status?.trim().toLowerCase() ?? '';
-    final profileVerified = _asBool(profile?['verified']);
+    final statusValue =
+        user['status']?.toString().trim().toLowerCase() ?? '';
+
+    final profileVerified = _asBool(profile['verified']);
 
     if (!mounted) return;
 
     setState(() {
       if (profileName.isNotEmpty) {
         _companyName = profileName;
-      } else if (fallbackName.isNotEmpty) {
-        _companyName = fallbackName;
+      } else if (profileFallbackName.isNotEmpty) {
+        _companyName = profileFallbackName;
+      } else if (userFallbackName.isNotEmpty) {
+        _companyName = userFallbackName;
       }
 
       if (profilePhoto.isNotEmpty) {
         _profilePhotoUrl = profilePhoto;
       } else if (alternatePhoto.isNotEmpty) {
         _profilePhotoUrl = alternatePhoto;
-      } else if (storedPhoto != null && storedPhoto.trim().isNotEmpty) {
-        _profilePhotoUrl = storedPhoto.trim();
+      } else if (storedPhoto.isNotEmpty) {
+        _profilePhotoUrl = storedPhoto;
+      } else {
+        _profilePhotoUrl = '';
       }
 
       _verified = profileVerified ||
@@ -185,7 +232,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
           statusValue == 'approved' ||
           statusValue == 'verified';
 
-      _companyMeta = _buildCompanyMeta(profile, statusValue);
+      _companyMeta = _buildCompanyMeta(
+        profile.isEmpty ? null : profile,
+        statusValue,
+      );
     });
   }
 
@@ -286,9 +336,14 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
   Future<void> _refresh() async {
     await Future.wait<void>([
       _refreshDashboardFromNetwork(),
-      _loadCompanyIdentity(),
       _loadPhase3(),
+      _profileSync.refreshFromApi(force: true).then((_) {}),
     ]);
+
+    // The profile sync writes to session storage and therefore also triggers
+    // the revision listener. Read once here as a deterministic final step for
+    // the pull-to-refresh completion.
+    await _loadCompanyIdentity();
   }
 
   Future<void> _openNotifications() async {
@@ -393,6 +448,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
   @override
   void dispose() {
+    UserSessionStorage.revision.removeListener(_onSessionRevision);
     _controller.dispose();
     _entrance.dispose();
     super.dispose();
@@ -482,9 +538,16 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                 index: 4,
                 child: _DashboardQuickStats(dashboard: dashboard),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               _entry(
                 index: 5,
+                child: _CompanyPaymentsShortcut(
+                  onTap: _openPhase3Payments,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _entry(
+                index: 6,
                 child: _CompactSectionHeader(
                   title: 'Active mission',
                   actionText: 'View all',
@@ -495,7 +558,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               ),
               const SizedBox(height: 10),
               _entry(
-                index: 6,
+                index: 7,
                 child: _ActiveMissionPreview(
                   dashboard: dashboard,
                   onTap: dashboard.recentApplicants.isEmpty
@@ -505,7 +568,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               ),
               const SizedBox(height: 18),
               _entry(
-                index: 7,
+                index: 8,
                 child: _CompactSectionHeader(
                   title: 'Recent applicants',
                   actionText: dashboard.recentApplicants.isEmpty
@@ -518,7 +581,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               ),
               const SizedBox(height: 8),
               _entry(
-                index: 8,
+                index: 9,
                 child: dashboard.recentApplicants.isEmpty
                     ? const _ReferenceEmptyApplicants()
                     : _ReferenceApplicantsCard(
@@ -536,6 +599,106 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                   onRetry: _refresh,
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _CompanyPaymentsShortcut extends StatelessWidget {
+  const _CompanyPaymentsShortcut({
+    required this.onTap,
+  });
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            12,
+            11,
+            10,
+            11,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: _HomePalette.line,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _HomePalette.navy.withOpacity(.025),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 39,
+                height: 39,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE7F8F7),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: _HomePalette.tealDark,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Payments',
+                      style: TextStyle(
+                        color: _HomePalette.navy,
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Funding, releases and payment history',
+                      style: TextStyle(
+                        color: _HomePalette.muted,
+                        fontSize: 9.4,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _HomePalette.paleBlue,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _HomePalette.tealDark,
+                  size: 18,
+                ),
+              ),
             ],
           ),
         ),
@@ -2097,4 +2260,3 @@ String _titleCase(String value) {
   if (clean.isEmpty) return 'Pending';
   return '${clean[0].toUpperCase()}${clean.substring(1).toLowerCase()}';
 }
-

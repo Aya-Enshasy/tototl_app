@@ -248,6 +248,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
         imageQuality: 88,
         maxWidth: 1800,
         maxHeight: 1800,
+        requestFullMetadata: false,
       );
 
       if (selected == null || !mounted) return;
@@ -1129,45 +1130,102 @@ class _CompanyPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: uploading ? null : onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: 106,
-          height: 108,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColors.blueBg,
+    final cleanUrl = url.trim();
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: uploading ? null : onTap,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppColors.cardBorder,
+            child: Container(
+              width: 106,
+              height: 108,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: AppColors.blueBg,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.cardBorder,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.navy.withOpacity(.06),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (cleanUrl.isNotEmpty)
+                    Image.network(
+                      cleanUrl,
+                      key: ValueKey(cleanUrl),
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      gaplessPlayback: true,
+                      loadingBuilder: (
+                        context,
+                        child,
+                        progress,
+                      ) {
+                        if (progress == null) return child;
+                        return const _PhotoFallback();
+                      },
+                      errorBuilder: (_, __, ___) =>
+                          const _PhotoFallback(),
+                    )
+                  else
+                    const _PhotoFallback(),
+
+                  if (uploading)
+                    Container(
+                      color: AppColors.navy.withOpacity(.48),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 23,
+                        height: 23,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (url.trim().isNotEmpty)
-                Image.network(
-                  url.trim(),
-                  key: ValueKey(url.trim()),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                  const _PhotoFallback(),
-                )
-              else
-                const _PhotoFallback(),
-              if (uploading)
-                Container(
-                  color: AppColors.navy.withOpacity(.42),
-                  alignment: Alignment.center,
-                  child: const _UploadPulseIcon(),
+        ),
+        Positioned(
+          right: -6,
+          bottom: -5,
+          child: Material(
+            color: uploading
+                ? AppColors.grey
+                : AppColors.logoTurquoiseDark,
+            shape: const CircleBorder(),
+            elevation: 3,
+            shadowColor: AppColors.navy.withOpacity(.18),
+            child: InkWell(
+              onTap: uploading ? null : onTap,
+              customBorder: const CircleBorder(),
+              child: const SizedBox(
+                width: 34,
+                height: 34,
+                child: Icon(
+                  Icons.camera_alt_rounded,
+                  color: Colors.white,
+                  size: 16,
                 ),
-            ],
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

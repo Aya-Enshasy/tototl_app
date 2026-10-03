@@ -13,7 +13,8 @@ class PilotHomeSnapshot {
   final List<PilotHomeApplicationItem> applications;
   final DateTime? cachedAt;
 
-  bool get hasContent => drones.isNotEmpty || applications.isNotEmpty;
+  bool get hasContent =>
+      drones.isNotEmpty || applications.isNotEmpty;
 
   PilotHomeSnapshot copyWith({
     List<PilotHomeDroneItem>? drones,
@@ -22,48 +23,68 @@ class PilotHomeSnapshot {
   }) {
     return PilotHomeSnapshot(
       drones: drones ?? this.drones,
-      applications: applications ?? this.applications,
+      applications:
+      applications ?? this.applications,
       cachedAt: cachedAt ?? this.cachedAt,
     );
   }
 
-  factory PilotHomeSnapshot.fromJson(Map<String, dynamic> json) {
+  factory PilotHomeSnapshot.fromJson(
+      Map<String, dynamic> json,
+      ) {
     final rawDrones = json['drones'];
-    final rawApplications = json['applications'];
+    final rawApplications =
+    json['applications'];
 
     return PilotHomeSnapshot(
       drones: rawDrones is List
           ? rawDrones
-              .whereType<Map>()
-              .map(
-                (item) => PilotHomeDroneItem.fromJson(
-                  Map<String, dynamic>.from(item),
-                ),
-              )
-              .where((item) => item.id > 0)
-              .toList(growable: false)
+          .whereType<Map>()
+          .map(
+            (item) =>
+            PilotHomeDroneItem.fromJson(
+              Map<String, dynamic>.from(
+                item,
+              ),
+            ),
+      )
+          .where((item) => item.id > 0)
+          .toList(growable: false)
           : const <PilotHomeDroneItem>[],
-      applications: rawApplications is List
+      applications:
+      rawApplications is List
           ? rawApplications
-              .whereType<Map>()
-              .map(
-                (item) => PilotHomeApplicationItem.fromJson(
-                  Map<String, dynamic>.from(item),
-                ),
-              )
-              .where((item) => item.id > 0)
-              .toList(growable: false)
-          : const <PilotHomeApplicationItem>[],
-      cachedAt: _asDate(json['cached_at']),
+          .whereType<Map>()
+          .map(
+            (item) =>
+            PilotHomeApplicationItem
+                .fromJson(
+              Map<String, dynamic>.from(
+                item,
+              ),
+            ),
+      )
+          .where(
+            (item) => item.id > 0,
+      )
+          .toList(growable: false)
+          : const <
+          PilotHomeApplicationItem>[],
+      cachedAt:
+      _asDate(json['cached_at']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
-      'drones': drones.map((item) => item.toJson()).toList(growable: false),
-      'applications':
-          applications.map((item) => item.toJson()).toList(growable: false),
-      'cached_at': cachedAt?.toIso8601String(),
+      'drones': drones
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'applications': applications
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'cached_at':
+      cachedAt?.toIso8601String(),
     };
   }
 }
@@ -75,7 +96,8 @@ class PilotHomeDroneItem {
     this.year = '',
     this.serialNumber = '',
     this.imageUrl = '',
-    this.capabilities = const <String>[],
+    this.capabilities =
+    const <String>[],
   });
 
   final int id;
@@ -85,36 +107,63 @@ class PilotHomeDroneItem {
   final String imageUrl;
   final List<String> capabilities;
 
-  factory PilotHomeDroneItem.fromDrone(DroneModel drone) {
+  factory PilotHomeDroneItem.fromDrone(
+      DroneModel drone,
+      ) {
     return PilotHomeDroneItem(
       id: drone.id,
-      title: drone.title.trim().isEmpty ? 'Drone' : drone.title.trim(),
+      title: drone.title.trim().isEmpty
+          ? 'Drone'
+          : drone.title.trim(),
       year: drone.yearLabel.trim(),
-      serialNumber: drone.serialNumber.trim(),
+      serialNumber:
+      drone.serialNumber.trim(),
       imageUrl: drone.imageUrl.trim(),
       capabilities: drone.capabilities
           .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
+          .where(
+            (item) => item.isNotEmpty,
+      )
           .take(4)
           .toList(growable: false),
     );
   }
 
-  factory PilotHomeDroneItem.fromJson(Map<String, dynamic> json) {
-    final rawCapabilities = json['capabilities'];
+  factory PilotHomeDroneItem.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    final rawCapabilities =
+    json['capabilities'];
 
     return PilotHomeDroneItem(
       id: _asInt(json['id']) ?? 0,
-      title: _asString(json['title'], fallback: 'Drone'),
+      title: _asString(
+        json['title'],
+        fallback: 'Drone',
+      ),
       year: _asString(json['year']),
-      serialNumber: _asString(json['serial_number']),
-      imageUrl: _asString(json['image_url']),
-      capabilities: rawCapabilities is List
+      serialNumber:
+      _asString(json['serial_number']),
+      imageUrl:
+      _asString(json['image_url']),
+      capabilities:
+      rawCapabilities is List
           ? rawCapabilities
-              .map((item) => item?.toString().trim() ?? '')
-              .where((item) => item.isNotEmpty)
-              .take(4)
-              .toList(growable: false)
+          .map(
+            (item) =>
+        item
+            ?.toString()
+            .trim() ??
+            '',
+      )
+          .where(
+            (item) =>
+        item.isNotEmpty,
+      )
+          .take(4)
+          .toList(
+        growable: false,
+      )
           : const <String>[],
     );
   }
@@ -137,6 +186,8 @@ class PilotHomeApplicationItem {
     required this.jobPostingId,
     this.jobTitle = 'Job Application',
     this.company = '',
+    this.companyPhoto = '',
+    this.serviceCategory = '',
     this.location = '',
     this.status = 'pending',
     this.createdAt,
@@ -146,59 +197,116 @@ class PilotHomeApplicationItem {
   final int jobPostingId;
   final String jobTitle;
   final String company;
+
+  /// Real company image from:
+  /// job_posting -> company_profile -> profile_photo
+  final String companyPhoto;
+
+  final String serviceCategory;
   final String location;
   final String status;
   final DateTime? createdAt;
 
   factory PilotHomeApplicationItem.fromApplication(
-    PilotApplicationModel application,
-  ) {
+      PilotApplicationModel application,
+      ) {
     final job = application.job;
+
+    // PilotJobCompanySummary.profilePhoto is non-null in the current model,
+    // but normalizing through ?? keeps this safe if that model changes later.
+    final companyPhoto =
+    (job?.company?.profilePhoto ?? '')
+        .trim();
+
+    final serviceCategory =
+    (job?.serviceCategory ?? '')
+        .trim();
 
     return PilotHomeApplicationItem(
       id: application.id,
-      jobPostingId: application.jobPostingId,
+      jobPostingId:
+      application.jobPostingId,
       jobTitle: application.jobTitle,
-      company: application.companyLabel,
-      location: job?.locationLabel.trim() ?? '',
-      status: application.status.trim().isEmpty
+      company:
+      application.companyLabel,
+      companyPhoto: companyPhoto,
+      serviceCategory:
+      serviceCategory,
+      location:
+      job?.locationLabel.trim() ?? '',
+      status:
+      application.status.trim().isEmpty
           ? 'pending'
-          : application.status.trim().toLowerCase(),
-      createdAt: application.createdAt,
+          : application.status
+          .trim()
+          .toLowerCase(),
+      createdAt:
+      application.createdAt,
     );
   }
 
-  factory PilotHomeApplicationItem.fromJson(Map<String, dynamic> json) {
+  factory PilotHomeApplicationItem.fromJson(
+      Map<String, dynamic> json,
+      ) {
     return PilotHomeApplicationItem(
       id: _asInt(json['id']) ?? 0,
-      jobPostingId: _asInt(json['job_posting_id']) ?? 0,
-      jobTitle: _asString(json['job_title'], fallback: 'Job Application'),
-      company: _asString(json['company']),
-      location: _asString(json['location']),
-      status: _asString(json['status'], fallback: 'pending').toLowerCase(),
-      createdAt: _asDate(json['created_at']),
+      jobPostingId:
+      _asInt(
+        json['job_posting_id'],
+      ) ??
+          0,
+      jobTitle: _asString(
+        json['job_title'],
+        fallback: 'Job Application',
+      ),
+      company:
+      _asString(json['company']),
+      companyPhoto:
+      _asString(json['company_photo']),
+      serviceCategory:
+      _asString(
+        json['service_category'],
+      ),
+      location:
+      _asString(json['location']),
+      status: _asString(
+        json['status'],
+        fallback: 'pending',
+      ).toLowerCase(),
+      createdAt:
+      _asDate(json['created_at']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
-      'job_posting_id': jobPostingId,
+      'job_posting_id':
+      jobPostingId,
       'job_title': jobTitle,
       'company': company,
+      'company_photo': companyPhoto,
+      'service_category':
+      serviceCategory,
       'location': location,
       'status': status,
-      'created_at': createdAt?.toIso8601String(),
+      'created_at':
+      createdAt?.toIso8601String(),
     };
   }
 
-  String get statusLabel => _pretty(status);
+  String get statusLabel =>
+      _pretty(status);
 
   String get submittedLabel {
     final value = createdAt;
-    if (value == null) return 'Recently submitted';
+
+    if (value == null) {
+      return 'Recently submitted';
+    }
 
     final local = value.toLocal();
+
     const months = <String>[
       'Jan',
       'Feb',
@@ -214,37 +322,57 @@ class PilotHomeApplicationItem {
       'Dec',
     ];
 
-    return '${months[local.month - 1]} ${local.day}, ${local.year}';
+    return '${months[local.month - 1]} '
+        '${local.day}, ${local.year}';
   }
 }
 
-String _asString(dynamic value, {String fallback = ''}) {
-  final text = value?.toString().trim() ?? '';
-  return text.isEmpty ? fallback : text;
+String _asString(
+    dynamic value, {
+      String fallback = '',
+    }) {
+  final text =
+      value?.toString().trim() ?? '';
+
+  return text.isEmpty
+      ? fallback
+      : text;
 }
 
 int? _asInt(dynamic value) {
   if (value is int) return value;
-  if (value is num) return value.toInt();
-  return int.tryParse(value?.toString() ?? '');
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return int.tryParse(
+    value?.toString() ?? '',
+  );
 }
 
 DateTime? _asDate(dynamic value) {
-  final text = value?.toString().trim() ?? '';
+  final text =
+      value?.toString().trim() ?? '';
+
   if (text.isEmpty) return null;
+
   return DateTime.tryParse(text);
 }
 
 String _pretty(String value) {
   final clean = value.trim();
+
   if (clean.isEmpty) return '';
 
   return clean
       .split(RegExp(r'[_\s-]+'))
-      .where((item) => item.isNotEmpty)
+      .where(
+        (item) => item.isNotEmpty,
+  )
       .map(
         (item) =>
-            '${item[0].toUpperCase()}${item.substring(1).toLowerCase()}',
-      )
+    '${item[0].toUpperCase()}'
+        '${item.substring(1).toLowerCase()}',
+  )
       .join(' ');
 }

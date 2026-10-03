@@ -5,7 +5,6 @@ import 'package:tototl_app/core/network/api_endpoints.dart';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import '../../../core/storage/user_session_storage.dart';
 
 import '../models/LoginResponseModel.dart';
 import '../models/PilotRegisterRequestModel.dart';
@@ -97,28 +96,6 @@ class AuthService {
     LoginResponseModel.fromJson(
       rawResponse,
     );
-
-    // ============================================================
-    // SAVE SESSION
-    // ============================================================
-
-    if (model.success &&
-        model.data != null) {
-      final data =
-      rawResponse['data'];
-
-      if (data is Map) {
-        await UserSessionStorage.saveSession(
-          Map<String, dynamic>.from(
-            data,
-          ),
-        );
-
-        print(
-          'LOGIN USER SESSION SAVED SUCCESSFULLY',
-        );
-      }
-    }
 
     return model;
   }

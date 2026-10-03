@@ -38,7 +38,7 @@ class CompanyOperationsScreen extends StatelessWidget {
 
 class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_all_applications_v2_';
+  static const String _cachePrefix = 'company_all_applications_v3_';
   static const int _perPage = 50;
 
   late final CompanyJobController _controller;
@@ -52,7 +52,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
   String? _selectedStatus;
   String? _errorMessage;
   String _sectionMode = 'applications';
-  String _viewMode = 'review';
+  String _viewMode = 'all';
   String _contractFilter = 'all';
   String _searchQuery = '';
   bool _searchOpen = false;
@@ -226,7 +226,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
       await _storage.write(
         key: key,
         value: jsonEncode({
-          'version': 1,
+          'version': 3,
           'saved_at': DateTime.now().toIso8601String(),
           'status': status,
           'items': items.map((item) => item.toJson()).toList(growable: false),
@@ -354,6 +354,8 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => CompanyApplicantDetailScreen(
+          // /company/applicants returns the real job_posting_id plus nested
+          // pilot_profile and drone, so pass that application object directly.
           jobId: item.application.jobPostingId,
           application: item.application,
         ),
@@ -858,10 +860,22 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
 
   Widget _applicationFilters() {
     return Padding(
-      padding:
-      const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
+          Expanded(
+            flex: 7,
+            child: _ReferenceFilterButton(
+              label: 'All',
+              selected: _viewMode == 'all',
+              onTap: () {
+                if (_viewMode == 'all') return;
+                HapticFeedback.selectionClick();
+                setState(() => _viewMode = 'all');
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             flex: 11,
             child: _ReferenceFilterButton(
@@ -870,9 +884,11 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
               badge: _pendingApplicationCount > 0
                   ? _pendingApplicationCount
                   : null,
-              onTap: () => setState(
-                    () => _viewMode = 'review',
-              ),
+              onTap: () {
+                if (_viewMode == 'review') return;
+                HapticFeedback.selectionClick();
+                setState(() => _viewMode = 'review');
+              },
             ),
           ),
           const SizedBox(width: 8),
@@ -881,19 +897,11 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
             child: _ReferenceFilterButton(
               label: 'Accepted',
               selected: _viewMode == 'accepted',
-              onTap: () => setState(
-                    () => _viewMode = 'accepted',
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 7,
-            child: _ReferenceFilterButton(
-              label: 'All',
-              selected: _viewMode == 'all',
-              onTap: () =>
-                  setState(() => _viewMode = 'all'),
+              onTap: () {
+                if (_viewMode == 'accepted') return;
+                HapticFeedback.selectionClick();
+                setState(() => _viewMode = 'accepted');
+              },
             ),
           ),
         ],
@@ -1224,7 +1232,7 @@ class _ReferenceApplicationCard extends StatelessWidget {
         ? drone!.displayName.trim()
         : 'Selected drone';
 
-    final droneImage = _readDynamicDroneImage(drone);
+    final droneImage = drone?.imageUrl.trim() ?? '';
 
     final capabilities =
         drone?.capabilities ?? const <String>[];
@@ -3912,31 +3920,19 @@ String _formatDateTime(DateTime? value) {
 }
 
 String _readDynamicDroneImage(dynamic drone) {
-  String clean(dynamic value) => value?.toString().trim() ?? '';
-
+  // GET /v1/company/applicants currently returns the committed drone specs
+  // (make/model/capabilities/etc.) but does not return a drone image URL.
+  //
+  // Never fall back to generic `photo`, `photoUrl` or `image` fields here:
+  // those can belong to the pilot/profile and can cause the pilot photo to
+  // appear as the drone image.
   if (drone == null) return '';
 
   try {
-    final value = clean(drone.imageUrl);
-    if (value.isNotEmpty) return value;
-  } catch (_) {}
-
-  try {
-    final value = clean(drone.photoUrl);
-    if (value.isNotEmpty) return value;
-  } catch (_) {}
-
-  try {
-    final value = clean(drone.photo);
-    if (value.isNotEmpty) return value;
-  } catch (_) {}
-
-  try {
-    final value = clean(drone.image);
-    if (value.isNotEmpty) return value;
-  } catch (_) {}
-
-  return '';
+    return drone.imageUrl?.toString().trim() ?? '';
+  } catch (_) {
+    return '';
+  }
 }
 
 String _readDynamicCompanyName(dynamic company) {

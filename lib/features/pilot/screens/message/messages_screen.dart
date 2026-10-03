@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
-import 'package:tototl_app/features/chat/screens/chat_inbox_screen.dart';
+import 'package:tototl_app/features/chat/screens/chat_list_screen.dart';
 import 'package:tototl_app/features/chat/screens/chat_screen.dart';
 
 /// Messages entry point used in two ways:

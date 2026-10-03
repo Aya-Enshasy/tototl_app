@@ -26,10 +26,15 @@ class CompanyApplicantDetailScreen extends StatefulWidget {
     super.key,
     required this.jobId,
     required this.application,
+    this.initialJob,
   });
 
   final int jobId;
   final CompanyJobApplicationModel application;
+
+  /// The nested job_posting already returned by GET /company/applicants.
+  /// Passing it avoids a visible second-stage job load when opening details.
+  final CompanyJobPostingModel? initialJob;
 
   @override
   State<CompanyApplicantDetailScreen> createState() =>
@@ -39,7 +44,7 @@ class CompanyApplicantDetailScreen extends StatefulWidget {
 class _CompanyApplicantDetailScreenState
     extends State<CompanyApplicantDetailScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_applicant_detail_v7_';
+  static const String _cachePrefix = 'company_applicant_detail_v10_';
 
   late final CompanyJobService _jobService;
   late final CompanyJobController _controller;
@@ -86,9 +91,10 @@ class _CompanyApplicantDetailScreenState
     _contractController = CompanyContractController(_contractService);
 
     _application = widget.application;
+    _job = widget.initialJob;
     _pilot = widget.application.pilotProfile;
     _committedDrone = widget.application.drone;
-    _credentials = widget.application.pilotProfile?.licenses ?? const [];
+    _credentials = const <CompanyPilotCredentialModel>[];
 
     unawaited(_bootstrap());
   }
@@ -182,9 +188,6 @@ class _CompanyApplicantDetailScreenState
 
           if (cachedCredentialModels.isNotEmpty) {
             _credentials = cachedCredentialModels;
-          } else if (_credentials.isEmpty &&
-              cachedPilot?.licenses.isNotEmpty == true) {
-            _credentials = cachedPilot!.licenses;
           }
 
           _cacheReadFinished = true;
@@ -212,7 +215,7 @@ class _CompanyApplicantDetailScreenState
       await _storage.write(
         key: key,
         value: jsonEncode({
-          'version': 7,
+          'version': 10,
           'saved_at': DateTime.now().toIso8601String(),
           'application': enrichedApplication.toJson(),
           'credentials': _credentials.map((item) => item.toJson()).toList(),
@@ -226,141 +229,276 @@ class _CompanyApplicantDetailScreenState
   // BACKGROUND REFRESH
   // ==========================================================================
 
+  Future<CompanyJobPostingModel?> _loadJobSafely() async {
+    final initial = _job;
+
+    if (initial != null) {
+      // The /company/applicants response already returned the job_posting.
+      // It is enough for the first render.
+      return initial;
+    }
+
+    try {
+      return await _jobService.getJobDetails(
+        widget.jobId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _precacheCoreImages({
+    required CompanyJobPostingModel? job,
+    required CompanyApplicantPilotModel? pilot,
+    required CompanyApplicantDroneModel? drone,
+  }) async {
+    if (!mounted) return;
+
+    final urls = <String>{
+      if (pilot?.profilePhoto.trim().isNotEmpty == true)
+        pilot!.profilePhoto.trim(),
+      if (drone?.imageUrl.trim().isNotEmpty == true)
+        drone!.imageUrl.trim(),
+      if (_referenceJobImage(job).trim().isNotEmpty)
+        _referenceJobImage(job).trim(),
+    };
+
+    await Future.wait(
+      urls.map((url) async {
+        try {
+          await precacheImage(NetworkImage(url), context);
+        } catch (_) {}
+      }),
+    );
+  }
+
   Future<void> _refreshInBackground() async {
     if (_backgroundRefreshing) return;
 
     _backgroundRefreshing = true;
+
     if (mounted) {
-      setState(() => _backgroundError = null);
+      setState(() {
+        _backgroundError = null;
+      });
     }
 
     try {
-      CompanyJobPostingModel? freshJob;
-      try {
-        freshJob = await _jobService.getJobDetails(widget.jobId);
-      } catch (_) {
-        // Applicant details remain usable even if the job detail request fails.
+      // ----------------------------------------------------------------------
+      // GET /company/applicants already gave us:
+      // - pilot_profile (name/photo/location/experience)
+      // - drone (make/model/specs)
+      // - job_posting
+      //
+      // So we do NOT call job-specific applicants again here. That endpoint is
+      // unnecessary for the first render and can return [] even though the
+      // all-company applicants response already contains this application.
+      // ----------------------------------------------------------------------
+
+      final freshJobFuture =
+      _loadJobSafely();
+
+      Future<CompanyContractModel?>? contractFuture;
+
+      if (_application.isAccepted) {
+        final contractJobId =
+        _application.jobPostingId > 0
+            ? _application.jobPostingId
+            : widget.jobId;
+
+        contractFuture =
+            _contractController
+                .loadExistingContract(
+              applicationId: _application.id,
+              jobId: contractJobId,
+            );
       }
 
-      // The applicants endpoint now returns the pilot name/photo, licenses and
-      // committed drone. Use that response first, then call the older support
-      // endpoints only when a relation is actually missing.
-      final applicationSuccess = await _controller.loadApplicants(widget.jobId);
-      if (!mounted) return;
+      CompanyApplicantPilotModel? resolvedPilot =
+          _pilot ??
+              _application.pilotProfile;
 
-      CompanyJobApplicationModel? freshApplication;
-      if (applicationSuccess) {
-        for (final item in _controller.applicants) {
-          if (item.id == _application.id) {
-            freshApplication = item;
-            break;
-          }
-        }
-      }
+      CompanyApplicantDroneModel? resolvedDrone =
+          _committedDrone ??
+              _application.drone;
 
-      final nestedPilot = freshApplication?.pilotProfile;
-      CompanyApplicantPilotModel? resolvedPilot = _pilot;
-      if (nestedPilot != null) {
-        resolvedPilot = resolvedPilot == null
-            ? nestedPilot
-            : resolvedPilot.mergeWith(nestedPilot);
-      }
-
-      var resolvedCredentials = <CompanyPilotCredentialModel>[
+      var resolvedCredentials =
+      <CompanyPilotCredentialModel>[
         ..._credentials,
       ];
-      if (nestedPilot?.licenses.isNotEmpty == true) {
-        resolvedCredentials = nestedPilot!.licenses;
-      } else if (resolvedCredentials.isEmpty &&
-          resolvedPilot?.licenses.isNotEmpty == true) {
-        resolvedCredentials = resolvedPilot!.licenses;
-      }
-
-      var resolvedDrone = _preferRicherDrone(
-        current: _committedDrone,
-        incoming: freshApplication?.drone,
-      );
 
       final errorParts = <String>[];
-      if (!applicationSuccess) {
-        final value = _controller.applicantsErrorMessage?.trim() ?? '';
-        if (value.isNotEmpty) errorParts.add(value);
-      }
 
-      if (resolvedPilot == null) {
-        final pilotSuccess = await _controller.loadApplicantPilotProfile(
-          _application.pilotProfileId,
+      // The response you supplied contains pilot profile photo/name directly,
+      // so only enrich the pilot if those actual display fields are missing.
+      final pilotNeedsEnrichment =
+          resolvedPilot == null ||
+              resolvedPilot.displayName.trim().isEmpty ||
+              resolvedPilot.profilePhoto.trim().isEmpty;
+
+      // The supplied /company/applicants response contains NO drone image URL.
+      // Therefore image enrichment must come from the pilot-drones endpoint.
+      final droneNeedsEnrichment =
+          resolvedDrone == null ||
+              resolvedDrone.displayName.trim().isEmpty ||
+              resolvedDrone.imageUrl.trim().isEmpty;
+
+      bool? pilotSuccess;
+      bool? credentialsSuccess;
+      bool? dronesSuccess;
+
+      final supportRequests =
+      <Future<void>>[];
+
+      if (pilotNeedsEnrichment) {
+        supportRequests.add(
+          _controller
+              .loadApplicantPilotProfile(
+            _application.pilotProfileId,
+          )
+              .then(
+                (value) =>
+            pilotSuccess = value,
+          ),
         );
-        if (!mounted) return;
-
-        final freshPilot = pilotSuccess
-            ? _controller.applicantPilotProfile
-            : null;
-        if (freshPilot != null) {
-          resolvedPilot = freshPilot;
-          if (resolvedCredentials.isEmpty && freshPilot.licenses.isNotEmpty) {
-            resolvedCredentials = freshPilot.licenses;
-          }
-        } else if (!pilotSuccess) {
-          final value =
-              _controller.applicantPilotProfileErrorMessage?.trim() ?? '';
-          if (value.isNotEmpty) errorParts.add(value);
-        }
       }
 
       if (resolvedCredentials.isEmpty) {
-        final credentialsSuccess = await _controller.loadApplicantCredentials(
-          _application.pilotProfileId,
+        supportRequests.add(
+          _controller
+              .loadApplicantCredentials(
+            _application.pilotProfileId,
+          )
+              .then(
+                (value) =>
+            credentialsSuccess = value,
+          ),
         );
-        if (!mounted) return;
-
-        if (credentialsSuccess) {
-          resolvedCredentials = _controller.applicantCredentials;
-        } else {
-          final value =
-              _controller.applicantCredentialsErrorMessage?.trim() ?? '';
-          if (value.isNotEmpty) errorParts.add(value);
-        }
       }
 
-      if (resolvedDrone == null) {
-        final dronesSuccess = await _controller.loadApplicantDrones(
-          pilotProfileId: _application.pilotProfileId,
-          committedDroneId: _application.droneId,
+      if (droneNeedsEnrichment) {
+        supportRequests.add(
+          _controller
+              .loadApplicantDrones(
+            pilotProfileId:
+            _application.pilotProfileId,
+            committedDroneId:
+            _application.droneId,
+          )
+              .then(
+                (value) =>
+            dronesSuccess = value,
+          ),
         );
-        if (!mounted) return;
+      }
 
-        if (dronesSuccess) {
-          resolvedDrone = _preferRicherDrone(
-            current: resolvedDrone,
-            incoming: _controller.committedApplicantDrone,
+      // Start job/contract/support work together.
+      final freshJob = await freshJobFuture;
+
+      if (supportRequests.isNotEmpty) {
+        await Future.wait(
+          supportRequests,
+        );
+      }
+
+      if (!mounted) return;
+
+      if (pilotSuccess == true) {
+        final freshPilot =
+            _controller.applicantPilotProfile;
+
+        if (freshPilot != null) {
+          resolvedPilot =
+          resolvedPilot == null
+              ? freshPilot
+              : resolvedPilot.mergeWith(
+            freshPilot,
           );
-        } else {
-          final value =
-              _controller.applicantDronesErrorMessage?.trim() ?? '';
-          if (value.isNotEmpty) errorParts.add(value);
+
+        }
+      } else if (pilotSuccess == false) {
+        final value =
+            _controller
+                .applicantPilotProfileErrorMessage
+                ?.trim() ??
+                '';
+
+        if (value.isNotEmpty) {
+          errorParts.add(value);
         }
       }
 
-      CompanyContractModel? serverContract = _createdContract;
+      if (credentialsSuccess == true) {
+        resolvedCredentials =
+            _controller.applicantCredentials;
+      } else if (credentialsSuccess ==
+          false) {
+        final value =
+            _controller
+                .applicantCredentialsErrorMessage
+                ?.trim() ??
+                '';
+
+        if (value.isNotEmpty) {
+          errorParts.add(value);
+        }
+      }
+
+      if (dronesSuccess == true) {
+        final fullDrone =
+            _controller
+                .committedApplicantDrone;
+
+        if (fullDrone != null) {
+          // The dedicated pilot-drones response is authoritative for the
+          // committed drone image. Do not prefer the image-less nested drone
+          // just because it has more scalar fields.
+          resolvedDrone =
+              _mergeDroneKeepingRealImage(
+                base: resolvedDrone,
+                full: fullDrone,
+              );
+        }
+      } else if (dronesSuccess == false) {
+        final value =
+            _controller
+                .applicantDronesErrorMessage
+                ?.trim() ??
+                '';
+
+        if (value.isNotEmpty) {
+          errorParts.add(value);
+        }
+      }
+
+      CompanyContractModel? serverContract =
+          _createdContract;
+
       String? contractLookupError;
-      final applicationForContractCheck = freshApplication ?? _application;
 
-      if (applicationForContractCheck.isAccepted) {
-        final contractJobId = applicationForContractCheck.jobPostingId > 0
-            ? applicationForContractCheck.jobPostingId
-            : widget.jobId;
+      if (_application.isAccepted) {
+        serverContract =
+        contractFuture == null
+            ? _createdContract
+            : await contractFuture;
 
-        serverContract = await _contractController.loadExistingContract(
-          applicationId: applicationForContractCheck.id,
-          jobId: contractJobId,
-        );
         contractLookupError =
-            _contractController.existingContractErrorMessage;
+            _contractController
+                .existingContractErrorMessage;
       } else {
         serverContract = null;
-        _contractController.clearApplicationContract();
+        _contractController
+            .clearApplicationContract();
       }
+
+      if (!mounted) return;
+
+      // Keep the shimmer until the important images are actually decoded.
+      await _precacheCoreImages(
+        job: freshJob ?? _job,
+        pilot: resolvedPilot,
+        drone: resolvedDrone,
+      );
 
       if (!mounted) return;
 
@@ -369,33 +507,112 @@ class _CompanyApplicantDetailScreenState
           _job = freshJob;
         }
 
-        final baseApplication = freshApplication ?? _application;
-        _application = baseApplication.copyWith(
-          pilotProfile: resolvedPilot,
-          drone: resolvedDrone,
-        );
-
         _pilot = resolvedPilot;
         _committedDrone = resolvedDrone;
         _credentials = resolvedCredentials;
         _createdContract = serverContract;
         _contractLookupLoading = false;
-        _contractLookupError = contractLookupError;
+        _contractLookupError =
+            contractLookupError;
 
-        _backgroundError = errorParts.isEmpty
+        _application =
+            _application.copyWith(
+              pilotProfile: resolvedPilot,
+              drone: resolvedDrone,
+            );
+
+        _backgroundError =
+        errorParts.isEmpty
             ? null
             : 'Some applicant details could not be refreshed.';
       });
 
-      unawaited(_saveCache());
+      unawaited(
+        _saveCache(),
+      );
     } finally {
       _backgroundRefreshing = false;
       _supportLoadedOnce = true;
-      if (_contractLookupLoading && !_application.isAccepted) {
+
+      if (_contractLookupLoading &&
+          !_application.isAccepted) {
         _contractLookupLoading = false;
       }
-      if (mounted) setState(() {});
+
+      if (mounted) {
+        setState(() {});
+      }
     }
+  }
+
+  CompanyApplicantDroneModel? _mergeDroneKeepingRealImage({
+    required CompanyApplicantDroneModel? base,
+    required CompanyApplicantDroneModel full,
+  }) {
+    if (base == null) {
+      return full;
+    }
+
+    // If the dedicated drone endpoint has a real image, never lose it while
+    // preserving the richer scalar details already returned by
+    // /company/applicants.
+    final image =
+    full.imageUrl.trim().isNotEmpty
+        ? full.imageUrl.trim()
+        : base.imageUrl.trim();
+
+    return CompanyApplicantDroneModel(
+      id: full.id != 0 ? full.id : base.id,
+      pilotProfileId:
+      full.pilotProfileId ??
+          base.pilotProfileId,
+      make: full.make.trim().isNotEmpty
+          ? full.make
+          : base.make,
+      model: full.model.trim().isNotEmpty
+          ? full.model
+          : base.model,
+      manufactureYear:
+      full.manufactureYear ??
+          base.manufactureYear,
+      serialNumber:
+      full.serialNumber.trim().isNotEmpty
+          ? full.serialNumber
+          : base.serialNumber,
+      weightKg:
+      full.weightKg ??
+          base.weightKg,
+      capabilities:
+      full.capabilities.isNotEmpty
+          ? full.capabilities
+          : base.capabilities,
+      flightTimePerBatteryMinutes:
+      full.flightTimePerBatteryMinutes ??
+          base.flightTimePerBatteryMinutes,
+      chargingTimeMinutes:
+      full.chargingTimeMinutes ??
+          base.chargingTimeMinutes,
+      totalBatteries:
+      full.totalBatteries ??
+          base.totalBatteries,
+      batteryType:
+      full.batteryType.trim().isNotEmpty
+          ? full.batteryType
+          : base.batteryType,
+      batteryUsageFee:
+      full.batteryUsageFee ??
+          base.batteryUsageFee,
+      hourlyRate:
+      full.hourlyRate ??
+          base.hourlyRate,
+      dailyRate:
+      full.dailyRate ??
+          base.dailyRate,
+      emergencyCalloutFee:
+      full.emergencyCalloutFee ??
+          base.emergencyCalloutFee,
+      imageUrl: image,
+    );
   }
 
   CompanyApplicantDroneModel? _preferRicherDrone({
@@ -634,6 +851,11 @@ class _CompanyApplicantDetailScreenState
           builder: (_) => CompanyContractDetailScreen(
             contractId: contract.id,
             initialContract: contract,
+            initialJob: _job,
+            initialApplication: _application.copyWith(
+              pilotProfile: _pilot,
+              drone: _committedDrone,
+            ),
           ),
         ),
       );
@@ -893,17 +1115,16 @@ class _CompanyApplicantDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final hasImmediateData = _cacheReadFinished ||
-        _pilot != null ||
-        _committedDrone != null ||
-        widget.application.id > 0;
+    final initialReady =
+        _cacheReadFinished &&
+            _supportLoadedOnce;
 
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FBFC),
         body: SafeArea(
-          child: !hasImmediateData
+          child: !initialReady
               ? const _ApplicantDetailShimmer()
               : Column(
             children: [
@@ -939,7 +1160,9 @@ class _CompanyApplicantDetailScreenState
           ),
         ),
         bottomNavigationBar:
-        _application.isPending ? _referenceBottomActions() : null,
+        initialReady && _application.isPending
+            ? _referenceBottomActions()
+            : null,
       ),
     );
   }
@@ -1315,7 +1538,7 @@ class _CompanyApplicantDetailScreenState
     final job = _job;
     final title = job?.title.trim().isNotEmpty == true
         ? job!.title.trim()
-        : 'Job #${_application.jobPostingId}';
+        : 'Job';
     final location = _referenceJobLocation(job);
     final jobImage = _referenceJobImage(job);
     final cover = _application.coverMessage.trim();
@@ -1391,6 +1614,8 @@ class _CompanyApplicantDetailScreenState
             ],
           ),
           const SizedBox(height: 10),
+          _referenceProposalPilot(),
+          const SizedBox(height: 10),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(11),
@@ -1433,6 +1658,105 @@ class _CompanyApplicantDetailScreenState
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceProposalPilot() {
+    final pilot = _pilot;
+
+    if (pilot == null) {
+      return const _InlineLoadError(
+        icon: Icons.person_outline_rounded,
+        text: 'Pilot information could not be loaded.',
+      );
+    }
+
+    final name = pilot.displayName.trim();
+    final location = pilot.location.trim();
+    final experience = pilot.experienceLabel.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(9, 8, 9, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F8F9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFE0EAED),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 43,
+            height: 43,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFFE6F0F3),
+            ),
+            child: ClipOval(
+              child: pilot.profilePhoto.trim().isNotEmpty
+                  ? Image.network(
+                pilot.profilePhoto.trim(),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) =>
+                    _referencePilotFallback(name),
+              )
+                  : _referencePilotFallback(name),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Proposal from',
+                  style: TextStyle(
+                    color: Color(0xFF81929F),
+                    fontSize: 9.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  name.isEmpty ? 'Pilot' : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 11.7,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (location.isNotEmpty || experience.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (experience.isNotEmpty) experience,
+                      if (location.isNotEmpty) location,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF687E8E),
+                      fontSize: 9.6,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (pilot.verified==true)
+            const Icon(
+              Icons.verified_rounded,
+              size: 14,
+              color: Color(0xFF10A99B),
+            ),
         ],
       ),
     );
@@ -1605,39 +1929,13 @@ class _CompanyApplicantDetailScreenState
       title: 'Selected Equipment',
       icon: Icons.precision_manufacturing_outlined,
       child: drone == null
-          ? Text(
-        'Drone #${_application.droneId}',
-        style: const TextStyle(
-          color: Color(0xFF0A2D46),
-          fontSize: 11.2,
-          fontWeight: FontWeight.w700,
-        ),
-      )
+          ? const _ReferenceEquipmentUnavailable()
           : Row(
         children: [
-          Container(
-            width: 74,
-            height: 48,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F5),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: drone.imageUrl.trim().isNotEmpty
-                ? Image.network(
-              drone.imageUrl.trim(),
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.flight_rounded,
-                color: Color(0xFF0B9EAF),
-                size: 24,
-              ),
-            )
-                : const Icon(
-              Icons.flight_rounded,
-              color: Color(0xFF0B9EAF),
-              size: 24,
-            ),
+          _ReferenceDronePhoto(
+            imageUrl: drone.imageUrl.trim(),
+            width: 82,
+            height: 54,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1657,8 +1955,11 @@ class _CompanyApplicantDetailScreenState
                 const SizedBox(height: 3),
                 Text(
                   drone.capabilities.isEmpty
-                      ? 'No capabilities listed'
-                      : drone.capabilities.take(3).map(_pretty).join(' · '),
+                      ? 'Equipment details loaded'
+                      : drone.capabilities
+                      .take(3)
+                      .map(_pretty)
+                      .join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1755,17 +2056,10 @@ class _CompanyApplicantDetailScreenState
     final drone = _committedDrone;
 
     if (drone == null) {
-      return _ReferenceApplicantCard(
+      return const _ReferenceApplicantCard(
         title: 'Equipment',
         icon: Icons.flight_outlined,
-        child: Text(
-          'Drone #${_application.droneId}',
-          style: const TextStyle(
-            color: Color(0xFF0A2D46),
-            fontSize: 11.2,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        child: _ReferenceEquipmentUnavailable(),
       );
     }
 
@@ -2876,14 +3170,7 @@ class _CompanyApplicantDetailScreenState
       return _section(
         title: AppLanguage.text('Committed Drone'),
         icon: Icons.flight_outlined,
-        child: Text(
-          'Drone #${_application.droneId}',
-          style: const TextStyle(
-            color: AppColors.navy,
-            fontSize: 12.3,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        child: const _ReferenceEquipmentUnavailable(),
       );
     }
 
@@ -2907,28 +3194,10 @@ class _CompanyApplicantDetailScreenState
             ),
             child: Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(13),
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    color: Colors.white,
-                    child: drone.imageUrl.trim().isNotEmpty
-                        ? Image.network(
-                      drone.imageUrl.trim(),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.flight_rounded,
-                        color: AppColors.green,
-                        size: 23,
-                      ),
-                    )
-                        : const Icon(
-                      Icons.flight_rounded,
-                      color: AppColors.green,
-                      size: 23,
-                    ),
-                  ),
+                _ReferenceDronePhoto(
+                  imageUrl: drone.imageUrl.trim(),
+                  width: 62,
+                  height: 54,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2958,24 +3227,7 @@ class _CompanyApplicantDetailScreenState
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '#${drone.id}',
-                    style: const TextStyle(
-                      color: AppColors.green,
-                      fontSize: 10.2,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+
               ],
             ),
           ),
@@ -3666,6 +3918,148 @@ class _CompanyApplicantDetailScreenState
   }
 }
 
+
+class _ReferenceDronePhoto extends StatelessWidget {
+  const _ReferenceDronePhoto({
+    required this.imageUrl,
+    this.width = 82,
+    this.height = 54,
+  });
+
+  final String imageUrl;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl.trim();
+
+    return Container(
+      width: width,
+      height: height,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F4F5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFE0E9EC),
+        ),
+      ),
+      child: url.isEmpty
+          ? const _ReferenceDroneFallback()
+          : Image.network(
+        url,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.high,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const _ReferenceDroneImageShimmer();
+        },
+        errorBuilder: (_, __, ___) =>
+        const _ReferenceDroneFallback(),
+      ),
+    );
+  }
+}
+
+class _ReferenceDroneFallback extends StatelessWidget {
+  const _ReferenceDroneFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF0F7F8),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.flight_rounded,
+        color: Color(0xFF0B9EAF),
+        size: 25,
+      ),
+    );
+  }
+}
+
+class _ReferenceDroneImageShimmer extends StatelessWidget {
+  const _ReferenceDroneImageShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ShimmerAnimator(
+      child: SizedBox.expand(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color(0xFFE8EFF1),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceEquipmentUnavailable extends StatelessWidget {
+  const _ReferenceEquipmentUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        _ReferenceDronePhoto(
+          imageUrl: '',
+          width: 82,
+          height: 54,
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Equipment details are unavailable.',
+            style: TextStyle(
+              color: Color(0xFF687E8E),
+              fontSize: 10.5,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InlineLoadError extends StatelessWidget {
+  const _InlineLoadError({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: const Color(0xFF0B9EAF),
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF687E8E),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _ReferenceApplicantCard extends StatelessWidget {
   const _ReferenceApplicantCard({

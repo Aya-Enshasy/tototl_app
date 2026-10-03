@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // ============================================================================
@@ -9,12 +10,27 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class UserSessionStorage {
   UserSessionStorage._();
 
-  static const FlutterSecureStorage
-  _storage =
+  static const FlutterSecureStorage _storage =
   FlutterSecureStorage();
 
   static const String _sessionKey =
       'user_session';
+
+  // ==========================================================================
+  // SESSION REVISION
+  //
+  // أي تغيير في بيانات المستخدم أو البروفايل أو الصورة
+  // يزيد هذا الرقم.
+  //
+  // الشاشات مثل Company Home تستطيع الاستماع له:
+  //
+  // UserSessionStorage.revision.addListener(...)
+  //
+  // وبذلك تتحدث البيانات فوراً بدون Restart أو Refresh يدوي.
+  // ==========================================================================
+
+  static final ValueNotifier<int> revision =
+  ValueNotifier<int>(0);
 
   // ==========================================================================
   // SAVE SESSION
@@ -48,8 +64,7 @@ class UserSessionStorage {
     try {
       final raw =
       await _storage.read(
-        key:
-        _sessionKey,
+        key: _sessionKey,
       );
 
       if (raw == null ||
@@ -139,6 +154,8 @@ class UserSessionStorage {
 
   // ==========================================================================
   // UPDATE PROFILE
+  //
+  // يستخدم عندما نريد استبدال بيانات البروفايل كاملة.
   // ==========================================================================
 
   static Future<void> updateProfile(
@@ -161,10 +178,16 @@ class UserSessionStorage {
   // ==========================================================================
   // MERGE PROFILE
   //
-  // Important:
-  // GET /company/profile might not return profile_photo.
-  // So we merge the fresh response with the cached profile instead
-  // of deleting fields that already exist locally.
+  // مهم جداً:
+  //
+  // بعض endpoints قد لا ترجع كل حقول البروفايل.
+  //
+  // مثال:
+  // GET /company/profile
+  // ممكن لا يرجع profile_photo أو بعض work_regions.
+  //
+  // لذلك لا نستبدل البروفايل القديم بالكامل.
+  // ندمج الجديد فوق القديم.
   // ==========================================================================
 
   static Future<void> mergeProfile(
@@ -198,7 +221,6 @@ class UserSessionStorage {
     );
   }
 
-
   // ==========================================================================
   // PROFILE PHOTO URL
   // ==========================================================================
@@ -227,8 +249,10 @@ class UserSessionStorage {
     final session =
     await getSession();
 
-    // First:
-    // explicit locally stored photo.
+    // ------------------------------------------------------------------------
+    // 1. الصورة المخزنة مباشرة في session
+    // ------------------------------------------------------------------------
+
     final direct =
     session?['profile_photo_url']
         ?.toString()
@@ -239,20 +263,38 @@ class UserSessionStorage {
       return direct;
     }
 
-    // Second:
-    // photo returned inside profile during registration/login.
+    // ------------------------------------------------------------------------
+    // 2. الصورة الموجودة داخل profile
+    // ------------------------------------------------------------------------
+
     final rawProfile =
     session?['profile'];
 
     if (rawProfile is Map) {
-      final value =
-      rawProfile['profile_photo']
+      final profile =
+      Map<String, dynamic>.from(
+        rawProfile,
+      );
+
+      final profilePhoto =
+      profile['profile_photo']
           ?.toString()
           .trim();
 
-      if (value != null &&
-          value.isNotEmpty) {
-        return value;
+      if (profilePhoto != null &&
+          profilePhoto.isNotEmpty) {
+        return profilePhoto;
+      }
+
+      // بعض responses تستخدم profile_photo_url
+      final alternatePhoto =
+      profile['profile_photo_url']
+          ?.toString()
+          .trim();
+
+      if (alternatePhoto != null &&
+          alternatePhoto.isNotEmpty) {
+        return alternatePhoto;
       }
     }
 
@@ -376,29 +418,47 @@ class UserSessionStorage {
   static Future<void>
   clearSession() async {
     await _storage.delete(
-      key:
-      _sessionKey,
+      key: _sessionKey,
     );
+
+    // حتى أي شاشة تستمع للـsession تعرف أن الحساب تم مسحه.
+    _notifyChanged();
   }
 
   // ==========================================================================
   // PRIVATE WRITE
+  //
+  // جميع عمليات تعديل الـsession تمر من هنا.
+  //
+  // لذلك أي تعديل:
+  // - Login
+  // - Register
+  // - Update profile
+  // - Profile photo
+  // - Account update
+  //
+  // سيؤدي تلقائياً لإشعار الشاشات المستمعة.
   // ==========================================================================
 
   static Future<void> _writeSession(
       Map<String, dynamic> session,
       ) async {
     await _storage.write(
-      key:
-      _sessionKey,
-
-      value:
-      jsonEncode(
+      key: _sessionKey,
+      value: jsonEncode(
         session,
       ),
     );
+
+    _notifyChanged();
   }
 
+  // ==========================================================================
+  // NOTIFY
+  // ==========================================================================
 
-
+  static void _notifyChanged() {
+    revision.value =
+        revision.value + 1;
+  }
 }

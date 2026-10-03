@@ -1,208 +1,105 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
-import 'package:tototl_app/core/storage/user_session_storage.dart';
-import 'package:tototl_app/core/localization/app_language.dart';
 
-class HomeHeader extends StatefulWidget {
+class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
+    required this.name,
+    required this.photoUrl,
+    required this.verified,
     required this.onNotificationsTap,
     this.unreadNotifications = 0,
   });
 
+  final String name;
+  final String photoUrl;
+  final bool verified;
   final VoidCallback onNotificationsTap;
   final int unreadNotifications;
 
-  @override
-  State<HomeHeader> createState() => _HomeHeaderState();
-}
-
-class _HomeHeaderState extends State<HomeHeader>
-    with SingleTickerProviderStateMixin {
-  static _HeaderData? _memoryData;
-
-  late final AnimationController _shimmerController;
-
-  bool _loading = true;
-  String _name = 'Pilot';
-  String _photoUrl = '';
-  String _status = '';
-  int? _experienceYears;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat();
-
-    final memory = _memoryData;
-    if (memory != null) {
-      _applyData(memory, notify: false);
-      _loading = false;
-    }
-
-    // Even when memory exists, refresh it quietly from the persisted session so
-    // profile/status edits are reflected without forcing a network request.
-    _loadLocalProfile();
-  }
-
-  @override
-  void dispose() {
-    _shimmerController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadLocalProfile() async {
-    // One secure-storage read only. The previous implementation called several
-    // getters that each read the same session again.
-    final session = await UserSessionStorage.getSession();
-
-    final data = _HeaderData.fromSession(session);
-    _memoryData = data;
-
-    if (!mounted) return;
-
-    setState(() {
-      _applyData(data, notify: false);
-      _loading = false;
-    });
-  }
-
-  void _applyData(
-      _HeaderData data, {
-        required bool notify,
-      }) {
-    _name = data.name;
-    _photoUrl = data.photoUrl;
-    _status = data.status;
-    _experienceYears = data.experienceYears;
-
-    if (notify && mounted) {
-      setState(() {});
-    }
-  }
-
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return AppLanguage.text('Good morning');
-    if (hour < 17) return AppLanguage.text('Good afternoon');
-    return AppLanguage.text('Good evening');
-  }
 
-  bool get _isVerified {
-    final value = _status.toLowerCase();
-    return value == 'active' ||
-        value == 'approved' ||
-        value == 'verified';
-  }
+    if (hour < 12) {
+      return 'Good morning';
+    }
 
-  String? get _experienceLabel {
-    final years = _experienceYears;
-    if (years == null) return null;
-    if (years <= 0) return 'New pilot';
-    if (years == 1) return '1 year experience';
-    return '$years years experience';
+    if (hour < 17) {
+      return 'Good afternoon';
+    }
+
+    return 'Good evening';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return _HeaderShimmer(
-        controller: _shimmerController,
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(1, 4, 1, 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _Avatar(
-            name: _name,
-            photoUrl: _photoUrl,
-            verified: _isVerified,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_greeting()},',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.grey.withOpacity(0.86),
-                    fontSize: 11.7,
-                    height: 1.1,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.04,
-                  ),
+    return Row(
+      crossAxisAlignment:
+      CrossAxisAlignment.center,
+      children: [
+        _PilotAvatar(
+          name: name,
+          photoUrl: photoUrl,
+          verified: verified,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_greeting()},',
+                maxLines: 1,
+                overflow:
+                TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF7F8FA3),
+                  fontSize: 10.2,
+                  height: 1.05,
+                  fontWeight:
+                  FontWeight.w600,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 20.5,
-                    height: 1.04,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.55,
-                  ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                name.trim().isEmpty
+                    ? 'Pilot'
+                    : name.trim(),
+                maxLines: 1,
+                overflow:
+                TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0A2D46),
+                  fontSize: 16,
+                  height: 1.05,
+                  fontWeight:
+                  FontWeight.w900,
+                  letterSpacing: -.25,
                 ),
-                if (_experienceLabel != null) ...[
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.workspace_premium_outlined,
-                        size: 12.5,
-                        color: AppColors.logoTurquoiseDark.withOpacity(0.82),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _experienceLabel!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.grey.withOpacity(0.92),
-                            fontSize: 10.4,
-                            height: 1.15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          _NotificationButton(
-            unreadCount: widget.unreadNotifications,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              widget.onNotificationsTap();
-            },
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 10),
+        _NotificationButton(
+          unreadCount:
+          unreadNotifications,
+          onTap: () {
+            HapticFeedback
+                .selectionClick();
+            onNotificationsTap();
+          },
+        ),
+      ],
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({
+class _PilotAvatar extends StatelessWidget {
+  const _PilotAvatar({
     required this.name,
     required this.photoUrl,
     required this.verified,
@@ -215,11 +112,13 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cleanName = name.trim();
-    final initial = cleanName.isEmpty ? 'P' : cleanName[0].toUpperCase();
+    final initial = cleanName.isEmpty
+        ? 'P'
+        : cleanName[0].toUpperCase();
 
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: 63,
+      height: 63,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -227,42 +126,63 @@ class _Avatar extends StatelessWidget {
             left: 0,
             top: 1,
             child: Container(
-              width: 59,
-              height: 59,
-              padding: const EdgeInsets.all(2),
+              width: 58,
+              height: 58,
+              padding:
+              const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
+                gradient:
+                const LinearGradient(
                   begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  end:
+                  Alignment.bottomRight,
                   colors: [
-                    Color(0xFF16C6C7),
-                    Color(0xFF087F99),
+                    Color(0xFF15C1C3),
+                    Color(0xFF087D98),
                   ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0E9BAA).withOpacity(0.14),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+                    color:
+                    const Color(
+                        0xFF0D98A8)
+                        .withOpacity(.12),
+                    blurRadius: 13,
+                    offset:
+                    const Offset(0, 4),
                   ),
                 ],
               ),
               child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
+                padding:
+                const EdgeInsets.all(
+                    2),
+                decoration:
+                const BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
                 child: ClipOval(
-                  child: photoUrl.isEmpty
-                      ? _AvatarFallback(initial: initial)
-                      : Image.network(
-                    photoUrl,
+                  child: photoUrl
+                      .trim()
+                      .isNotEmpty
+                      ? Image.network(
+                    photoUrl.trim(),
                     fit: BoxFit.cover,
-                    filterQuality: FilterQuality.medium,
-                    errorBuilder: (_, __, ___) =>
-                        _AvatarFallback(initial: initial),
+                    gaplessPlayback: true,
+                    filterQuality:
+                    FilterQuality
+                        .medium,
+                    errorBuilder:
+                        (_, __, ___) =>
+                        _AvatarFallback(
+                          initial:
+                          initial,
+                        ),
+                  )
+                      : _AvatarFallback(
+                    initial: initial,
                   ),
                 ),
               ),
@@ -270,147 +190,37 @@ class _Avatar extends StatelessWidget {
           ),
           Positioned(
             right: 0,
-            bottom: 2,
-            child: Tooltip(
-              message: verified ? 'Verified pilot' : 'Verification pending',
-              child: _VerificationBadge(
-                verified: verified,
+            bottom: 1,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                    const Color(
+                        0xFF0B91A8)
+                        .withOpacity(.18),
+                    blurRadius: 7,
+                    offset:
+                    const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.verified_rounded,
+                size: 19,
+                color: verified
+                    ? const Color(
+                    0xFF0799AC)
+                    : const Color(
+                    0xFFACBAC2),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _VerificationBadge extends StatelessWidget {
-  const _VerificationBadge({
-    required this.verified,
-  });
-
-  final bool verified;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = verified
-        ? AppColors.logoTurquoiseDark
-        : const Color(0xFFAAB6C2);
-
-    return Container(
-      width: 23,
-      height: 23,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(verified ? 0.22 : 0.12),
-            blurRadius: 9,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Icon(
-        Icons.verified_rounded,
-        color: color,
-        size: 20,
-      ),
-    );
-  }
-}
-
-class _NotificationButton extends StatelessWidget {
-  const _NotificationButton({
-    required this.unreadCount,
-    required this.onTap,
-  });
-
-  final int unreadCount;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasUnread = unreadCount > 0;
-
-    return Semantics(
-      button: true,
-      label: hasUnread
-          ? 'Notifications, $unreadCount unread'
-          : 'Notifications',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(15),
-          child: Ink(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: AppColors.cardBorder.withOpacity(0.95),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.navy.withOpacity(0.045),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Center(
-                  child: Icon(
-                    Icons.notifications_none_rounded,
-                    color: AppColors.navy,
-                    size: 21,
-                  ),
-                ),
-                if (hasUnread)
-                  Positioned(
-                    right: 7,
-                    top: 7,
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 9,
-                        minHeight: 9,
-                      ),
-                      padding: unreadCount > 9
-                          ? const EdgeInsets.symmetric(
-                        horizontal: 3,
-                        vertical: 1,
-                      )
-                          : EdgeInsets.zero,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE95454),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 1.4,
-                        ),
-                      ),
-                      child: unreadCount > 9
-                          ? Text(
-                        unreadCount > 99 ? '99+' : '$unreadCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 6.8,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      )
-                          : null,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -427,13 +237,14 @@ class _AvatarFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
+      decoration:
+      const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFEAFBFB),
-            Color(0xFFE9F2F7),
+            Color(0xFFF0FBFB),
+            Color(0xFFEAF3F6),
           ],
         ),
       ),
@@ -441,7 +252,7 @@ class _AvatarFallback extends StatelessWidget {
         initial,
         style: const TextStyle(
           color: AppColors.logoTurquoiseDark,
-          fontSize: 21,
+          fontSize: 18,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -449,167 +260,78 @@ class _AvatarFallback extends StatelessWidget {
   }
 }
 
-class _HeaderShimmer extends StatelessWidget {
-  const _HeaderShimmer({
-    required this.controller,
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({
+    required this.unreadCount,
+    required this.onTap,
   });
 
-  final AnimationController controller;
+  final int unreadCount;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final t = controller.value;
-
-        Widget glow({
-          required double width,
-          required double height,
-          required double radius,
-        }) {
-          return Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
-              gradient: LinearGradient(
-                begin: Alignment(-1.8 + (3.6 * t), 0),
-                end: Alignment(-0.8 + (3.6 * t), 0),
-                colors: const [
-                  Color(0xFFF0F4F6),
-                  Color(0xFFF9FBFC),
-                  Color(0xFFE7F0F3),
-                  Color(0xFFF9FBFC),
-                  Color(0xFFF0F4F6),
-                ],
-              ),
+    return Material(
+      color: Colors.white,
+      borderRadius:
+      BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+        BorderRadius.circular(14),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius:
+            BorderRadius.circular(14),
+            border: Border.all(
+              color:
+              const Color(0xFFDDE7EB),
             ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(1, 4, 1, 7),
-          child: Row(
-            children: [
-              glow(
-                width: 59,
-                height: 59,
-                radius: 30,
-              ),
-              const SizedBox(width: 17),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    glow(
-                      width: 92,
-                      height: 9,
-                      radius: 6,
-                    ),
-                    const SizedBox(height: 8),
-                    glow(
-                      width: 145,
-                      height: 18,
-                      radius: 7,
-                    ),
-                    const SizedBox(height: 7),
-                    glow(
-                      width: 104,
-                      height: 9,
-                      radius: 5,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              glow(
-                width: 44,
-                height: 44,
-                radius: 15,
+            boxShadow: [
+              BoxShadow(
+                color:
+                const Color(0xFF0A2D46)
+                    .withOpacity(.035),
+                blurRadius: 13,
+                offset:
+                const Offset(0, 5),
               ),
             ],
           ),
-        );
-      },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Center(
+                child: Icon(
+                  Icons
+                      .notifications_none_rounded,
+                  color:
+                  Color(0xFF0A2D46),
+                  size: 20,
+                ),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 7,
+                  top: 7,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration:
+                    const BoxDecoration(
+                      color:
+                      Color(0xFFE95656),
+                      shape:
+                      BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
-
-class _HeaderData {
-  const _HeaderData({
-    required this.name,
-    required this.photoUrl,
-    required this.status,
-    required this.experienceYears,
-  });
-
-  final String name;
-  final String photoUrl;
-  final String status;
-  final int? experienceYears;
-
-  factory _HeaderData.fromSession(Map<String, dynamic>? rawSession) {
-    final session = rawSession ?? const <String, dynamic>{};
-
-    final user = session['user'] is Map
-        ? Map<String, dynamic>.from(session['user'] as Map)
-        : <String, dynamic>{};
-
-    final profile = session['profile'] is Map
-        ? Map<String, dynamic>.from(session['profile'] as Map)
-        : <String, dynamic>{};
-
-    Map<String, dynamic> nestedPilotProfile = <String, dynamic>{};
-
-    final directPilotProfile = session['pilot_profile'];
-    if (directPilotProfile is Map) {
-      nestedPilotProfile = Map<String, dynamic>.from(directPilotProfile);
-    } else if (user['pilot_profile'] is Map) {
-      nestedPilotProfile =
-      Map<String, dynamic>.from(user['pilot_profile'] as Map);
-    }
-
-    final name = _clean(user['name']);
-    final status = _clean(user['status']);
-
-    final photo = _firstNonEmpty([
-      session['profile_photo_url'],
-      profile['profile_photo_url'],
-      profile['profile_photo'],
-      profile['photo_url'],
-      user['profile_photo_url'],
-    ]);
-
-    final experience = _toInt(
-      profile['experience_years'] ??
-          nestedPilotProfile['experience_years'],
-    );
-
-    return _HeaderData(
-      name: name.isEmpty ? 'Pilot' : name,
-      photoUrl: photo,
-      status: status,
-      experienceYears: experience,
-    );
-  }
-
-  static String _clean(dynamic value) {
-    return value?.toString().trim() ?? '';
-  }
-
-  static String _firstNonEmpty(List<dynamic> values) {
-    for (final value in values) {
-      final clean = _clean(value);
-      if (clean.isNotEmpty) return clean;
-    }
-    return '';
-  }
-
-  static int? _toInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    return int.tryParse(value.toString());
-  }
-}
-

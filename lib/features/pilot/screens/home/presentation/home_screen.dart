@@ -1,34 +1,24 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
+import 'package:tototl_app/core/storage/user_session_storage.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/pilot/controllers/pilot_home_controller.dart';
-import 'package:tototl_app/features/pilot/models/pilot_availability_preference.dart';
 import 'package:tototl_app/features/pilot/models/pilot_home_snapshot.dart';
 import 'package:tototl_app/features/pilot/screens/applications/application_details_screen.dart';
 import 'package:tototl_app/features/pilot/screens/applications/applications_screen.dart';
-import 'package:tototl_app/features/pilot/screens/home/widgets/availability_card.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/home_header.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/my_drone_card.dart';
 import 'package:tototl_app/features/pilot/screens/home/widgets/recent_applications_section.dart';
 import 'package:tototl_app/features/pilot/screens/jobs/jobs_screen.dart';
- import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
-import 'package:tototl_app/features/pilot/services/pilot_availability_local_store.dart';
+import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
 
-import '../../../../shared/screens/phase3_overview_card.dart';
 import '../../../services/drone_service.dart';
 import '../../drones/my_drones_screen.dart';
 import '../../notification/NotificationsScreen.dart';
-import 'package:tototl_app/core/localization/app_language.dart';
-
-import 'package:tototl_app/features/payments/screens/payment_history_screen.dart';
-import 'package:tototl_app/features/payments/services/payment_service.dart';
-import 'package:tototl_app/features/pilot/screens/contract/pilot_contracts_screen.dart';
-import 'package:tototl_app/features/shared/models/phase3_account_summary.dart';
-import 'package:tototl_app/features/shared/services/phase3_dashboard_service.dart';
- import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
+import '../../contract/pilot_contracts_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,115 +30,37 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final PilotHomeController _controller;
+  late final ApiClient _apiClient;
   late final AnimationController _entranceController;
-  late final Phase3DashboardService _phase3Service;
 
-  Phase3AccountSummary _phase3Summary = const Phase3AccountSummary();
-  bool _phase3Loading = true;
-  bool _phase3HasSnapshot = false;
-  String? _phase3Error;
+  bool _initialHydrationComplete = false;
+  bool _refreshing = false;
 
-  PilotAvailabilityPreference _availability =
-  const PilotAvailabilityPreference();
+  String _pilotName = 'Pilot';
+  String _pilotPhoto = '';
+  bool _pilotVerified = false;
+
+  _PilotDashboardSnapshot _dashboard =
+  const _PilotDashboardSnapshot();
+  String? _dashboardError;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = PilotHomeController(
-      applicationService: PilotApplicationService(ApiClient()),
-      droneService: DroneService(ApiClient()),
-    );
+    _apiClient = ApiClient();
 
-    _phase3Service = Phase3DashboardService(
-      ApiClient(),
-      audience: Phase3DashboardAudience.pilot,
+    _controller = PilotHomeController(
+      applicationService: PilotApplicationService(_apiClient),
+      droneService: DroneService(_apiClient),
     );
 
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 620),
+      duration: const Duration(milliseconds: 540),
     );
 
-    // IMPORTANT: do not wait for API/bootstrap before showing the page.
-    // On a true first use the skeletons appear immediately; on later uses the
-    // controllers swaps them for cached data as soon as local storage responds.
-    _entranceController.forward();
-    unawaited(_bootstrap());
-    unawaited(_loadPhase3());
-  }
-
-  Future<void> _loadPhase3() async {
-    if (_phase3Loading && _phase3HasSnapshot) return;
-
-    if (mounted) {
-      setState(() {
-        _phase3Loading = true;
-        _phase3Error = null;
-      });
-    }
-
-    try {
-      final overview = await _phase3Service.getOverview();
-      if (!mounted) return;
-      setState(() {
-        _phase3Summary = overview;
-        _phase3HasSnapshot = true;
-        _phase3Error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _phase3Error = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _phase3Loading = false);
-      }
-    }
-  }
-
-  Future<void> _openPhase3Contracts() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PilotContractsScreen()),
-    );
-    if (mounted) unawaited(_loadPhase3());
-  }
-
-  Future<void> _openPhase3Payments() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const PaymentHistoryScreen(
-          audience: PaymentAudience.pilot,
-        ),
-      ),
-    );
-    if (mounted) unawaited(_loadPhase3());
-  }
-
-  Future<void> _openSubscriptionCenter() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SubscriptionCenterScreen()),
-    );
-    if (mounted) unawaited(_loadPhase3());
-  }
-
-  Future<void> _bootstrap() async {
-    // Start Home cache/network orchestration and availability disk read together.
-    final homeFuture = _controller.bootstrap();
-    final availabilityFuture = PilotAvailabilityLocalStore.read();
-
-    try {
-      final availability = await availabilityFuture;
-      if (mounted) {
-        setState(() => _availability = availability);
-      }
-    } catch (_) {
-      // Availability is optional Home metadata. A local read failure must never
-      // keep the dashboard from appearing.
-    }
-
-    await homeFuture;
+    unawaited(_hydrateInitialHome());
   }
 
   @override
@@ -158,12 +70,201 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
+  Future<void> _hydrateInitialHome() async {
+    // Keep the real Home completely hidden until the first authoritative
+    // hydration pass is done. This prevents header/fleet/applications/contracts
+    // from "popping in" after the page is already visible.
+    await Future.wait<void>([
+      _loadPilotIdentity(notify: false),
+      _controller.bootstrap(),
+      _loadDashboard(notify: false),
+    ]);
+
+    // PilotHomeController is local-first: when cache exists bootstrap() starts
+    // its network refresh in the background. Wait for that refresh too.
+    await _waitForHomeControllerIdle();
+
+    await _precacheInitialImages();
+
+    if (!mounted) return;
+
+    setState(() {
+      _initialHydrationComplete = true;
+    });
+
+    _entranceController.forward(from: 0);
+  }
+
+  Future<void> _waitForHomeControllerIdle() async {
+    final deadline = DateTime.now().add(
+      const Duration(seconds: 12),
+    );
+
+    while (mounted &&
+        DateTime.now().isBefore(deadline) &&
+        (_controller.isRefreshing ||
+            _controller.isDronesInitialLoading ||
+            _controller.isApplicationsInitialLoading)) {
+      await Future<void>.delayed(
+        const Duration(milliseconds: 45),
+      );
+    }
+  }
+
+  Future<void> _loadPilotIdentity({
+    required bool notify,
+  }) async {
+    try {
+      final profile = await UserSessionStorage.getProfile();
+      final status = await UserSessionStorage.getStatus();
+      final storedPhoto =
+      await UserSessionStorage.getProfilePhotoUrl();
+
+      final name = profile?['name']?.toString().trim() ?? '';
+      final directPhoto =
+          profile?['profile_photo']?.toString().trim() ?? '';
+      final alternatePhoto =
+          profile?['profile_photo_url']?.toString().trim() ?? '';
+
+      final normalizedStatus =
+          status?.toString().trim().toLowerCase() ?? '';
+
+      _pilotName = name.isEmpty ? 'Pilot' : name;
+      _pilotPhoto = directPhoto.isNotEmpty
+          ? directPhoto
+          : (alternatePhoto.isNotEmpty
+          ? alternatePhoto
+          : (storedPhoto?.trim() ?? ''));
+
+      _pilotVerified = normalizedStatus == 'active' ||
+          normalizedStatus == 'approved' ||
+          normalizedStatus == 'verified';
+
+      if (notify && mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+      // Session identity failure should not block the Home.
+    }
+  }
+
+  Future<void> _loadDashboard({
+    required bool notify,
+  }) async {
+    try {
+      final response =
+      await _apiClient.get('/dashboard');
+
+      final raw = response.data;
+
+      if (raw is! Map) {
+        throw StateError(
+          'Invalid dashboard response.',
+        );
+      }
+
+      final body =
+      Map<String, dynamic>.from(raw);
+
+      if (body['success'] != true) {
+        final message =
+            body['message']?.toString().trim() ?? '';
+
+        throw StateError(
+          message.isEmpty
+              ? 'Unable to load dashboard.'
+              : message,
+        );
+      }
+
+      final rawData = body['data'];
+
+      if (rawData is! Map) {
+        throw StateError(
+          'Dashboard data is missing.',
+        );
+      }
+
+      _dashboard =
+          _PilotDashboardSnapshot.fromJson(
+            Map<String, dynamic>.from(rawData),
+          );
+
+      _dashboardError = null;
+
+      if (notify && mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      _dashboardError = e.toString();
+
+      if (notify && mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  Future<void> _precacheInitialImages() async {
+    if (!mounted) return;
+
+    final snapshot =
+        _controller.snapshot ?? const PilotHomeSnapshot();
+
+    final urls = <String>{
+      if (_pilotPhoto.trim().isNotEmpty) _pilotPhoto.trim(),
+      ...snapshot.drones
+          .take(2)
+          .map((item) => item.imageUrl.trim())
+          .where((url) => url.isNotEmpty),
+      ...snapshot.applications
+          .take(3)
+          .map((item) => item.companyPhoto.trim())
+          .where((url) => url.isNotEmpty),
+    };
+
+    await Future.wait(
+      urls.map((url) async {
+        try {
+          await precacheImage(
+            NetworkImage(url),
+            context,
+          );
+        } catch (_) {
+          // Normal image fallbacks remain available.
+        }
+      }),
+    );
+  }
+
+  Future<void> _refreshHome() async {
+    if (_refreshing) return;
+
+    setState(() => _refreshing = true);
+
+    try {
+      await Future.wait<void>([
+        _controller.forceRefresh(),
+        _loadDashboard(notify: false),
+        _loadPilotIdentity(notify: false),
+      ]);
+
+      await _waitForHomeControllerIdle();
+      await _precacheInitialImages();
+    } finally {
+      if (mounted) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
   Widget _entry({
     required int index,
     required Widget child,
   }) {
-    final start = (index * 0.055).clamp(0.0, 0.34).toDouble();
-    final end = (start + 0.50).clamp(0.0, 1.0).toDouble();
+    final start =
+    (index * .055).clamp(0.0, .32).toDouble();
+    final end =
+    (start + .48).clamp(0.0, 1.0).toDouble();
 
     final animation = CurvedAnimation(
       parent: _entranceController,
@@ -178,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen>
       opacity: animation,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.022),
+          begin: const Offset(0, .018),
           end: Offset.zero,
         ).animate(animation),
         child: child,
@@ -187,6 +288,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _openFleet() async {
+    HapticFeedback.selectionClick();
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const MyDronesScreen(),
@@ -194,13 +297,13 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      // Keep current Home content on-screen. Fresh data arrives silently.
-      unawaited(_controller.forceRefresh());
-      unawaited(_loadPhase3());
+      unawaited(_refreshHome());
     }
   }
 
   Future<void> _openApplications() async {
+    HapticFeedback.selectionClick();
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const ApplicationsScreen(),
@@ -208,11 +311,13 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      unawaited(_controller.forceRefresh());
+      unawaited(_refreshHome());
     }
   }
 
   Future<void> _openJobs() async {
+    HapticFeedback.selectionClick();
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const FindDroneJobsScreen(),
@@ -220,18 +325,31 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      unawaited(_controller.forceRefresh());
+      unawaited(_refreshHome());
+    }
+  }
+
+  Future<void> _openContracts() async {
+    HapticFeedback.selectionClick();
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PilotContractsScreen(),
+      ),
+    );
+
+    if (mounted) {
+      unawaited(_refreshHome());
     }
   }
 
   Future<void> _openApplication(
       PilotHomeApplicationItem application,
       ) async {
-    // Start the authoritative detail request before the route transition. The
-    // Details screen still shows its real loader until that request completes;
-    // no list/cache object is painted as if it were detail data.
     final detailsFuture = _controller.applicationService
         .getApplicationDetailsResult(application.id);
+
+    HapticFeedback.selectionClick();
 
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -243,11 +361,13 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (mounted) {
-      unawaited(_controller.forceRefresh());
+      unawaited(_refreshHome());
     }
   }
 
   Future<void> _openNotifications() async {
+    HapticFeedback.selectionClick();
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const PilotNotificationsScreen(),
@@ -255,123 +375,320 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _editAvailability() async {
-    final result = await showModalBottomSheet<PilotAvailabilityPreference>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.34),
-      builder: (_) => AvailabilityEditorSheet(
-        initial: _availability,
-      ),
-    );
-
-    if (result == null || !mounted) return;
-
-    await PilotAvailabilityLocalStore.write(result);
-
-    if (!mounted) return;
-    setState(() => _availability = result);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: const Color(0xFFF8FBFC),
       body: Stack(
         children: [
-          const _BackgroundDecor(),
+          const _PilotHomeBackground(),
           SafeArea(
-            child: AnimatedBuilder(
+            child: !_initialHydrationComplete
+                ? const _PilotHomeInitialShimmer()
+                : AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
-                final snapshot =
-                    _controller.snapshot ?? const PilotHomeSnapshot();
+                final snapshot = _controller.snapshot ??
+                    const PilotHomeSnapshot();
 
-                return SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 620),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _entry(
-                            index: 0,
-                            child: HomeHeader(
-                              onNotificationsTap: _openNotifications,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_controller.errorMessage != null &&
-                              !_controller.hasAnySnapshot) ...[
-                            _HomeErrorCard(
-                              message: _controller.errorMessage!,
-                              onRetry: _controller.forceRefresh,
-                            ),
-                            const SizedBox(height: 24),
-                          ],
-                          _entry(
-                            index: 1,
-                            child: MyDroneCard(
-                              drones: snapshot.drones,
-                              loading: _controller.isDronesInitialLoading,
-                              errorMessage: !_controller.hasDronesSnapshot
-                                  ? _controller.dronesError
-                                  : null,
-                              onRetry: _controller.forceRefresh,
-                              onOpenFleet: _openFleet,
-                            ),
-                          ),
-                          const SizedBox(height: 26),
-                          _entry(
-                            index: 2,
-                            child: RecentApplicationsSection(
-                              applications: snapshot.applications,
-                              loading:
-                              _controller.isApplicationsInitialLoading,
-                              errorMessage:
-                              !_controller.hasApplicationsSnapshot
-                                  ? _controller.applicationsError
-                                  : null,
-                              onRetry: _controller.forceRefresh,
-                              onSeeAll: _openApplications,
-                              onExploreJobs: _openJobs,
-                              onOpenApplication: _openApplication,
-                            ),
-                          ),
-                          const SizedBox(height: 26),
-                          _entry(
-                            index: 3,
-                            child: Phase3OverviewCard(
-                              audience: Phase3OverviewAudience.pilot,
-                              summary: _phase3Summary,
-                              loading: _phase3Loading,
-                              hasSnapshot: _phase3HasSnapshot,
-                              errorMessage: _phase3Error,
-                              onRetry: _loadPhase3,
-                              onContractsTap: _openPhase3Contracts,
-                              onPaymentsTap: _openPhase3Payments,
-                              onSubscriptionTap: _openSubscriptionCenter,
-                            ),
-                          ),
-                          const SizedBox(height: 26),
-                          _entry(
-                            index: 4,
-                            child: AvailabilityCard(
-                              preference: _availability,
-                              onTap: _editAvailability,
-                            ),
-                          ),
-                        ],
-                      ),
+                return RefreshIndicator(
+                  color:
+                  _PilotHomePalette.teal,
+                  onRefresh: _refreshHome,
+                  child: ListView(
+                    physics:
+                    const AlwaysScrollableScrollPhysics(
+                      parent:
+                      BouncingScrollPhysics(),
                     ),
+                    padding:
+                    const EdgeInsets.fromLTRB(
+                      20,
+                      10,
+                      20,
+                      110,
+                    ),
+                    children: [
+                      _entry(
+                        index: 0,
+                        child: HomeHeader(
+                          name: _pilotName,
+                          photoUrl:
+                          _pilotPhoto,
+                          verified:
+                          _pilotVerified,
+                          onNotificationsTap:
+                          _openNotifications,
+                        ),
+                      ),
+                      const SizedBox(
+                          height: 11),
+
+                      if (_dashboard
+                          .awaitingMyAction >
+                          0) ...[
+                        _entry(
+                          index: 1,
+                          child:
+                          _PilotNextStepSummaryCard(
+                            count: _dashboard
+                                .awaitingMyAction,
+                            onTap:
+                            _openContracts,
+                          ),
+                        ),
+                        const SizedBox(
+                            height: 10),
+                      ],
+
+                      _entry(
+                        index: 2,
+                        child:
+                        _ExploreJobsCard(
+                          onTap: _openJobs,
+                        ),
+                      ),
+
+                      const SizedBox(
+                          height: 10),
+                      _entry(
+                        index: 3,
+                        child:
+                        _PilotMissionActivityCard(
+                          dashboard:
+                          _dashboard,
+                          onTap:
+                          _openContracts,
+                        ),
+                      ),
+
+                      const SizedBox(
+                          height: 10),
+                      _entry(
+                        index: 4,
+                        child: MyDroneCard(
+                          drones:
+                          snapshot.drones,
+                          loading: false,
+                          errorMessage:
+                          !_controller
+                              .hasDronesSnapshot
+                              ? _controller
+                              .dronesError
+                              : null,
+                          onRetry:
+                          _refreshHome,
+                          onOpenFleet:
+                          _openFleet,
+                        ),
+                      ),
+
+                      const SizedBox(
+                          height: 10),
+                      _entry(
+                        index: 5,
+                        child:
+                        RecentApplicationsSection(
+                          applications:
+                          snapshot
+                              .applications,
+                          loading: false,
+                          errorMessage:
+                          !_controller
+                              .hasApplicationsSnapshot
+                              ? _controller
+                              .applicationsError
+                              : null,
+                          onRetry:
+                          _refreshHome,
+                          onSeeAll:
+                          _openApplications,
+                          onExploreJobs:
+                          _openJobs,
+                          onOpenApplication:
+                          _openApplication,
+                        ),
+                      ),
+
+                    ],
                   ),
                 );
               },
+            ),
+          ),
+          if (_refreshing &&
+              _initialHydrationComplete)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child:
+              LinearProgressIndicator(
+                minHeight: 1.5,
+                color:
+                _PilotHomePalette.teal,
+                backgroundColor:
+                Colors.transparent,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _PilotNextStepSummaryCard
+    extends StatelessWidget {
+  const _PilotNextStepSummaryCard({
+    required this.count,
+    required this.onTap,
+  });
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+      const EdgeInsets.fromLTRB(
+        12,
+        11,
+        12,
+        11,
+      ),
+      decoration: BoxDecoration(
+        gradient:
+        const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFFBF1),
+            Color(0xFFFFF7E8),
+          ],
+        ),
+        borderRadius:
+        BorderRadius.circular(17),
+        border: Border.all(
+          color:
+          const Color(0xFFFFDDA3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration:
+                BoxDecoration(
+                  color:
+                  const Color(
+                      0xFFFFF1CF),
+                  borderRadius:
+                  BorderRadius.circular(
+                      11),
+                ),
+                child: const Icon(
+                  Icons
+                      .description_outlined,
+                  color:
+                  Color(0xFFF08A16),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Next step',
+                      style: TextStyle(
+                        color:
+                        Color(0xFFD9790D),
+                        fontSize: 8.7,
+                        fontWeight:
+                        FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Review contract',
+                      style: TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .navy,
+                        fontSize: 12.8,
+                        fontWeight:
+                        FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration:
+                BoxDecoration(
+                  color:
+                  const Color(
+                      0xFFE7F8F3),
+                  borderRadius:
+                  BorderRadius.circular(
+                      20),
+                ),
+                child: Text(
+                  count == 1
+                      ? '1 waiting'
+                      : '$count waiting',
+                  style:
+                  const TextStyle(
+                    color:
+                    Color(0xFF0A987E),
+                    fontSize: 8.6,
+                    fontWeight:
+                    FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          SizedBox(
+            width: double.infinity,
+            height: 35,
+            child: FilledButton(
+              onPressed: onTap,
+              style:
+              FilledButton.styleFrom(
+                elevation: 0,
+                backgroundColor:
+                _PilotHomePalette.teal,
+                foregroundColor:
+                Colors.white,
+                shape:
+                RoundedRectangleBorder(
+                  borderRadius:
+                  BorderRadius.circular(
+                      10),
+                ),
+              ),
+              child: const Text(
+                'Review contract',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight:
+                  FontWeight.w800,
+                ),
+              ),
             ),
           ),
         ],
@@ -380,64 +697,1187 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-class _BackgroundDecor extends StatelessWidget {
-  const _BackgroundDecor();
+class _PilotMissionActivityCard
+    extends StatelessWidget {
+  const _PilotMissionActivityCard({
+    required this.dashboard,
+    required this.onTap,
+  });
+
+  final _PilotDashboardSnapshot dashboard;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeCount =
+        dashboard.activeMissionCount;
+
+    final hasActive =
+        activeCount > 0;
+
+    final title = hasActive
+        ? 'Active mission'
+        : 'Mission activity';
+
+    final primaryText = hasActive
+        ? activeCount == 1
+        ? '1 mission is active'
+        : '$activeCount missions are active'
+        : 'No active mission right now';
+
+    return Material(
+      color: Colors.white,
+      borderRadius:
+      BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+        BorderRadius.circular(17),
+        child: Container(
+          padding:
+          const EdgeInsets.fromLTRB(
+            11,
+            10,
+            10,
+            11,
+          ),
+          decoration: BoxDecoration(
+            borderRadius:
+            BorderRadius.circular(17),
+            border: Border.all(
+              color:
+              _PilotHomePalette.border,
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 31,
+                    height: 31,
+                    decoration:
+                    BoxDecoration(
+                      color:
+                      _PilotHomePalette
+                          .tealSoft,
+                      borderRadius:
+                      BorderRadius.circular(
+                          9),
+                    ),
+                    child: Icon(
+                      hasActive
+                          ? Icons
+                          .flight_takeoff_rounded
+                          : Icons
+                          .task_alt_rounded,
+                      color:
+                      _PilotHomePalette
+                          .tealDark,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style:
+                      const TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .navy,
+                        fontSize: 11.5,
+                        fontWeight:
+                        FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'View all',
+                    style: TextStyle(
+                      color:
+                      _PilotHomePalette
+                          .tealDark,
+                      fontSize: 8.9,
+                      fontWeight:
+                      FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              Container(
+                width: double.infinity,
+                padding:
+                const EdgeInsets.fromLTRB(
+                  10,
+                  9,
+                  9,
+                  9,
+                ),
+                decoration:
+                BoxDecoration(
+                  color:
+                  const Color(
+                      0xFFF6FAFB),
+                  borderRadius:
+                  BorderRadius.circular(
+                      11),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                        children: [
+                          Text(
+                            primaryText,
+                            style:
+                            const TextStyle(
+                              color:
+                              _PilotHomePalette
+                                  .navy,
+                              fontSize: 10.4,
+                              fontWeight:
+                              FontWeight
+                                  .w800,
+                            ),
+                          ),
+                          const SizedBox(
+                              height: 3),
+                          Text(
+                            _secondaryMissionText(
+                              dashboard,
+                            ),
+                            style:
+                            const TextStyle(
+                              color:
+                              _PilotHomePalette
+                                  .muted,
+                              fontSize: 8.8,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration:
+                      const BoxDecoration(
+                        color:
+                        _PilotHomePalette
+                            .tealSoft,
+                        shape:
+                        BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons
+                            .chevron_right_rounded,
+                        color:
+                        _PilotHomePalette
+                            .tealDark,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _secondaryMissionText(
+      _PilotDashboardSnapshot dashboard,
+      ) {
+    final parts = <String>[];
+
+    if (dashboard.completed > 0) {
+      parts.add(
+        dashboard.completed == 1
+            ? '1 completed mission'
+            : '${dashboard.completed} completed missions',
+      );
+    }
+
+    if (dashboard.pendingReleaseTotal > 0) {
+      parts.add(
+        '${_compactNumber(dashboard.pendingReleaseTotal)} pending release',
+      );
+    }
+
+    if (parts.isEmpty) {
+      return 'Contracts and mission progress will appear here.';
+    }
+
+    return parts.join('  ·  ');
+  }
+}
+
+class _NextStepCard extends StatelessWidget {
+  const _NextStepCard({
+    required this.contract,
+    required this.application,
+    required this.onTap,
+  });
+
+  final _HomeContractSnapshot contract;
+  final PilotHomeApplicationItem? application;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final jobTitle =
+        application?.jobTitle.trim() ?? '';
+    final company =
+        application?.company.trim() ?? '';
+    final location =
+        application?.location.trim() ?? '';
+    final applicationStatusLabel =
+        application?.statusLabel.trim() ?? '';
+
+    return Container(
+      padding:
+      const EdgeInsets.fromLTRB(
+        12,
+        11,
+        12,
+        11,
+      ),
+      decoration: BoxDecoration(
+        gradient:
+        const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFFBF1),
+            Color(0xFFFFF7E8),
+          ],
+        ),
+        borderRadius:
+        BorderRadius.circular(17),
+        border: Border.all(
+          color:
+          const Color(0xFFFFDDA3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration:
+                BoxDecoration(
+                  color:
+                  const Color(0xFFFFF1CF),
+                  borderRadius:
+                  BorderRadius.circular(
+                      11),
+                ),
+                child: const Icon(
+                  Icons
+                      .description_outlined,
+                  color:
+                  Color(0xFFF08A16),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding:
+                          const EdgeInsets
+                              .symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration:
+                          BoxDecoration(
+                            color:
+                            const Color(
+                                0xFFFFEBC3),
+                            borderRadius:
+                            BorderRadius
+                                .circular(20),
+                          ),
+                          child:
+                          const Text(
+                            'Next step',
+                            style:
+                            TextStyle(
+                              color:
+                              Color(
+                                  0xFFD9790D),
+                              fontSize: 8.7,
+                              fontWeight:
+                              FontWeight
+                                  .w800,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding:
+                          const EdgeInsets
+                              .symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration:
+                          BoxDecoration(
+                            color:
+                            const Color(
+                                0xFFE7F8F3),
+                            borderRadius:
+                            BorderRadius
+                                .circular(20),
+                          ),
+                          child: Text(
+                            applicationStatusLabel.isNotEmpty
+                                ? applicationStatusLabel
+                                : 'Pending',
+                            style:
+                            const TextStyle(
+                              color:
+                              Color(
+                                  0xFF0A987E),
+                              fontSize: 8.6,
+                              fontWeight:
+                              FontWeight
+                                  .w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Review contract',
+                      style: TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .navy,
+                        fontSize: 13,
+                        height: 1.05,
+                        fontWeight:
+                        FontWeight.w800,
+                      ),
+                    ),
+                    if (jobTitle.isNotEmpty ||
+                        company.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          if (jobTitle
+                              .isNotEmpty)
+                            jobTitle,
+                          if (company
+                              .isNotEmpty)
+                            company,
+                        ].join('  ·  '),
+                        maxLines: 1,
+                        overflow:
+                        TextOverflow.ellipsis,
+                        style:
+                        const TextStyle(
+                          color:
+                          _PilotHomePalette
+                              .muted,
+                          fontSize: 9.7,
+                          fontWeight:
+                          FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (location.isNotEmpty ||
+              contract.startDate !=
+                  null) ...[
+            const SizedBox(height: 9),
+            Row(
+              children: [
+                if (location
+                    .isNotEmpty) ...[
+                  const Icon(
+                    Icons
+                        .location_on_outlined,
+                    size: 13,
+                    color:
+                    _PilotHomePalette
+                        .muted,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      location,
+                      maxLines: 1,
+                      overflow:
+                      TextOverflow
+                          .ellipsis,
+                      style:
+                      const TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .muted,
+                        fontSize: 9.3,
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
+                if (contract.startDate !=
+                    null) ...[
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons
+                        .calendar_today_outlined,
+                    size: 12,
+                    color:
+                    _PilotHomePalette
+                        .muted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _shortDate(
+                      contract.startDate!,
+                    ),
+                    style:
+                    const TextStyle(
+                      color:
+                      _PilotHomePalette
+                          .muted,
+                      fontSize: 9.2,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 36,
+            child: FilledButton(
+              onPressed: onTap,
+              style:
+              FilledButton.styleFrom(
+                elevation: 0,
+                backgroundColor:
+                _PilotHomePalette.teal,
+                foregroundColor:
+                Colors.white,
+                shape:
+                RoundedRectangleBorder(
+                  borderRadius:
+                  BorderRadius.circular(
+                      10),
+                ),
+                padding:
+                const EdgeInsets
+                    .symmetric(
+                  horizontal: 12,
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment:
+                MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Review contract',
+                    style: TextStyle(
+                      fontSize: 10.7,
+                      fontWeight:
+                      FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(width: 7),
+                  Icon(
+                    Icons
+                        .arrow_forward_rounded,
+                    size: 15,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExploreJobsCard extends StatelessWidget {
+  const _ExploreJobsCard({
+    required this.onTap,
+  });
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius:
+      BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+        BorderRadius.circular(16),
+        child: Container(
+          height: 61,
+          padding:
+          const EdgeInsets.symmetric(
+            horizontal: 12,
+          ),
+          decoration: BoxDecoration(
+            borderRadius:
+            BorderRadius.circular(16),
+            border: Border.all(
+              color:
+              _PilotHomePalette.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 39,
+                height: 39,
+                decoration:
+                BoxDecoration(
+                  gradient:
+                  const LinearGradient(
+                    begin:
+                    Alignment.topLeft,
+                    end: Alignment
+                        .bottomRight,
+                    colors: [
+                      Color(0xFF12BFC4),
+                      Color(0xFF0794AE),
+                    ],
+                  ),
+                  borderRadius:
+                  BorderRadius.circular(
+                      11),
+                ),
+                child: const Icon(
+                  Icons.search_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  mainAxisAlignment:
+                  MainAxisAlignment.center,
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Explore jobs',
+                      style: TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .navy,
+                        fontSize: 11.7,
+                        fontWeight:
+                        FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Find new drone opportunities',
+                      style: TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .muted,
+                        fontSize: 9.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 29,
+                height: 29,
+                decoration:
+                const BoxDecoration(
+                  color:
+                  _PilotHomePalette
+                      .tealSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons
+                      .chevron_right_rounded,
+                  color:
+                  _PilotHomePalette
+                      .tealDark,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveMissionCard extends StatelessWidget {
+  const _ActiveMissionCard({
+    required this.contract,
+    required this.application,
+    required this.onTap,
+    required this.onViewAll,
+  });
+
+  final _HomeContractSnapshot contract;
+  final PilotHomeApplicationItem? application;
+  final VoidCallback onTap;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final jobTitle =
+        application?.jobTitle.trim() ?? '';
+    final company =
+        application?.company.trim() ?? '';
+    final location =
+        application?.location.trim() ?? '';
+    final companyPhoto =
+        application?.companyPhoto.trim() ?? '';
+
+    return Material(
+      color: Colors.white,
+      borderRadius:
+      BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+        BorderRadius.circular(17),
+        child: Container(
+          padding:
+          const EdgeInsets.fromLTRB(
+            11,
+            10,
+            10,
+            11,
+          ),
+          decoration: BoxDecoration(
+            borderRadius:
+            BorderRadius.circular(17),
+            border: Border.all(
+              color:
+              _PilotHomePalette.border,
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 31,
+                    height: 31,
+                    decoration:
+                    BoxDecoration(
+                      color:
+                      _PilotHomePalette
+                          .tealSoft,
+                      borderRadius:
+                      BorderRadius.circular(
+                          9),
+                    ),
+                    child: const Icon(
+                      Icons
+                          .flight_takeoff_rounded,
+                      color:
+                      _PilotHomePalette
+                          .tealDark,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Active mission',
+                      style: TextStyle(
+                        color:
+                        _PilotHomePalette
+                            .navy,
+                        fontSize: 11.5,
+                        fontWeight:
+                        FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: onViewAll,
+                    child: const Padding(
+                      padding:
+                      EdgeInsets.all(4),
+                      child: Text(
+                        'View all',
+                        style: TextStyle(
+                          color:
+                          _PilotHomePalette
+                              .tealDark,
+                          fontSize: 9.2,
+                          fontWeight:
+                          FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment:
+                CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 76,
+                    height: 60,
+                    clipBehavior: Clip.antiAlias,
+                    decoration:
+                    BoxDecoration(
+                      color:
+                      const Color(
+                          0xFFF1F7F8),
+                      borderRadius:
+                      BorderRadius.circular(
+                          10),
+                      border: Border.all(
+                        color:
+                        _PilotHomePalette.border,
+                      ),
+                    ),
+                    child: companyPhoto.isNotEmpty
+                        ? Image.network(
+                      companyPhoto,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      filterQuality:
+                      FilterQuality.high,
+                      errorBuilder:
+                          (_, __, ___) =>
+                      const Icon(
+                        Icons
+                            .business_outlined,
+                        color:
+                        _PilotHomePalette
+                            .tealDark,
+                        size: 23,
+                      ),
+                    )
+                        : const Icon(
+                      Icons.business_outlined,
+                      color:
+                      _PilotHomePalette
+                          .tealDark,
+                      size: 23,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                      children: [
+                        Text(
+                          jobTitle.isEmpty
+                              ? 'Drone mission'
+                              : jobTitle,
+                          maxLines: 1,
+                          overflow:
+                          TextOverflow
+                              .ellipsis,
+                          style:
+                          const TextStyle(
+                            color:
+                            _PilotHomePalette
+                                .navy,
+                            fontSize: 11.2,
+                            fontWeight:
+                            FontWeight
+                                .w800,
+                          ),
+                        ),
+                        if (company
+                            .isNotEmpty) ...[
+                          const SizedBox(
+                              height: 2),
+                          Text(
+                            'With $company',
+                            maxLines: 1,
+                            overflow:
+                            TextOverflow
+                                .ellipsis,
+                            style:
+                            const TextStyle(
+                              color:
+                              _PilotHomePalette
+                                  .muted,
+                              fontSize: 8.9,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child:
+                              ClipRRect(
+                                borderRadius:
+                                BorderRadius
+                                    .circular(
+                                    20),
+                                child:
+                                LinearProgressIndicator(
+                                  minHeight: 5,
+                                  value: contract
+                                      .workflowProgress,
+                                  backgroundColor:
+                                  const Color(
+                                      0xFFE5ECEF),
+                                  valueColor:
+                                  const AlwaysStoppedAnimation<
+                                      Color>(
+                                    _PilotHomePalette
+                                        .teal,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                                width: 7),
+                            Text(
+                              contract
+                                  .statusLabel,
+                              style:
+                              const TextStyle(
+                                color:
+                                _PilotHomePalette
+                                    .muted,
+                                fontSize: 8.6,
+                                fontWeight:
+                                FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            if (location
+                                .isNotEmpty) ...[
+                              const Icon(
+                                Icons
+                                    .location_on_outlined,
+                                size: 11,
+                                color:
+                                _PilotHomePalette
+                                    .muted,
+                              ),
+                              const SizedBox(
+                                  width: 3),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  maxLines: 1,
+                                  overflow:
+                                  TextOverflow
+                                      .ellipsis,
+                                  style:
+                                  const TextStyle(
+                                    color:
+                                    _PilotHomePalette
+                                        .muted,
+                                    fontSize: 8.4,
+                                  ),
+                                ),
+                              ),
+                            ] else
+                              const Spacer(),
+                            if (contract
+                                .daysLeftLabel
+                                .isNotEmpty) ...[
+                              const SizedBox(
+                                  width: 6),
+                              const Icon(
+                                Icons
+                                    .calendar_today_outlined,
+                                size: 10,
+                                color:
+                                _PilotHomePalette
+                                    .muted,
+                              ),
+                              const SizedBox(
+                                  width: 3),
+                              Text(
+                                contract
+                                    .daysLeftLabel,
+                                style:
+                                const TextStyle(
+                                  color:
+                                  _PilotHomePalette
+                                      .muted,
+                                  fontSize: 8.4,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineHomeNotice extends StatelessWidget {
+  const _InlineHomeNotice({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+      const EdgeInsets.fromLTRB(
+        11,
+        9,
+        8,
+        9,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+        BorderRadius.circular(14),
+        border: Border.all(
+          color:
+          _PilotHomePalette.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color:
+            _PilotHomePalette.muted,
+            size: 16,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color:
+                _PilotHomePalette.muted,
+                fontSize: 9.3,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                unawaited(onRetry()),
+            style: TextButton.styleFrom(
+              foregroundColor:
+              _PilotHomePalette
+                  .tealDark,
+              visualDensity:
+              VisualDensity.compact,
+            ),
+            child: const Text(
+              'Retry',
+              style: TextStyle(
+                fontSize: 9.3,
+                fontWeight:
+                FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PilotHomeInitialShimmer extends StatefulWidget {
+  const _PilotHomeInitialShimmer();
+
+  @override
+  State<_PilotHomeInitialShimmer> createState() =>
+      _PilotHomeInitialShimmerState();
+}
+
+class _PilotHomeInitialShimmerState
+    extends State<_PilotHomeInitialShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration:
+      const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _box({
+    required double height,
+    double? width,
+    double radius = 16,
+  }) {
+    return FadeTransition(
+      opacity: Tween<double>(
+        begin: .52,
+        end: .94,
+      ).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Curves.easeInOut,
+        ),
+      ),
+      child: Container(
+        width: width ?? double.infinity,
+        height: height,
+        decoration: BoxDecoration(
+          color:
+          const Color(0xFFE9F0F2),
+          borderRadius:
+          BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics:
+      const NeverScrollableScrollPhysics(),
+      padding:
+      const EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        110,
+      ),
+      children: [
+        Row(
+          children: [
+            _box(
+              width: 59,
+              height: 59,
+              radius: 30,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
+                children: [
+                  _box(
+                    width: 93,
+                    height: 9,
+                    radius: 5,
+                  ),
+                  const SizedBox(height: 7),
+                  _box(
+                    width: 112,
+                    height: 17,
+                    radius: 6,
+                  ),
+                ],
+              ),
+            ),
+            _box(
+              width: 44,
+              height: 44,
+              radius: 15,
+            ),
+          ],
+        ),
+        const SizedBox(height: 15),
+        _box(height: 175, radius: 17),
+        const SizedBox(height: 10),
+        _box(height: 61, radius: 16),
+        const SizedBox(height: 10),
+        _box(height: 122, radius: 17),
+        const SizedBox(height: 10),
+        _box(height: 112, radius: 17),
+        const SizedBox(height: 10),
+        _box(height: 103, radius: 17),
+      ],
+    );
+  }
+}
+
+class _PilotHomeBackground extends StatelessWidget {
+  const _PilotHomeBackground();
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         Positioned(
-          top: -185,
-          right: -145,
+          top: -170,
+          right: -130,
           child: IgnorePointer(
             child: Container(
-              width: 360,
-              height: 360,
-              decoration: BoxDecoration(
+              width: 330,
+              height: 330,
+              decoration:
+              BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
+                gradient:
+                RadialGradient(
                   colors: [
-                    const Color(0xFF17C6C7).withOpacity(0.10),
-                    const Color(0xFF17C6C7).withOpacity(0.025),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 245,
-          left: -170,
-          child: IgnorePointer(
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.blue.withOpacity(0.045),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 150,
-          right: -185,
-          child: IgnorePointer(
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF16C6C7).withOpacity(0.035),
+                    const Color(
+                        0xFF16C6C7)
+                        .withOpacity(.075),
                     Colors.transparent,
                   ],
                 ),
@@ -450,65 +1890,288 @@ class _BackgroundDecor extends StatelessWidget {
   }
 }
 
-class _HomeErrorCard extends StatelessWidget {
-  const _HomeErrorCard({
-    required this.message,
-    required this.onRetry,
+
+class _PilotDashboardSnapshot {
+  const _PilotDashboardSnapshot({
+    this.pending = 0,
+    this.accepted = 0,
+    this.active = 0,
+    this.inProgress = 0,
+    this.submitted = 0,
+    this.completed = 0,
+    this.awaitingMyAction = 0,
+    this.pendingReleaseTotal = 0,
   });
 
-  final String message;
-  final VoidCallback onRetry;
+  final int pending;
+  final int accepted;
+  final int active;
+  final int inProgress;
+  final int submitted;
+  final int completed;
+  final int awaitingMyAction;
+  final double pendingReleaseTotal;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(13, 12, 11, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.cardBorder),
+  int get activeMissionCount =>
+      active + inProgress + submitted;
+
+  factory _PilotDashboardSnapshot.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    final rawContracts =
+    json['contracts_by_status'];
+
+    final contracts =
+    rawContracts is Map
+        ? Map<String, dynamic>.from(
+      rawContracts,
+    )
+        : const <String, dynamic>{};
+
+    final rawPayments =
+    json['payment_summary'];
+
+    final payments =
+    rawPayments is Map
+        ? Map<String, dynamic>.from(
+      rawPayments,
+    )
+        : const <String, dynamic>{};
+
+    return _PilotDashboardSnapshot(
+      pending:
+      _dashboardInt(
+        contracts['pending'],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.blue.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.cloud_off_rounded,
-              color: AppColors.blue,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.grey,
-                fontSize: 10.6,
-                height: 1.35,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(
-              AppLanguage.text('Retry'),
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
+      accepted:
+      _dashboardInt(
+        contracts['accepted'],
+      ),
+      active:
+      _dashboardInt(
+        contracts['active'],
+      ),
+      inProgress:
+      _dashboardInt(
+        contracts['in_progress'],
+      ),
+      submitted:
+      _dashboardInt(
+        contracts['submitted'],
+      ),
+      completed:
+      _dashboardInt(
+        contracts['completed'],
+      ),
+      awaitingMyAction:
+      _dashboardInt(
+        json[
+        'contracts_awaiting_my_action_count'],
+      ),
+      pendingReleaseTotal:
+      _dashboardDouble(
+        payments[
+        'pending_release_total'],
       ),
     );
   }
+}
+
+int _dashboardInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+
+  return int.tryParse(
+    value?.toString() ?? '',
+  ) ??
+      0;
+}
+
+double _dashboardDouble(dynamic value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  return double.tryParse(
+    value?.toString() ?? '',
+  ) ??
+      0;
+}
+
+String _compactNumber(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+
+  return value
+      .toStringAsFixed(2)
+      .replaceFirst(
+    RegExp(r'\.?0+$'),
+    '',
+  );
+}
+
+class _HomeContractSnapshot {
+  const _HomeContractSnapshot({
+    required this.id,
+    required this.jobApplicationId,
+    required this.jobPostingId,
+    required this.status,
+    required this.startDate,
+    required this.endDate,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final int id;
+  final int jobApplicationId;
+  final int jobPostingId;
+  final String status;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  factory _HomeContractSnapshot.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    return _HomeContractSnapshot(
+      id: _asHomeInt(json['id']),
+      jobApplicationId: _asHomeInt(
+        json['job_application_id'],
+      ),
+      jobPostingId: _asHomeInt(
+        json['job_posting_id'],
+      ),
+      status: json['status']
+          ?.toString()
+          .trim()
+          .toLowerCase() ??
+          '',
+      startDate:
+      _asHomeDate(json['start_date']),
+      endDate:
+      _asHomeDate(json['end_date']),
+      createdAt:
+      _asHomeDate(json['created_at']),
+      updatedAt:
+      _asHomeDate(json['updated_at']),
+    );
+  }
+
+  String get statusLabel {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'accepted':
+        return 'Accepted';
+      case 'active':
+        return 'Funded';
+      case 'in_progress':
+        return 'Working';
+      case 'submitted':
+        return 'Submitted';
+      case 'completed':
+        return 'Complete';
+      default:
+        return status
+            .split('_')
+            .where((part) => part.isNotEmpty)
+            .map(
+              (part) =>
+          '${part[0].toUpperCase()}'
+              '${part.substring(1)}',
+        )
+            .join(' ');
+    }
+  }
+
+  double get workflowProgress {
+    switch (status) {
+      case 'pending':
+        return .18;
+      case 'accepted':
+        return .34;
+      case 'active':
+        return .50;
+      case 'in_progress':
+        return .70;
+      case 'submitted':
+        return .86;
+      case 'completed':
+        return 1;
+      default:
+        return .12;
+    }
+  }
+
+  String get daysLeftLabel {
+    final end = endDate;
+    if (end == null) return '';
+
+    final now = DateTime.now();
+    final today =
+    DateTime(now.year, now.month, now.day);
+    final endDay =
+    DateTime(end.year, end.month, end.day);
+
+    final days =
+        endDay.difference(today).inDays;
+
+    if (days < 0) return 'Ended';
+    if (days == 0) return 'Today';
+    if (days == 1) return '1 day left';
+    return '$days days left';
+  }
+}
+
+int _asHomeInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(
+    value?.toString() ?? '',
+  ) ??
+      0;
+}
+
+DateTime? _asHomeDate(dynamic value) {
+  final text =
+      value?.toString().trim() ?? '';
+  if (text.isEmpty) return null;
+  return DateTime.tryParse(text)?.toLocal();
+}
+
+String _shortDate(DateTime value) {
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  return '${months[value.month - 1]} '
+      '${value.day}, ${value.year}';
+}
+
+class _PilotHomePalette {
+  static const navy =
+  Color(0xFF0A2D46);
+  static const muted =
+  Color(0xFF7F91A0);
+  static const border =
+  Color(0xFFDDE8EC);
+  static const teal =
+  Color(0xFF10AEBB);
+  static const tealDark =
+  Color(0xFF078FA5);
+  static const tealSoft =
+  Color(0xFFE8F8F8);
 }
