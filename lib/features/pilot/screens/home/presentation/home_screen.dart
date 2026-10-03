@@ -17,10 +17,18 @@ import 'package:tototl_app/features/pilot/screens/jobs/jobs_screen.dart';
  import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
 import 'package:tototl_app/features/pilot/services/pilot_availability_local_store.dart';
 
+import '../../../../shared/screens/phase3_overview_card.dart';
 import '../../../services/drone_service.dart';
 import '../../drones/my_drones_screen.dart';
 import '../../notification/NotificationsScreen.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
+
+import 'package:tototl_app/features/payments/screens/payment_history_screen.dart';
+import 'package:tototl_app/features/payments/services/payment_service.dart';
+import 'package:tototl_app/features/pilot/screens/contract/pilot_contracts_screen.dart';
+import 'package:tototl_app/features/shared/models/phase3_account_summary.dart';
+import 'package:tototl_app/features/shared/services/phase3_dashboard_service.dart';
+ import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,6 +41,12 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final PilotHomeController _controller;
   late final AnimationController _entranceController;
+  late final Phase3DashboardService _phase3Service;
+
+  Phase3AccountSummary _phase3Summary = const Phase3AccountSummary();
+  bool _phase3Loading = true;
+  bool _phase3HasSnapshot = false;
+  String? _phase3Error;
 
   PilotAvailabilityPreference _availability =
   const PilotAvailabilityPreference();
@@ -46,6 +60,11 @@ class _HomeScreenState extends State<HomeScreen>
       droneService: DroneService(ApiClient()),
     );
 
+    _phase3Service = Phase3DashboardService(
+      ApiClient(),
+      audience: Phase3DashboardAudience.pilot,
+    );
+
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 620),
@@ -56,6 +75,62 @@ class _HomeScreenState extends State<HomeScreen>
     // controllers swaps them for cached data as soon as local storage responds.
     _entranceController.forward();
     unawaited(_bootstrap());
+    unawaited(_loadPhase3());
+  }
+
+  Future<void> _loadPhase3() async {
+    if (_phase3Loading && _phase3HasSnapshot) return;
+
+    if (mounted) {
+      setState(() {
+        _phase3Loading = true;
+        _phase3Error = null;
+      });
+    }
+
+    try {
+      final overview = await _phase3Service.getOverview();
+      if (!mounted) return;
+      setState(() {
+        _phase3Summary = overview;
+        _phase3HasSnapshot = true;
+        _phase3Error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _phase3Error = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _phase3Loading = false);
+      }
+    }
+  }
+
+  Future<void> _openPhase3Contracts() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PilotContractsScreen()),
+    );
+    if (mounted) unawaited(_loadPhase3());
+  }
+
+  Future<void> _openPhase3Payments() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PaymentHistoryScreen(
+          audience: PaymentAudience.pilot,
+        ),
+      ),
+    );
+    if (mounted) unawaited(_loadPhase3());
+  }
+
+  Future<void> _openSubscriptionCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SubscriptionCenterScreen()),
+    );
+    if (mounted) unawaited(_loadPhase3());
   }
 
   Future<void> _bootstrap() async {
@@ -121,6 +196,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (mounted) {
       // Keep current Home content on-screen. Fresh data arrives silently.
       unawaited(_controller.forceRefresh());
+      unawaited(_loadPhase3());
     }
   }
 
@@ -270,6 +346,21 @@ class _HomeScreenState extends State<HomeScreen>
                           const SizedBox(height: 26),
                           _entry(
                             index: 3,
+                            child: Phase3OverviewCard(
+                              audience: Phase3OverviewAudience.pilot,
+                              summary: _phase3Summary,
+                              loading: _phase3Loading,
+                              hasSnapshot: _phase3HasSnapshot,
+                              errorMessage: _phase3Error,
+                              onRetry: _loadPhase3,
+                              onContractsTap: _openPhase3Contracts,
+                              onPaymentsTap: _openPhase3Payments,
+                              onSubscriptionTap: _openSubscriptionCenter,
+                            ),
+                          ),
+                          const SizedBox(height: 26),
+                          _entry(
+                            index: 4,
                             child: AvailabilityCard(
                               preference: _availability,
                               onTap: _editAvailability,
@@ -421,4 +512,3 @@ class _HomeErrorCard extends StatelessWidget {
     );
   }
 }
-

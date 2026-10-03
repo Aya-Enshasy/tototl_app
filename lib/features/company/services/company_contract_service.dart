@@ -457,6 +457,88 @@ class CompanyContractService {
     }
   }
 
+
+  Future<CompanyContractModel> cancelContract(
+    int contractId, {
+    String? reason,
+  }) async {
+    final cleanReason = reason?.trim() ?? '';
+    if (cleanReason.length > 2000) {
+      throw const CompanyContractException(
+        'Cancellation reason cannot exceed 2000 characters.',
+      );
+    }
+
+    final token = await _getToken();
+    try {
+      final response = await apiClient.post(
+        ApiEndpoints.cancelCompanyContract(contractId),
+        data: cleanReason.isEmpty
+            ? null
+            : <String, dynamic>{'reason': cleanReason},
+        options: cleanReason.isEmpty
+            ? _authOptions(token)
+            : _jsonAuthOptions(token),
+      );
+      final body = _parseBody(response.data);
+      _ensureSuccess(body, fallback: 'Unable to cancel this contract.');
+      final raw = body['data'];
+      if (raw is! Map) {
+        throw const CompanyContractException(
+          'Cancelled contract data is missing.',
+        );
+      }
+      return CompanyContractModel.fromJson(
+        Map<String, dynamic>.from(raw),
+      );
+    } on DioException catch (e) {
+      throw CompanyContractException(
+        _dioErrorMessage(e, fallback: 'Unable to cancel this contract.'),
+      );
+    }
+  }
+
+  Future<CompanyContractModel> terminateContract(
+    int contractId, {
+    required String reason,
+  }) async {
+    final cleanReason = reason.trim();
+    if (cleanReason.isEmpty) {
+      throw const CompanyContractException(
+        'Termination reason is required.',
+      );
+    }
+    if (cleanReason.length > 2000) {
+      throw const CompanyContractException(
+        'Termination reason cannot exceed 2000 characters.',
+      );
+    }
+
+    final token = await _getToken();
+    try {
+      final response = await apiClient.post(
+        ApiEndpoints.terminateCompanyContract(contractId),
+        data: <String, dynamic>{'reason': cleanReason},
+        options: _jsonAuthOptions(token),
+      );
+      final body = _parseBody(response.data);
+      _ensureSuccess(body, fallback: 'Unable to terminate this contract.');
+      final raw = body['data'];
+      if (raw is! Map) {
+        throw const CompanyContractException(
+          'Terminated contract data is missing.',
+        );
+      }
+      return CompanyContractModel.fromJson(
+        Map<String, dynamic>.from(raw),
+      );
+    } on DioException catch (e) {
+      throw CompanyContractException(
+        _dioErrorMessage(e, fallback: 'Unable to terminate this contract.'),
+      );
+    }
+  }
+
   Future<CompanyContractModel> fundContract(int contractId) async {
     final token = await _getToken();
     try {

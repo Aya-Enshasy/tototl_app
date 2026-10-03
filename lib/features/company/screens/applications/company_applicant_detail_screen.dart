@@ -13,6 +13,7 @@ import '../../controllers/company_contract_controller.dart';
 import '../../controllers/company_job_controller.dart';
 import '../../models/company_contract_model.dart';
 import '../../models/company_job_application_model.dart';
+import '../../models/company_job_posting_model.dart';
 import '../../services/company_job_service.dart';
 import '../../services/company_contract_service.dart';
 import '../applications/company_document_viewer_screen.dart';
@@ -40,11 +41,13 @@ class _CompanyApplicantDetailScreenState
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _cachePrefix = 'company_applicant_detail_v7_';
 
+  late final CompanyJobService _jobService;
   late final CompanyJobController _controller;
   late final CompanyContractService _contractService;
   late final CompanyContractController _contractController;
   late CompanyJobApplicationModel _application;
 
+  CompanyJobPostingModel? _job;
   CompanyApplicantPilotModel? _pilot;
   CompanyApplicantDroneModel? _committedDrone;
   List<CompanyPilotCredentialModel> _credentials = const [];
@@ -61,6 +64,7 @@ class _CompanyApplicantDetailScreenState
   bool _openingContractScreen = false;
   bool _contractLookupLoading = true;
   String? _contractLookupError;
+  int _referenceTab = 0;
 
   bool get _acting =>
       _controller.isAcceptingApplicant ||
@@ -76,9 +80,8 @@ class _CompanyApplicantDetailScreenState
     super.initState();
 
     final apiClient = ApiClient();
-    _controller = CompanyJobController(
-      CompanyJobService(apiClient),
-    );
+    _jobService = CompanyJobService(apiClient);
+    _controller = CompanyJobController(_jobService);
     _contractService = CompanyContractService(apiClient);
     _contractController = CompanyContractController(_contractService);
 
@@ -232,6 +235,13 @@ class _CompanyApplicantDetailScreenState
     }
 
     try {
+      CompanyJobPostingModel? freshJob;
+      try {
+        freshJob = await _jobService.getJobDetails(widget.jobId);
+      } catch (_) {
+        // Applicant details remain usable even if the job detail request fails.
+      }
+
       // The applicants endpoint now returns the pilot name/photo, licenses and
       // committed drone. Use that response first, then call the older support
       // endpoints only when a relation is actually missing.
@@ -355,6 +365,10 @@ class _CompanyApplicantDetailScreenState
       if (!mounted) return;
 
       setState(() {
+        if (freshJob != null) {
+          _job = freshJob;
+        }
+
         final baseApplication = freshApplication ?? _application;
         _application = baseApplication.copyWith(
           pilotProfile: resolvedPilot,
@@ -884,98 +898,1406 @@ class _CompanyApplicantDetailScreenState
         _committedDrone != null ||
         widget.application.id > 0;
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: Stack(
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FBFC),
+        body: SafeArea(
+          child: !hasImmediateData
+              ? const _ApplicantDetailShimmer()
+              : Column(
+            children: [
+              _referenceTopBar(),
+              Expanded(
+                child: RefreshIndicator(
+                  color: const Color(0xFF10A9B9),
+                  backgroundColor: Colors.white,
+                  onRefresh: _refreshInBackground,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 110),
+                    children: [
+                      _referenceApplicantHero(),
+                      if (_backgroundError != null) ...[
+                        const SizedBox(height: 8),
+                        _OfflineNotice(
+                          message: _backgroundError!,
+                          onRetry: _refreshInBackground,
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      _referenceTabs(),
+                      const SizedBox(height: 10),
+                      _referenceTabContent(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar:
+        _application.isPending ? _referenceBottomActions() : null,
+      ),
+    );
+  }
+
+
+  Widget _referenceTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(5, 5, 7, 4),
+      child: Row(
         children: [
-          const _ApplicantBackground(),
-          SafeArea(
-            child: !hasImmediateData
-                ? const _ApplicantDetailShimmer()
-                : Column(
-              children: [
-                _topBar(),
-                Expanded(
-                  child: RefreshIndicator(
-                    color: AppColors.blue,
-                    backgroundColor: Colors.white,
-                    onRefresh: _refreshInBackground,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics(),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        8,
-                        16,
-                        28,
-                      ),
-                      children: [
-                        _hero(),
-                        if (_backgroundError != null) ...[
-                          const SizedBox(height: 9),
-                          _OfflineNotice(
-                            message: _backgroundError!,
-                            onRetry: _refreshInBackground,
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(_changed),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 17,
+              color: Color(0xFF0A2D46),
+            ),
+          ),
+          const Expanded(
+            child: Text(
+              'Applicant Details',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF0A2D46),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.15,
+              ),
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.more_horiz_rounded,
+              color: Color(0xFF0A2D46),
+              size: 22,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onSelected: (value) {
+              if (value == 'refresh') {
+                unawaited(_refreshInBackground());
+              } else if (value == 'contracts') {
+                unawaited(_openAllContracts());
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Text(
+                  'Refresh',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+              if (_application.isAccepted)
+                const PopupMenuItem(
+                  value: 'contracts',
+                  child: Text(
+                    'All contracts',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceApplicantHero() {
+    final pilot = _pilot;
+    final name = _pilotName();
+    final visual = _applicationVisual(_application.status);
+
+    final location = pilot?.location.trim() ?? '';
+    final experience = pilot?.experienceLabel.trim() ?? '';
+    final nationality = pilot?.nationality.trim() ?? '';
+
+    final summaryParts = <String>[
+      if (experience.isNotEmpty) experience,
+      if (nationality.isNotEmpty) nationality,
+    ];
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F8FA),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 78,
+                height: 78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFE6F0F3),
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: ClipOval(
+                  child: pilot?.profilePhoto.trim().isNotEmpty == true
+                      ? Image.network(
+                    pilot!.profilePhoto.trim(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _referencePilotFallback(name),
+                  )
+                      : _referencePilotFallback(name),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0A2D46),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                if (pilot?.verified == true) ...[
+                                  const SizedBox(width: 5),
+                                  const Icon(
+                                    Icons.verified_rounded,
+                                    size: 14,
+                                    color: Color(0xFF10A99B),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _ReferenceApplicantStatusPill(
+                            label: _application.statusLabel,
+                            foreground: visual.foreground,
+                            background: visual.background,
                           ),
                         ],
-                        const SizedBox(height: 12),
-                        _applicationInfo(),
-                        const SizedBox(height: 12),
-                        _pilotSection(),
-                        const SizedBox(height: 12),
-                        _credentialsSection(),
-                        const SizedBox(height: 12),
-                        _droneSection(),
-                        if (_application.coverMessage.trim().isNotEmpty)
-                          ...[
-                            const SizedBox(height: 12),
-                            _section(
-                              title: AppLanguage.text('Cover Message'),
-                              icon: Icons.chat_bubble_outline_rounded,
-                              child: Text(
-                                _application.coverMessage.trim(),
-                                style: const TextStyle(
-                                  color: AppColors.text,
-                                  fontSize: 12.2,
-                                  height: 1.55,
-                                ),
-                              ),
-                            ),
-                          ],
-                        if (_application.rejectionReason.trim().isNotEmpty)
-                          ...[
-                            const SizedBox(height: 12),
-                            _section(
-                              title: AppLanguage.text('Rejection Reason'),
-                              icon: Icons.info_outline_rounded,
-                              accent: AppColors.red,
-                              accentBackground: AppColors.redBg,
-                              child: Text(
-                                _application.rejectionReason.trim(),
-                                style: const TextStyle(
-                                  color: AppColors.text,
-                                  fontSize: 12.2,
-                                  height: 1.55,
-                                ),
-                              ),
-                            ),
-                          ],
-                        if (_application.isAccepted) ...[
-                          const SizedBox(height: 12),
-                          _acceptedStateCard(),
-                        ],
+                      ),
+                      if (location.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          location,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF607789),
+                            fontSize: 11.3,
+                            height: 1.25,
+                          ),
+                        ),
                       ],
+                      if (summaryParts.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          summaryParts.join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF607789),
+                            fontSize: 11.3,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F8FA),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 29,
+                height: 29,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDDF5F5),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.assignment_turned_in_outlined,
+                  size: 15,
+                  color: Color(0xFF0B9CAE),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Application #${_application.id}',
+                      style: const TextStyle(
+                        color: Color(0xFF0A2D46),
+                        fontSize: 12.2,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Applied ${_formatDateTime(_application.createdAt)}',
+                      style: const TextStyle(
+                        color: Color(0xFF708596),
+                        fontSize: 10.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Color(0xFF7C8E9B),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _referencePilotFallback(String name) {
+    return Container(
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF5FB9C3),
+            Color(0xFF2D7586),
+          ],
+        ),
+      ),
+      child: Text(
+        _initials(name),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _referenceTabs() {
+    const labels = ['Proposal', 'Pilot', 'Equipment', 'Documents'];
+
+    return Row(
+      children: List.generate(labels.length, (index) {
+        final selected = _referenceTab == index;
+
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: index == labels.length - 1 ? 0 : 6,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => setState(() => _referenceTab = index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 170),
+                  height: 37,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: selected
+                        ? const LinearGradient(
+                      colors: [
+                        Color(0xFF13B4C3),
+                        Color(0xFF0798B3),
+                      ],
+                    )
+                        : null,
+                    color: selected ? null : Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF0B9EB4)
+                          : const Color(0xFFDDE8EC),
+                    ),
+                    boxShadow: selected
+                        ? [
+                      BoxShadow(
+                        color: const Color(0xFF0AA4B8)
+                            .withOpacity(.12),
+                        blurRadius: 9,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                        : null,
+                  ),
+                  child: Text(
+                    labels[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color:
+                      selected ? Colors.white : const Color(0xFF0A2D46),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _referenceTabContent() {
+    switch (_referenceTab) {
+      case 1:
+        return _referencePilotTab();
+      case 2:
+        return _referenceEquipmentTab();
+      case 3:
+        return _referenceDocumentsTab();
+      default:
+        return _referenceProposalTab();
+    }
+  }
+
+  Widget _referenceProposalTab() {
+    return Column(
+      children: [
+        _referenceJobProposalCard(),
+        const SizedBox(height: 10),
+        _referencePilotSummaryCard(),
+        const SizedBox(height: 10),
+        _referenceSelectedEquipmentCard(),
+        if (_application.isAccepted) ...[
+          const SizedBox(height: 10),
+          _referenceAcceptedContractCard(),
+        ],
+      ],
+    );
+  }
+
+  Widget _referenceJobProposalCard() {
+    final job = _job;
+    final title = job?.title.trim().isNotEmpty == true
+        ? job!.title.trim()
+        : 'Job #${_application.jobPostingId}';
+    final location = _referenceJobLocation(job);
+    final jobImage = _referenceJobImage(job);
+    final cover = _application.coverMessage.trim();
+
+    return _ReferenceApplicantCard(
+      title: 'Job & Proposal',
+      icon: Icons.work_outline_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 76,
+                height: 54,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF1F3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: jobImage.isNotEmpty
+                    ? Image.network(
+                  jobImage,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                  const _ReferenceJobFallback(),
+                )
+                    : const _ReferenceJobFallback(),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0A2D46),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (location.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 13,
+                            color: Color(0xFF0B9EAF),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF6B7F8D),
+                                fontSize: 10.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              cover.isEmpty
+                  ? 'No cover message was submitted with this application.'
+                  : cover,
+              style: const TextStyle(
+                color: Color(0xFF526A7B),
+                fontSize: 10.8,
+                height: 1.45,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ReferenceProposalStat(
+                  icon: Icons.payments_outlined,
+                  label: 'Job budget',
+                  value: _referenceJobPayment(job),
+                  helper: job == null || job.paymentType.trim().isEmpty
+                      ? ''
+                      : _pretty(job.paymentType),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReferenceProposalStat(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Job dates',
+                  value: _referenceJobDates(job),
+                  helper: 'Application submitted ${_formatDate(_application.createdAt)}',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referencePilotSummaryCard() {
+    final pilot = _pilot;
+
+    if (pilot == null) {
+      return const _ReferenceApplicantCard(
+        title: 'Pilot Summary',
+        icon: Icons.person_outline_rounded,
+        child: Text(
+          'Pilot profile is loading...',
+          style: TextStyle(
+            color: Color(0xFF708596),
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    final location = pilot.location.trim();
+
+    return _ReferenceApplicantCard(
+      title: 'Pilot Summary',
+      icon: Icons.person_outline_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFE7F0F2),
+                ),
+                child: ClipOval(
+                  child: pilot.profilePhoto.trim().isNotEmpty
+                      ? Image.network(
+                    pilot.profilePhoto.trim(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _referencePilotFallback(pilot.displayName),
+                  )
+                      : _referencePilotFallback(pilot.displayName),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pilot.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0A2D46),
+                        fontSize: 12.2,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (pilot.experienceLabel.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        pilot.experienceLabel,
+                        style: const TextStyle(
+                          color: Color(0xFF687E8E),
+                          fontSize: 10.4,
+                        ),
+                      ),
+                    ],
+                    if (pilot.nationality.trim().isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        pilot.nationality.trim(),
+                        style: const TextStyle(
+                          color: Color(0xFF687E8E),
+                          fontSize: 10.4,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (location.isNotEmpty)
+                Container(
+                  width: 118,
+                  padding: const EdgeInsets.only(left: 10),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: Color(0xFFE2EAED)),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Location',
+                        style: TextStyle(
+                          color: Color(0xFF8A9AA6),
+                          fontSize: 9.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        location,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF0A2D46),
+                          fontSize: 10.2,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          if (pilot.languages.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Languages',
+              style: TextStyle(
+                color: Color(0xFF0A2D46),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: pilot.languages.take(6).map((language) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF8F7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    language,
+                    style: const TextStyle(
+                      color: Color(0xFF0B95A6),
+                      fontSize: 9.8,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceSelectedEquipmentCard() {
+    final drone = _committedDrone;
+
+    return _ReferenceApplicantCard(
+      title: 'Selected Equipment',
+      icon: Icons.precision_manufacturing_outlined,
+      child: drone == null
+          ? Text(
+        'Drone #${_application.droneId}',
+        style: const TextStyle(
+          color: Color(0xFF0A2D46),
+          fontSize: 11.2,
+          fontWeight: FontWeight.w700,
+        ),
+      )
+          : Row(
+        children: [
+          Container(
+            width: 74,
+            height: 48,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F4F5),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: drone.imageUrl.trim().isNotEmpty
+                ? Image.network(
+              drone.imageUrl.trim(),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.flight_rounded,
+                color: Color(0xFF0B9EAF),
+                size: 24,
+              ),
+            )
+                : const Icon(
+              Icons.flight_rounded,
+              color: Color(0xFF0B9EAF),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  drone.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  drone.capabilities.isEmpty
+                      ? 'No capabilities listed'
+                      : drone.capabilities.take(3).map(_pretty).join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF687E8E),
+                    fontSize: 10.1,
+                    height: 1.25,
                   ),
                 ),
               ],
             ),
           ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Color(0xFF718595),
+            size: 18,
+          ),
         ],
       ),
-      bottomNavigationBar:
-      _application.isPending ? _bottomActions() : null,
+    );
+  }
+
+  Widget _referencePilotTab() {
+    final pilot = _pilot;
+
+    if (pilot == null) {
+      return const _ReferenceApplicantCard(
+        title: 'Pilot',
+        icon: Icons.person_outline_rounded,
+        child: Text(
+          'Pilot profile is loading...',
+          style: TextStyle(
+            color: Color(0xFF708596),
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _referencePilotSummaryCard(),
+        const SizedBox(height: 10),
+        _ReferenceApplicantCard(
+          title: 'Pilot Profile',
+          icon: Icons.person_search_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _referenceKeyValue(
+                'Location',
+                pilot.location.isEmpty ? '—' : pilot.location,
+              ),
+              _referenceKeyValue(
+                'Experience',
+                pilot.experienceLabel.isEmpty
+                    ? '—'
+                    : pilot.experienceLabel,
+              ),
+              if (pilot.nationality.isNotEmpty)
+                _referenceKeyValue('Nationality', pilot.nationality),
+              if (pilot.previousCompany.isNotEmpty)
+                _referenceKeyValue(
+                  'Previous company',
+                  pilot.previousCompany,
+                ),
+              if (pilot.bio.isNotEmpty) ...[
+                const SizedBox(height: 7),
+                const Text(
+                  'About',
+                  style: TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 10.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  pilot.bio,
+                  style: const TextStyle(
+                    color: Color(0xFF526A7B),
+                    fontSize: 10.6,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _referenceEquipmentTab() {
+    final drone = _committedDrone;
+
+    if (drone == null) {
+      return _ReferenceApplicantCard(
+        title: 'Equipment',
+        icon: Icons.flight_outlined,
+        child: Text(
+          'Drone #${_application.droneId}',
+          style: const TextStyle(
+            color: Color(0xFF0A2D46),
+            fontSize: 11.2,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _referenceSelectedEquipmentCard(),
+        const SizedBox(height: 10),
+        _ReferenceApplicantCard(
+          title: 'Drone Details',
+          icon: Icons.flight_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (drone.manufactureYear != null)
+                _referenceKeyValue(
+                  'Year',
+                  '${drone.manufactureYear}',
+                ),
+              if (drone.serialNumber.isNotEmpty)
+                _referenceKeyValue('Serial', drone.serialNumber),
+              if (drone.weightKg != null)
+                _referenceKeyValue(
+                  'Weight',
+                  '${_cleanNumber(drone.weightKg!)} kg',
+                ),
+              if (drone.flightTimePerBatteryMinutes != null)
+                _referenceKeyValue(
+                  'Flight time',
+                  '${drone.flightTimePerBatteryMinutes} min / battery',
+                ),
+              if (drone.chargingTimeMinutes != null)
+                _referenceKeyValue(
+                  'Charging',
+                  '${drone.chargingTimeMinutes} min',
+                ),
+              if (drone.totalBatteries != null)
+                _referenceKeyValue(
+                  'Batteries',
+                  '${drone.totalBatteries}',
+                ),
+              if (drone.capabilities.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: drone.capabilities.map((value) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF8F7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _pretty(value),
+                        style: const TextStyle(
+                          color: Color(0xFF0B95A6),
+                          fontSize: 9.6,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _referenceDocumentsTab() {
+    if (_credentials.isEmpty) {
+      return const _ReferenceApplicantCard(
+        title: 'Documents',
+        icon: Icons.folder_open_outlined,
+        child: _EmptyInlineState(
+          icon: Icons.badge_outlined,
+          text: 'No pilot credentials were returned.',
+        ),
+      );
+    }
+
+    return _ReferenceApplicantCard(
+      title: 'Documents',
+      icon: Icons.folder_open_outlined,
+      child: Column(
+        children: List.generate(_credentials.length, (index) {
+          final credential = _credentials[index];
+          final type = credential.licenseType.trim().isEmpty
+              ? 'Credential #${credential.id}'
+              : _pretty(credential.licenseType);
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == _credentials.length - 1 ? 0 : 9,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFE1EAED),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: credential.isExpired
+                              ? const Color(0xFFFFECEA)
+                              : const Color(0xFFE8F8F3),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.verified_user_outlined,
+                          size: 17,
+                          color: credential.isExpired
+                              ? const Color(0xFFE6574F)
+                              : const Color(0xFF10A889),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              type,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF0A2D46),
+                                fontSize: 11.4,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              credential.isExpired
+                                  ? 'Expired'
+                                  : credential.expiresAt == null
+                                  ? 'Expiration not provided'
+                                  : 'Valid until ${_formatDate(credential.expiresAt)}',
+                              style: TextStyle(
+                                color: credential.isExpired
+                                    ? const Color(0xFFE6574F)
+                                    : const Color(0xFF718595),
+                                fontSize: 9.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (credential.media.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: credential.media
+                          .map(_documentButton)
+                          .toList(growable: false),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _referenceAcceptedContractCard() {
+    final contract = _createdContract;
+
+    if (_contractLookupLoading && contract == null) {
+      return const _ReferenceApplicantCard(
+        title: 'Contract',
+        icon: Icons.description_outlined,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF0B9EAF),
+              ),
+            ),
+            SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                'Checking the latest contract status...',
+                style: TextStyle(
+                  color: Color(0xFF607789),
+                  fontSize: 10.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (contract == null) {
+      return _ReferenceApplicantCard(
+        title: 'Accepted Application',
+        icon: Icons.handshake_outlined,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This pilot has been accepted. Create the contract to continue.',
+              style: TextStyle(
+                color: Color(0xFF526A7B),
+                fontSize: 10.7,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 9),
+            SizedBox(
+              width: double.infinity,
+              height: 43,
+              child: FilledButton.icon(
+                onPressed:
+                _openingContractScreen ? null : _openCreateContract,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0CA6B7),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+                icon: const Icon(
+                  Icons.description_outlined,
+                  size: 16,
+                ),
+                label: const Text(
+                  'Create Contract',
+                  style: TextStyle(
+                    fontSize: 11.1,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _ReferenceApplicantCard(
+      title: 'Contract',
+      icon: Icons.description_outlined,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Contract #${contract.id}',
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  contract.statusLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF6C8191),
+                    fontSize: 10.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton(
+            onPressed:
+            _openingContractScreen ? null : _openContractDetails,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF0B9EAF),
+              side: const BorderSide(
+                color: Color(0xFFBBDDE1),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Open',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceKeyValue(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF81929E),
+                fontSize: 10.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF0A2D46),
+                fontSize: 10.6,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _referenceJobLocation(CompanyJobPostingModel? job) {
+    if (job == null) return '';
+
+    final parts = <String>[
+      job.city,
+      job.state,
+      job.country,
+    ].where((value) => value.trim().isNotEmpty).toList();
+
+    if (parts.isNotEmpty) return parts.join(', ');
+
+    return job.region.trim();
+  }
+
+  String _referenceJobPayment(CompanyJobPostingModel? job) {
+    if (job == null) return '—';
+
+    String money(double? value) {
+      if (value == null) return '';
+      final clean = value == value.roundToDouble()
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(2);
+      return '\$$clean';
+    }
+
+    final min = money(job.paymentMin);
+    final max = money(job.paymentMax);
+
+    if (min.isNotEmpty && max.isNotEmpty) {
+      return '$min – $max';
+    }
+    if (min.isNotEmpty) return min;
+    if (max.isNotEmpty) return max;
+    return 'Not specified';
+  }
+
+  String _referenceJobDates(CompanyJobPostingModel? job) {
+    if (job == null) return '—';
+
+    final start = _formatDate(job.startDate);
+    final end = _formatDate(job.endDate);
+
+    if (job.startDate != null && job.endDate != null) {
+      return '$start → $end';
+    }
+    if (job.startDate != null) return start;
+    if (job.endDate != null) return end;
+    return 'Not specified';
+  }
+
+  String _referenceJobImage(CompanyJobPostingModel? job) {
+    if (job == null) return '';
+
+    String clean(dynamic value) => value?.toString().trim() ?? '';
+
+    try {
+      final value = clean((job as dynamic).imageUrl);
+      if (value.isNotEmpty) return value;
+    } catch (_) {}
+
+    try {
+      final value = clean((job as dynamic).image);
+      if (value.isNotEmpty) return value;
+    } catch (_) {}
+
+    try {
+      final attachments = (job as dynamic).attachments;
+      for (final attachment in attachments) {
+        try {
+          final url = clean(attachment.url);
+          final lower = '${attachment.name} $url'.toLowerCase();
+          if (lower.contains('.png') ||
+              lower.contains('.jpg') ||
+              lower.contains('.jpeg') ||
+              lower.contains('.webp')) {
+            return url;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    return '';
+  }
+
+  Widget _referenceBottomActions() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 9, 16, 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: const Border(
+            top: BorderSide(color: Color(0xFFE1EAED)),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0A2D46).withOpacity(.05),
+              blurRadius: 18,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: _acting ? null : _reject,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFE85B52),
+                    side: const BorderSide(
+                      color: Color(0xFFEF766D),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.cancel_rounded,
+                    size: 16,
+                  ),
+                  label: const Text(
+                    'Reject',
+                    style: TextStyle(
+                      fontSize: 11.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF13B5C4),
+                        Color(0xFF0798B3),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0AA4B9)
+                            .withOpacity(.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: _acting ? null : _accept,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.check_rounded,
+                      size: 17,
+                    ),
+                    label: const Text(
+                      'Accept pilot',
+                      style: TextStyle(
+                        fontSize: 11.2,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2344,6 +3666,221 @@ class _CompanyApplicantDetailScreenState
   }
 }
 
+
+class _ReferenceApplicantCard extends StatelessWidget {
+  const _ReferenceApplicantCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: const Color(0xFFE0E9EC),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0A2D46).withOpacity(.018),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 29,
+                height: 29,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE9F8F7),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  icon,
+                  size: 15,
+                  color: const Color(0xFF0B9EAF),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ReferenceApplicantStatusPill extends StatelessWidget {
+  const _ReferenceApplicantStatusPill({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 9.7,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceProposalStat extends StatelessWidget {
+  const _ReferenceProposalStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.helper,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String helper;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFE3EAED),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 29,
+            height: 29,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F8F7),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF0B9EAF),
+              size: 15,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF81919C),
+                    fontSize: 9.2,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 10.8,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                if (helper.trim().isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    helper,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF718595),
+                      fontSize: 9.2,
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReferenceJobFallback extends StatelessWidget {
+  const _ReferenceJobFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF90C7CC),
+            Color(0xFF4B8290),
+          ],
+        ),
+      ),
+      child: const Icon(
+        Icons.landscape_outlined,
+        color: Colors.white,
+        size: 22,
+      ),
+    );
+  }
+}
+
 class _MiniStat extends StatelessWidget {
   const _MiniStat({
     required this.label,
@@ -2969,8 +4506,8 @@ _VisualPair _applicationVisual(String status) {
       );
     default:
       return const _VisualPair(
-        foreground: AppColors.blue,
-        background: AppColors.blueBg,
+        foreground: Color(0xFFE9872F),
+        background: Color(0xFFFFF0E0),
       );
   }
 }
@@ -3006,4 +4543,3 @@ String _initials(String value) {
 
   return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }
-

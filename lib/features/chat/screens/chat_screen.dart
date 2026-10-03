@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
 
 import '../../../core/localization/app_language.dart';
 import '../../../core/theme/app_colors.dart';
@@ -60,9 +57,6 @@ class _ChatScreenState
   final ImagePicker _imagePicker =
   ImagePicker();
 
-  final AudioRecorder _recorder =
-  AudioRecorder();
-
   bool _sendingText = false;
   bool _uploadingMedia = false;
 
@@ -71,15 +65,6 @@ class _ChatScreenState
   String _currentUserPhotoUrl = '';
 
   int _lastMessageCount = 0;
-
-  bool _isRecording = false;
-
-  Duration _recordingDuration =
-      Duration.zero;
-
-  Timer? _recordingTimer;
-
-  String? _recordingPath;
 
   String get _conversationId =>
       FirebaseChatService.instance
@@ -120,22 +105,9 @@ class _ChatScreenState
 
   @override
   void dispose() {
-    _recordingTimer?.cancel();
-
-    if (_isRecording) {
-      unawaited(
-        _recorder.cancel(),
-      );
-    }
-
-    unawaited(
-      _recorder.dispose(),
-    );
-
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
-
     super.dispose();
   }
 
@@ -149,8 +121,7 @@ class _ChatScreenState
 
     if (text.isEmpty ||
         _sendingText ||
-        _uploadingMedia ||
-        _isRecording) {
+        _uploadingMedia) {
       return;
     }
 
@@ -214,8 +185,7 @@ class _ChatScreenState
 
   Future<void>
   _showImageSourceSheet() async {
-    if (_uploadingMedia ||
-        _isRecording) {
+    if (_uploadingMedia) {
       return;
     }
 
@@ -633,300 +603,6 @@ class _ChatScreenState
         );
       },
     );
-  }
-
-  // ========================================================================
-  // VOICE
-  // ========================================================================
-
-  Future<void> _startRecording() async {
-    if (_isRecording ||
-        _uploadingMedia ||
-        _sendingText) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-
-    try {
-      final allowed =
-      await _recorder.hasPermission();
-
-      if (!allowed) {
-        if (mounted) {
-          _showSnack(
-            _ui('Microphone permission is required.'),
-            error: true,
-          );
-        }
-
-        return;
-      }
-
-      final tempDir =
-      await getTemporaryDirectory();
-
-      final path =
-          '${tempDir.path}/'
-          'tototl_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      await _recorder.start(
-        RecordConfig(
-          encoder:
-          AudioEncoder.aacLc,
-          bitRate:
-          96000,
-          sampleRate:
-          44100,
-          numChannels:
-          1,
-          echoCancel:
-          true,
-          noiseSuppress:
-          true,
-        ),
-        path:
-        path,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _recordingTimer?.cancel();
-
-      setState(() {
-        _recordingPath =
-            path;
-
-        _recordingDuration =
-            Duration.zero;
-
-        _isRecording =
-        true;
-      });
-
-      _recordingTimer =
-          Timer.periodic(
-            Duration(
-              seconds:
-              1,
-            ),
-                (_) {
-              if (!mounted ||
-                  !_isRecording) {
-                return;
-              }
-
-              setState(() {
-                _recordingDuration +=
-                    Duration(
-                      seconds:
-                      1,
-                    );
-              });
-            },
-          );
-    } catch (_) {
-      if (mounted) {
-        _showSnack(
-          _ui('Could not start voice recording.'),
-          error: true,
-        );
-      }
-    }
-  }
-
-  Future<void> _cancelRecording() async {
-    _recordingTimer?.cancel();
-
-    try {
-      await _recorder.cancel();
-    } catch (_) {}
-
-    final path =
-        _recordingPath;
-
-    if (path != null) {
-      final file =
-      File(path);
-
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isRecording =
-      false;
-
-      _recordingPath =
-      null;
-
-      _recordingDuration =
-          Duration.zero;
-    });
-  }
-
-  Future<void> _sendRecording() async {
-    if (!_isRecording ||
-        _uploadingMedia) {
-      return;
-    }
-
-    _recordingTimer?.cancel();
-
-    final capturedDuration =
-        _recordingDuration;
-
-    String? path;
-
-    try {
-      path =
-      await _recorder.stop();
-    } catch (_) {
-      path =
-          _recordingPath;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isRecording =
-      false;
-
-      _recordingPath =
-      null;
-
-      _recordingDuration =
-          Duration.zero;
-    });
-
-    if (path == null ||
-        path.trim().isEmpty) {
-      _showSnack(
-        _ui('Voice recording was not saved.'),
-        error: true,
-      );
-
-      return;
-    }
-
-    final voicePath =
-        path;
-
-    if (capturedDuration <
-        Duration(
-          seconds:
-          1,
-        )) {
-      final file =
-      File(voicePath);
-
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
-
-      _showSnack(
-        _ui('Voice message is too short.'),
-      );
-
-      return;
-    }
-
-    setState(() {
-      _uploadingMedia =
-      true;
-    });
-
-    try {
-      final uploaded =
-      await CloudinaryChatMediaService
-          .instance
-          .uploadVoice(
-        voicePath,
-      );
-
-      final cloudDurationMs =
-      uploaded.durationSeconds > 0
-          ? (uploaded.durationSeconds *
-          1000)
-          .round()
-          : capturedDuration
-          .inMilliseconds;
-
-      await FirebaseChatService.instance
-          .sendMediaMessage(
-        senderId:
-        widget.currentUserId,
-        senderName:
-        widget.currentUserName,
-        senderPhotoUrl:
-        _currentUserPhotoUrl,
-        receiverId:
-        widget.partnerId,
-        receiverName:
-        widget.partnerName,
-        receiverPhotoUrl:
-        widget.partnerPhotoUrl,
-        type:
-        ChatMessageType.voice,
-        mediaUrl:
-        uploaded.secureUrl,
-        mediaDurationMs:
-        cloudDurationMs,
-        mimeType:
-        uploaded.format.isEmpty
-            ? 'audio/mp4'
-            : 'audio/${uploaded.format}',
-        replyTo:
-        _replyTo,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _replyTo =
-        null;
-      });
-
-      _scrollToBottom();
-    } catch (_) {
-      if (mounted) {
-        _showSnack(
-          _ui('Voice upload failed.'),
-          error: true,
-        );
-      }
-    } finally {
-      final file =
-      File(voicePath);
-
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
-
-      if (mounted) {
-        setState(() {
-          _uploadingMedia =
-          false;
-        });
-      }
-    }
   }
 
   // ========================================================================
@@ -1421,8 +1097,7 @@ class _ChatScreenState
       BuildContext context,
       ) {
     return Scaffold(
-      backgroundColor:
-      AppColors.bg,
+      backgroundColor: AppColors.bg,
       body:
       SafeArea(
         child:
@@ -1517,38 +1192,37 @@ class _ChatScreenState
                                     index,
                                   );
 
-                          return _MessageBubble(
-                            message:
-                            message,
-                            mine:
-                            mine,
-                            currentUserId:
-                            widget.currentUserId,
-                            partnerName:
-                            widget.partnerName,
-                            partnerPhotoUrl:
-                            widget.partnerPhotoUrl,
-                            showAvatar:
-                            showAvatar,
-                            onLongPress:
-                                () =>
-                                _showMessageActions(
-                                  message,
+                          final showDate =
+                              index == 0 ||
+                                  !_sameDay(
+                                    messages[index - 1].sentAt,
+                                    message.sentAt,
+                                  );
+
+                          return Column(
+                            children: [
+                              if (showDate)
+                                _ConversationDateDivider(
+                                  sentAt: message.sentAt,
                                 ),
-                            onDoubleTap:
-                                () =>
-                                _setReaction(
-                                  message,
-                                  'heart',
-                                ),
-                            onReactionTap:
-                                (
-                                reactionCode,
-                                ) =>
-                                _setReaction(
-                                  message,
-                                  reactionCode,
-                                ),
+                              _MessageBubble(
+                                message: message,
+                                mine: mine,
+                                currentUserId: widget.currentUserId,
+                                partnerName: widget.partnerName,
+                                partnerPhotoUrl: widget.partnerPhotoUrl,
+                                showAvatar: showAvatar,
+                                onLongPress: () =>
+                                    _showMessageActions(message),
+                                onDoubleTap: () =>
+                                    _setReaction(message, 'heart'),
+                                onReactionTap: (reactionCode) =>
+                                    _setReaction(
+                                      message,
+                                      reactionCode,
+                                    ),
+                              ),
+                            ],
                           );
                         },
                       );
@@ -1557,41 +1231,20 @@ class _ChatScreenState
                 ),
 
                 _Composer(
-                  controller:
-                  _controller,
-                  focusNode:
-                  _focusNode,
-                  sending:
-                  _sendingText,
-                  uploadingMedia:
-                  _uploadingMedia,
-                  isRecording:
-                  _isRecording,
-                  recordingDuration:
-                  _recordingDuration,
-                  replyTo:
-                  _replyTo,
-                  currentUserId:
-                  widget.currentUserId,
-                  partnerName:
-                  widget.partnerName,
-                  onCancelReply:
-                      () {
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  sending: _sendingText,
+                  uploadingMedia: _uploadingMedia,
+                  replyTo: _replyTo,
+                  currentUserId: widget.currentUserId,
+                  partnerName: widget.partnerName,
+                  onCancelReply: () {
                     setState(() {
-                      _replyTo =
-                      null;
+                      _replyTo = null;
                     });
                   },
-                  onSend:
-                  _sendText,
-                  onAttachment:
-                  _showImageSourceSheet,
-                  onStartVoice:
-                  _startRecording,
-                  onCancelVoice:
-                  _cancelRecording,
-                  onSendVoice:
-                  _sendRecording,
+                  onSend: _sendText,
+                  onAttachment: _showImageSourceSheet,
                 ),
               ],
             ),
@@ -1605,6 +1258,17 @@ class _ChatScreenState
         ),
       ),
     );
+  }
+
+  bool _sameDay(int first, int second) {
+    if (first == 0 || second == 0) return false;
+
+    final a = DateTime.fromMillisecondsSinceEpoch(first);
+    final b = DateTime.fromMillisecondsSinceEpoch(second);
+
+    return a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
   }
 
   bool _shouldShowAvatar(
@@ -1623,12 +1287,48 @@ class _ChatScreenState
   }
 }
 
+class _ConversationDateDivider extends StatelessWidget {
+  const _ConversationDateDivider({
+    required this.sentAt,
+  });
+
+  final int sentAt;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sentAt == 0) return const SizedBox.shrink();
+
+    final date = DateTime.fromMillisecondsSinceEpoch(sentAt);
+    final now = DateTime.now();
+
+    final today = date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+
+    final label = today
+        ? '${_ui('Today')}, ${DateFormat('MMM d').format(date)}'
+        : DateFormat('MMM d, yyyy').format(date);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 13),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.lightGrey,
+          fontSize: 9.6,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
 // ==========================================================================
 // HEADER
 // ==========================================================================
 
-class _ChatHeader
-    extends StatelessWidget {
+class _ChatHeader extends StatelessWidget {
   const _ChatHeader({
     required this.name,
     required this.photoUrl,
@@ -1638,117 +1338,64 @@ class _ChatHeader
   final String photoUrl;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
     return Container(
-      padding:
-      EdgeInsets.fromLTRB(
-        8,
-        8,
-        14,
-        10,
-      ),
-      decoration:
-      BoxDecoration(
-        color:
-        Colors.white,
-        border:
-        Border(
-          bottom:
-          BorderSide(
-            color:
-            AppColors.cardBorder,
+      padding: const EdgeInsets.fromLTRB(5, 6, 10, 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.cardBorder,
           ),
         ),
       ),
-      child:
-      Row(
+      child: Row(
         children: [
           IconButton(
-            onPressed:
-                () => Navigator.of(
-              context,
-            ).pop(),
-            icon:
-            Icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(
               Icons.arrow_back_ios_new_rounded,
-              color:
-              AppColors.navy,
-              size:
-              18,
+              color: AppColors.navy,
+              size: 17,
             ),
           ),
-
           _ChatAvatar(
-            name:
-            name,
-            photoUrl:
-            photoUrl,
-            size:
-            43,
-            online:
-            true,
+            name: name,
+            photoUrl: photoUrl,
+            size: 43,
           ),
-
-          SizedBox(
-            width:
-            10,
-          ),
-
+          const SizedBox(width: 9),
           Expanded(
-            child:
-            Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   name.trim().isEmpty
                       ? _ui('Conversation')
                       : name,
-                  maxLines:
-                  1,
-                  overflow:
-                  TextOverflow.ellipsis,
-                  style:
-                  TextStyle(
-                    color:
-                    AppColors.navy,
-                    fontSize:
-                    14.5,
-                    fontWeight:
-                    FontWeight.w900,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-
-                SizedBox(
-                  height:
-                  2,
-                ),
-
+                const SizedBox(height: 3),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.lock_outline_rounded,
-                      size:
-                      11,
-                      color:
-                      AppColors.logoTurquoiseDark,
+                      size: 11,
+                      color: AppColors.grey,
                     ),
-                    SizedBox(
-                      width:
-                      4,
-                    ),
+                    const SizedBox(width: 4),
                     Text(
                       _ui('Private conversation'),
-                      style:
-                      TextStyle(
-                        color:
-                        AppColors.grey,
-                        fontSize:
-                        10.2,
-                        fontWeight:
-                        FontWeight.w500,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 9.8,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -1756,28 +1403,17 @@ class _ChatHeader
               ],
             ),
           ),
-
           Container(
-            width:
-            38,
-            height:
-            38,
-            decoration:
-            BoxDecoration(
-              color:
-              Color(
-                0xFFF5F7F9,
-              ),
-              shape:
-              BoxShape.circle,
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F8F9),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child:
-            Icon(
+            child: const Icon(
               Icons.more_horiz_rounded,
-              color:
-              AppColors.navy,
-              size:
-              19,
+              color: AppColors.navy,
+              size: 19,
             ),
           ),
         ],
@@ -2033,16 +1669,8 @@ class _MessageBubble
                             message:
                             message,
                           )
-                        else if (message
-                              .isVoice)
-                            _VoiceMessagePlayer(
-                              url:
-                              message.mediaUrl,
-                              durationMs:
-                              message.mediaDurationMs,
-                              mine:
-                              mine,
-                            )
+                        else if (message.isVoice)
+                            _LegacyAudioMessage(mine: mine)
                           else
                             Text(
                               message.text,
@@ -2336,439 +1964,38 @@ class _FullImageScreen
   }
 }
 
-// ==========================================================================
-// VOICE PLAYER
-// ==========================================================================
-
-class _VoiceMessagePlayer
-    extends StatefulWidget {
-  const _VoiceMessagePlayer({
-    required this.url,
-    required this.durationMs,
+class _LegacyAudioMessage extends StatelessWidget {
+  const _LegacyAudioMessage({
     required this.mine,
   });
 
-  final String url;
-  final int durationMs;
   final bool mine;
 
   @override
-  State<_VoiceMessagePlayer> createState() =>
-      _VoiceMessagePlayerState();
-}
-
-class _VoiceMessagePlayerState
-    extends State<_VoiceMessagePlayer> {
-  late final AudioPlayer _player;
-
-  StreamSubscription<Duration>?
-  _positionSub;
-
-  StreamSubscription<Duration>?
-  _durationSub;
-
-  StreamSubscription<PlayerState>?
-  _stateSub;
-
-  StreamSubscription<void>?
-  _completeSub;
-
-  Duration _position =
-      Duration.zero;
-
-  Duration _duration =
-      Duration.zero;
-
-  PlayerState _state =
-      PlayerState.stopped;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _duration =
-        Duration(
-          milliseconds:
-          widget.durationMs,
-        );
-
-    _player =
-        AudioPlayer();
-
-    _positionSub =
-        _player.onPositionChanged.listen(
-              (value) {
-            if (mounted) {
-              setState(() {
-                _position =
-                    value;
-              });
-            }
-          },
-        );
-
-    _durationSub =
-        _player.onDurationChanged.listen(
-              (value) {
-            if (mounted) {
-              setState(() {
-                _duration =
-                    value;
-              });
-            }
-          },
-        );
-
-    _stateSub =
-        _player.onPlayerStateChanged.listen(
-              (value) {
-            if (mounted) {
-              setState(() {
-                _state =
-                    value;
-              });
-            }
-          },
-        );
-
-    _completeSub =
-        _player.onPlayerComplete.listen(
-              (_) {
-            if (mounted) {
-              setState(() {
-                _state =
-                    PlayerState.stopped;
-
-                _position =
-                    Duration.zero;
-              });
-            }
-          },
-        );
-  }
-
-  @override
-  void dispose() {
-    _positionSub?.cancel();
-    _durationSub?.cancel();
-    _stateSub?.cancel();
-    _completeSub?.cancel();
-
-    unawaited(
-      _player.dispose(),
-    );
-
-    super.dispose();
-  }
-
-  Future<void> _toggle() async {
-    if (_state ==
-        PlayerState.playing) {
-      await _player.pause();
-
-      return;
-    }
-
-    if (_state ==
-        PlayerState.paused) {
-      await _player.resume();
-
-      return;
-    }
-
-    await _player.play(
-      UrlSource(
-        widget.url,
-      ),
-    );
-  }
-
-  Future<void> _seek(
-      double ratio,
-      ) async {
-    if (_duration.inMilliseconds <=
-        0) {
-      return;
-    }
-
-    final target =
-    Duration(
-      milliseconds:
-      (_duration.inMilliseconds *
-          ratio.clamp(
-            0.0,
-            1.0,
-          ))
-          .round(),
-    );
-
-    await _player.seek(
-      target,
-    );
-  }
-
-  @override
-  Widget build(
-      BuildContext context,
-      ) {
-    final totalMs =
-    _duration.inMilliseconds > 0
-        ? _duration.inMilliseconds
-        : widget.durationMs;
-
-    final progress =
-    totalMs <= 0
-        ? 0.0
-        : (_position.inMilliseconds /
-        totalMs)
-        .clamp(
-      0.0,
-      1.0,
-    );
-
-    final foreground =
-    widget.mine
-        ? Colors.white
-        : AppColors.logoTurquoiseDark;
-
-    final muted =
-    widget.mine
-        ? Colors.white.withValues(
-      alpha:
-      .62,
-    )
-        : AppColors.lightGrey;
-
-    final shownDuration =
-    _position > Duration.zero
-        ? _position
-        : Duration(
-      milliseconds:
-      totalMs,
-    );
-
-    return SizedBox(
-      width:
-      230,
-      child:
-      Row(
-        children: [
-          Material(
-            color:
-            widget.mine
-                ? Colors.white
-                : AppColors.blueBg,
-            shape:
-            CircleBorder(),
-            child:
-            InkWell(
-              onTap:
-              _toggle,
-              customBorder:
-              CircleBorder(),
-              child:
-              SizedBox(
-                width:
-                42,
-                height:
-                42,
-                child:
-                Icon(
-                  _state ==
-                      PlayerState.playing
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  color:
-                  widget.mine
-                      ? AppColors.logoTurquoiseDark
-                      : AppColors.logoTurquoiseDark,
-                  size:
-                  23,
-                ),
-              ),
-            ),
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.audio_file_outlined,
+          size: 17,
+          color: mine
+              ? Colors.white.withOpacity(.88)
+              : AppColors.logoTurquoiseDark,
+        ),
+        const SizedBox(width: 7),
+        Text(
+          _ui('Audio message'),
+          style: TextStyle(
+            color: mine ? Colors.white : AppColors.navy,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
           ),
-
-          SizedBox(
-            width:
-            10,
-          ),
-
-          Expanded(
-            child:
-            Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                _Waveform(
-                  progress:
-                  progress,
-                  activeColor:
-                  foreground,
-                  inactiveColor:
-                  muted,
-                  onSeek:
-                  _seek,
-                ),
-
-                SizedBox(
-                  height:
-                  5,
-                ),
-
-                Text(
-                  _formatDuration(
-                    shownDuration,
-                  ),
-                  style:
-                  TextStyle(
-                    color:
-                    muted,
-                    fontSize:
-                    8.8,
-                    fontWeight:
-                    FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
-
-class _Waveform
-    extends StatelessWidget {
-  const _Waveform({
-    required this.progress,
-    required this.activeColor,
-    required this.inactiveColor,
-    required this.onSeek,
-  });
-
-  final double progress;
-  final Color activeColor;
-  final Color inactiveColor;
-
-  final Future<void> Function(
-      double ratio,
-      ) onSeek;
-
-  static const _heights =
-  <double>[
-    9,
-    16,
-    11,
-    22,
-    15,
-    26,
-    13,
-    19,
-    10,
-    24,
-    17,
-    12,
-    27,
-    15,
-    21,
-    9,
-    18,
-    25,
-    13,
-    20,
-    11,
-    24,
-    15,
-    19,
-  ];
-
-  @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return LayoutBuilder(
-      builder:
-          (
-          context,
-          constraints,
-          ) {
-        return GestureDetector(
-          behavior:
-          HitTestBehavior.opaque,
-          onTapDown:
-              (details) {
-            final width =
-                constraints.maxWidth;
-
-            if (width <= 0) {
-              return;
-            }
-
-            onSeek(
-              details.localPosition.dx /
-                  width,
-            );
-          },
-          child:
-          SizedBox(
-            height:
-            30,
-            child:
-            Row(
-              crossAxisAlignment:
-              CrossAxisAlignment.center,
-              children:
-              List.generate(
-                _heights.length,
-                    (
-                    index,
-                    ) {
-                  final barProgress =
-                      (index + 1) /
-                          _heights.length;
-
-                  final active =
-                      barProgress <=
-                          progress;
-
-                  return Expanded(
-                    child:
-                    Align(
-                      child:
-                      Container(
-                        width:
-                        2.2,
-                        height:
-                        _heights[index],
-                        decoration:
-                        BoxDecoration(
-                          color:
-                          active
-                              ? activeColor
-                              : inactiveColor,
-                          borderRadius:
-                          BorderRadius.circular(
-                            3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ==========================================================================
-// REPLY / REACTIONS
-// ==========================================================================
 
 class _ReplyPreview
     extends StatelessWidget {
@@ -3391,512 +2618,158 @@ class _ActionRow
 // COMPOSER
 // ==========================================================================
 
-class _Composer
-    extends StatelessWidget {
+class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.focusNode,
     required this.sending,
     required this.uploadingMedia,
-    required this.isRecording,
-    required this.recordingDuration,
     required this.replyTo,
     required this.currentUserId,
     required this.partnerName,
     required this.onCancelReply,
     required this.onSend,
     required this.onAttachment,
-    required this.onStartVoice,
-    required this.onCancelVoice,
-    required this.onSendVoice,
   });
 
-  final TextEditingController
-  controller;
-
+  final TextEditingController controller;
   final FocusNode focusNode;
-
   final bool sending;
   final bool uploadingMedia;
-  final bool isRecording;
-
-  final Duration recordingDuration;
-
   final ChatMessage? replyTo;
-
   final String currentUserId;
   final String partnerName;
-
   final VoidCallback onCancelReply;
-
-  final Future<void> Function()
-  onSend;
-
-  final Future<void> Function()
-  onAttachment;
-
-  final Future<void> Function()
-  onStartVoice;
-
-  final Future<void> Function()
-  onCancelVoice;
-
-  final Future<void> Function()
-  onSendVoice;
+  final Future<void> Function() onSend;
+  final Future<void> Function() onAttachment;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
     return Container(
-      decoration:
-      BoxDecoration(
-        color:
-        Colors.white,
-        border:
-        Border(
-          top:
-          BorderSide(
-            color:
-            AppColors.cardBorder,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: AppColors.cardBorder,
           ),
         ),
-      ),
-      child:
-      SafeArea(
-        top:
-        false,
-        child:
-        Padding(
-          padding:
-          EdgeInsets.fromLTRB(
-            12,
-            8,
-            12,
-            10,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(.025),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
           ),
-          child:
-          Column(
-            mainAxisSize:
-            MainAxisSize.min,
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (replyTo !=
-                  null)
+              if (replyTo != null)
                 _ComposerReplyBar(
-                  message:
-                  replyTo!,
-                  currentUserId:
-                  currentUserId,
-                  partnerName:
-                  partnerName,
-                  onClose:
-                  onCancelReply,
+                  message: replyTo!,
+                  currentUserId: currentUserId,
+                  partnerName: partnerName,
+                  onClose: onCancelReply,
                 ),
-
-              if (replyTo !=
-                  null)
-                SizedBox(
-                  height:
-                  7,
-                ),
-
-              if (isRecording)
-                _RecordingBar(
-                  duration:
-                  recordingDuration,
-                  onCancel:
-                  onCancelVoice,
-                  onSend:
-                  onSendVoice,
-                )
-              else
-                Row(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.end,
-                  children: [
-                    _ComposerCircleButton(
-                      icon:
-                      Icons.add_rounded,
-                      onTap:
-                      uploadingMedia
-                          ? null
-                          : onAttachment,
-                    ),
-
-                    SizedBox(
-                      width:
-                      7,
-                    ),
-
-                    Expanded(
-                      child:
-                      TextField(
-                        controller:
-                        controller,
-                        focusNode:
-                        focusNode,
-                        enabled:
-                        !uploadingMedia,
-                        minLines:
-                        1,
-                        maxLines:
-                        4,
-                        textCapitalization:
-                        TextCapitalization.sentences,
-                        textInputAction:
-                        TextInputAction.newline,
-                        style:
-                        TextStyle(
-                          color:
-                          AppColors.navy,
-                          fontSize:
-                          12.8,
+              if (replyTo != null)
+                const SizedBox(height: 7),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _ComposerCircleButton(
+                    icon: Icons.attach_file_rounded,
+                    onTap: uploadingMedia ? null : onAttachment,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      enabled: !uploadingMedia,
+                      minLines: 1,
+                      maxLines: 4,
+                      textCapitalization:
+                      TextCapitalization.sentences,
+                      textInputAction: TextInputAction.newline,
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 12.2,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: _ui('Type a message...'),
+                        hintStyle: const TextStyle(
+                          color: AppColors.lightGrey,
+                          fontSize: 11.8,
                         ),
-                        decoration:
-                        InputDecoration(
-                          hintText:
-                          _ui('Message...'),
-                          hintStyle:
-                          TextStyle(
-                            color:
-                            AppColors.lightGrey,
-                            fontSize:
-                            12.5,
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFB),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 11,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(
+                            color: AppColors.cardBorder,
                           ),
-                          suffixIcon:
-                          Icon(
-                            Icons.sentiment_satisfied_alt_rounded,
-                            color:
-                            AppColors.grey,
-                            size:
-                            20,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(
+                            color: AppColors.cardBorder,
                           ),
-                          filled:
-                          true,
-                          fillColor:
-                          Color(
-                            0xFFF4F6F8,
-                          ),
-                          contentPadding:
-                          EdgeInsets.symmetric(
-                            horizontal:
-                            14,
-                            vertical:
-                            11,
-                          ),
-                          border:
-                          OutlineInputBorder(
-                            borderRadius:
-                            BorderRadius.circular(
-                              24,
-                            ),
-                            borderSide:
-                            BorderSide.none,
-                          ),
-                          enabledBorder:
-                          OutlineInputBorder(
-                            borderRadius:
-                            BorderRadius.circular(
-                              24,
-                            ),
-                            borderSide:
-                            BorderSide(
-                              color:
-                              AppColors.cardBorder,
-                            ),
-                          ),
-                          focusedBorder:
-                          OutlineInputBorder(
-                            borderRadius:
-                            BorderRadius.circular(
-                              24,
-                            ),
-                            borderSide:
-                            BorderSide(
-                              color:
-                              AppColors.logoTurquoise,
-                              width:
-                              1.2,
-                            ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: const BorderSide(
+                            color: AppColors.logoTurquoise,
+                            width: 1.2,
                           ),
                         ),
                       ),
                     ),
-
-                    SizedBox(
-                      width:
-                      7,
-                    ),
-
-                    _ComposerCircleButton(
-                      icon:
-                      Icons.mic_none_rounded,
-                      onTap:
-                      uploadingMedia
-                          ? null
-                          : onStartVoice,
-                    ),
-
-                    SizedBox(
-                      width:
-                      7,
-                    ),
-
-                    SizedBox(
-                      width:
-                      46,
-                      height:
-                      46,
-                      child:
-                      FilledButton(
-                        onPressed:
-                        sending ||
-                            uploadingMedia
-                            ? null
-                            : onSend,
-                        style:
-                        FilledButton.styleFrom(
-                          padding:
-                          EdgeInsets.zero,
-                          backgroundColor:
-                          AppColors.logoTurquoiseDark,
-                          disabledBackgroundColor:
-                          AppColors.logoTurquoiseDark.withValues(
-                            alpha:
-                            .55,
-                          ),
-                          shape:
-                          CircleBorder(),
+                  ),
+                  const SizedBox(width: 7),
+                  SizedBox(
+                    width: 43,
+                    height: 43,
+                    child: FilledButton(
+                      onPressed:
+                      sending || uploadingMedia ? null : onSend,
+                      style: FilledButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        backgroundColor:
+                        AppColors.logoTurquoiseDark,
+                        disabledBackgroundColor:
+                        AppColors.logoTurquoiseDark
+                            .withOpacity(.52),
+                        shape: const CircleBorder(),
+                      ),
+                      child: sending
+                          ? const SizedBox(
+                        width: 17,
+                        height: 17,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                        child:
-                        sending
-                            ? SizedBox(
-                          width:
-                          18,
-                          height:
-                          18,
-                          child:
-                          CircularProgressIndicator(
-                            strokeWidth:
-                            2,
-                            color:
-                            Colors.white,
-                          ),
-                        )
-                            : Icon(
-                          Icons.send_rounded,
-                          color:
-                          Colors.white,
-                          size:
-                          20,
-                        ),
+                      )
+                          : const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 19,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _RecordingBar
-    extends StatelessWidget {
-  const _RecordingBar({
-    required this.duration,
-    required this.onCancel,
-    required this.onSend,
-  });
-
-  final Duration duration;
-
-  final Future<void> Function()
-  onCancel;
-
-  final Future<void> Function()
-  onSend;
-
-  @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return Container(
-      padding:
-      EdgeInsets.fromLTRB(
-        11,
-        7,
-        7,
-        7,
-      ),
-      decoration:
-      BoxDecoration(
-        color:
-        Color(
-          0xFFF4F6F8,
-        ),
-        borderRadius:
-        BorderRadius.circular(
-          24,
-        ),
-        border:
-        Border.all(
-          color:
-          AppColors.cardBorder,
-        ),
-      ),
-      child:
-      Row(
-        children: [
-          Container(
-            width:
-            10,
-            height:
-            10,
-            decoration:
-            BoxDecoration(
-              color:
-              AppColors.red,
-              shape:
-              BoxShape.circle,
-            ),
-          ),
-
-          SizedBox(
-            width:
-            8,
-          ),
-
-          Text(
-            _formatDuration(
-              duration,
-            ),
-            style:
-            TextStyle(
-              color:
-              AppColors.navy,
-              fontSize:
-              12,
-              fontWeight:
-              FontWeight.w800,
-            ),
-          ),
-
-          SizedBox(
-            width:
-            10,
-          ),
-
-          Expanded(
-            child:
-            Row(
-              children:
-              List.generate(
-                18,
-                    (
-                    index,
-                    ) {
-                  final heights =
-                  <double>[
-                    7,
-                    14,
-                    10,
-                    19,
-                    12,
-                    21,
-                    9,
-                    17,
-                    11,
-                    22,
-                    13,
-                    16,
-                    8,
-                    20,
-                    12,
-                    18,
-                    9,
-                    15,
-                  ];
-
-                  return Expanded(
-                    child:
-                    Align(
-                      child:
-                      Container(
-                        width:
-                        2,
-                        height:
-                        heights[index],
-                        decoration:
-                        BoxDecoration(
-                          color:
-                          AppColors.logoTurquoiseDark.withValues(
-                            alpha:
-                            .55,
-                          ),
-                          borderRadius:
-                          BorderRadius.circular(
-                            3,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width:
-            8,
-          ),
-
-          IconButton(
-            onPressed:
-            onCancel,
-            style:
-            IconButton.styleFrom(
-              backgroundColor:
-              AppColors.red.withValues(
-                alpha:
-                .08,
-              ),
-            ),
-            icon:
-            Icon(
-              Icons.delete_outline_rounded,
-              color:
-              AppColors.red,
-              size:
-              20,
-            ),
-          ),
-
-          SizedBox(
-            width:
-            3,
-          ),
-
-          IconButton(
-            onPressed:
-            onSend,
-            style:
-            IconButton.styleFrom(
-              backgroundColor:
-              AppColors.logoTurquoiseDark,
-              foregroundColor:
-              Colors.white,
-            ),
-            icon:
-            Icon(
-              Icons.send_rounded,
-              size:
-              19,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -4567,15 +3440,3 @@ class _MessagesError
   }
 }
 
-String _formatDuration(
-    Duration value,
-    ) {
-  final minutes =
-      value.inMinutes;
-
-  final seconds =
-      value.inSeconds %
-          60;
-
-  return '$minutes:${seconds.toString().padLeft(2, '0')}';
-}

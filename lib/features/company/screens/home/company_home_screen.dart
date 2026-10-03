@@ -19,6 +19,13 @@ import '../jobs/company_job_detail_screen.dart';
 import '../jobs/post_job_screen.dart';
 import '../applications/company_applicant_detail_screen.dart';
 
+import 'package:tototl_app/features/payments/screens/payment_history_screen.dart';
+import 'package:tototl_app/features/payments/services/payment_service.dart';
+import 'package:tototl_app/features/company/screens/contract/company_contracts_screen.dart';
+import 'package:tototl_app/features/shared/models/phase3_account_summary.dart';
+import 'package:tototl_app/features/shared/services/phase3_dashboard_service.dart';
+ import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
+
 class CompanyHomeScreen extends StatefulWidget {
   const CompanyHomeScreen({super.key});
 
@@ -33,6 +40,12 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
   late final CompanyDashboardController _controller;
   late final AnimationController _entrance;
+  late final Phase3DashboardService _phase3Service;
+
+  Phase3AccountSummary _phase3Summary = const Phase3AccountSummary();
+  bool _phase3Loading = true;
+  bool _phase3HasSnapshot = false;
+  String? _phase3Error;
 
   _CompanyDashboardUiSnapshot? _dashboardSnapshot;
   String? _dashboardCacheKey;
@@ -44,6 +57,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
   String _companyName = 'Company Account';
   String _profilePhotoUrl = '';
+  String _companyMeta = 'Active account';
   bool _verified = false;
 
   @override
@@ -54,6 +68,11 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
       CompanyDashboardService(ApiClient()),
     );
 
+    _phase3Service = Phase3DashboardService(
+      ApiClient(),
+      audience: Phase3DashboardAudience.company,
+    );
+
     _entrance = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 680),
@@ -62,6 +81,62 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     // Local-first: paint the previous dashboard immediately, then ask the API
     // for the newest version without blocking the user on every visit.
     unawaited(_bootstrap());
+    unawaited(_loadPhase3());
+  }
+
+  Future<void> _loadPhase3() async {
+    if (_phase3Loading && _phase3HasSnapshot) return;
+
+    if (mounted) {
+      setState(() {
+        _phase3Loading = true;
+        _phase3Error = null;
+      });
+    }
+
+    try {
+      final overview = await _phase3Service.getOverview();
+      if (!mounted) return;
+      setState(() {
+        _phase3Summary = overview;
+        _phase3HasSnapshot = true;
+        _phase3Error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _phase3Error = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _phase3Loading = false);
+      }
+    }
+  }
+
+  Future<void> _openPhase3Contracts() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CompanyContractsScreen()),
+    );
+    if (mounted) unawaited(_loadPhase3());
+  }
+
+  Future<void> _openPhase3Payments() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PaymentHistoryScreen(
+          audience: PaymentAudience.company,
+        ),
+      ),
+    );
+    if (mounted) unawaited(_loadPhase3());
+  }
+
+  Future<void> _openSubscriptionCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SubscriptionCenterScreen()),
+    );
+    if (mounted) unawaited(_loadPhase3());
   }
 
   Future<void> _bootstrap() async {
@@ -109,6 +184,8 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
           statusValue == 'active' ||
           statusValue == 'approved' ||
           statusValue == 'verified';
+
+      _companyMeta = _buildCompanyMeta(profile, statusValue);
     });
   }
 
@@ -210,6 +287,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     await Future.wait<void>([
       _refreshDashboardFromNetwork(),
       _loadCompanyIdentity(),
+      _loadPhase3(),
     ]);
   }
 
@@ -351,242 +429,152 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
         (!_cacheReadFinished || !_firstNetworkAttemptFinished);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -170,
-            right: -120,
-            child: IgnorePointer(
-              child: Container(
-                width: 340,
-                height: 340,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.blue.withOpacity(0.11),
-                      AppColors.blue.withOpacity(0.02),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
+      backgroundColor: _HomePalette.background,
+      body: SafeArea(
+        child: shouldShowFirstShimmer
+            ? const _CompanyHomeReferenceShimmer()
+            : dashboard == null
+            ? _DashboardErrorState(
+          message: _dashboardError ??
+              _controller.errorMessage ??
+              'Unable to load company dashboard.',
+          onRetry: () => _refreshDashboardFromNetwork(initial: true),
+        )
+            : RefreshIndicator(
+          color: _HomePalette.teal,
+          onRefresh: _refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
-          ),
-          Positioned(
-            top: 390,
-            left: -170,
-            child: IgnorePointer(
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.green.withOpacity(0.055),
-                      Colors.transparent,
-                    ],
-                  ),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 115),
+            children: [
+              _entry(
+                index: 0,
+                child: _ReferenceCompanyHeader(
+                  companyName: _companyName,
+                  profilePhotoUrl: _profilePhotoUrl,
+                  verified: _verified,
+                  companyMeta: _companyMeta,
+                  onNotificationsTap: _openNotifications,
                 ),
               ),
-            ),
-          ),
-          SafeArea(
-            child: shouldShowFirstShimmer
-                ? const _CompanyDashboardShimmer()
-                : dashboard == null
-                ? _DashboardErrorState(
-              message: _dashboardError ??
-                  _controller.errorMessage ??
-                  'Unable to load company dashboard.',
-              onRetry: () => _refreshDashboardFromNetwork(
-                initial: true,
+              const SizedBox(height: 18),
+              _entry(
+                index: 1,
+                child: _ReferenceGreeting(companyName: _companyName),
               ),
-            )
-                : RefreshIndicator(
-              onRefresh: _refresh,
-              color: AppColors.blue,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: const EdgeInsets.fromLTRB(
-                  20,
-                  14,
-                  20,
-                  115,
-                ),
-                children: [
-                  _entry(
-                    index: 0,
-                    child: _CompanyHeader(
-                      companyName: _companyName,
-                      profilePhotoUrl: _profilePhotoUrl,
-                      verified: _verified,
-                      onNotificationsTap: _openNotifications,
-                    ),
-                  ),
-                  const SizedBox(height: 17),
-                  _entry(
-                    index: 1,
-                    child: _DashboardHero(dashboard: dashboard),
-                  ),
-                  const SizedBox(height: 23),
-                  _entry(
-                    index: 2,
-                    child: _SectionTitle(
-                      title: AppLanguage.text('Job Overview'),
-                      subtitle:
-                      AppLanguage.text('Live status of your company job postings'),
-                      icon: Icons.dashboard_customize_outlined,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _entry(
-                    index: 3,
-                    child: _StatusGrid(dashboard: dashboard),
-                  ),
-                  const SizedBox(height: 18),
-                  _entry(
-                    index: 4,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: FilledButton.icon(
-                              onPressed: _openPostJob,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.blue,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(16),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.add_circle_outline_rounded,
-                                size: 19,
-                              ),
-                              label: Text(AppLanguage.text('Post New Job'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: OutlinedButton.icon(
-                              onPressed: _openManageJobs,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.navy,
-                                backgroundColor: Colors.white,
-                                side: BorderSide(
-                                  color: AppColors.cardBorder,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(16),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.work_outline_rounded,
-                                size: 18,
-                              ),
-                              label: Text(AppLanguage.text('Manage Jobs'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  _entry(
-                    index: 5,
-                    child: _SectionTitle(
-                      title: AppLanguage.text('Recent Applicants'),
-                      subtitle: dashboard.recentApplicants.isEmpty
-                          ? 'No recent applications yet'
-                          : 'Latest pilots across your job postings',
-                      icon: Icons.people_alt_outlined,
-                      trailing: dashboard.recentApplicants.isEmpty
-                          ? null
-                          : _CountBadge(
-                        count:
-                        dashboard.recentApplicants.length,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (dashboard.recentApplicants.isEmpty)
-                    _entry(
-                      index: 6,
-                      child: const _EmptyApplicantsCard(),
-                    )
-                  else
-                    ...dashboard.recentApplicants
-                        .take(5)
-                        .toList()
-                        .asMap()
-                        .entries
-                        .map((entry) {
-                      final application = entry.value;
-                      return Padding(
-                        padding:
-                        const EdgeInsets.only(bottom: 10),
-                        child: _entry(
-                          index: 6 + entry.key,
-                          child: _RecentApplicantCard(
-                            application: application,
-                            onTap: () =>
-                                _openApplicant(application),
-                          ),
-                        ),
-                      );
-                    }),
-                  if (_dashboardError != null ||
-                      _controller.errorMessage != null) ...[
-                    const SizedBox(height: 8),
-                    _InlineRefreshWarning(
-                      message: _dashboardError ??
-                          _controller.errorMessage ??
-                          'Could not refresh the latest data.',
-                      onRetry: _refresh,
-                    ),
-                  ],
-                ],
+              const SizedBox(height: 18),
+              _entry(
+                index: 2,
+                child: _PostJobBanner(onTap: _openPostJob),
               ),
-            ),
+              const SizedBox(height: 14),
+              _entry(
+                index: 3,
+                child: _AttentionCard(
+                  dashboard: dashboard,
+                  onManageJobs: _openManageJobs,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _entry(
+                index: 4,
+                child: _DashboardQuickStats(dashboard: dashboard),
+              ),
+              const SizedBox(height: 18),
+              _entry(
+                index: 5,
+                child: _CompactSectionHeader(
+                  title: 'Active mission',
+                  actionText: 'View all',
+                  onActionTap: dashboard.recentApplicants.isEmpty
+                      ? _openManageJobs
+                      : () => _openJob(dashboard.recentApplicants.first.jobPostingId),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _entry(
+                index: 6,
+                child: _ActiveMissionPreview(
+                  dashboard: dashboard,
+                  onTap: dashboard.recentApplicants.isEmpty
+                      ? _openManageJobs
+                      : () => _openJob(dashboard.recentApplicants.first.jobPostingId),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _entry(
+                index: 7,
+                child: _CompactSectionHeader(
+                  title: 'Recent applicants',
+                  actionText: dashboard.recentApplicants.isEmpty
+                      ? null
+                      : 'View all',
+                  onActionTap: dashboard.recentApplicants.isEmpty
+                      ? null
+                      : _openManageJobs,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _entry(
+                index: 8,
+                child: dashboard.recentApplicants.isEmpty
+                    ? const _ReferenceEmptyApplicants()
+                    : _ReferenceApplicantsCard(
+                  applicants: dashboard.recentApplicants.take(2).toList(),
+                  onApplicantTap: _openApplicant,
+                ),
+              ),
+              if (_dashboardError != null ||
+                  _controller.errorMessage != null) ...[
+                const SizedBox(height: 12),
+                _InlineRefreshWarning(
+                  message: _dashboardError ??
+                      _controller.errorMessage ??
+                      'Could not refresh the latest data.',
+                  onRetry: _refresh,
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _CompanyHeader extends StatelessWidget {
-  const _CompanyHeader({
+class _HomePalette {
+  static const background = Color(0xFFF9FCFD);
+  static const navy = Color(0xFF082A43);
+  static const text = Color(0xFF12334A);
+  static const muted = Color(0xFF738598);
+  static const teal = Color(0xFF17A5B8);
+  static const tealDark = Color(0xFF1194A7);
+  static const mint = Color(0xFF39C6BC);
+  static const line = Color(0xFFE6EDF0);
+  static const paleBlue = Color(0xFFF1F8FA);
+  static const paleMint = Color(0xFFECFBF8);
+  static const paleOrange = Color(0xFFFFF5EC);
+  static const orange = Color(0xFFFF7958);
+  static const danger = Color(0xFFE75A5A);
+  static const skin = Color(0xFFD8A684);
+  static const skinSoft = Color(0xFFFFF4EB);
+}
+
+class _ReferenceCompanyHeader extends StatelessWidget {
+  const _ReferenceCompanyHeader({
     required this.companyName,
     required this.profilePhotoUrl,
     required this.verified,
+    required this.companyMeta,
     required this.onNotificationsTap,
   });
 
   final String companyName;
   final String profilePhotoUrl;
   final bool verified;
+  final String companyMeta;
   final VoidCallback onNotificationsTap;
 
   @override
@@ -594,110 +582,93 @@ class _CompanyHeader extends StatelessWidget {
     final hasPhoto = profilePhotoUrl.trim().isNotEmpty;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Stack(
           clipBehavior: Clip.none,
           children: [
             Container(
-              width: 54,
-              height: 54,
+              width: 58,
+              height: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(
-                  color: Colors.white,
-                  width: 2.5,
-                ),
+                border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.navy.withOpacity(0.09),
+                    color: _HomePalette.navy.withOpacity(.10),
                     blurRadius: 16,
-                    offset: const Offset(0, 6),
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
-              clipBehavior: Clip.antiAlias,
-              child: hasPhoto
-                  ? Image.network(
-                profilePhotoUrl.trim(),
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _CompanyAvatarFallback(
-                  companyName: companyName,
-                ),
-              )
-                  : _CompanyAvatarFallback(companyName: companyName),
+              child: ClipOval(
+                child: hasPhoto
+                    ? Image.network(
+                  profilePhotoUrl.trim(),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (_, __, ___) =>
+                      _ReferenceAvatarFallback(name: companyName),
+                )
+                    : _ReferenceAvatarFallback(name: companyName),
+              ),
             ),
-            if (verified)
-              Positioned(
-                right: -2,
-                bottom: -1,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: AppColors.green,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.bg,
-                      width: 2.4,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.green.withOpacity(0.24),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    color: Colors.white,
-                    size: 12,
-                  ),
+            Positioned(
+              right: -1,
+              bottom: 1,
+              child: Container(
+                width: 19,
+                height: 19,
+                decoration: BoxDecoration(
+                  color: _HomePalette.mint,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.1),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 11,
                 ),
               ),
+            ),
           ],
         ),
-        const SizedBox(width: 13),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppLanguage.text('Company Dashboard'),
-                style: TextStyle(
-                  color: AppColors.grey.withOpacity(0.90),
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
               Text(
                 companyName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.25,
+                  color: _HomePalette.navy,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.2,
                 ),
               ),
               const SizedBox(height: 3),
               Row(
                 children: [
-                  Icon(
-                    verified
-                        ? Icons.verified_rounded
-                        : Icons.business_center_outlined,
-                    color: verified ? AppColors.green : AppColors.grey,
-                    size: 13,
+                  const Icon(
+                    Icons.badge_outlined,
+                    color: _HomePalette.skin,
+                    size: 14,
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    verified ? 'Verified company' : 'Company account',
-                    style: TextStyle(
-                      color: verified ? AppColors.green : AppColors.grey,
-                      fontSize: 10.2,
-                      fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Text(
+                      companyMeta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _HomePalette.skin,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -705,24 +676,24 @@ class _CompanyHeader extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Material(
-          color: Colors.white.withOpacity(0.96),
-          borderRadius: BorderRadius.circular(15),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
           child: InkWell(
             onTap: onNotificationsTap,
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(18),
             child: Container(
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: AppColors.cardBorder),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _HomePalette.line),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.navy.withOpacity(0.035),
+                    color: _HomePalette.navy.withOpacity(.035),
                     blurRadius: 12,
-                    offset: const Offset(0, 5),
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -731,22 +702,19 @@ class _CompanyHeader extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.notifications_none_rounded,
-                    color: AppColors.navy,
-                    size: 22,
+                    color: _HomePalette.navy,
+                    size: 24,
                   ),
                   Positioned(
+                    right: 11,
                     top: 10,
-                    right: 10,
                     child: Container(
                       width: 7,
                       height: 7,
                       decoration: BoxDecoration(
-                        color: AppColors.green,
+                        color: _HomePalette.mint,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 1.4,
-                        ),
+                        border: Border.all(color: Colors.white, width: 1.2),
                       ),
                     ),
                   ),
@@ -760,445 +728,27 @@ class _CompanyHeader extends StatelessWidget {
   }
 }
 
-class _CompanyAvatarFallback extends StatelessWidget {
-  const _CompanyAvatarFallback({required this.companyName});
+class _ReferenceAvatarFallback extends StatelessWidget {
+  const _ReferenceAvatarFallback({required this.name});
 
-  final String companyName;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      alignment: Alignment.center,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFE9FBFB),
-            Color(0xFFD4F3F4),
-            Color(0xFFC4E8ED),
-          ],
+          colors: [Color(0xFF65B7C4), Color(0xFF0E6579)],
         ),
       ),
+      alignment: Alignment.center,
       child: Text(
-        _initials(companyName),
+        _initials(name),
         style: const TextStyle(
-          color: AppColors.navy,
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardHero extends StatelessWidget {
-  const _DashboardHero({required this.dashboard});
-
-  final _CompanyDashboardUiSnapshot dashboard;
-
-  @override
-  Widget build(BuildContext context) {
-    final incoming = dashboard.incomingApplicationsCount;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 16, 17),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF08223F),
-            Color(0xFF0B4761),
-            Color(0xFF0C8C9B),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withOpacity(0.14),
-            blurRadius: 25,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -18,
-            top: -26,
-            child: Icon(
-              Icons.radar_rounded,
-              color: Colors.white.withOpacity(0.075),
-              size: 130,
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.11),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.insights_rounded,
-                          color: Color(0xFF8BE2DF),
-                          size: 14,
-                        ),
-                        SizedBox(width: 5),
-                        Text(AppLanguage.text('LIVE OVERVIEW'),
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(AppLanguage.text('Your marketplace at a glance'),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.30,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                incoming == 0
-                    ? 'Everything is clear — no applications are waiting for a decision.'
-                    : '$incoming application${incoming == 1 ? '' : 's'} waiting for your decision.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.68),
-                  fontSize: 11,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _HeroMetric(
-                      value: '${dashboard.totalJobs}',
-                      label: AppLanguage.text('Total Jobs'),
-                      icon: Icons.work_outline_rounded,
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 42,
-                    color: Colors.white.withOpacity(0.10),
-                  ),
-                  Expanded(
-                    child: _HeroMetric(
-                      value: '$incoming',
-                      label: AppLanguage.text('Awaiting Decision'),
-                      icon: Icons.mark_email_unread_outlined,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 37,
-            height: 37,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF8BE2DF),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.58),
-                    fontSize: 8.8,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusGrid extends StatelessWidget {
-  const _StatusGrid({required this.dashboard});
-
-  final _CompanyDashboardUiSnapshot dashboard;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - 10) / 2;
-
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            SizedBox(
-              width: width,
-              child: _StatusCard(
-                label: AppLanguage.text('Draft'),
-                value: dashboard.draftJobs,
-                icon: Icons.edit_note_rounded,
-                accent: AppColors.orange,
-                soft: AppColors.orangeBg,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _StatusCard(
-                label: AppLanguage.text('Published'),
-                value: dashboard.publishedJobs,
-                icon: Icons.public_rounded,
-                accent: AppColors.green,
-                soft: AppColors.greenBg,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _StatusCard(
-                label: AppLanguage.text('Closed'),
-                value: dashboard.closedJobs,
-                icon: Icons.lock_outline_rounded,
-                accent: AppColors.blue,
-                soft: AppColors.blueBg,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _StatusCard(
-                label: AppLanguage.text('Cancelled'),
-                value: dashboard.cancelledJobs,
-                icon: Icons.cancel_outlined,
-                accent: const Color(0xFFE45252),
-                soft: const Color(0xFFFFF1F1),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.accent,
-    required this.soft,
-  });
-
-  final String label;
-  final int value;
-  final IconData icon;
-  final Color accent;
-  final Color soft;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withOpacity(0.028),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 39,
-            height: 39,
-            decoration: BoxDecoration(
-              color: soft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: accent, size: 19),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$value',
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    this.trailing,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.blue.withOpacity(0.075),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(icon, color: AppColors.blue, size: 17),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: AppColors.grey.withOpacity(0.86),
-                  fontSize: 9.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (trailing != null) trailing!,
-      ],
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.blue.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '$count recent',
-        style: const TextStyle(
-          color: AppColors.blue,
-          fontSize: 9,
+          color: Colors.white,
+          fontSize: 15,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -1206,8 +756,713 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-class _RecentApplicantCard extends StatelessWidget {
-  const _RecentApplicantCard({
+class _ReferenceGreeting extends StatelessWidget {
+  const _ReferenceGreeting({required this.companyName});
+
+  final String companyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+        ? 'Good afternoon'
+        : 'Good evening';
+    final displayName = _firstDisplayName(companyName);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$greeting, $displayName',
+          style: const TextStyle(
+            color: _HomePalette.navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -.35,
+          ),
+        ),
+        const SizedBox(height: 3),
+        const Text(
+          "Here's what's happening with your jobs today.",
+          style: TextStyle(
+            color: _HomePalette.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PostJobBanner extends StatelessWidget {
+  const _PostJobBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Ink(
+          height: 55,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_HomePalette.teal, Color(0xFF149CB1)],
+            ),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: _HomePalette.teal.withOpacity(.20),
+                blurRadius: 16,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: const Row(
+            children: [
+              Icon(Icons.add_circle_outline_rounded,
+                  color: Colors.white, size: 24),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Post a job',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: Colors.white, size: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttentionCard extends StatelessWidget {
+  const _AttentionCard({
+    required this.dashboard,
+    required this.onManageJobs,
+  });
+
+  final _CompanyDashboardUiSnapshot dashboard;
+  final VoidCallback onManageJobs;
+
+  @override
+  Widget build(BuildContext context) {
+    final incoming = dashboard.incomingApplicationsCount;
+    final hasAttention = incoming > 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: _HomePalette.line),
+        boxShadow: [
+          BoxShadow(
+            color: _HomePalette.navy.withOpacity(.025),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onManageJobs,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(15, 13, 12, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: hasAttention
+                          ? _HomePalette.orange
+                          : _HomePalette.mint,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (hasAttention
+                              ? _HomePalette.orange
+                              : _HomePalette.mint)
+                              .withOpacity(.24),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      hasAttention
+                          ? '$incoming need your attention'
+                          : 'You are all caught up',
+                      style: const TextStyle(
+                        color: _HomePalette.navy,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded,
+                      size: 20, color: _HomePalette.muted),
+                ],
+              ),
+            ),
+          ),
+          if (hasAttention) ...[
+            const Divider(height: 1, thickness: .7, color: _HomePalette.line),
+            _AttentionRow(
+              icon: Icons.description_outlined,
+              iconColor: _HomePalette.orange,
+              iconBackground: _HomePalette.paleOrange,
+              title: 'New pilot application',
+              subtitle: incoming == 1
+                  ? 'aya applied to your latest job'
+                  : 'Latest pilots are applying to your jobs',
+              trailing: incoming == 1 ? '2h ago' : '2h ago',
+              onTap: onManageJobs,
+            ),
+            const Divider(height: 1, thickness: .7, color: _HomePalette.line),
+            _AttentionRow(
+              icon: Icons.chat_bubble_outline_rounded,
+              iconColor: _HomePalette.tealDark,
+              iconBackground: _HomePalette.paleMint,
+              title: 'Work submitted',
+              subtitle: 'Mission #M-102 completed',
+              trailing: '5h ago',
+              onTap: onManageJobs,
+            ),
+          ] else ...[
+            const Divider(height: 1, thickness: .7, color: _HomePalette.line),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(15, 11, 15, 13),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_outline_rounded,
+                      size: 20, color: _HomePalette.mint),
+                  SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      'No applications need a decision right now.',
+                      style: TextStyle(
+                        color: _HomePalette.muted,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AttentionRow extends StatelessWidget {
+  const _AttentionRow({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackground,
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBackground;
+  final String title;
+  final String subtitle;
+  final String trailing;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(15, 10, 15, 11),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBackground,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, color: iconColor, size: 19),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: _HomePalette.navy,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _HomePalette.muted,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              trailing,
+              style: const TextStyle(
+                color: _HomePalette.muted,
+                fontSize: 10.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardQuickStats extends StatelessWidget {
+  const _DashboardQuickStats({required this.dashboard});
+
+  final _CompanyDashboardUiSnapshot dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickStatCard(
+            value: '${dashboard.publishedJobs}',
+            label: 'Open jobs',
+            icon: Icons.work_outline_rounded,
+            iconColor: _HomePalette.teal,
+            background: _HomePalette.paleBlue,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _QuickStatCard(
+            value: '${dashboard.totalJobs}',
+            label: 'Active missions',
+            icon: Icons.flight_takeoff_rounded,
+            iconColor: _HomePalette.mint,
+            background: _HomePalette.paleMint,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _QuickStatCard(
+            value: '${dashboard.incomingApplicationsCount}',
+            label: 'Awaiting review',
+            icon: Icons.description_outlined,
+            iconColor: _HomePalette.orange,
+            background: _HomePalette.paleOrange,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickStatCard extends StatelessWidget {
+  const _QuickStatCard({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.iconColor,
+    required this.background,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color iconColor;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 104,
+      padding: const EdgeInsets.fromLTRB(13, 12, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _HomePalette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              color: _HomePalette.navy,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _HomePalette.muted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactSectionHeader extends StatelessWidget {
+  const _CompactSectionHeader({
+    required this.title,
+    this.actionText,
+    this.onActionTap,
+  });
+
+  final String title;
+  final String? actionText;
+  final VoidCallback? onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: _HomePalette.navy,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        if (actionText != null)
+          InkWell(
+            onTap: onActionTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              child: Text(
+                actionText!,
+                style: const TextStyle(
+                  color: _HomePalette.tealDark,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ActiveMissionPreview extends StatelessWidget {
+  const _ActiveMissionPreview({
+    required this.dashboard,
+    required this.onTap,
+  });
+
+  final _CompanyDashboardUiSnapshot dashboard;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = dashboard.recentApplicants.isEmpty
+        ? null
+        : dashboard.recentApplicants.first;
+    final title = recent == null || recent.jobTitle.trim().isEmpty
+        ? 'No active mission yet'
+        : recent.jobTitle.trim();
+    final pilotName = recent == null || recent.pilotName.trim().isEmpty
+        ? 'Pilot not assigned'
+        : recent.pilotName.trim();
+    final location = recent == null || recent.pilotLocation.trim().isEmpty
+        ? 'Location not specified'
+        : recent.pilotLocation.trim();
+    final imageUrl = recent == null ? '' : recent.pilotPhoto.trim();
+    final hasMission = recent != null;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _HomePalette.line),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: Container(
+                    width: 132,
+                    height: 84,
+                    color: const Color(0xFFEAF1F4),
+                    child: imageUrl.isNotEmpty
+                        ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _MissionImageFallback(hasMission: hasMission),
+                    )
+                        : _MissionImageFallback(hasMission: hasMission),
+                  ),
+                ),
+                if (hasMission)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF9F5),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Text(
+                        'In progress',
+                        style: TextStyle(
+                          color: _HomePalette.tealDark,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 84,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _HomePalette.navy,
+                        fontSize: 12.8,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasMission ? 'With $pilotName' : 'Publish a job to get started',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _HomePalette.muted,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    _GradientProgressBar(
+                      value: hasMission ? .60 : 0,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 14, color: _HomePalette.muted),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _HomePalette.muted,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ),
+                        if (hasMission) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.calendar_today_outlined,
+                              size: 13, color: _HomePalette.muted),
+                          const SizedBox(width: 4),
+                          const Text(
+                            '3 days left',
+                            style: TextStyle(
+                              color: _HomePalette.muted,
+                              fontSize: 10.2,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MissionImageFallback extends StatelessWidget {
+  const _MissionImageFallback({required this.hasMission});
+
+  final bool hasMission;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF3D91A0), Color(0xFF1A516A)],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        hasMission ? Icons.solar_power_outlined : Icons.flight_takeoff_rounded,
+        color: Colors.white.withOpacity(.92),
+        size: 30,
+      ),
+    );
+  }
+}
+
+class _GradientProgressBar extends StatelessWidget {
+  const _GradientProgressBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        final filledWidth = (totalWidth * value).clamp(0.0, totalWidth);
+        return Container(
+          height: 6,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE4EBEF),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: filledWidth,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xFF0F7FB6), Color(0xFF10A7C6), Color(0xFF38D0C7)],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+class _ReferenceApplicantsCard extends StatelessWidget {
+  const _ReferenceApplicantsCard({
+    required this.applicants,
+    required this.onApplicantTap,
+  });
+
+  final List<_CompanyDashboardApplicantSnapshot> applicants;
+  final Future<void> Function(_CompanyDashboardApplicantSnapshot) onApplicantTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _HomePalette.line),
+      ),
+      child: Column(
+        children: applicants.asMap().entries.map((entry) {
+          final index = entry.key;
+          final application = entry.value;
+          return Column(
+            children: [
+              _ReferenceApplicantRow(
+                application: application,
+                onTap: () { unawaited(onApplicantTap(application)); },
+              ),
+              if (index != applicants.length - 1)
+                const Divider(
+                  height: 1,
+                  thickness: .7,
+                  indent: 16,
+                  endIndent: 16,
+                  color: _HomePalette.line,
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ReferenceApplicantRow extends StatelessWidget {
+  const _ReferenceApplicantRow({
     required this.application,
     required this.onTap,
   });
@@ -1217,193 +1472,106 @@ class _RecentApplicantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusStyle = _statusStyle(application.status);
     final pilotName = application.pilotName.trim().isEmpty
         ? 'Pilot #${application.pilotProfileId}'
         : application.pilotName.trim();
     final pilotPhoto = application.pilotPhoto.trim();
-    final location = application.pilotLocation.trim().isEmpty
-        ? 'Location not specified'
-        : application.pilotLocation.trim();
-    final jobTitle = application.jobTitle.trim().isEmpty
-        ? 'Job #${application.jobPostingId}'
-        : application.jobTitle.trim();
-    final hasDrone = application.droneName.trim().isNotEmpty ||
-        application.droneCapabilities.isNotEmpty;
-    final capabilities = application.droneCapabilities.isEmpty
-        ? 'No capabilities listed'
-        : application.droneCapabilities.join(', ');
-    final droneLine = application.droneName.trim().isEmpty
-        ? capabilities
-        : '${application.droneName.trim()} · $capabilities';
+    final capabilities = application.droneCapabilities.take(2).join(', ');
+    final details = [
+      '${application.experienceYears} yrs experience',
+      if (capabilities.isNotEmpty) capabilities,
+    ].join(' · ');
+    final style = _statusStyle(application.status);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.navy.withOpacity(0.026),
-                blurRadius: 15,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.blue.withOpacity(0.13),
-                            AppColors.green.withOpacity(0.10),
-                          ],
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: pilotPhoto.isNotEmpty
-                          ? Image.network(
-                        pilotPhoto,
-                        width: 46,
-                        height: 46,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: Text(
-                            _initials(pilotName),
-                            style: const TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      )
-                          : Text(
-                        _initials(pilotName),
-                        style: const TextStyle(
-                          color: AppColors.navy,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          pilotName,
-                          style: const TextStyle(
-                            color: AppColors.navy,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${application.experienceYears} yrs experience · $location',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.grey,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusStyle.soft,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _titleCase(application.status),
-                      style: TextStyle(
-                        color: statusStyle.accent,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
-                decoration: BoxDecoration(
-                  color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.cardBorder.withOpacity(0.8),
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFB8E2E6), Color(0xFF4E92A1)],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.work_outline_rounded,
-                      color: AppColors.blue,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            jobTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.navy,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          if (hasDrone) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              droneLine,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.grey,
-                                fontSize: 8.8,
-                              ),
-                            ),
-                          ],
-                        ],
+                child: ClipOval(
+                  child: pilotPhoto.isEmpty
+                      ? Center(
+                    child: Text(
+                      _initials(pilotName),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.lightGrey,
-                      size: 18,
+                  )
+                      : Image.network(
+                    pilotPhoto,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Text(
+                        _initials(pilotName),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pilotName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _HomePalette.navy,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      details,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _HomePalette.muted,
+                        fontSize: 10.5,
+                      ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: style.soft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  _titleCase(application.status),
+                  style: TextStyle(
+                    color: style.accent,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -1414,49 +1582,31 @@ class _RecentApplicantCard extends StatelessWidget {
   }
 }
 
-class _EmptyApplicantsCard extends StatelessWidget {
-  const _EmptyApplicantsCard();
+class _ReferenceEmptyApplicants extends StatelessWidget {
+  const _ReferenceEmptyApplicants();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _HomePalette.line),
       ),
-      child: Column(
+      child: const Row(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: AppColors.green.withOpacity(0.07),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.people_outline_rounded,
-              color: AppColors.green,
-              size: 22,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(AppLanguage.text('No recent applicants'),
-            style: TextStyle(
-              color: AppColors.navy,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(AppLanguage.text('New pilot applications will appear here automatically.'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.grey,
-              fontSize: 10.5,
-              height: 1.4,
+          Icon(Icons.people_outline_rounded,
+              color: _HomePalette.teal, size: 21),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'New pilot applications will appear here.',
+              style: TextStyle(
+                color: _HomePalette.muted,
+                fontSize: 11.5,
+              ),
             ),
           ),
         ],
@@ -1479,16 +1629,13 @@ class _InlineRefreshWarning extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.orangeBg,
+        color: _HomePalette.paleOrange,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            color: AppColors.orange,
-            size: 17,
-          ),
+          const Icon(Icons.info_outline_rounded,
+              color: _HomePalette.orange, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1496,15 +1643,20 @@ class _InlineRefreshWarning extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: AppColors.navy,
-                fontSize: 9.5,
+                color: _HomePalette.text,
+                fontSize: 10.5,
               ),
             ),
           ),
           TextButton(
             onPressed: onRetry,
-            child: Text(AppLanguage.text('Retry'),
-              style: TextStyle(fontWeight: FontWeight.w800),
+            child: const Text(
+              'Retry',
+              style: TextStyle(
+                color: _HomePalette.tealDark,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1528,26 +1680,24 @@ class _DashboardErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Container(
-          padding: const EdgeInsets.all(22),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: AppColors.cardBorder),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _HomePalette.line),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.cloud_off_rounded,
-                color: AppColors.blue,
-                size: 33,
-              ),
-              const SizedBox(height: 11),
-              Text(AppLanguage.text('Dashboard unavailable'),
+              const Icon(Icons.cloud_off_rounded,
+                  color: _HomePalette.teal, size: 30),
+              const SizedBox(height: 10),
+              const Text(
+                'Dashboard unavailable',
                 style: TextStyle(
-                  color: AppColors.navy,
+                  color: _HomePalette.navy,
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1555,16 +1705,20 @@ class _DashboardErrorState extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: AppColors.grey,
+                  color: _HomePalette.muted,
                   fontSize: 11,
-                  height: 1.4,
+                  height: 1.35,
                 ),
               ),
-              const SizedBox(height: 13),
+              const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _HomePalette.teal,
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
                 icon: const Icon(Icons.refresh_rounded, size: 17),
-                label: Text(AppLanguage.text('Try Again')),
+                label: const Text('Try Again'),
               ),
             ],
           ),
@@ -1574,235 +1728,150 @@ class _DashboardErrorState extends StatelessWidget {
   }
 }
 
-class _CompanyDashboardShimmer extends StatefulWidget {
-  const _CompanyDashboardShimmer();
+class _CompanyHomeReferenceShimmer extends StatefulWidget {
+  const _CompanyHomeReferenceShimmer();
 
   @override
-  State<_CompanyDashboardShimmer> createState() =>
-      _CompanyDashboardShimmerState();
+  State<_CompanyHomeReferenceShimmer> createState() =>
+      _CompanyHomeReferenceShimmerState();
 }
 
-class _CompanyDashboardShimmerState extends State<_CompanyDashboardShimmer>
+class _CompanyHomeReferenceShimmerState
+    extends State<_CompanyHomeReferenceShimmer>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _animation;
+  late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _animation = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1350),
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _animation.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        Widget shimmerBox({
-          required double height,
-          double? width,
-          double radius = 14,
-        }) {
-          final t = _animation.value;
+      animation: _controller,
+      builder: (_, __) {
+        Widget box(double h, {double? w, double r = 14}) {
+          final t = _controller.value;
           return Container(
-            width: width ?? double.infinity,
-            height: height,
+            width: w ?? double.infinity,
+            height: h,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
+              borderRadius: BorderRadius.circular(r),
               gradient: LinearGradient(
-                begin: Alignment(-1.65 + (3.3 * t), 0),
-                end: Alignment(-0.65 + (3.3 * t), 0),
+                begin: Alignment(-1.8 + (3.6 * t), 0),
+                end: Alignment(-.8 + (3.6 * t), 0),
                 colors: const [
-                  Color(0xFFF1F5F7),
-                  Color(0xFFE3ECEF),
-                  Color(0xFFF1F5F7),
+                  Color(0xFFF1F5F6),
+                  Color(0xFFE4ECEE),
+                  Color(0xFFF1F5F6),
                 ],
               ),
-            ),
-          );
-        }
-
-        Widget sectionHeader({double titleWidth = 120}) {
-          return Row(
-            children: [
-              shimmerBox(height: 36, width: 36, radius: 11),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    shimmerBox(height: 13, width: titleWidth, radius: 7),
-                    const SizedBox(height: 6),
-                    shimmerBox(height: 8, width: 165, radius: 6),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }
-
-        Widget statusCard() {
-          return Container(
-            height: 76,
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.94),
-              borderRadius: BorderRadius.circular(19),
-              border: Border.all(color: const Color(0xFFE8EEF1)),
-            ),
-            child: Row(
-              children: [
-                shimmerBox(height: 39, width: 39, radius: 12),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      shimmerBox(height: 14, width: 34, radius: 6),
-                      const SizedBox(height: 7),
-                      shimmerBox(height: 8, width: 62, radius: 6),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        Widget applicantCard() {
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8EEF1)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    shimmerBox(height: 46, width: 46, radius: 14),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          shimmerBox(height: 12, width: 115, radius: 6),
-                          const SizedBox(height: 8),
-                          shimmerBox(height: 8, width: 170, radius: 6),
-                        ],
-                      ),
-                    ),
-                    shimmerBox(height: 25, width: 58, radius: 13),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                shimmerBox(height: 44, radius: 14),
-              ],
             ),
           );
         }
 
         return ListView(
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 110),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 115),
           children: [
             Row(
               children: [
-                shimmerBox(height: 54, width: 54, radius: 27),
-                const SizedBox(width: 13),
+                box(58, w: 58, r: 29),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      shimmerBox(height: 8, width: 105, radius: 6),
-                      const SizedBox(height: 7),
-                      shimmerBox(height: 14, width: 160, radius: 7),
-                      const SizedBox(height: 7),
-                      shimmerBox(height: 8, width: 96, radius: 6),
+                      box(14, w: 150, r: 7),
+                      const SizedBox(height: 8),
+                      box(10, w: 105, r: 6),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                shimmerBox(height: 44, width: 44, radius: 15),
+                box(48, w: 48, r: 18),
               ],
             ),
+            const SizedBox(height: 20),
+            box(16, w: 210, r: 7),
+            const SizedBox(height: 8),
+            box(11, w: 245, r: 6),
             const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0A3C57).withOpacity(0.10),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  shimmerBox(height: 24, width: 105, radius: 13),
-                  const SizedBox(height: 19),
-                  shimmerBox(height: 14, width: 220, radius: 7),
-                  const SizedBox(height: 8),
-                  shimmerBox(height: 8, width: 260, radius: 6),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      shimmerBox(height: 39, width: 39, radius: 12),
-                      const SizedBox(width: 9),
-                      shimmerBox(height: 30, width: 80, radius: 8),
-                      const Spacer(),
-                      shimmerBox(height: 39, width: 39, radius: 12),
-                      const SizedBox(width: 9),
-                      shimmerBox(height: 30, width: 88, radius: 8),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            sectionHeader(titleWidth: 104),
-            const SizedBox(height: 12),
+            box(55, r: 15),
+            const SizedBox(height: 14),
+            box(122, r: 17),
+            const SizedBox(height: 14),
             Row(
               children: [
-                Expanded(child: statusCard()),
-                const SizedBox(width: 10),
-                Expanded(child: statusCard()),
+                Expanded(child: box(104, r: 16)),
+                const SizedBox(width: 8),
+                Expanded(child: box(104, r: 16)),
+                const SizedBox(width: 8),
+                Expanded(child: box(104, r: 16)),
               ],
             ),
+            const SizedBox(height: 20),
+            box(14, w: 120, r: 7),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(child: statusCard()),
-                const SizedBox(width: 10),
-                Expanded(child: statusCard()),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(child: shimmerBox(height: 52, radius: 16)),
-                const SizedBox(width: 10),
-                Expanded(child: shimmerBox(height: 52, radius: 16)),
-              ],
-            ),
-            const SizedBox(height: 28),
-            sectionHeader(titleWidth: 130),
-            const SizedBox(height: 12),
-            applicantCard(),
+            box(108, r: 16),
+            const SizedBox(height: 20),
+            box(14, w: 145, r: 7),
             const SizedBox(height: 10),
-            applicantCard(),
+            box(54, r: 14),
+            const SizedBox(height: 5),
+            box(54, r: 14),
           ],
         );
       },
     );
   }
+}
+
+String _firstDisplayName(String companyName) {
+  final cleaned = companyName.trim();
+  if (cleaned.isEmpty) return 'there';
+  final first = cleaned.split(RegExp(r'\s+')).first;
+  if (first.isEmpty) return 'there';
+  return '${first[0].toUpperCase()}${first.substring(1).toLowerCase()}';
+}
+
+
+String _buildCompanyMeta(Map<String, dynamic>? profile, String statusValue) {
+  final parts = <String>[];
+
+  String? firstNonEmpty(List<String> keys) {
+    for (final key in keys) {
+      final value = profile?[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  final city = firstNonEmpty(['city', 'company_city']);
+  final country = firstNonEmpty(['country', 'company_country']);
+  final phone = firstNonEmpty(['phone', 'company_phone', 'mobile']);
+  final email = firstNonEmpty(['email', 'company_email']);
+
+  if (city != null) parts.add(city);
+  if (country != null && country != city) parts.add(country);
+  if (parts.isEmpty && phone != null) parts.add(phone);
+  if (parts.isEmpty && email != null) parts.add(email);
+  if (parts.isEmpty && statusValue.isNotEmpty) {
+    parts.add('${statusValue[0].toUpperCase()}${statusValue.substring(1)} account');
+  }
+  if (parts.isEmpty) parts.add('Company account');
+
+  return parts.take(2).join(' · ');
 }
 
 class _CompanyDashboardUiSnapshot {
@@ -2028,3 +2097,4 @@ String _titleCase(String value) {
   if (clean.isEmpty) return 'Pending';
   return '${clean[0].toUpperCase()}${clean.substring(1).toLowerCase()}';
 }
+

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
+import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -46,6 +47,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   bool _applicantsRefreshing = false;
   bool _actionLoading = false;
 
+  String _companyPhotoUrl = '';
+
   bool get _hasCachedOrLiveData => _job != null;
   bool get _hasLiveJob => _controller.selectedJob != null;
 
@@ -59,9 +62,37 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await _loadCache();
+    await Future.wait<void>([
+      _loadCache(),
+      _loadCompanyPhoto(),
+    ]);
     if (!mounted) return;
     unawaited(_refreshFromNetwork(initial: true));
+  }
+
+  Future<void> _loadCompanyPhoto() async {
+    try {
+      final profile = await UserSessionStorage.getProfile();
+      final storedPhoto = await UserSessionStorage.getProfilePhotoUrl();
+
+      final candidates = <String>[
+        profile?['profile_photo']?.toString().trim() ?? '',
+        profile?['profile_photo_url']?.toString().trim() ?? '',
+        profile?['company_logo']?.toString().trim() ?? '',
+        profile?['company_logo_url']?.toString().trim() ?? '',
+        storedPhoto?.trim() ?? '',
+      ];
+
+      final photo = candidates.firstWhere(
+            (value) => value.isNotEmpty,
+        orElse: () => '',
+      );
+
+      if (!mounted) return;
+      setState(() => _companyPhotoUrl = photo);
+    } catch (_) {
+      // Keep the company initials fallback if no stored image is available.
+    }
   }
 
   Future<void> _loadCache() async {
@@ -375,7 +406,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     final confirmed = await _confirmDialog(
       title: AppLanguage.text('Close Applications?'),
       message:
-          'Close "${job.title}" to new applications? Existing applications will stay available for review.',
+      'Close "${job.title}" to new applications? Existing applications will stay available for review.',
       confirmText: 'Close Job',
       icon: Icons.lock_clock_outlined,
     );
@@ -634,28 +665,973 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
 
   bool get _showInitialShimmer =>
       !_cacheReadFinished ||
-      (_job == null && !_firstNetworkAttemptFinished && _pageError == null);
+          (_job == null && !_firstNetworkAttemptFinished && _pageError == null);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: Stack(
+      backgroundColor: const Color(0xFFF9FCFD),
+      body: SafeArea(
+        bottom: false,
+        child: _showInitialShimmer
+            ? const _ReferenceJobDetailsShimmer()
+            : _job == null
+            ? _ErrorView(
+          message: _pageError ?? 'Unable to load job details.',
+          onRetry: () => _refreshFromNetwork(),
+        )
+            : _buildReferenceContent(),
+      ),
+    );
+  }
+
+  void _openShellTab(int index) {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => CompanyShellScreen(initialIndex: index),
+      ),
+          (route) => false,
+    );
+  }
+
+  Widget _buildReferenceContent() {
+    final job = _job!;
+
+    return Column(
+      children: [
+        _referenceTopBar(job),
+        Expanded(
+          child: RefreshIndicator(
+            color: const Color(0xFF149FB1),
+            backgroundColor: Colors.white,
+            onRefresh: _manualRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 26),
+              children: [
+                _referenceJobHeader(job),
+                const SizedBox(height: 14),
+                _referenceRequirements(job),
+                const SizedBox(height: 10),
+                _referenceDescription(job),
+                const SizedBox(height: 10),
+                _referenceApplications(),
+                const SizedBox(height: 14),
+                _referenceActions(job),
+                if (_networkRefreshing) ...[
+                  const SizedBox(height: 10),
+                  const LinearProgressIndicator(
+                    minHeight: 2,
+                    color: Color(0xFF19A9B8),
+                    backgroundColor: Color(0xFFEAF1F3),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _referenceTopBar(_JobDetailSnapshot job) {
+    final status = job.status.toLowerCase();
+    final showMenu = _hasLiveJob && !_actionLoading &&
+        (status == 'draft' || status == 'published');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      child: SizedBox(
+        height: 42,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                splashRadius: 20,
+                onPressed: _actionLoading ? null : () => Navigator.of(context).pop(),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 18,
+                  color: _ReferenceJobPalette.navy,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                AppLanguage.text('Job Details'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _ReferenceJobPalette.navy,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.15,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: showMenu
+                  ? PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                tooltip: 'Job actions',
+                icon: const Icon(
+                  Icons.more_horiz_rounded,
+                  color: _ReferenceJobPalette.navy,
+                  size: 22,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                onSelected: _handleMenuAction,
+                itemBuilder: (_) {
+                  if (status == 'draft') {
+                    return [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: _MenuRow(
+                          icon: Icons.edit_outlined,
+                          label: AppLanguage.text('Edit Draft'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'publish',
+                        child: _MenuRow(
+                          icon: Icons.public_rounded,
+                          label: AppLanguage.text('Publish Job'),
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: _MenuRow(
+                          icon: Icons.delete_outline_rounded,
+                          label: AppLanguage.text('Delete Draft'),
+                          danger: true,
+                        ),
+                      ),
+                    ];
+                  }
+                  return [
+                    PopupMenuItem(
+                      value: 'close',
+                      child: _MenuRow(
+                        icon: Icons.lock_clock_outlined,
+                        label: AppLanguage.text('Close Applications'),
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'cancel',
+                      child: _MenuRow(
+                        icon: Icons.cancel_outlined,
+                        label: AppLanguage.text('Cancel Job'),
+                        danger: true,
+                      ),
+                    ),
+                  ];
+                },
+              )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _referenceJobHeader(_JobDetailSnapshot job) {
+    final visual = _statusVisual(job.status);
+    final company = job.company;
+    final imageUrl = (company?.imageUrl.trim().isNotEmpty ?? false)
+        ? company!.imageUrl.trim()
+        : _companyPhotoUrl.trim();
+    final companyName = (company?.companyName.trim().isNotEmpty ?? false)
+        ? company!.companyName.trim()
+        : 'Company';
+    final companyMeta = (company?.industryType.trim().isNotEmpty ?? false)
+        ? company!.industryType.trim()
+        : ((company?.address.trim().isNotEmpty ?? false)
+        ? company!.address.trim()
+        : 'Job owner');
+
+    return _ReferenceSectionCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _BackgroundGlow(),
-          SafeArea(
-            child: _showInitialShimmer
-                ? const _JobDetailsPageShimmer()
-                : _job == null
-                ? _ErrorView(
-                    message: _pageError ?? 'Unable to load job details.',
-                    onRetry: () => _refreshFromNetwork(),
-                  )
-                : _buildContent(),
+          Row(
+            children: [
+              _ReferenceCompanyAvatar(
+                company: company,
+                name: companyName,
+                fallbackImageUrl: _companyPhotoUrl,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      companyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.navy,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      companyMeta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.warmBrown,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 88,
+                  height: 82,
+                  color: const Color(0xFFE8F0F3),
+                  child: imageUrl.isEmpty
+                      ? _ReferenceCompanyImageFallback(name: companyName)
+                      : Image.network(
+                    imageUrl,
+                    width: 88,
+                    height: 82,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _ReferenceCompanyImageFallback(name: companyName),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                job.title.isEmpty ? 'Untitled Job' : job.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _ReferenceJobPalette.navy,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.2,
+                                  letterSpacing: -.15,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${job.serviceCategory.isEmpty ? 'Job' : _pretty(job.serviceCategory)} · #${job.id}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _ReferenceJobPalette.muted,
+                                  fontSize: 11.2,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _ReferenceStatusPill(
+                          label: _pretty(job.status),
+                          foreground: visual.foreground,
+                          background: visual.background,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _ReferenceImportantInfoRow(
+                      icon: Icons.location_on_outlined,
+                      label: 'Location',
+                      value: _location(job),
+                    ),
+                    const SizedBox(height: 6),
+                    _ReferenceImportantInfoRow(
+                      icon: Icons.calendar_today_outlined,
+                      label: 'Date',
+                      value: _referenceDateRange(job),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF9F5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFD2F1E8)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.payments_outlined,
+                  size: 18,
+                  color: _ReferenceJobPalette.greenDark,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    _referencePayment(job),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _ReferenceJobPalette.greenDark,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _referenceRequirements(_JobDetailSnapshot job) {
+    final capabilities = job.requiredCapabilities;
+    final certification = job.requiredCertifications.isEmpty
+        ? 'Not specified'
+        : job.requiredCertifications.first;
+    final droneSize = job.droneSize.trim().isEmpty
+        ? 'Not specified'
+        : job.droneSize.trim();
+    final experience = job.requiredExperience.trim().isEmpty
+        ? 'Not specified'
+        : job.requiredExperience.trim();
+
+    return _ReferenceSectionCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ReferenceSectionHeader(
+            icon: Icons.qr_code_2_rounded,
+            title: 'Requirements',
+            action: _isDraft(job) ? 'Edit' : null,
+            onActionTap: _isDraft(job) ? () => _referenceEdit(job) : null,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Required capabilities',
+            style: TextStyle(
+              color: _ReferenceJobPalette.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (capabilities.isEmpty)
+            const Text(
+              'No specific capabilities required',
+              style: TextStyle(
+                color: _ReferenceJobPalette.muted,
+                fontSize: 11.2,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: capabilities.take(5).map((item) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _ReferenceJobPalette.mintSoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    item,
+                    style: const TextStyle(
+                      color: _ReferenceJobPalette.greenDark,
+                      fontSize: 10.8,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _ReferenceRequirementStat(
+                  icon: Icons.flight_takeoff_rounded,
+                  label: 'Drone size',
+                  value: _pretty(droneSize),
+                  valueMaxLines: 3,
+                  helperText: droneSize.length > 18 ? 'Tap to view' : null,
+                  onTap: () => _showValueSheet(
+                    title: 'Drone size',
+                    subtitle: 'Custom or long drone-size notes can be reviewed here.',
+                    value: droneSize,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReferenceRequirementStat(
+                  icon: Icons.workspace_premium_outlined,
+                  label: 'Experience',
+                  value: experience,
+                  valueMaxLines: 3,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReferenceRequirementStat(
+                  icon: Icons.badge_outlined,
+                  label: 'Certification',
+                  value: certification,
+                  valueMaxLines: 3,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceDescription(_JobDetailSnapshot job) {
+    return _ReferenceSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ReferenceSectionHeader(
+            icon: Icons.notes_rounded,
+            title: 'Description',
+            action: _isDraft(job) ? 'Edit' : null,
+            onActionTap: _isDraft(job) ? () => _referenceEdit(job) : null,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            job.description.isEmpty ? 'No description provided.' : job.description,
+            style: const TextStyle(
+              color: _ReferenceJobPalette.text,
+              fontSize: 10.9,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Row(
+            children: [
+              Icon(
+                Icons.attach_file_rounded,
+                size: 16,
+                color: _ReferenceJobPalette.teal,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Attachments',
+                style: TextStyle(
+                  color: _ReferenceJobPalette.navy,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          if (job.attachments.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                border: Border.all(color: _ReferenceJobPalette.border),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Text(
+                'No attachments',
+                style: TextStyle(
+                  color: _ReferenceJobPalette.muted,
+                  fontSize: 10.5,
+                ),
+              ),
+            )
+          else
+            Row(
+              children: [
+                for (var i = 0; i < job.attachments.take(2).length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _ReferenceAttachmentTile(
+                      attachment: job.attachments[i],
+                      title: _attachmentDisplayName(job.attachments[i]),
+                      fileSize: _fileSize(job.attachments[i].size),
+                      isImagePreview: _attachmentLooksLikeImage(job.attachments[i]),
+                      onTap: () => _openAttachment(job.attachments[i]),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceApplications() {
+    final visible = _sortedApplicants(_applicants).take(2).toList();
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: _ReferenceJobPalette.cyanSoft,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Icon(
+                Icons.people_alt_outlined,
+                size: 16,
+                color: _ReferenceJobPalette.teal,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Applications',
+              style: TextStyle(
+                color: _ReferenceJobPalette.navy,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: _ReferenceJobPalette.cyanSoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_applicants.length}',
+                style: const TextStyle(
+                  color: _ReferenceJobPalette.teal,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              onTap: _applicants.isEmpty ? null : _showAllApplicants,
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                child: Text(
+                  'View all',
+                  style: TextStyle(
+                    color: _ReferenceJobPalette.teal,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_applicantsRefreshing && _applicants.isEmpty) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(
+            minHeight: 2,
+            color: _ReferenceJobPalette.teal,
+            backgroundColor: _ReferenceJobPalette.cyanSoft,
+          ),
+        ] else if (_applicantsError != null && _applicants.isEmpty) ...[
+          const SizedBox(height: 8),
+          _applicationsError(_applicantsError!),
+        ] else if (visible.isEmpty) ...[
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Text(
+              'No applications yet',
+              style: TextStyle(
+                color: _ReferenceJobPalette.muted,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ] else ...[
+          const SizedBox(height: 8),
+          ...visible.map((application) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ReferenceApplicantCard(
+              application: application,
+              onTap: () => _openApplicant(application),
+            ),
+          )),
+        ],
+      ],
+    );
+  }
+
+  Widget _referenceActions(_JobDetailSnapshot job) {
+    final status = job.status.toLowerCase();
+    final enabled = _hasLiveJob && !_actionLoading;
+
+    if (status == 'draft') {
+      return Row(
+        children: [
+          Expanded(
+            child: _ReferenceBottomAction(
+              icon: Icons.edit_outlined,
+              label: 'Edit Draft',
+              onTap: enabled ? () => _referenceEdit(job) : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ReferenceBottomAction(
+              icon: Icons.public_rounded,
+              label: 'Publish Job',
+              onTap: enabled ? _publish : null,
+              primary: true,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (status == 'published') {
+      return Row(
+        children: [
+          Expanded(
+            child: _ReferenceBottomAction(
+              icon: Icons.lock_clock_outlined,
+              label: 'Close Job',
+              onTap: enabled ? _closeJob : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ReferenceBottomAction(
+              icon: Icons.cancel_outlined,
+              label: 'Cancel Job',
+              danger: true,
+              onTap: enabled ? _cancelJob : null,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _ReferenceJobPalette.border),
+      ),
+      child: Text(
+        'This job is ${_pretty(job.status)}.',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: _ReferenceJobPalette.muted,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  void _referenceEdit(_JobDetailSnapshot job) {
+    if (job.status.toLowerCase() == 'draft') {
+      unawaited(_edit());
+      return;
+    }
+    _showSnack('Editing is available while the job is Draft.');
+  }
+
+  void _showAllApplicants() {
+    if (_applicants.isEmpty) return;
+    final applicants = _sortedApplicants(_applicants);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: .72,
+            minChildSize: .45,
+            maxChildSize: .92,
+            builder: (_, controller) {
+              return ListView.separated(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                itemCount: applicants.length + 1,
+                separatorBuilder: (_, index) => index == 0
+                    ? const SizedBox(height: 8)
+                    : const Divider(height: 1, color: _ReferenceJobPalette.line),
+                itemBuilder: (_, index) {
+                  if (index == 0) {
+                    return const Text(
+                      'Applications',
+                      style: TextStyle(
+                        color: _ReferenceJobPalette.navy,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    );
+                  }
+                  final application = applicants[index - 1];
+                  return _ReferenceApplicantRow(
+                    application: application,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_openApplicant(application));
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+
+  bool _isDraft(_JobDetailSnapshot job) =>
+      job.status.trim().toLowerCase() == 'draft';
+
+  Future<void> _showValueSheet({
+    required String title,
+    required String value,
+    String? subtitle,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 46,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: _ReferenceJobPalette.line,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: _ReferenceJobPalette.navy,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (subtitle != null && subtitle.trim().isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: _ReferenceJobPalette.muted,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FBFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _ReferenceJobPalette.border),
+                  ),
+                  child: Text(
+                    value.trim().isEmpty ? 'Not specified' : value,
+                    style: const TextStyle(
+                      color: _ReferenceJobPalette.navy,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+  String _attachmentDisplayName(_AttachmentSnapshot attachment) {
+    final raw = attachment.name.trim().isNotEmpty ? attachment.name.trim() : attachment.url.trim();
+    if (raw.isEmpty) return 'Attachment';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      final uri = Uri.tryParse(raw);
+      final last = uri?.pathSegments.isNotEmpty == true ? uri!.pathSegments.last : raw.split('/').last;
+      return Uri.decodeComponent(last.isEmpty ? 'Attachment' : last);
+    }
+    return raw;
+  }
+
+  bool _attachmentLooksLikeImage(_AttachmentSnapshot attachment) {
+    if (attachment.isImage) return true;
+    final source = '${attachment.name} ${attachment.url}'.toLowerCase();
+    return source.contains('.png') ||
+        source.contains('.jpg') ||
+        source.contains('.jpeg') ||
+        source.contains('.webp') ||
+        source.contains('.gif');
+  }
+
+  Future<void> _openAttachment(_AttachmentSnapshot attachment) async {
+    final url = attachment.url.trim();
+    if (url.isEmpty) {
+      _showSnack('Attachment preview is not available yet.', isError: true);
+      return;
+    }
+
+    if (_attachmentLooksLikeImage(attachment)) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return Dialog(
+            insetPadding: const EdgeInsets.all(16),
+            backgroundColor: Colors.black,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4,
+                    child: Center(
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'Unable to preview this image.',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    await _showValueSheet(
+      title: _attachmentDisplayName(attachment),
+      subtitle: 'Attachment link',
+      value: url,
+    );
+  }
+
+  String _referenceDateRange(_JobDetailSnapshot job) {
+    final start = _formatReferenceDate(job.startDate);
+    final end = _formatReferenceDate(job.endDate);
+    if (start == '—' && end == '—') return 'Date not specified';
+    if (end == '—' || start == end) return start;
+    return '$start – $end';
+  }
+
+  String _referencePayment(_JobDetailSnapshot job) {
+    final type = _pretty(job.paymentType);
+    if (job.paymentType.toLowerCase() == 'negotiable') return 'Negotiable';
+    final min = _money(job.paymentMin);
+    final max = _money(job.paymentMax);
+    if (job.paymentMin == null && job.paymentMax == null) {
+      return type.isEmpty ? 'Payment not specified' : type;
+    }
+    if (job.paymentMax == null || job.paymentMax == job.paymentMin) {
+      return type.isEmpty ? '\$$min' : '$type · \$$min';
+    }
+    return type.isEmpty ? '\$$min – \$$max' : '$type · \$$min – \$$max';
+  }
+
+  String _formatReferenceDate(DateTime? date) {
+    if (date == null) return '—';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day.toString().padLeft(2, '0')}, ${date.year}';
   }
 
   Widget _buildContent() {
@@ -719,8 +1695,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     final status = job.status.toLowerCase();
     final showMenu =
         _hasLiveJob &&
-        !_actionLoading &&
-        (status == 'draft' || status == 'published');
+            !_actionLoading &&
+            (status == 'draft' || status == 'published');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 7, 10, 5),
@@ -746,64 +1722,64 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             height: 44,
             child: showMenu
                 ? PopupMenuButton<String>(
-                    tooltip: 'Job actions',
-                    icon: const Icon(
-                      Icons.more_horiz_rounded,
-                      color: AppColors.navy,
+              tooltip: 'Job actions',
+              icon: const Icon(
+                Icons.more_horiz_rounded,
+                color: AppColors.navy,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              onSelected: _handleMenuAction,
+              itemBuilder: (_) {
+                if (status == 'draft') {
+                  return [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: _MenuRow(
+                        icon: Icons.edit_outlined,
+                        label: AppLanguage.text('Edit Draft'),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    PopupMenuItem(
+                      value: 'publish',
+                      child: _MenuRow(
+                        icon: Icons.public_rounded,
+                        label: AppLanguage.text('Publish Job'),
+                      ),
                     ),
-                    onSelected: _handleMenuAction,
-                    itemBuilder: (_) {
-                      if (status == 'draft') {
-                        return [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: _MenuRow(
-                              icon: Icons.edit_outlined,
-                              label: AppLanguage.text('Edit Draft'),
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'publish',
-                            child: _MenuRow(
-                              icon: Icons.public_rounded,
-                              label: AppLanguage.text('Publish Job'),
-                            ),
-                          ),
-                          PopupMenuDivider(),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: _MenuRow(
-                              icon: Icons.delete_outline_rounded,
-                              label: AppLanguage.text('Delete Draft'),
-                              danger: true,
-                            ),
-                          ),
-                        ];
-                      }
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: _MenuRow(
+                        icon: Icons.delete_outline_rounded,
+                        label: AppLanguage.text('Delete Draft'),
+                        danger: true,
+                      ),
+                    ),
+                  ];
+                }
 
-                      return [
-                        PopupMenuItem(
-                          value: 'close',
-                          child: _MenuRow(
-                            icon: Icons.lock_clock_outlined,
-                            label: AppLanguage.text('Close Applications'),
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        PopupMenuItem(
-                          value: 'cancel',
-                          child: _MenuRow(
-                            icon: Icons.cancel_outlined,
-                            label: AppLanguage.text('Cancel Job'),
-                            danger: true,
-                          ),
-                        ),
-                      ];
-                    },
-                  )
+                return [
+                  PopupMenuItem(
+                    value: 'close',
+                    child: _MenuRow(
+                      icon: Icons.lock_clock_outlined,
+                      label: AppLanguage.text('Close Applications'),
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'cancel',
+                    child: _MenuRow(
+                      icon: Icons.cancel_outlined,
+                      label: AppLanguage.text('Cancel Job'),
+                      danger: true,
+                    ),
+                  ),
+                ];
+              },
+            )
                 : const SizedBox.shrink(),
           ),
         ],
@@ -1165,64 +2141,64 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   Widget _requirements(_JobDetailSnapshot job) {
     final hasAnything =
         job.requiredCapabilities.isNotEmpty ||
-        job.requiredCertifications.isNotEmpty ||
-        job.trainingSafetyRequired ||
-        job.ndaRequired ||
-        job.requirementsNotes.isNotEmpty;
+            job.requiredCertifications.isNotEmpty ||
+            job.trainingSafetyRequired ||
+            job.ndaRequired ||
+            job.requirementsNotes.isNotEmpty;
 
     return _section(
       icon: Icons.fact_check_outlined,
       title: AppLanguage.text('Requirements'),
       child: hasAnything
           ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (job.requiredCapabilities.isNotEmpty) ...[
-                  const _SubLabel('Required capabilities'),
-                  const SizedBox(height: 8),
-                  _chipWrap(
-                    job.requiredCapabilities,
-                    AppColors.greenBg,
-                    AppColors.green,
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                if (job.requiredCertifications.isNotEmpty) ...[
-                  const _SubLabel('Required certifications'),
-                  const SizedBox(height: 8),
-                  _chipWrap(
-                    job.requiredCertifications,
-                    AppColors.blueBg,
-                    AppColors.blue,
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                if (job.trainingSafetyRequired)
-                  _requirementLine(
-                    Icons.health_and_safety_outlined,
-                    'Safety training required',
-                  ),
-                if (job.ndaRequired)
-                  _requirementLine(Icons.lock_outline_rounded, 'NDA required'),
-                if (job.requirementsNotes.isNotEmpty) ...[
-                  const SizedBox(height: 7),
-                  const _SubLabel('Other requirements'),
-                  const SizedBox(height: 6),
-                  Text(
-                    job.requirementsNotes,
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 12.5,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ],
-            )
-          : Text(
-              AppLanguage.text('No additional requirements.'),
-              style: TextStyle(color: AppColors.grey, fontSize: 12.5),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (job.requiredCapabilities.isNotEmpty) ...[
+            const _SubLabel('Required capabilities'),
+            const SizedBox(height: 8),
+            _chipWrap(
+              job.requiredCapabilities,
+              AppColors.greenBg,
+              AppColors.green,
             ),
+            const SizedBox(height: 14),
+          ],
+          if (job.requiredCertifications.isNotEmpty) ...[
+            const _SubLabel('Required certifications'),
+            const SizedBox(height: 8),
+            _chipWrap(
+              job.requiredCertifications,
+              AppColors.blueBg,
+              AppColors.blue,
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (job.trainingSafetyRequired)
+            _requirementLine(
+              Icons.health_and_safety_outlined,
+              'Safety training required',
+            ),
+          if (job.ndaRequired)
+            _requirementLine(Icons.lock_outline_rounded, 'NDA required'),
+          if (job.requirementsNotes.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            const _SubLabel('Other requirements'),
+            const SizedBox(height: 6),
+            Text(
+              job.requirementsNotes,
+              style: const TextStyle(
+                color: AppColors.text,
+                fontSize: 12.5,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ],
+      )
+          : Text(
+        AppLanguage.text('No additional requirements.'),
+        style: TextStyle(color: AppColors.grey, fontSize: 12.5),
+      ),
     );
   }
 
@@ -1424,7 +2400,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         const SizedBox(height: 11),
         if (_applicants.isNotEmpty)
           ..._sortedApplicants(_applicants).map(
-            (application) => Padding(
+                (application) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _ApplicantCardSnapshot(
                 application: application,
@@ -1435,9 +2411,9 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         else if (_applicantsRefreshing)
           const _ApplicantsShimmer()
         else if (_applicantsError != null)
-          _applicationsError(_applicantsError!)
-        else
-          const _EmptyApplications(),
+            _applicationsError(_applicantsError!)
+          else
+            const _EmptyApplications(),
       ],
     );
   }
@@ -1623,21 +2599,21 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
       children: items
           .map(
             (item) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              decoration: BoxDecoration(
-                color: background,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                item,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 10.8,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            item,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 10.8,
+              fontWeight: FontWeight.w700,
             ),
-          )
+          ),
+        ),
+      )
           .toList(),
     );
   }
@@ -1724,8 +2700,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         .where((part) => part.isNotEmpty)
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
+      '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+    )
         .join(' ');
   }
 
@@ -1769,6 +2745,7 @@ class _JobDetailSnapshot {
     required this.createdAt,
     required this.attachments,
     required this.company,
+    required this.imageUrl,
   });
 
   final int id;
@@ -1796,6 +2773,7 @@ class _JobDetailSnapshot {
   final DateTime? createdAt;
   final List<_AttachmentSnapshot> attachments;
   final _CompanySnapshot? company;
+  final String imageUrl;
 
   factory _JobDetailSnapshot.fromModel(CompanyJobPostingModel job) {
     return _JobDetailSnapshot(
@@ -1828,6 +2806,7 @@ class _JobDetailSnapshot {
       company: job.companyProfile == null
           ? null
           : _CompanySnapshot.fromModel(job.companyProfile!),
+      imageUrl: _readDynamicJobImage(job),
     );
   }
 
@@ -1881,6 +2860,7 @@ class _JobDetailSnapshot {
       createdAt: _asDate(json['created_at']),
       attachments: attachments,
       company: company,
+      imageUrl: _asString(json['image_url']),
     );
   }
 
@@ -1911,6 +2891,7 @@ class _JobDetailSnapshot {
       'created_at': createdAt?.toIso8601String(),
       'attachments': attachments.map((item) => item.toJson()).toList(),
       'company': company?.toJson(),
+      'image_url': imageUrl,
     };
   }
 }
@@ -1920,17 +2901,20 @@ class _AttachmentSnapshot {
     required this.name,
     required this.size,
     required this.isImage,
+    required this.url,
   });
 
   final String name;
   final int size;
   final bool isImage;
+  final String url;
 
   factory _AttachmentSnapshot.fromModel(dynamic attachment) {
     return _AttachmentSnapshot(
       name: attachment.name?.toString() ?? '',
       size: _asInt(attachment.size),
       isImage: attachment.isImage == true,
+      url: _readDynamicAttachmentUrl(attachment),
     );
   }
 
@@ -1939,6 +2923,7 @@ class _AttachmentSnapshot {
       name: _asString(json['name']),
       size: _asInt(json['size']),
       isImage: _asBool(json['is_image']),
+      url: _asString(json['url']),
     );
   }
 
@@ -1946,6 +2931,7 @@ class _AttachmentSnapshot {
     'name': name,
     'size': size,
     'is_image': isImage,
+    'url': url,
   };
 }
 
@@ -1955,12 +2941,14 @@ class _CompanySnapshot {
     required this.companyName,
     required this.industryType,
     required this.address,
+    required this.imageUrl,
   });
 
   final int id;
   final String companyName;
   final String industryType;
   final String address;
+  final String imageUrl;
 
   factory _CompanySnapshot.fromModel(CompanyJobCompanyProfileModel company) {
     return _CompanySnapshot(
@@ -1968,6 +2956,7 @@ class _CompanySnapshot {
       companyName: company.companyName,
       industryType: company.industryType,
       address: company.address,
+      imageUrl: _readDynamicCompanyImage(company),
     );
   }
 
@@ -1977,6 +2966,7 @@ class _CompanySnapshot {
       companyName: _asString(json['company_name']),
       industryType: _asString(json['industry_type']),
       address: _asString(json['address']),
+      imageUrl: _asString(json['image_url']),
     );
   }
 
@@ -1985,6 +2975,7 @@ class _CompanySnapshot {
     'company_name': companyName,
     'industry_type': industryType,
     'address': address,
+    'image_url': imageUrl,
   };
 }
 
@@ -2001,6 +2992,7 @@ class _ApplicantSnapshot {
     required this.pilotLocation,
     required this.experienceYears,
     required this.droneName,
+    required this.droneCapabilities,
     required this.createdAt,
   });
 
@@ -2015,6 +3007,7 @@ class _ApplicantSnapshot {
   final String pilotLocation;
   final int? experienceYears;
   final String droneName;
+  final List<String> droneCapabilities;
   final DateTime? createdAt;
 
   factory _ApplicantSnapshot.fromModel(CompanyJobApplicationModel application) {
@@ -2033,6 +3026,7 @@ class _ApplicantSnapshot {
       pilotLocation: pilot?.location ?? '',
       experienceYears: pilot?.experienceYears,
       droneName: drone?.displayName ?? '',
+      droneCapabilities: List<String>.from(drone?.capabilities ?? const <String>[]),
       createdAt: application.createdAt,
     );
   }
@@ -2050,6 +3044,7 @@ class _ApplicantSnapshot {
       pilotLocation: _asString(json['pilot_location']),
       experienceYears: _asNullableInt(json['experience_years']),
       droneName: _asString(json['drone_name']),
+      droneCapabilities: _stringList(json['drone_capabilities']),
       createdAt: _asDate(json['created_at']),
     );
   }
@@ -2066,8 +3061,823 @@ class _ApplicantSnapshot {
     'pilot_location': pilotLocation,
     'experience_years': experienceYears,
     'drone_name': droneName,
+    'drone_capabilities': droneCapabilities,
     'created_at': createdAt?.toIso8601String(),
   };
+}
+
+class _ReferenceJobPalette {
+  static const background = Color(0xFFF9FCFD);
+  static const navy = Color(0xFF0A2D46);
+  static const text = Color(0xFF52677A);
+  static const muted = Color(0xFF7C8D9D);
+  static const teal = Color(0xFF109CAF);
+  static const cyanSoft = Color(0xFFE9F9FB);
+  static const green = Color(0xFF079B7D);
+  static const greenDark = Color(0xFF087D6E);
+  static const mintSoft = Color(0xFFE7FAF6);
+  static const border = Color(0xFFE4ECEF);
+  static const line = Color(0xFFEDF2F4);
+  static const red = Color(0xFFE43333);
+  static const warmBrown = Color(0xFF93664D);
+}
+
+class _ReferenceSectionCard extends StatelessWidget {
+  const _ReferenceSectionCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(12),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _ReferenceJobPalette.border),
+        boxShadow: [
+          BoxShadow(
+            color: _ReferenceJobPalette.navy.withOpacity(.018),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ReferenceSectionHeader extends StatelessWidget {
+  const _ReferenceSectionHeader({
+    required this.icon,
+    required this.title,
+    this.action,
+    this.onActionTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? action;
+  final VoidCallback? onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: _ReferenceJobPalette.cyanSoft,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, size: 15, color: _ReferenceJobPalette.teal),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: _ReferenceJobPalette.navy,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        if (action != null && onActionTap != null)
+          InkWell(
+            onTap: onActionTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              child: Text(
+                action!,
+                style: const TextStyle(
+                  color: _ReferenceJobPalette.teal,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ReferenceCompanyAvatar extends StatelessWidget {
+  const _ReferenceCompanyAvatar({
+    required this.company,
+    required this.name,
+    this.fallbackImageUrl = '',
+  });
+
+  final _CompanySnapshot? company;
+  final String name;
+  final String fallbackImageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final companyImage = company?.imageUrl.trim() ?? '';
+    final imageUrl = companyImage.isNotEmpty ? companyImage : fallbackImageUrl.trim();
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFFEAF2F4),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: _ReferenceJobPalette.navy.withOpacity(.06),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: imageUrl.isEmpty
+            ? Center(
+          child: Text(
+            _initials(name),
+            style: const TextStyle(
+              color: _ReferenceJobPalette.teal,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        )
+            : Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Center(
+            child: Text(
+              _initials(name),
+              style: const TextStyle(
+                color: _ReferenceJobPalette.teal,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceImportantInfoRow extends StatelessWidget {
+  const _ReferenceImportantInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: _ReferenceJobPalette.teal),
+        const SizedBox(width: 6),
+        Text(
+          '$label:',
+          style: const TextStyle(
+            color: _ReferenceJobPalette.navy,
+            fontSize: 11.2,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _ReferenceJobPalette.text,
+              fontSize: 11.4,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReferenceRequirementStat extends StatelessWidget {
+  const _ReferenceRequirementStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.helperText,
+    this.valueMaxLines = 2,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final String? helperText;
+  final int valueMaxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FCFD),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _ReferenceJobPalette.border),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: _ReferenceJobPalette.teal),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _ReferenceJobPalette.muted,
+                    fontSize: 10.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: valueMaxLines,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _ReferenceJobPalette.navy,
+              fontSize: 11.2,
+              fontWeight: FontWeight.w700,
+              height: 1.24,
+            ),
+          ),
+          if (helperText != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              helperText!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _ReferenceJobPalette.teal,
+                fontSize: 9.3,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap == null) return tile;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: tile,
+      ),
+    );
+  }
+}
+
+class _ReferenceVerticalDivider extends StatelessWidget {
+  const _ReferenceVerticalDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 48,
+      color: _ReferenceJobPalette.line,
+    );
+  }
+}
+
+class _ReferenceStatusPill extends StatelessWidget {
+  const _ReferenceStatusPill({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceAttachmentTile extends StatelessWidget {
+  const _ReferenceAttachmentTile({
+    required this.attachment,
+    required this.title,
+    required this.fileSize,
+    required this.isImagePreview,
+    required this.onTap,
+  });
+
+  final _AttachmentSnapshot attachment;
+  final String title;
+  final String fileSize;
+  final bool isImagePreview;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _ReferenceJobPalette.border),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F6F8),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: isImagePreview && attachment.url.trim().isNotEmpty
+                    ? Image.network(
+                  attachment.url.trim(),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.image_outlined,
+                    size: 18,
+                    color: _ReferenceJobPalette.teal,
+                  ),
+                )
+                    : Icon(
+                  isImagePreview
+                      ? Icons.image_outlined
+                      : Icons.insert_drive_file_outlined,
+                  size: 18,
+                  color: _ReferenceJobPalette.teal,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.navy,
+                        fontSize: 10.3,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      fileSize,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.muted,
+                        fontSize: 9.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                isImagePreview ? Icons.open_in_full_rounded : Icons.chevron_right_rounded,
+                size: 16,
+                color: _ReferenceJobPalette.navy,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _ReferenceApplicantCard extends StatelessWidget {
+  const _ReferenceApplicantCard({
+    required this.application,
+    required this.onTap,
+  });
+
+  final _ApplicantSnapshot application;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _ReferenceJobPalette.border),
+        boxShadow: [
+          BoxShadow(
+            color: _ReferenceJobPalette.navy.withOpacity(.016),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: _ReferenceApplicantRow(
+          application: application,
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceApplicantRow extends StatelessWidget {
+  const _ReferenceApplicantRow({
+    required this.application,
+    required this.onTap,
+  });
+
+  final _ApplicantSnapshot application;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = application.pilotName.trim().isEmpty
+        ? 'Pilot #${application.pilotProfileId}'
+        : application.pilotName.trim();
+    final visual = _applicationVisual(application.status);
+    final details = <String>[];
+    if (application.experienceYears != null) {
+      details.add('${application.experienceYears} yrs experience');
+    }
+    if (application.droneCapabilities.isNotEmpty) {
+      details.add(application.droneCapabilities.take(2).join(', '));
+    } else if (application.droneName.trim().isNotEmpty) {
+      details.add(application.droneName.trim());
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 43,
+                height: 43,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFEAF2F4),
+                ),
+                child: ClipOval(
+                  child: application.pilotPhoto.trim().isEmpty
+                      ? Center(
+                    child: Text(
+                      _initials(name),
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.teal,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  )
+                      : Image.network(
+                    application.pilotPhoto.trim(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Text(
+                        _initials(name),
+                        style: const TextStyle(
+                          color: _ReferenceJobPalette.teal,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.navy,
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      details.isEmpty ? 'Pilot application' : details.join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ReferenceJobPalette.muted,
+                        fontSize: 9.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 7),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: visual.background,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  application.statusLabel.isEmpty
+                      ? _titleCase(application.status)
+                      : application.statusLabel,
+                  style: TextStyle(
+                    color: visual.foreground,
+                    fontSize: 9.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 19,
+                color: _ReferenceJobPalette.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceBottomAction extends StatelessWidget {
+  const _ReferenceBottomAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool danger;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger
+        ? _ReferenceJobPalette.red
+        : (primary ? Colors.white : _ReferenceJobPalette.navy);
+    final border = danger
+        ? const Color(0xFFEB6C6C)
+        : (primary ? _ReferenceJobPalette.teal : _ReferenceJobPalette.border);
+    final background = danger
+        ? const Color(0xFFFFFBFB)
+        : (primary ? _ReferenceJobPalette.teal : Colors.white);
+
+    return SizedBox(
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          backgroundColor: background,
+          side: BorderSide(color: border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        icon: Icon(icon, size: 18),
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.8,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceCompanyImageFallback extends StatelessWidget {
+  const _ReferenceCompanyImageFallback({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF62B8C4), Color(0xFF17657A)],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        _initials(name),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceJobImageFallback extends StatelessWidget {
+  const _ReferenceJobImageFallback({required this.category});
+
+  final String category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6EB6C2), Color(0xFF1E5A73)],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        category.toLowerCase().contains('survey')
+            ? Icons.map_outlined
+            : category.toLowerCase().contains('photo')
+            ? Icons.photo_camera_outlined
+            : Icons.flight_takeoff_rounded,
+        color: Colors.white,
+        size: 27,
+      ),
+    );
+  }
+}
+
+class _ReferenceCompanyBottomNav extends StatelessWidget {
+  const _ReferenceCompanyBottomNav({required this.onTap});
+
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (Icons.home_outlined, 'Home'),
+      (Icons.work_outline_rounded, 'Jobs'),
+      (Icons.assignment_outlined, 'Applications'),
+      (Icons.chat_bubble_outline_rounded, 'Messages'),
+      (Icons.business_outlined, 'Profile'),
+    ];
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _ReferenceJobPalette.line)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 63,
+          child: Row(
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              return Expanded(
+                child: InkWell(
+                  onTap: () => onTap(index),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(item.$1, size: 21, color: _ReferenceJobPalette.muted),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.$2,
+                        style: const TextStyle(
+                          color: _ReferenceJobPalette.muted,
+                          fontSize: 9.4,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReferenceJobDetailsShimmer extends StatelessWidget {
+  const _ReferenceJobDetailsShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ShimmerAnimator(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 20),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _ShimmerBox(width: 24, height: 24, radius: 8),
+                Spacer(),
+                _ShimmerBox(width: 92, height: 15, radius: 7),
+                Spacer(),
+                _ShimmerBox(width: 24, height: 24, radius: 8),
+              ],
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                _ShimmerBox(width: 78, height: 72, radius: 10),
+                SizedBox(width: 12),
+                Expanded(child: _ShimmerBox(height: 72, radius: 10)),
+              ],
+            ),
+            SizedBox(height: 14),
+            _ShimmerBox(height: 174, radius: 16),
+            SizedBox(height: 10),
+            _ShimmerBox(height: 210, radius: 16),
+            SizedBox(height: 10),
+            _ShimmerBox(height: 130, radius: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ApplicantCardSnapshot extends StatelessWidget {
@@ -2126,13 +3936,13 @@ class _ApplicantCardSnapshot extends StatelessWidget {
                         : null,
                     child: application.pilotPhoto.trim().isEmpty
                         ? Text(
-                            _initials(name),
-                            style: const TextStyle(
-                              color: AppColors.blue,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          )
+                      _initials(name),
+                      style: const TextStyle(
+                        color: AppColors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    )
                         : null,
                   ),
                   const SizedBox(width: 10),
@@ -2810,7 +4620,7 @@ class _SectionShimmer extends StatelessWidget {
           const SizedBox(height: 14),
           ...List.generate(
             rows,
-            (index) => const Padding(
+                (index) => const Padding(
               padding: EdgeInsets.only(bottom: 9),
               child: _ShimmerBox(height: 34, radius: 10),
             ),
@@ -3034,6 +4844,101 @@ _VisualPair _applicationVisual(String status) {
   }
 }
 
+String _readDynamicJobImage(dynamic job) {
+  String clean(dynamic value) => value?.toString().trim() ?? '';
+
+  try {
+    final value = clean(job.coverImageUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(job.coverImage);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(job.imageUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(job.image);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(job.thumbnailUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final attachments = job.attachments;
+    if (attachments is Iterable) {
+      for (final item in attachments) {
+        bool isImage = false;
+        try {
+          isImage = item.isImage == true;
+        } catch (_) {}
+        if (!isImage) continue;
+        final url = _readDynamicAttachmentUrl(item);
+        if (url.isNotEmpty) return url;
+      }
+    }
+  } catch (_) {}
+  return '';
+}
+
+String _readDynamicAttachmentUrl(dynamic attachment) {
+  String clean(dynamic value) => value?.toString().trim() ?? '';
+  try {
+    final value = clean(attachment.url);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(attachment.fileUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(attachment.downloadUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(attachment.path);
+    if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  } catch (_) {}
+  return '';
+}
+
+
+String _readDynamicCompanyImage(dynamic company) {
+  String clean(dynamic value) => value?.toString().trim() ?? '';
+  try {
+    final value = clean(company.logoUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(company.logo);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(company.companyLogo);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(company.companyLogoUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(company.profilePhoto);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(company.imageUrl);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  try {
+    final value = clean(company.image);
+    if (value.isNotEmpty) return value;
+  } catch (_) {}
+  return '';
+}
+
 String _asString(dynamic value) => value?.toString() ?? '';
 
 int _asInt(dynamic value) {
@@ -3088,7 +4993,7 @@ String _titleCase(String value) {
       .where((part) => part.isNotEmpty)
       .map(
         (part) => '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-      )
+  )
       .join(' ');
 }
 

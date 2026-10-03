@@ -163,6 +163,35 @@ class ApiEndpoints {
   }
 
   // ==========================================================================
+  // SUBSCRIPTIONS
+  // ==========================================================================
+
+  /// GET /subscription-plans
+  static const String subscriptionPlans = '/subscription-plans';
+
+  /// GET /subscription
+  static const String currentSubscription = '/subscription';
+
+  /// POST /subscriptions
+  static const String subscriptions = '/subscriptions';
+
+  /// POST /subscriptions/{subscription}/cancel
+  static String cancelSubscription(int subscriptionId) {
+    return '/subscriptions/$subscriptionId/cancel';
+  }
+
+  /// POST /subscriptions/{subscription}/change-plan
+  static String changeSubscriptionPlan(int subscriptionId) {
+    return '/subscriptions/$subscriptionId/change-plan';
+  }
+
+  /// GET /subscriptions/history
+  static const String subscriptionHistory = '/subscriptions/history';
+
+  /// GET /subscription-payments
+  static const String subscriptionPayments = '/subscription-payments';
+
+  // ==========================================================================
   // ADMIN
   // ==========================================================================
 

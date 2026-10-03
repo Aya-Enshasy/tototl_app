@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
+ import '../../controllers/company_contract_controller.dart';
 import '../../models/contract_submission_model.dart';
-import '../../controllers/company_contract_controller.dart';
 import '../../services/company_contract_service.dart';
 
 class CompanySubmissionReviewScreen extends StatefulWidget {
@@ -78,7 +78,10 @@ class _CompanySubmissionReviewScreenState
       _snack(_controller.actionErrorMessage ?? 'Unable to approve submission.', error: true);
       return;
     }
-    Navigator.of(context).pop(result);
+    setState(() => _submission = result.submission);
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
   }
 
   Future<void> _requestRevision() async {
@@ -104,7 +107,10 @@ class _CompanySubmissionReviewScreenState
       _snack(_controller.actionErrorMessage ?? 'Unable to request revision.', error: true);
       return;
     }
-    Navigator.of(context).pop(result);
+    setState(() => _submission = result.submission);
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
   }
 
   Future<String?> _reviewDialog({
@@ -113,17 +119,19 @@ class _CompanySubmissionReviewScreenState
     required bool noteRequired,
     required bool destructive,
   }) async {
-    final controller = TextEditingController();
+    String draft = '';
     String? validation;
 
-    final result = await showDialog<String>(
+    return showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setLocalState) => AlertDialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
             title: Text(
               title,
               style: const TextStyle(
@@ -147,10 +155,15 @@ class _CompanySubmissionReviewScreenState
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: controller,
                   maxLength: 2000,
                   minLines: 4,
                   maxLines: 7,
+                  onChanged: (value) {
+                    draft = value;
+                    if (validation != null && value.trim().isNotEmpty) {
+                      setLocalState(() => validation = null);
+                    }
+                  },
                   decoration: InputDecoration(
                     hintText: hint,
                     errorText: validation,
@@ -158,11 +171,15 @@ class _CompanySubmissionReviewScreenState
                     fillColor: AppColors.bg,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                      borderSide: const BorderSide(
+                        color: AppColors.cardBorder,
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                      borderSide: const BorderSide(
+                        color: AppColors.cardBorder,
+                      ),
                     ),
                   ),
                 ),
@@ -170,31 +187,35 @@ class _CompanySubmissionReviewScreenState
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('Cancel'),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: destructive ? AppColors.orange : AppColors.green,
+                  backgroundColor:
+                      destructive ? AppColors.orange : AppColors.green,
                 ),
                 onPressed: () {
-                  final value = controller.text.trim();
+                  final value = draft.trim();
                   if (noteRequired && value.isEmpty) {
-                    setLocalState(() => validation = 'Revision instructions are required.');
+                    setLocalState(
+                      () => validation = 'Revision instructions are required.',
+                    );
                     return;
                   }
-                  Navigator.pop(dialogContext, value);
+                  Navigator.of(dialogContext).pop(value);
                 },
-                child: Text(noteRequired ? 'Send Revision Request' : 'Approve & Complete'),
+                child: Text(
+                  noteRequired
+                      ? 'Send Revision Request'
+                      : 'Approve & Complete',
+                ),
               ),
             ],
           ),
         );
       },
     );
-
-    controller.dispose();
-    return result;
   }
 
   @override

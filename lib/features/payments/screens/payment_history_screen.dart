@@ -27,10 +27,15 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
 
   static const _filters = <String>[
     'all',
+    'pending',
     'funded',
+    'held',
     'release_pending',
     'released',
+    'failed',
     'refunded',
+    'partially_refunded',
+    'cancelled',
   ];
 
   @override

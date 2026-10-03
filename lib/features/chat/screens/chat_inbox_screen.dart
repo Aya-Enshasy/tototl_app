@@ -2,451 +2,262 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/localization/app_language.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/storage/user_session_storage.dart';
+import '../../../core/theme/app_colors.dart';
 import '../models/chat_conversation.dart';
 import '../services/firebase_chat_service.dart';
 import 'chat_screen.dart';
+import 'dart:ui' as ui;
 
 String _ui(String source) => AppLanguage.text(source);
 
 class ChatInboxScreen extends StatefulWidget {
-  ChatInboxScreen({
+  const ChatInboxScreen({
     super.key,
     this.defaultRecipientId,
     this.defaultRecipientName,
   });
 
-  /// Legacy compatibility only. The inbox no longer depends on a hardcoded
-  /// recipient. Conversations are loaded from Firebase for the authenticated
-  /// user stored in [UserSessionStorage].
-  @Deprecated('The inbox now resolves conversations from the signed-in user.')
+  /// Kept only so older callers do not break.
+  ///
+  /// The inbox resolves the signed-in user and real Firebase conversations;
+  /// it no longer opens a hardcoded pilot.
+  @Deprecated('The inbox loads real conversations for the signed-in user.')
   final String? defaultRecipientId;
 
-  @Deprecated('The inbox now resolves conversations from the signed-in user.')
+  @Deprecated('The inbox loads real conversations for the signed-in user.')
   final String? defaultRecipientName;
 
   @override
-  State<ChatInboxScreen> createState() =>
-      _ChatInboxScreenState();
+  State<ChatInboxScreen> createState() => _ChatInboxScreenState();
 }
 
-class _ChatInboxScreenState
-    extends State<ChatInboxScreen> {
-  final TextEditingController
-  _searchController =
-  TextEditingController();
+class _ChatInboxScreenState extends State<ChatInboxScreen> {
+  final TextEditingController _searchController = TextEditingController();
 
   String? _userId;
-
-  String _userName =
-  _ui('User');
-
-  String _userPhotoUrl =
-      '';
-
-  String _query =
-      '';
+  String _userName = _ui('User');
+  String _userPhotoUrl = '';
+  String _query = '';
 
   @override
   void initState() {
     super.initState();
-
     _loadUser();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-
     super.dispose();
   }
 
   Future<void> _loadUser() async {
-    final id =
-    await UserSessionStorage
-        .getUserId();
+    final id = await UserSessionStorage.getUserId();
+    final name = await UserSessionStorage.getName();
+    final photo = await UserSessionStorage.getProfilePhotoUrl();
 
-    final name =
-    await UserSessionStorage
-        .getName();
-
-    final photo =
-    await UserSessionStorage
-        .getProfilePhotoUrl();
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
-      _userId =
-          id?.toString();
-
-      _userName =
-      name?.trim().isNotEmpty ==
-          true
+      _userId = id?.toString();
+      _userName = name?.trim().isNotEmpty == true
           ? name!.trim()
           : _ui('User');
-
-      _userPhotoUrl =
-          photo?.trim() ?? '';
+      _userPhotoUrl = photo?.trim() ?? '';
     });
   }
 
-  void _open(
-      ChatConversation conversation,
-      ) {
-    final id =
-        _userId;
+  void _open(ChatConversation conversation) {
+    final id = _userId;
 
-    if (id == null ||
-        id == conversation.partnerId) {
-      return;
-    }
+    if (id == null || id == conversation.partnerId) return;
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) =>
-            ChatScreen(
-              currentUserId:
-              id,
-              currentUserName:
-              _userName,
-              currentUserPhotoUrl:
-              _userPhotoUrl,
-              partnerId:
-              conversation.partnerId,
-              partnerName:
-              conversation.partnerName,
-              partnerPhotoUrl:
-              conversation.partnerPhotoUrl,
-            ),
+        builder: (_) => ChatScreen(
+          currentUserId: id,
+          currentUserName: _userName,
+          currentUserPhotoUrl: _userPhotoUrl,
+          partnerId: conversation.partnerId,
+          partnerName: conversation.partnerName,
+          partnerPhotoUrl: conversation.partnerPhotoUrl,
+        ),
       ),
     );
   }
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
     if (_userId == null) {
-      return ColoredBox(
-        color:
-        AppColors.bg,
-        child:
-        Center(
-          child:
-          CircularProgressIndicator(
-            color:
-            AppColors.logoTurquoiseDark,
+      return const ColoredBox(
+        color: AppColors.bg,
+        child: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.logoTurquoiseDark,
           ),
         ),
       );
     }
 
-    return ColoredBox(
-      color:
-      AppColors.bg,
-      child:
-      SafeArea(
-        child:
-        Column(
-          children: [
-            _InboxHeader(
-              name:
-              _userName,
-              photoUrl:
-              _userPhotoUrl,
-            ),
-
-            Padding(
-              padding:
-              EdgeInsets.fromLTRB(
-                18,
-                8,
-                18,
-                12,
-              ),
-              child:
-              _SearchBox(
-                controller:
-                _searchController,
-                onChanged:
-                    (value) {
-                  setState(() {
-                    _query =
-                        value
-                            .trim()
-                            .toLowerCase();
-                  });
-                },
-              ),
-            ),
-
-            Expanded(
-              child:
-              StreamBuilder<
-                  List<
-                      ChatConversation>>(
-                stream:
-                FirebaseChatService
-                    .instance
-                    .conversationsFor(
-                  _userId!,
+    return Directionality(
+      textDirection: ui.TextDirection.ltr,
+      child: ColoredBox(
+        color: AppColors.bg,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const _MessagesHeader(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 9),
+                child: _SearchBox(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _query = value.trim().toLowerCase();
+                    });
+                  },
                 ),
-                builder:
-                    (
-                    context,
-                    snapshot,
-                    ) {
-                  if (snapshot
-                      .hasError) {
-                    return RefreshIndicator(
-                      color:
-                      AppColors.logoTurquoiseDark,
-                      onRefresh:
-                      _loadUser,
-                      child:
-                      ListView(
-                        physics:
-                        AlwaysScrollableScrollPhysics(),
-                        children:
-                        [
-                          SizedBox(
-                            height:
-                            120,
-                          ),
-                          _InboxError(),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final chats =
-                      snapshot.data ??
-                          <
-                              ChatConversation>[];
-
-                  final visible =
-                  _query.isEmpty
-                      ? chats
-                      : chats
-                      .where(
-                        (
-                        chat,
-                        ) {
-                      return chat
-                          .partnerName
-                          .toLowerCase()
-                          .contains(
-                        _query,
-                      ) ||
-                          chat
-                              .lastMessage
-                              .toLowerCase()
-                              .contains(
-                            _query,
-                          );
-                    },
-                  )
-                      .toList();
-
-                  if (visible
-                      .isEmpty) {
-                    return RefreshIndicator(
-                      color:
-                      AppColors.logoTurquoiseDark,
-                      onRefresh:
-                      _loadUser,
-                      child:
-                      ListView(
-                        physics:
-                        AlwaysScrollableScrollPhysics(),
-                        children: [
-                          _InboxEmpty(
-                            searching:
-                            _query.isNotEmpty,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return RefreshIndicator(
-                    color:
-                    AppColors.logoTurquoiseDark,
-                    onRefresh:
-                    _loadUser,
-                    child:
-                    ListView.separated(
-                      physics:
-                      AlwaysScrollableScrollPhysics(
-                        parent:
-                        BouncingScrollPhysics(),
-                      ),
-                      padding:
-                      EdgeInsets.fromLTRB(
-                        18,
-                        2,
-                        18,
-                        100,
-                      ),
-                      itemCount:
-                      visible.length,
-                      separatorBuilder:
-                          (
-                          _,
-                          __,
-                          ) =>
-                          Divider(
-                            height:
-                            1,
-                            indent:
-                            64,
-                            color:
-                            AppColors.cardBorder,
-                          ),
-                      itemBuilder:
-                          (
-                          context,
-                          index,
-                          ) {
-                        final chat =
-                        visible[index];
-
-                        final mine =
-                            chat.lastSenderId ==
-                                _userId;
-
-                        return _ConversationTile(
-                          chat:
-                          chat,
-                          mine:
-                          mine,
-                          onTap:
-                              () => _open(
-                            chat,
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
               ),
-            ),
-          ],
+              const Padding(
+                padding: EdgeInsets.fromLTRB(18, 2, 18, 9),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _AllPill(),
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<List<ChatConversation>>(
+                  stream: FirebaseChatService.instance.conversationsFor(
+                    _userId!,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return RefreshIndicator(
+                        color: AppColors.logoTurquoiseDark,
+                        onRefresh: _loadUser,
+                        child:   ListView(
+                          physics: AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(height: 120),
+                            _InboxError(),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final chats =
+                        snapshot.data ?? const <ChatConversation>[];
+
+                    final visible = _query.isEmpty
+                        ? chats
+                        : chats.where((chat) {
+                      return chat.partnerName
+                          .toLowerCase()
+                          .contains(_query) ||
+                          chat.lastMessage
+                              .toLowerCase()
+                              .contains(_query);
+                    }).toList();
+
+                    if (visible.isEmpty) {
+                      return RefreshIndicator(
+                        color: AppColors.logoTurquoiseDark,
+                        onRefresh: _loadUser,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            _InboxEmpty(
+                              searching: _query.isNotEmpty,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      color: AppColors.logoTurquoiseDark,
+                      onRefresh: _loadUser,
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(
+                          18,
+                          3,
+                          18,
+                          100,
+                        ),
+                        itemCount: visible.length,
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          indent: 64,
+                          color: AppColors.cardBorder,
+                        ),
+                        itemBuilder: (context, index) {
+                          final chat = visible[index];
+                          final mine = chat.lastSenderId == _userId;
+
+                          return _ConversationTile(
+                            chat: chat,
+                            mine: mine,
+                            onTap: () => _open(chat),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _InboxHeader
-    extends StatelessWidget {
-  const _InboxHeader({
-    required this.name,
-    required this.photoUrl,
-  });
-
-  final String name;
-  final String photoUrl;
+class _MessagesHeader extends StatelessWidget {
+  const _MessagesHeader();
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return Container(
-      padding:
-      EdgeInsets.fromLTRB(
-        18,
-        12,
-        18,
-        10,
-      ),
-      child:
-      Row(
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 7),
+      child: Row(
         children: [
-          _InboxAvatar(
-            name:
-            name,
-            photoUrl:
-            photoUrl,
-            size:
-            47,
-          ),
-
-          SizedBox(
-            width:
-            11,
-          ),
-
           Expanded(
-            child:
-            Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _ui('Chat'),
-                  style:
-                  TextStyle(
-                    color:
-                    AppColors.navy,
-                    fontSize:
-                    22,
-                    height:
-                    1,
-                    fontWeight:
-                    FontWeight.w900,
-                    letterSpacing:
-                    -.5,
-                  ),
-                ),
-                SizedBox(
-                  height:
-                  5,
-                ),
-                Text(
-                  name,
-                  maxLines:
-                  1,
-                  overflow:
-                  TextOverflow.ellipsis,
-                  style:
-                  TextStyle(
-                    color:
-                    AppColors.grey,
-                    fontSize:
-                    10.5,
-                    fontWeight:
-                    FontWeight.w600,
-                  ),
+            child: Text(
+              _ui('Messages'),
+              style: const TextStyle(
+                color: AppColors.navy,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -.25,
+              ),
+            ),
+          ),
+          Container(
+            width: 39,
+            height: 39,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: AppColors.cardBorder,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.navy.withOpacity(.025),
+                  blurRadius: 9,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
-          ),
-
-          Container(
-            width:
-            40,
-            height:
-            40,
-            decoration:
-            BoxDecoration(
-              color:
-              Colors.white,
-              shape:
-              BoxShape.circle,
-            ),
-            child:
-            Icon(
+            child: const Icon(
               Icons.chat_bubble_outline_rounded,
-              color:
-              AppColors.logoTurquoiseDark,
-              size:
-              19,
+              color: AppColors.logoTurquoiseDark,
+              size: 18,
             ),
           ),
         ],
@@ -455,103 +266,57 @@ class _InboxHeader
   }
 }
 
-class _SearchBox
-    extends StatelessWidget {
+class _SearchBox extends StatelessWidget {
   const _SearchBox({
     required this.controller,
     required this.onChanged,
   });
 
-  final TextEditingController
-  controller;
-
-  final ValueChanged<String>
-  onChanged;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
     return TextField(
-      controller:
-      controller,
-      onChanged:
-      onChanged,
-      textInputAction:
-      TextInputAction.search,
-      style:
-      TextStyle(
-        color:
-        AppColors.navy,
-        fontSize:
-        12,
-        fontWeight:
-        FontWeight.w600,
+      controller: controller,
+      onChanged: onChanged,
+      textInputAction: TextInputAction.search,
+      style: const TextStyle(
+        color: AppColors.navy,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
       ),
-      decoration:
-      InputDecoration(
-        hintText:
-        _ui('Search conversations'),
-        hintStyle:
-        TextStyle(
-          color:
-          AppColors.lightGrey,
-          fontSize:
-          11.5,
+      decoration: InputDecoration(
+        hintText: _ui('Search conversations'),
+        hintStyle: const TextStyle(
+          color: AppColors.lightGrey,
+          fontSize: 11.4,
         ),
-        prefixIcon:
-        Icon(
+        prefixIcon: const Icon(
           Icons.search_rounded,
-          color:
-          AppColors.grey,
-          size:
-          20,
+          color: AppColors.grey,
+          size: 19,
         ),
-        filled:
-        true,
-        fillColor:
-        Colors.white,
-        contentPadding:
-        EdgeInsets.symmetric(
-          vertical:
-          13,
-        ),
-        border:
-        OutlineInputBorder(
-          borderRadius:
-          BorderRadius.circular(
-            18,
-          ),
-          borderSide:
-          BorderSide(
-            color:
-            AppColors.cardBorder,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(17),
+          borderSide: const BorderSide(
+            color: AppColors.cardBorder,
           ),
         ),
-        enabledBorder:
-        OutlineInputBorder(
-          borderRadius:
-          BorderRadius.circular(
-            18,
-          ),
-          borderSide:
-          BorderSide(
-            color:
-            AppColors.cardBorder,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(17),
+          borderSide: const BorderSide(
+            color: AppColors.cardBorder,
           ),
         ),
-        focusedBorder:
-        OutlineInputBorder(
-          borderRadius:
-          BorderRadius.circular(
-            18,
-          ),
-          borderSide:
-          BorderSide(
-            color:
-            AppColors.logoTurquoise,
-            width:
-            1.2,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(17),
+          borderSide: const BorderSide(
+            color: AppColors.logoTurquoise,
+            width: 1.2,
           ),
         ),
       ),
@@ -559,8 +324,32 @@ class _SearchBox
   }
 }
 
-class _ConversationTile
-    extends StatelessWidget {
+class _AllPill extends StatelessWidget {
+  const _AllPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 35,
+      padding: const EdgeInsets.symmetric(horizontal: 23),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.logoTurquoise.withOpacity(.14),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        _ui('All'),
+        style: const TextStyle(
+          color: AppColors.logoTurquoiseDark,
+          fontSize: 10.6,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationTile extends StatelessWidget {
   const _ConversationTile({
     required this.chat,
     required this.mine,
@@ -572,139 +361,108 @@ class _ConversationTile
   final VoidCallback onTap;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    final time =
-    chat.lastMessageAt == 0
+  Widget build(BuildContext context) {
+    final time = chat.lastMessageAt == 0
         ? ''
-        : DateFormat(
-      'h:mm a',
-    ).format(
-      DateTime
-          .fromMillisecondsSinceEpoch(
-        chat.lastMessageAt,
-      ),
+        : DateFormat('h:mm a').format(
+      DateTime.fromMillisecondsSinceEpoch(chat.lastMessageAt),
     );
 
-    final preview =
-    chat.lastMessage
-        .trim()
-        .isEmpty
+    final cleanMessage = chat.lastMessage.trim();
+
+    final preview = cleanMessage.isEmpty
         ? _ui('No messages yet')
-        : "${mine ? '${_ui('You')}: ' : ''}${chat.lastMessage}";
+        : "${mine ? '${_ui('You')}: ' : ''}$cleanMessage";
 
     return Material(
-      color:
-      Colors.transparent,
-      child:
-      InkWell(
-        onTap:
-        onTap,
-        borderRadius:
-        BorderRadius.circular(
-          17,
-        ),
-        child:
-        Padding(
-          padding:
-          EdgeInsets.symmetric(
-            vertical:
-            11,
-            horizontal:
-            2,
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 1,
           ),
-          child:
-          Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _InboxAvatar(
-                name:
-                chat.partnerName,
-                photoUrl:
-                chat.partnerPhotoUrl,
-                size:
-                50,
-                online:
-                true,
+                name: chat.partnerName,
+                photoUrl: chat.partnerPhotoUrl,
+                size: 52,
               ),
-
-              SizedBox(
-                width:
-                12,
-              ),
-
+              const SizedBox(width: 12),
               Expanded(
-                child:
-                Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Expanded(
-                          child:
-                          Text(
+                          child: Text(
                             chat.partnerName,
-                            maxLines:
-                            1,
-                            overflow:
-                            TextOverflow.ellipsis,
-                            style:
-                            TextStyle(
-                              color:
-                              AppColors.navy,
-                              fontSize:
-                              13.5,
-                              fontWeight:
-                              FontWeight.w900,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.navy,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
-
-                        if (time
-                            .isNotEmpty)
+                        if (time.isNotEmpty)
                           Text(
                             time,
-                            style:
-                            TextStyle(
-                              color:
-                              AppColors.lightGrey,
-                              fontSize:
-                              9.5,
-                              fontWeight:
-                              FontWeight.w500,
+                            style: const TextStyle(
+                              color: AppColors.lightGrey,
+                              fontSize: 9.4,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                       ],
                     ),
-
-                    SizedBox(
-                      height:
-                      5,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 11,
+                          color: AppColors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _ui('Private conversation'),
+                          style: const TextStyle(
+                            color: AppColors.grey,
+                            fontSize: 9.7,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-
+                    const SizedBox(height: 4),
                     Text(
                       preview,
-                      maxLines:
-                      1,
-                      overflow:
-                      TextOverflow.ellipsis,
-                      style:
-                      TextStyle(
-                        color:
-                        mine
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: mine
                             ? AppColors.grey
                             : AppColors.logoTurquoiseDark,
-                        fontSize:
-                        11.2,
+                        fontSize: 10.8,
                         fontWeight:
-                        mine
-                            ? FontWeight.w500
-                            : FontWeight.w700,
+                        mine ? FontWeight.w500 : FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.lightGrey,
+                size: 18,
               ),
             ],
           ),
@@ -714,111 +472,43 @@ class _ConversationTile
   }
 }
 
-class _InboxAvatar
-    extends StatelessWidget {
+class _InboxAvatar extends StatelessWidget {
   const _InboxAvatar({
     required this.name,
     required this.photoUrl,
     required this.size,
-    this.online = false,
   });
 
   final String name;
   final String photoUrl;
   final double size;
-  final bool online;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    final clean =
-    photoUrl.trim();
+  Widget build(BuildContext context) {
+    final clean = photoUrl.trim();
 
-    final initial =
-    name.trim().isEmpty
+    final initial = name.trim().isEmpty
         ? '?'
-        : name
-        .trim()
-        .characters
-        .first
-        .toUpperCase();
+        : name.trim().characters.first.toUpperCase();
 
     return SizedBox(
-      width:
-      size,
-      height:
-      size,
-      child:
-      Stack(
-        clipBehavior:
-        Clip.none,
-        children: [
-          Positioned.fill(
-            child:
-            ClipOval(
-              child:
-              clean.isNotEmpty
-                  ? Image.network(
-                clean,
-                fit:
-                BoxFit.cover,
-                errorBuilder:
-                    (
-                    context,
-                    error,
-                    stackTrace,
-                    ) =>
-                    _InboxAvatarFallback(
-                      initial:
-                      initial,
-                    ),
-              )
-                  : _InboxAvatarFallback(
-                initial:
-                initial,
-              ),
-            ),
-          ),
-
-          if (online)
-            Positioned(
-              right:
-              0,
-              bottom:
-              0,
-              child:
-              Container(
-                width:
-                size * .24,
-                height:
-                size * .24,
-                decoration:
-                BoxDecoration(
-                  color:
-                  Color(
-                    0xFF25C76F,
-                  ),
-                  shape:
-                  BoxShape.circle,
-                  border:
-                  Border.all(
-                    color:
-                    AppColors.bg,
-                    width:
-                    2,
-                  ),
-                ),
-              ),
-            ),
-        ],
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: clean.isNotEmpty
+            ? Image.network(
+          clean,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              _InboxAvatarFallback(initial: initial),
+        )
+            : _InboxAvatarFallback(initial: initial),
       ),
     );
   }
 }
 
-class _InboxAvatarFallback
-    extends StatelessWidget {
+class _InboxAvatarFallback extends StatelessWidget {
   const _InboxAvatarFallback({
     required this.initial,
   });
@@ -826,45 +516,32 @@ class _InboxAvatarFallback
   final String initial;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
     return Container(
-      alignment:
-      Alignment.center,
-      decoration:
-      BoxDecoration(
-        gradient:
-        LinearGradient(
-          begin:
-          Alignment.topLeft,
-          end:
-          Alignment.bottomRight,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
             AppColors.logoTurquoise,
             AppColors.blue,
           ],
         ),
       ),
-      child:
-      Text(
+      child: Text(
         initial,
-        style:
-        TextStyle(
-          color:
-          Colors.white,
-          fontSize:
-          18,
-          fontWeight:
-          FontWeight.w900,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 17,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
   }
 }
 
-class _InboxEmpty
-    extends StatelessWidget {
+class _InboxEmpty extends StatelessWidget {
   const _InboxEmpty({
     required this.searching,
   });
@@ -872,83 +549,53 @@ class _InboxEmpty
   final bool searching;
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
+  Widget build(BuildContext context) {
     return Padding(
-      padding:
-      EdgeInsets.fromLTRB(
-        34,
-        90,
-        34,
-        30,
-      ),
-      child:
-      Column(
+      padding: const EdgeInsets.fromLTRB(34, 92, 34, 30),
+      child: Column(
         children: [
-          Container(
-            width:
-            76,
-            height:
-            76,
-            decoration:
-            BoxDecoration(
-              color:
-              AppColors.blueBg,
-              shape:
-              BoxShape.circle,
-            ),
-            child:
-            Icon(
-              Icons.chat_bubble_outline_rounded,
-              color:
-              AppColors.logoTurquoiseDark,
-              size:
-              32,
-            ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 78,
+                height: 78,
+                decoration: BoxDecoration(
+                  color: AppColors.blueBg,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              const Icon(
+                Icons.forum_outlined,
+                color: AppColors.logoTurquoiseDark,
+                size: 32,
+              ),
+            ],
           ),
-
-          SizedBox(
-            height:
-            17,
-          ),
-
+          const SizedBox(height: 17),
           Text(
             searching
                 ? _ui('No conversations found')
-                : _ui('No conversations yet'),
-            textAlign:
-            TextAlign.center,
-            style:
-            TextStyle(
-              color:
-              AppColors.navy,
-              fontSize:
-              16,
-              fontWeight:
-              FontWeight.w900,
+                : _ui('Your messages live here'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.navy,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
             ),
           ),
-
-          SizedBox(
-            height:
-            6,
-          ),
-
+          const SizedBox(height: 6),
           Text(
             searching
                 ? _ui('Try another name or message.')
-                : _ui('Your direct conversations will appear here.'),
-            textAlign:
-            TextAlign.center,
-            style:
-            TextStyle(
-              color:
-              AppColors.grey,
-              fontSize:
-              11.2,
-              height:
-              1.4,
+                : _ui(
+              'Talk with pilots about your work and keep important updates in one place.',
+            ),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.grey,
+              fontSize: 10.8,
+              height: 1.45,
             ),
           ),
         ],
@@ -957,43 +604,28 @@ class _InboxEmpty
   }
 }
 
-class _InboxError
-    extends StatelessWidget {
+class _InboxError extends StatelessWidget {
   const _InboxError();
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    return Padding(
-      padding:
-      EdgeInsets.all(
-        24,
-      ),
-      child:
-      Column(
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(24),
+      child: Column(
         children: [
           Icon(
             Icons.cloud_off_rounded,
-            color:
-            AppColors.red,
-            size:
-            30,
+            color: AppColors.red,
+            size: 30,
           ),
-          SizedBox(
-            height:
-            10,
-          ),
+          SizedBox(height: 10),
           Text(
-            _ui('Could not load conversations.'),
-            textAlign:
-            TextAlign.center,
-            style:
-            TextStyle(
-              color:
-              AppColors.navy,
-              fontWeight:
-              FontWeight.w800,
+            'Could not load conversations.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.navy,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
             ),
           ),
         ],

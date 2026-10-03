@@ -53,6 +53,8 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
   int? _documentActionId;
   int? _openingDocumentId;
 
+  int _selectedProfileTab = 0;
+
   @override
   void initState() {
     super.initState();
@@ -699,202 +701,227 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -150,
-            right: -120,
-            child: IgnorePointer(
-              child: Container(
-                width: 310,
-                height: 310,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.blue.withOpacity(.09),
-                      Colors.transparent,
-                    ],
-                  ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: AppColors.logoTurquoiseDark,
+          backgroundColor: Colors.white,
+          onRefresh: _handleRefresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 13, 18, 110),
+            children: [
+              _TopBar(
+                onSettings: _openSettings,
+              ),
+              const SizedBox(height: 12),
+              _ProfileHero(
+                account: account,
+                profile: profile,
+                profilePhotoUrl: data.profilePhotoUrl,
+                uploadingPhoto: _uploadingPhoto,
+                onPhotoTap: _changeProfilePhoto,
+                onEditTap: _openEditProfile,
+              ),
+              const SizedBox(height: 12),
+              _ProfileTabs(
+                selectedIndex: _selectedProfileTab,
+                onChanged: (index) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedProfileTab = index);
+                },
+              ),
+              const SizedBox(height: 11),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 190),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _profileTabContent(
+                  profile: profile,
+                  account: account,
                 ),
               ),
-            ),
+            ],
           ),
-          SafeArea(
-            child: RefreshIndicator(
-              color: AppColors.blue,
-              onRefresh: _handleRefresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
+        ),
+      ),
+    );
+  }
+
+  Widget _profileTabContent({
+    required CompanyProfileModel profile,
+    required CompanyAccountModel account,
+  }) {
+    switch (_selectedProfileTab) {
+      case 1:
+        return Column(
+          key: const ValueKey('regions'),
+          children: [
+            _OperatingRegionsCard(
+              regions: profile.workRegions,
+            ),
+          ],
+        );
+
+      case 2:
+        return Column(
+          key: const ValueKey('documents'),
+          children: [
+            _CompanyDocumentsSection(
+              documents: _documents,
+              loading: _documentsCacheLoading,
+              uploading: _uploadingDocument,
+              actionDocumentId: _documentActionId,
+              openingDocumentId: _openingDocumentId,
+              onAdd: _addCompanyDocument,
+              onOpen: _openCompanyDocument,
+              onReplace: _replaceCompanyDocument,
+              onDelete: _deleteCompanyDocument,
+            ),
+          ],
+        );
+
+      case 3:
+        return Column(
+          key: const ValueKey('account'),
+          children: [
+            _Section(
+              icon: Icons.badge_outlined,
+              title: AppLanguage.text('Account'),
+              child: Column(
                 children: [
-                  _TopBar(onSettings: _openSettings),
-                  const SizedBox(height: 14),
-                  _ProfileHero(
-                    account: account,
-                    profile: profile,
-                    profilePhotoUrl: data.profilePhotoUrl,
-                    uploadingPhoto: _uploadingPhoto,
-                    onPhotoTap: _changeProfilePhoto,
-                    onEditTap: _openEditProfile,
+                  _InfoRow(
+                    icon: Icons.person_outline_rounded,
+                    label: AppLanguage.text('Account name'),
+                    value: _display(account.name),
                   ),
-                  const SizedBox(height: 12),
-                  _Section(
-                    icon: Icons.notes_rounded,
-                    title: AppLanguage.text('About'),
-                    child: Text(
-                      profile.description.trim().isEmpty
-                          ? 'No company description added yet.'
-                          : profile.description,
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: 12.5,
-                        height: 1.5,
-                      ),
-                    ),
+                  const _SoftDivider(),
+                  _InfoRow(
+                    icon: Icons.alternate_email_rounded,
+                    label: AppLanguage.text('Username'),
+                    value: _display(account.displayUsername),
                   ),
-                  const SizedBox(height: 12),
-                  _Section(
-                    icon: Icons.business_center_outlined,
-                    title: AppLanguage.text('Company Information'),
-                    child: Column(
-                      children: [
-                        _InfoRow(
-                          icon: Icons.business_outlined,
-                          label: AppLanguage.text('Industry'),
-                          value: _display(profile.industryType),
-                        ),
-                        const _SoftDivider(),
-                        _InfoRow(
-                          icon: Icons.location_on_outlined,
-                          label: AppLanguage.text('Location'),
-                          value: profile.locationLabel,
-                        ),
-                        const _SoftDivider(),
-                        _InfoRow(
-                          icon: Icons.home_work_outlined,
-                          label: AppLanguage.text('Address'),
-                          value: _display(profile.address),
-                        ),
-                        const _SoftDivider(),
-                        _InfoRow(
-                          icon: Icons.language_rounded,
-                          label: AppLanguage.text('Website'),
-                          value: _display(profile.website),
-                        ),
-                      ],
-                    ),
+                  const _SoftDivider(),
+                  _InfoRow(
+                    icon: Icons.email_outlined,
+                    label: AppLanguage.text('Email'),
+                    value: _display(account.email),
                   ),
-                  const SizedBox(height: 12),
-                  _Section(
-                    icon: Icons.travel_explore_rounded,
-                    title: AppLanguage.text('Operating Regions'),
-                    child: profile.workRegions.isEmpty
-                        ? Text(AppLanguage.text('No operating regions added yet.'),
-                      style: TextStyle(
-                        color: AppColors.grey,
-                        fontSize: 12,
-                      ),
-                    )
-                        : Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: profile.workRegions
-                          .map(
-                            (region) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.blue.withOpacity(.065),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: AppColors.blue.withOpacity(.13),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.location_on_outlined,
-                                size: 13,
-                                color: AppColors.blue,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                region.displayLabel,
-                                style: const TextStyle(
-                                  color: AppColors.navy,
-                                  fontSize: 10.8,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _CompanyDocumentsSection(
-                    documents: _documents,
-                    loading: _documentsCacheLoading,
-                    uploading: _uploadingDocument,
-                    actionDocumentId: _documentActionId,
-                    openingDocumentId: _openingDocumentId,
-                    onAdd: _addCompanyDocument,
-                    onOpen: _openCompanyDocument,
-                    onReplace: _replaceCompanyDocument,
-                    onDelete: _deleteCompanyDocument,
-                  ),
-                  const SizedBox(height: 12),
-                  _Section(
-                    icon: Icons.badge_outlined,
-                    title: AppLanguage.text('Account'),
-                    child: Column(
-                      children: [
-                        _InfoRow(
-                          icon: Icons.person_outline_rounded,
-                          label: AppLanguage.text('Account name'),
-                          value: _display(account.name),
-                        ),
-                        const _SoftDivider(),
-                        _InfoRow(
-                          icon: Icons.alternate_email_rounded,
-                          label: AppLanguage.text('Username'),
-                          value: _display(account.displayUsername),
-                        ),
-                        const _SoftDivider(),
-                        _InfoRow(
-                          icon: Icons.email_outlined,
-                          label: AppLanguage.text('Email'),
-                          value: _display(account.email),
-                        ),
-                        const _SoftDivider(),
-                        _InfoRow(
-                          icon: Icons.phone_outlined,
-                          label: AppLanguage.text('Phone'),
-                          value: _display(account.phone),
-                        ),
-                      ],
-                    ),
+                  const _SoftDivider(),
+                  _InfoRow(
+                    icon: Icons.phone_outlined,
+                    label: AppLanguage.text('Phone'),
+                    value: _display(account.phone),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 43,
+              child: OutlinedButton.icon(
+                onPressed: _openSettings,
+                icon: const Icon(
+                  Icons.settings_outlined,
+                  size: 15,
+                ),
+                label: Text(
+                  AppLanguage.text('Account Settings'),
+                  style: const TextStyle(
+                    fontSize: 11.2,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.logoTurquoiseDark,
+                  side: BorderSide(
+                    color: AppColors.logoTurquoiseDark.withOpacity(.35),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+
+      default:
+        return Column(
+          key: const ValueKey('overview'),
+          children: [
+            _Section(
+              icon: Icons.description_outlined,
+              title: AppLanguage.text('About'),
+              child: Text(
+                profile.description.trim().isEmpty
+                    ? 'No company description added yet.'
+                    : profile.description,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 10.8,
+                  height: 1.42,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _Section(
+              icon: Icons.apartment_rounded,
+              title: AppLanguage.text('Company Information'),
+              child: Column(
+                children: [
+                  _InfoRow(
+                    icon: Icons.apartment_outlined,
+                    label: AppLanguage.text('Industry'),
+                    value: _display(profile.industryType),
+                  ),
+                  const _SoftDivider(),
+                  _InfoRow(
+                    icon: Icons.location_on_outlined,
+                    label: AppLanguage.text('Headquarters'),
+                    value: profile.locationLabel,
+                  ),
+                  const _SoftDivider(),
+                  _InfoRow(
+                    icon: Icons.language_rounded,
+                    label: AppLanguage.text('Website'),
+                    value: _display(profile.website),
+                    accentValue: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _OperatingRegionsCard(
+              regions: profile.workRegions,
+            ),
+            const SizedBox(height: 10),
+            _CompanyDocumentsSection(
+              documents: _documents,
+              loading: _documentsCacheLoading,
+              uploading: _uploadingDocument,
+              actionDocumentId: _documentActionId,
+              openingDocumentId: _openingDocumentId,
+              onAdd: _addCompanyDocument,
+              onOpen: _openCompanyDocument,
+              onReplace: _replaceCompanyDocument,
+              onDelete: _deleteCompanyDocument,
+              compact: true,
+            ),
+          ],
+        );
+    }
   }
+
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onSettings});
+  const _TopBar({
+    required this.onSettings,
+  });
+
   final VoidCallback onSettings;
 
   @override
@@ -902,11 +929,13 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(AppLanguage.text('Company Profile'),
-            style: TextStyle(
+          child: Text(
+            AppLanguage.text('Company Profile'),
+            style: const TextStyle(
               color: AppColors.navy,
               fontSize: 16,
               fontWeight: FontWeight.w900,
+              letterSpacing: -.25,
             ),
           ),
         ),
@@ -917,16 +946,25 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
             borderRadius: BorderRadius.circular(13),
             child: Container(
-              width: 42,
-              height: 42,
+              width: 39,
+              height: 39,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: AppColors.cardBorder),
+                border: Border.all(
+                  color: AppColors.cardBorder,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.navy.withOpacity(.025),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: const Icon(
                 Icons.settings_outlined,
                 color: AppColors.navy,
-                size: 19,
+                size: 18,
               ),
             ),
           ),
@@ -957,93 +995,123 @@ class _ProfileHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final verified = account.isVerified;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withOpacity(.025),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _CompanyPhoto(
-                url: profilePhotoUrl,
-                verified: verified,
-                uploading: uploadingPhoto,
-                onTap: onPhotoTap,
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile.displayCompanyName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _CompanyPhoto(
+              url: profilePhotoUrl,
+              uploading: uploadingPhoto,
+              onTap: onPhotoTap,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          profile.displayCompanyName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.navy,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            height: 1.18,
+                            letterSpacing: -.1,
+                          ),
+                        ),
                       ),
+                      if (verified) ...[
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.verified_rounded,
+                          color: AppColors.green,
+                          size: 16,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  _StatusChip(
+                    verified: verified,
+                    label: verified
+                        ? AppLanguage.text('Verified Company')
+                        : account.statusLabel,
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    _display(profile.industryType),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.grey,
+                      fontSize: 10.7,
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      profile.industryAndLocationLabel,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 12.5,
                         color: AppColors.grey,
-                        fontSize: 11.5,
-                        height: 1.35,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _StatusChip(
-                      verified: verified,
-                      label: account.statusLabel,
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          profile.locationLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.grey,
+                            fontSize: 10.4,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 43,
-            child: OutlinedButton.icon(
-              onPressed: onEditTap,
-              icon: const Icon(Icons.edit_outlined, size: 16),
-              label: Text(AppLanguage.text('Edit Company Details'),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 43,
+          child: OutlinedButton.icon(
+            onPressed: onEditTap,
+            icon: const Icon(
+              Icons.edit_outlined,
+              size: 15,
+            ),
+            label: Text(
+              AppLanguage.text('Edit Profile'),
+              style: const TextStyle(
+                fontSize: 11.2,
+                fontWeight: FontWeight.w800,
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.blue,
-                side: BorderSide(color: AppColors.blue.withOpacity(.25)),
-                backgroundColor: AppColors.blue.withOpacity(.035),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(13),
-                ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.logoTurquoiseDark,
+              side: BorderSide(
+                color: AppColors.logoTurquoiseDark.withOpacity(.5),
+              ),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(13),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1051,153 +1119,118 @@ class _ProfileHero extends StatelessWidget {
 class _CompanyPhoto extends StatelessWidget {
   const _CompanyPhoto({
     required this.url,
-    required this.verified,
     required this.uploading,
     required this.onTap,
   });
 
   final String url;
-  final bool verified;
   final bool uploading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: uploading ? null : onTap,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              width: 74,
-              height: 74,
-              decoration: BoxDecoration(
-                color: AppColors.blueBg,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.blue.withOpacity(.14),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: uploading ? null : onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 106,
+          height: 108,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.blueBg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppColors.cardBorder,
+            ),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (url.trim().isNotEmpty)
+                Image.network(
+                  url.trim(),
+                  key: ValueKey(url.trim()),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                  const _PhotoFallback(),
+                )
+              else
+                const _PhotoFallback(),
+              if (uploading)
+                Container(
+                  color: AppColors.navy.withOpacity(.42),
+                  alignment: Alignment.center,
+                  child: const _UploadPulseIcon(),
                 ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (url.trim().isNotEmpty)
-                    Image.network(
-                      url.trim(),
-                      key: ValueKey(url.trim()),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const _PhotoFallback(),
-                    )
-                  else
-                    const _PhotoFallback(),
-                  if (uploading)
-                    Container(
-                      color: AppColors.navy.withOpacity(.42),
-                      alignment: Alignment.center,
-                      child: const _UploadPulseIcon(),
-                    ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
-        Positioned(
-          right: -4,
-          bottom: -4,
-          child: GestureDetector(
-            onTap: uploading ? null : onTap,
-            child: Container(
-              width: 27,
-              height: 27,
-              decoration: BoxDecoration(
-                color: AppColors.blue,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.navy.withOpacity(.12),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.camera_alt_rounded,
-                color: Colors.white,
-                size: 13,
-              ),
-            ),
-          ),
-        ),
-        if (verified)
-          Positioned(
-            right: -3,
-            top: -3,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: AppColors.green,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                color: Colors.white,
-                size: 13,
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
 
 class _PhotoFallback extends StatelessWidget {
   const _PhotoFallback();
+
   @override
-  Widget build(BuildContext context) => const Center(
-    child: Icon(
-      Icons.apartment_rounded,
-      color: AppColors.blue,
-      size: 31,
-    ),
-  );
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(
+        Icons.apartment_rounded,
+        color: AppColors.logoTurquoiseDark,
+        size: 32,
+      ),
+    );
+  }
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.verified, required this.label});
+  const _StatusChip({
+    required this.verified,
+    required this.label,
+  });
+
   final bool verified;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    final color = verified ? AppColors.green : const Color(0xFFC38315);
-    final bg = verified ? AppColors.greenBg : const Color(0xFFFFF5DF);
+    final color = verified
+        ? AppColors.green
+        : const Color(0xFFC38315);
+
+    final background = verified
+        ? AppColors.greenBg
+        : const Color(0xFFFFF5DF);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
+        color: background,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            verified ? Icons.verified_rounded : Icons.schedule_rounded,
+            verified
+                ? Icons.verified_rounded
+                : Icons.schedule_rounded,
             color: color,
-            size: 12.5,
+            size: 11.5,
           ),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               color: color,
-              fontSize: 10.5,
+              fontSize: 9.5,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1207,6 +1240,138 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+class _ProfileTabs extends StatelessWidget {
+  const _ProfileTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  static const _labels = <String>[
+    'Overview',
+    'Regions',
+    'Documents',
+    'Account',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 39,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
+      ),
+      child: Row(
+        children: List.generate(_labels.length, (index) {
+          final selected = selectedIndex == index;
+
+          return Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onChanged(index),
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.logoTurquoise.withOpacity(.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    AppLanguage.text(_labels[index]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected
+                          ? AppColors.logoTurquoiseDark
+                          : AppColors.grey,
+                      fontSize: 9.8,
+                      fontWeight: selected
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _OperatingRegionsCard extends StatelessWidget {
+  const _OperatingRegionsCard({
+    required this.regions,
+  });
+
+  final List<dynamic> regions;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      icon: Icons.location_on_outlined,
+      title: AppLanguage.text('Operating Regions'),
+      child: regions.isEmpty
+          ? Text(
+        AppLanguage.text('No operating regions added yet.'),
+        style: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 10.5,
+        ),
+      )
+          : Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: regions.map((region) {
+          return Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.logoTurquoise.withOpacity(.055),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.logoTurquoise.withOpacity(.18),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 11.5,
+                  color: AppColors.logoTurquoiseDark,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  region.displayLabel,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 9.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
 
 class _CompanyDocumentsSection extends StatelessWidget {
   const _CompanyDocumentsSection({
@@ -1219,6 +1384,7 @@ class _CompanyDocumentsSection extends StatelessWidget {
     required this.onOpen,
     required this.onReplace,
     required this.onDelete,
+    this.compact = false,
   });
 
   final List<CompanyDocumentModel> documents;
@@ -1232,21 +1398,28 @@ class _CompanyDocumentsSection extends StatelessWidget {
   final ValueChanged<CompanyDocumentModel> onReplace;
   final ValueChanged<CompanyDocumentModel> onDelete;
 
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
-    final locked = uploading || actionDocumentId != null || openingDocumentId != null;
+    final locked =
+        uploading ||
+            actionDocumentId != null ||
+            openingDocumentId != null;
 
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: AppColors.cardBorder),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(.018),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppColors.navy.withOpacity(.014),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1256,106 +1429,190 @@ class _CompanyDocumentsSection extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 31,
-                height: 31,
+                width: 29,
+                height: 29,
                 decoration: BoxDecoration(
-                  color: AppColors.blue.withOpacity(.07),
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppColors.logoTurquoise.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: const Icon(
-                  Icons.workspace_premium_outlined,
-                  color: AppColors.blue,
-                  size: 16,
+                  Icons.verified_user_outlined,
+                  color: AppColors.logoTurquoiseDark,
+                  size: 15,
                 ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text(AppLanguage.text('Company Documents'),
-                  style: TextStyle(
+                child: Text(
+                  AppLanguage.text('Company Documents'),
+                  style: const TextStyle(
                     color: AppColors.navy,
-                    fontSize: 15.5,
+                    fontSize: 12.2,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              if (!loading && documents.isNotEmpty)
-                Container(
+              TextButton.icon(
+                onPressed: locked ? null : onAdd,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.logoTurquoiseDark,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 4,
+                    horizontal: 5,
+                    vertical: 2,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.blueBg,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${documents.length}',
-                    style: const TextStyle(
-                      color: AppColors.blue,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                  visualDensity: VisualDensity.compact,
                 ),
-              const SizedBox(width: 7),
-              Material(
-                color: AppColors.blue,
-                borderRadius: BorderRadius.circular(11),
-                child: InkWell(
-                  onTap: locked ? null : onAdd,
-                  borderRadius: BorderRadius.circular(11),
-                  child: SizedBox(
-                    width: 35,
-                    height: 35,
-                    child: Center(
-                      child: uploading
-                          ? const _SmallBusyMark(light: true)
-                          : const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 19,
-                      ),
-                    ),
+                icon: uploading
+                    ? const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.8,
+                    color: AppColors.logoTurquoiseDark,
+                  ),
+                )
+                    : const Icon(
+                  Icons.add_rounded,
+                  size: 14,
+                ),
+                label: Text(
+                  AppLanguage.text('Add document'),
+                  style: const TextStyle(
+                    fontSize: 9.8,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 5),
-          Text(AppLanguage.text('Official company files · PDF or image · up to 10 MB'),
-            style: TextStyle(
-              color: AppColors.grey,
-              fontSize: 10.5,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 7),
           if (loading)
-            const Column(
+            const _DocumentShimmerCard()
+          else if (documents.isEmpty)
+            Row(
               children: [
-                _DocumentShimmerCard(),
-                SizedBox(height: 9),
-                _DocumentShimmerCard(),
+                const SizedBox(width: 37),
+                Expanded(
+                  child: Text(
+                    AppLanguage.text('No documents yet'),
+                    style: const TextStyle(
+                      color: AppColors.lightGrey,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ],
             )
-          else if (documents.isEmpty)
-            _EmptyDocuments(onAdd: locked ? null : onAdd)
-          else
-            ...documents.map(
-                  (document) => Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: _CompanyDocumentCard(
-                  document: document,
-                  busy: actionDocumentId == document.id,
-                  opening: openingDocumentId == document.id,
-                  locked: locked,
-                  onOpen: () => onOpen(document),
-                  onReplace: () => onReplace(document),
-                  onDelete: () => onDelete(document),
+          else if (compact)
+              Column(
+                children: documents.take(2).map((document) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: _CompactDocumentRow(
+                      document: document,
+                      busy: actionDocumentId == document.id,
+                      opening: openingDocumentId == document.id,
+                      onTap: locked
+                          ? null
+                          : () => onOpen(document),
+                    ),
+                  );
+                }).toList(),
+              )
+            else
+              ...documents.map(
+                    (document) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _CompanyDocumentCard(
+                    document: document,
+                    busy: actionDocumentId == document.id,
+                    opening: openingDocumentId == document.id,
+                    locked: locked,
+                    onOpen: () => onOpen(document),
+                    onReplace: () => onReplace(document),
+                    onDelete: () => onDelete(document),
+                  ),
                 ),
               ),
-            ),
         ],
+      ),
+    );
+  }
+}
+
+class _CompactDocumentRow extends StatelessWidget {
+  const _CompactDocumentRow({
+    required this.document,
+    required this.busy,
+    required this.opening,
+    required this.onTap,
+  });
+
+  final CompanyDocumentModel document;
+  final bool busy;
+  final bool opening;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent =
+    document.isPdf ? AppColors.red : AppColors.logoTurquoiseDark;
+
+    return Material(
+      color: const Color(0xFFF8FAFB),
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(9, 7, 8, 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: AppColors.cardBorder,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                document.isPdf
+                    ? Icons.picture_as_pdf_outlined
+                    : Icons.insert_drive_file_outlined,
+                size: 16,
+                color: accent,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  document.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 9.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (busy || opening)
+                const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.6,
+                    color: AppColors.logoTurquoiseDark,
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: AppColors.lightGrey,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1780,16 +2037,19 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(15),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: AppColors.cardBorder),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.cardBorder,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.navy.withOpacity(.018),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppColors.navy.withOpacity(.014),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1799,26 +2059,30 @@ class _Section extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 31,
-                height: 31,
+                width: 29,
+                height: 29,
                 decoration: BoxDecoration(
-                  color: AppColors.blue.withOpacity(.07),
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppColors.logoTurquoise.withOpacity(.08),
+                  borderRadius: BorderRadius.circular(9),
                 ),
-                child: Icon(icon, color: AppColors.blue, size: 16),
+                child: Icon(
+                  icon,
+                  color: AppColors.logoTurquoiseDark,
+                  size: 15,
+                ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(
                   color: AppColors.navy,
-                  fontSize: 14.5,
+                  fontSize: 12.2,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           child,
         ],
       ),
@@ -1831,53 +2095,69 @@ class _InfoRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.accentValue = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final bool accentValue;
 
   @override
   Widget build(BuildContext context) {
+    final displayValue =
+    value.trim().isEmpty ? 'Not specified' : value.trim();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 31,
-            height: 31,
-            decoration: BoxDecoration(
-              color: AppColors.bg,
-              borderRadius: BorderRadius.circular(10),
+          SizedBox(
+            width: 22,
+            child: Icon(
+              icon,
+              color: AppColors.logoTurquoiseDark,
+              size: 14,
             ),
-            child: Icon(icon, color: AppColors.blue, size: 15.5),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 5),
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 9.8,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 10.2,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value.trim().isEmpty ? 'Not specified' : value,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 12.2,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ],
+            child: Text(
+              displayValue,
+              textAlign: TextAlign.left,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accentValue
+                    ? AppColors.logoTurquoiseDark
+                    : AppColors.navy,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
             ),
           ),
+          if (accentValue)
+            const Padding(
+              padding: EdgeInsets.only(left: 5),
+              child: Icon(
+                Icons.open_in_new_rounded,
+                size: 12.5,
+                color: AppColors.logoTurquoiseDark,
+              ),
+            ),
         ],
       ),
     );
@@ -1886,12 +2166,15 @@ class _InfoRow extends StatelessWidget {
 
 class _SoftDivider extends StatelessWidget {
   const _SoftDivider();
+
   @override
-  Widget build(BuildContext context) => const Divider(
-    height: 1,
-    indent: 41,
-    color: AppColors.cardBorder,
-  );
+  Widget build(BuildContext context) {
+    return const Divider(
+      height: 1,
+      indent: 27,
+      color: AppColors.cardBorder,
+    );
+  }
 }
 
 class _PhotoSourceButton extends StatelessWidget {
@@ -1943,7 +2226,8 @@ class _CompanyProfileSkeleton extends StatefulWidget {
   const _CompanyProfileSkeleton();
 
   @override
-  State<_CompanyProfileSkeleton> createState() => _CompanyProfileSkeletonState();
+  State<_CompanyProfileSkeleton> createState() =>
+      _CompanyProfileSkeletonState();
 }
 
 class _CompanyProfileSkeletonState extends State<_CompanyProfileSkeleton>
@@ -1955,7 +2239,7 @@ class _CompanyProfileSkeletonState extends State<_CompanyProfileSkeleton>
     super.initState();
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1050),
+      duration: const Duration(milliseconds: 950),
       lowerBound: .45,
       upperBound: 1,
     )..repeat(reverse: true);
@@ -1976,58 +2260,70 @@ class _CompanyProfileSkeletonState extends State<_CompanyProfileSkeleton>
           opacity: _pulse,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
-            children: [
+            children: const [
               Row(
                 children: [
-                  const Expanded(child: _Bone(width: 126, height: 16)),
-                  _Bone(width: 42, height: 42, radius: 13),
+                  Expanded(
+                    child: _Bone(
+                      width: 126,
+                      height: 16,
+                    ),
+                  ),
+                  _Bone(
+                    width: 39,
+                    height: 39,
+                    radius: 13,
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: _skeletonCard(),
-                child: const Row(
-                  children: [
-                    _Bone(width: 74, height: 74, radius: 20),
-                    SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _Bone(width: 160, height: 14),
-                          SizedBox(height: 8),
-                          _Bone(width: 200, height: 10),
-                          SizedBox(height: 9),
-                          _Bone(width: 82, height: 22, radius: 12),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...List.generate(
-                4,
-                    (_) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: _skeletonCard(),
-                    child: const Column(
+              SizedBox(height: 14),
+              Row(
+                children: [
+                  _Bone(
+                    width: 106,
+                    height: 108,
+                    radius: 18,
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _Bone(width: 135, height: 13),
-                        SizedBox(height: 15),
-                        _Bone(width: double.infinity, height: 11),
+                        _Bone(width: 150, height: 14),
+                        SizedBox(height: 8),
+                        _Bone(width: 100, height: 20, radius: 10),
                         SizedBox(height: 9),
-                        _Bone(width: 230, height: 11),
-                        SizedBox(height: 9),
-                        _Bone(width: 180, height: 11),
+                        _Bone(width: 125, height: 10),
+                        SizedBox(height: 8),
+                        _Bone(width: 150, height: 10),
                       ],
                     ),
                   ),
-                ),
+                ],
+              ),
+              SizedBox(height: 12),
+              _Bone(
+                width: double.infinity,
+                height: 43,
+                radius: 13,
+              ),
+              SizedBox(height: 12),
+              _Bone(
+                width: double.infinity,
+                height: 39,
+                radius: 15,
+              ),
+              SizedBox(height: 11),
+              _Bone(
+                width: double.infinity,
+                height: 110,
+                radius: 16,
+              ),
+              SizedBox(height: 10),
+              _Bone(
+                width: double.infinity,
+                height: 170,
+                radius: 16,
               ),
             ],
           ),
@@ -2035,33 +2331,31 @@ class _CompanyProfileSkeletonState extends State<_CompanyProfileSkeleton>
       ),
     );
   }
-
-  BoxDecoration _skeletonCard() => BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
-    border: Border.all(color: AppColors.cardBorder),
-  );
 }
+
 
 class _Bone extends StatelessWidget {
   const _Bone({
     required this.width,
     required this.height,
-    this.radius = 7,
+    this.radius = 8,
   });
+
   final double width;
   final double height;
   final double radius;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    height: height,
-    decoration: BoxDecoration(
-      color: const Color(0xFFE9EDF2),
-      borderRadius: BorderRadius.circular(radius),
-    ),
-  );
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.cardBorder.withOpacity(.72),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
 }
 
 class _ErrorView extends StatelessWidget {

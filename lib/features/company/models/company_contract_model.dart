@@ -188,6 +188,8 @@ class CompanyContractModel {
   bool get isRejected => normalizedStatus == 'rejected';
   bool get canFund => isAccepted;
   bool get canReviewSubmission => isSubmitted;
+  bool get canCancelBeforeWork => isPending || isAccepted || isActive;
+  bool get canTerminateMidWork => isInProgress;
   bool get canConfigureLocation =>
       isActive || isInProgress || isSubmitted;
   bool get shouldShowLocationSection =>

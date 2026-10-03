@@ -1,4 +1,4 @@
- import '../models/company_contract_model.dart';
+import '../models/company_contract_model.dart';
 import '../models/company_contract_location_model.dart';
 import '../models/contract_submission_model.dart';
 import '../services/company_contract_service.dart';
@@ -15,6 +15,8 @@ class CompanyContractController {
   bool isSavingLocation = false;
   bool isLoadingSubmissions = false;
   bool isReviewingSubmission = false;
+  bool isCancelling = false;
+  bool isTerminating = false;
   String? errorMessage;
   String? actionErrorMessage;
   String? existingContractErrorMessage;
@@ -209,6 +211,57 @@ class CompanyContractController {
       list[index] = submission;
     }
     submissions = List.unmodifiable(list);
+  }
+
+
+  Future<CompanyContractModel?> cancelContract(
+    int contractId, {
+    String? reason,
+  }) async {
+    if (isCancelling || isTerminating || isFunding || isReviewingSubmission) {
+      return null;
+    }
+    isCancelling = true;
+    actionErrorMessage = null;
+    try {
+      final updated = await service.cancelContract(
+        contractId,
+        reason: reason,
+      );
+      selectedContract = updated;
+      _upsert(updated);
+      return updated;
+    } catch (e) {
+      actionErrorMessage = e.toString();
+      return null;
+    } finally {
+      isCancelling = false;
+    }
+  }
+
+  Future<CompanyContractModel?> terminateContract(
+    int contractId, {
+    required String reason,
+  }) async {
+    if (isTerminating || isCancelling || isFunding || isReviewingSubmission) {
+      return null;
+    }
+    isTerminating = true;
+    actionErrorMessage = null;
+    try {
+      final updated = await service.terminateContract(
+        contractId,
+        reason: reason,
+      );
+      selectedContract = updated;
+      _upsert(updated);
+      return updated;
+    } catch (e) {
+      actionErrorMessage = e.toString();
+      return null;
+    } finally {
+      isTerminating = false;
+    }
   }
 
   Future<CompanyContractModel?> fundContract(int id) async {
