@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 
 import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
@@ -418,7 +419,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
       paymentMax: _paymentType == 'negotiable'
           ? null
           : double.tryParse(_paymentMax.text.trim()),
-      requiredCapabilities: _requiredCapabilities.toList(),
+      requiredCapabilities:
+          DroneCapabilities.canonicalizeAll(_requiredCapabilities),
       requiredExperience: _requiredExperience,
       requiredCertifications: _requiredCertifications.toList(),
       droneSize: _droneSizePayload(),
@@ -1045,16 +1047,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           ),
           _label('Required capabilities'),
           _chips(
-            items: const [
-              'Thermal Camera',
-              'RTK',
-              'Zoom',
-              'LiDAR',
-              'Multispectral',
-              'Night Vision',
-              'Spotlight',
-              'Winch',
-            ],
+            items: DroneCapabilities.labels,
             selected: _requiredCapabilities,
             onChanged: (items) {
               setState(() {

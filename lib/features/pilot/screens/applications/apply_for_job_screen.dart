@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 
 import '../../models/drone_model.dart';
@@ -186,6 +187,25 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
 
     if (widget.job.application?.hasApplied == true) {
       _snack('You already applied to this job.');
+      return;
+    }
+
+    final missingCapabilities = DroneCapabilities.missing(
+      required: widget.job.requiredCapabilities,
+      available: drone.capabilities,
+    );
+
+    if (missingCapabilities.isNotEmpty) {
+      final labels = missingCapabilities
+          .map(DroneCapabilities.labelFor)
+          .where((item) => item.isNotEmpty)
+          .join(', ');
+
+      _snack(
+        labels.isEmpty
+            ? 'This drone does not meet the required capabilities.'
+            : 'Missing required capabilities: $labels',
+      );
       return;
     }
 
@@ -1030,10 +1050,7 @@ class _DroneCard extends StatelessWidget {
   }
 
   static String _normalize(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[_\s-]+'), ' ');
+    return DroneCapabilities.canonicalize(value);
   }
 }
 
@@ -1517,4 +1534,3 @@ class _PageShimmerState extends State<_PageShimmer>
     );
   }
 }
-

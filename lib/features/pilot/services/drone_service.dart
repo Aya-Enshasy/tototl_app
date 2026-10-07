@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -369,10 +371,10 @@ class DroneService {
     }
 
     // Laravel expects a real multipart array, not a comma-separated string.
-    final cleanCapabilities = request.capabilities
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final cleanCapabilities =
+        DroneCapabilities.canonicalizeAll(
+      request.capabilities,
+    );
 
     for (var i = 0; i < cleanCapabilities.length; i++) {
       formData.fields.add(

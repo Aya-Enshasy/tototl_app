@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -2159,6 +2160,9 @@ class _JobContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Mission identity: keep this row intentionally compact.
+        // Company information is rendered BELOW it instead of being forced
+        // inside the same 70 px height, which caused the RenderFlex overflow.
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2190,10 +2194,10 @@ class _JobContent extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 11),
             Expanded(
-              child: SizedBox(
-                height: 70,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2203,46 +2207,75 @@ class _JobContent extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.navy,
-                        fontSize: 12.7,
-                        height: 1.16,
+                        fontSize: 13.2,
+                        height: 1.18,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -.15,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      job.categoryLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.lightGrey,
-                        fontSize: 8.3,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.logoTurquoiseDark.withOpacity(.065),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        job.categoryLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.logoTurquoiseDark,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    if (job.company != null)
-                      _CompanyIdentityRow(company: job.company!)
-                    else if (companyName.isNotEmpty)
-                      _InfoLine(
-                        icon: Icons.business_outlined,
-                        text: companyName,
-                      ),
                   ],
                 ),
               ),
             ),
           ],
         ),
+
+        // Company gets its own horizontal space. This prevents it from
+        // colliding with the mission title/image on narrow devices.
+        if (job.company != null || companyName.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          if (job.company != null)
+            _CompanyIdentityRow(company: job.company!)
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 11,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.bg.withOpacity(.72),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: _InfoLine(
+                icon: Icons.business_outlined,
+                text: companyName,
+              ),
+            ),
+        ],
+
         if (location.isNotEmpty &&
             location.toLowerCase() != 'not specified') ...[
-          const SizedBox(height: 9),
+          const SizedBox(height: 10),
           _InfoLine(
             icon: Icons.location_on_outlined,
             text: location,
           ),
         ],
-        const SizedBox(height: 10),
+
+        const SizedBox(height: 11),
         Row(
           children: [
             Expanded(

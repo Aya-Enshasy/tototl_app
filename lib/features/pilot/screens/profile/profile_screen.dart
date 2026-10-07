@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -359,168 +360,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final media = MediaQuery.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // ==================================================================
-          // FULL-SCREEN BACKGROUND
-          //
-          // Your new 941x1672 image is already almost the same aspect ratio
-          // as the reference design, so BoxFit.cover keeps the composition
-          // stable on most phones.
-          // ==================================================================
+      backgroundColor: _page,
+      body: RefreshIndicator(
+        color: _teal,
+        backgroundColor: Colors.white,
+        onRefresh: _manualRefresh,
+        edgeOffset: media.padding.top,
+        child: SingleChildScrollView(
+          key: const PageStorageKey<String>(
+            'pilot-profile-premium-v3',
+          ),
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final safeTop = media.padding.top;
+              final side = width < 360 ? 15.0 : 20.0;
 
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: Image.asset(
-                'assets/images/pilot_profile_background.png',
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                filterQuality: FilterQuality.medium,
-                gaplessPlayback: true,
-                errorBuilder: (_, __, ___) {
-                  return const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xFFDDEEF7),
-                          Color(0xFFEAF5F7),
-                          Colors.white,
-                        ],
-                      ),
+              final heroShellHeight = (
+                width * 0.55 + safeTop + 96
+              ).clamp(
+                344.0,
+                392.0,
+              ).toDouble();
+
+              return Column(
+                children: [
+                  SizedBox(
+                    height: heroShellHeight,
+                    child: _PremiumHeroShell(
+                      data: data,
+                      uploadingPhoto: _uploadingPhoto,
+                      side: side,
+                      safeTop: safeTop,
+                      onBack: _goBack,
+                      onSettings: _openSettings,
+                      onPhoto: _changeProfilePhoto,
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Extra white fade so the lower section stays clean on every device.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const [
-                      0.00,
-                      0.34,
-                      0.56,
-                      0.78,
-                      1.00,
-                    ],
-                    colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.white.withOpacity(0.20),
-                      Colors.white.withOpacity(0.84),
-                      Colors.white,
-                    ],
                   ),
-                ),
-              ),
-            ),
-          ),
 
-          RefreshIndicator(
-            color: _teal,
-            backgroundColor: Colors.white,
-            onRefresh: _manualRefresh,
-            edgeOffset: media.padding.top,
-            child: SingleChildScrollView(
-              key: const PageStorageKey<String>(
-                'pilot-profile-full-background-v1',
-              ),
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  final safeTop = media.padding.top;
-
-                  final side = width < 360 ? 16.0 : 24.0;
-
-                  final heroHeight = (
-                      width * 0.66 + safeTop
-                  ).clamp(
-                    360.0,
-                    430.0,
-                  ).toDouble();
-
-                  return Column(
-                    children: [
-                      SizedBox(
-                        height: heroHeight,
-                        child: _HeroContent(
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      side,
+                      12,
+                      side,
+                      media.padding.bottom + 28,
+                    ),
+                    child: Column(
+                      children: [
+                        _ProfileDetailsCard(
                           data: data,
-                          uploadingPhoto: _uploadingPhoto,
-                          side: side,
-                          safeTop: safeTop,
-                          onBack: _goBack,
-                          onSettings: _openSettings,
-                          onPhoto: _changeProfilePhoto,
+                          onEdit: _openEditProfile,
                         ),
-                      ),
 
-                      Transform.translate(
-                        offset: const Offset(
-                          0,
-                          -18,
+                        const SizedBox(height: 14),
+
+                        _StatsRow(
+                          profile: data.profile,
                         ),
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            side,
-                            0,
-                            side,
-                            media.padding.bottom + 28,
-                          ),
-                          child: Column(
-                            children: [
-                              _ProfileDetailsCard(
-                                data: data,
-                                onEdit: _openEditProfile,
-                              ),
 
-                              const SizedBox(height: 14),
+                        const SizedBox(height: 14),
 
-                              _StatsRow(
-                                profile: data.profile,
-                              ),
+                        const ProfileLicensesSection(),
 
-                              const SizedBox(height: 14),
+                        const SizedBox(height: 14),
 
-                              const ProfileLicensesSection(),
-
-                              const SizedBox(height: 14),
-
-                              const ProfileDronesSection(),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                        const ProfileDronesSection(),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
+
+
 // ============================================================================
 // HERO CONTENT
 // ============================================================================
 
-class _HeroContent extends StatelessWidget {
-  const _HeroContent({
+class _PremiumHeroShell extends StatelessWidget {
+  const _PremiumHeroShell({
     required this.data,
     required this.uploadingPhoto,
     required this.side,
@@ -534,7 +463,6 @@ class _HeroContent extends StatelessWidget {
   final bool uploadingPhoto;
   final double side;
   final double safeTop;
-
   final VoidCallback onBack;
   final VoidCallback onSettings;
   final VoidCallback onPhoto;
@@ -543,40 +471,33 @@ class _HeroContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final compact = width < 360;
-
-        final avatarSize = (
-            width * 0.255
-        ).clamp(
-          98.0,
-          122.0,
-        ).toDouble();
-
-        final actionSize = compact ? 44.0 : 48.0;
-        final nameSize = compact ? 23.0 : width < 410 ? 27.0 : 30.0;
-
-        final name = data.account.displayName.trim().isEmpty
-            ? 'Pilot'
-            : data.account.displayName.trim();
-
-        final status = _statusData(
-          data.account.status,
-        );
+        final backgroundHeight = constraints.maxHeight - 74;
 
         return Stack(
           clipBehavior: Clip.none,
           children: [
             Positioned(
-              top: safeTop + 14,
+              top: 0,
+              left: 0,
+              right: 0,
+              height: backgroundHeight,
+              child: const _PremiumProfileBackdrop(),
+            ),
+
+            Positioned(
+              top: safeTop + 10,
               left: side,
               right: side,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-
                   _HeroAction(
-                    size: actionSize,
+                    size: 44,
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: onBack,
+                  ),
+                  const Spacer(),
+                  _HeroAction(
+                    size: 44,
                     icon: Icons.settings_outlined,
                     onTap: onSettings,
                   ),
@@ -585,30 +506,376 @@ class _HeroContent extends StatelessWidget {
             ),
 
             Positioned(
-              left: side + 8,
-              right: side + 8,
-              bottom: 42,
-              child: Row(
+              top: safeTop + 72,
+              left: side + 4,
+              right: side + 4,
+              child: const _HeroEyebrow(),
+            ),
+
+            Positioned(
+              left: side,
+              right: side,
+              bottom: 0,
+              child: _PilotIdentityCard(
+                data: data,
+                uploadingPhoto: uploadingPhoto,
+                onPhoto: onPhoto,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PremiumProfileBackdrop extends StatelessWidget {
+  const _PremiumProfileBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: const _PremiumHeroClipper(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF041522),
+                  Color(0xFF07394A),
+                  Color(0xFF0A7F89),
+                ],
+                stops: [0.0, .58, 1.0],
+              ),
+            ),
+          ),
+
+          Positioned(
+            top: -90,
+            right: -55,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF69F0E4).withOpacity(.26),
+                    const Color(0xFF25CFC7).withOpacity(.08),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, .52, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          Positioned(
+            left: -120,
+            bottom: -118,
+            child: Container(
+              width: 290,
+              height: 290,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF1A9FB0).withOpacity(.24),
+                    const Color(0xFF1A9FB0).withOpacity(.02),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, .58, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          Positioned(
+            right: 36,
+            top: 112,
+            child: Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(.06),
+                ),
+              ),
+            ),
+          ),
+
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _PremiumHeroPainter(),
+              ),
+            ),
+          ),
+
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Color(0x08000000),
+                  Color(0x35020B12),
+                ],
+                stops: [0.0, .58, 1.0],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PremiumHeroClipper extends CustomClipper<Path> {
+  const _PremiumHeroClipper();
+
+  @override
+  Path getClip(Size size) {
+    final path = Path()
+      ..lineTo(0, size.height - 34)
+      ..quadraticBezierTo(
+        size.width * .22,
+        size.height + 10,
+        size.width * .50,
+        size.height - 16,
+      )
+      ..quadraticBezierTo(
+        size.width * .78,
+        size.height - 46,
+        size.width,
+        size.height - 20,
+      )
+      ..lineTo(size.width, 0)
+      ..close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _PremiumHeroClipper oldClipper) => false;
+}
+
+class _PremiumHeroPainter extends CustomPainter {
+  const _PremiumHeroPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final routePaint = Paint()
+      ..color = Colors.white.withOpacity(.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1;
+
+    final accentPaint = Paint()
+      ..color = const Color(0xFF7BE7DE).withOpacity(.35)
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(size.width * .10, size.height * .60)
+      ..cubicTo(
+        size.width * .25,
+        size.height * .44,
+        size.width * .40,
+        size.height * .58,
+        size.width * .53,
+        size.height * .44,
+      )
+      ..cubicTo(
+        size.width * .66,
+        size.height * .30,
+        size.width * .78,
+        size.height * .39,
+        size.width * .90,
+        size.height * .25,
+      );
+
+    canvas.drawPath(path, routePaint);
+
+    for (final point in <Offset>[
+      Offset(size.width * .10, size.height * .60),
+      Offset(size.width * .53, size.height * .44),
+      Offset(size.width * .90, size.height * .25),
+    ]) {
+      canvas.drawCircle(point, 3.2, accentPaint);
+      canvas.drawCircle(
+        point,
+        8.2,
+        Paint()
+          ..color = const Color(0xFF7BE7DE).withOpacity(.07)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(.025)
+      ..strokeWidth = 1;
+
+    for (double y = 26; y < size.height; y += 34) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PremiumHeroPainter oldDelegate) => false;
+}
+
+class _HeroEyebrow extends StatelessWidget {
+  const _HeroEyebrow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withOpacity(.12),
+            ),
+          ),
+          child: const Icon(
+            Icons.flight_takeoff_rounded,
+            color: Color(0xFF83E8E1),
+            size: 17,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLanguage.text('PILOT PROFILE'),
+              style: TextStyle(
+                color: Colors.white.withOpacity(.58),
+                fontSize: 8.2,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.35,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              AppLanguage.text('Professional flight identity'),
+              style: TextStyle(
+                color: Colors.white.withOpacity(.84),
+                fontSize: 10.2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PilotIdentityCard extends StatelessWidget {
+  const _PilotIdentityCard({
+    required this.data,
+    required this.uploadingPhoto,
+    required this.onPhoto,
+  });
+
+  final PilotProfileViewData data;
+  final bool uploadingPhoto;
+  final VoidCallback onPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = data.account.displayName.trim().isEmpty
+        ? 'Pilot'
+        : data.account.displayName.trim();
+
+    final status = _statusData(
+      data.account.status,
+    );
+
+    final locationRaw =
+        data.profile.currentLocationLabel.trim();
+    final location = locationRaw.toLowerCase() == 'not specified'
+        ? ''
+        : locationRaw;
+
+    final experience = data.profile.experienceYears <= 0
+        ? '<1 year experience'
+        : '${data.profile.experienceYears}+ years experience';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 16,
+          sigmaY: 16,
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(
+            14,
+            14,
+            14,
+            14,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(.97),
+                const Color(0xFFF3FCFC).withOpacity(.96),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: Colors.white.withOpacity(.98),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF061B2E).withOpacity(.13),
+                blurRadius: 34,
+                offset: const Offset(0, 16),
+              ),
+              BoxShadow(
+                color: const Color(0xFF10AEBB).withOpacity(.08),
+                blurRadius: 34,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 340;
+              final avatarSize = compact ? 84.0 : 94.0;
+
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Transform.translate(
-                    offset: const Offset(0, -8),
-                    child: _Avatar(
-                      size: avatarSize,
-                      name: name,
-                      photoUrl: data.profilePhotoUrl,
-                      uploading: uploadingPhoto,
-                      onEdit: onPhoto,
-                    ),
+                  _Avatar(
+                    size: avatarSize,
+                    name: name,
+                    photoUrl: data.profilePhotoUrl,
+                    uploading: uploadingPhoto,
+                    onEdit: onPhoto,
                   ),
 
-                  SizedBox(
-                    width: compact ? 14 : 18,
-                  ),
+                  SizedBox(width: compact ? 12 : 15),
 
                   Expanded(
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -617,29 +884,106 @@ class _HeroContent extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: _ink,
-                            fontSize: nameSize,
-                            height: 1,
+                            fontSize: compact ? 23 : 26,
+                            height: 1.02,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: -0.75,
+                            letterSpacing: -.55,
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
 
                         _StatusPill(
                           label: status.label,
                           icon: status.icon,
                           color: status.color,
                         ),
+
+                        const SizedBox(height: 10),
+
+                        Wrap(
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: [
+                            _HeroMetaPill(
+                              icon: Icons.workspace_premium_outlined,
+                              label: experience,
+                            ),
+                            if (location.isNotEmpty)
+                              _HeroMetaPill(
+                                icon: Icons.location_on_outlined,
+                                label: location,
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroMetaPill extends StatelessWidget {
+  const _HeroMetaPill({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(
+        maxWidth: 170,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: _tealSoft,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: _teal.withOpacity(.08),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.circle,
+            color: _teal,
+            size: 5,
+          ),
+          const SizedBox(width: 5),
+          Icon(
+            icon,
+            color: _tealDark,
+            size: 11,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -661,21 +1005,32 @@ class _HeroAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withOpacity(0.95),
-      shape: const CircleBorder(),
-      elevation: 5,
-      shadowColor: Colors.black.withOpacity(0.10),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Icon(
-            icon,
-            color: _ink,
-            size: 22,
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 10,
+          sigmaY: 10,
+        ),
+        child: Material(
+          color: Colors.white.withOpacity(.10),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(.16),
+                ),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
           ),
         ),
       ),
@@ -707,10 +1062,10 @@ class _Avatar extends StatelessWidget {
     final hasPhoto = photoUrl.trim().isNotEmpty;
 
     final cameraSize = (
-        size * 0.30
+      size * .31
     ).clamp(
-      31.0,
-      38.0,
+      29.0,
+      36.0,
     ).toDouble();
 
     return Stack(
@@ -723,82 +1078,84 @@ class _Avatar extends StatelessWidget {
             height: size,
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white,
-                width: 2,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  Color(0xFFB7F1EE),
+                  Colors.white,
+                ],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _ink.withOpacity(0.20),
-                  blurRadius: 20,
-                  offset: const Offset(
-                    0,
-                    8,
-                  ),
+                  color: _teal.withOpacity(.20),
+                  blurRadius: 24,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: ClipOval(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (hasPhoto)
-                    Image.network(
-                      photoUrl,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (_, __, ___) {
-                        return _AvatarInitials(
-                          name: name,
-                        );
-                      },
-                      loadingBuilder: (
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (hasPhoto)
+                      Image.network(
+                        photoUrl,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (_, __, ___) =>
+                            _AvatarInitials(name: name),
+                        loadingBuilder: (
                           context,
                           child,
                           progress,
-                          ) {
-                        if (progress == null) {
-                          return child;
-                        }
+                        ) {
+                          if (progress == null) {
+                            return child;
+                          }
+                          return _AvatarInitials(name: name);
+                        },
+                      )
+                    else
+                      _AvatarInitials(name: name),
 
-                        return _AvatarInitials(
-                          name: name,
-                        );
-                      },
-                    )
-                  else
-                    _AvatarInitials(
-                      name: name,
-                    ),
-
-                  if (uploading)
-                    Container(
-                      color: _ink.withOpacity(0.50),
-                      alignment: Alignment.center,
-                      child: const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: Colors.white,
+                    if (uploading)
+                      Container(
+                        color: _ink.withOpacity(.52),
+                        alignment: Alignment.center,
+                        child: const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
 
         Positioned(
-          right: -2,
-          bottom: 2,
+          right: -1,
+          bottom: 3,
           child: Material(
             color: uploading ? _muted2 : _teal,
             shape: const CircleBorder(),
-            elevation: 3,
+            elevation: 4,
+            shadowColor: _teal.withOpacity(.28),
             child: InkWell(
               onTap: uploading ? null : onEdit,
               customBorder: const CircleBorder(),
@@ -808,7 +1165,7 @@ class _Avatar extends StatelessWidget {
                 child: const Icon(
                   Icons.camera_alt_rounded,
                   color: Colors.white,
-                  size: 15,
+                  size: 14,
                 ),
               ),
             ),
@@ -872,34 +1229,38 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(
-        maxWidth: 190,
+        maxWidth: 180,
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
+      padding: const EdgeInsets.fromLTRB(
+        8,
+        6,
+        10,
+        6,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.82),
+        color: color.withOpacity(.07),
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
-          color: Colors.white.withOpacity(0.92),
+          color: color.withOpacity(.12),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 10,
-          ),
-        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 16,
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: color.withOpacity(.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 13,
+            ),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 6),
           Flexible(
             child: Text(
               label,
@@ -907,8 +1268,8 @@ class _StatusPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontSize: 10.2,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -1671,109 +2032,155 @@ class _ProfileSkeleton extends StatelessWidget {
     final media = MediaQuery.of(context);
     final width = media.size.width;
 
-    final heroHeight = (
-        width * 0.62 + media.padding.top
+    final heroShellHeight = (
+      width * 0.55 + media.padding.top + 96
     ).clamp(
-      335.0,
-      410.0,
+      344.0,
+      392.0,
     ).toDouble();
 
     return Scaffold(
       backgroundColor: _page,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/pilot_profile_background.png',
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              errorBuilder: (_, __, ___) {
-                return const ColoredBox(
-                  color: Color(0xFFEAF4F7),
-                );
-              },
-            ),
-          ),
-
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [
-                    0.0,
-                    0.50,
-                    0.82,
-                    1.0,
-                  ],
-                  colors: [
-                    Colors.transparent,
-                    Colors.white24,
-                    Colors.white,
-                    Colors.white,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: heroHeight,
-                ),
-
-                Transform.translate(
-                  offset: const Offset(
-                    0,
-                    -18,
+      body: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            SizedBox(
+              height: heroShellHeight,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: heroShellHeight - 74,
+                    child: const _PremiumProfileBackdrop(),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 350,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(
-                              0.96,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              24,
+
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: 0,
+                    child: Container(
+                      height: 128,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _ink.withOpacity(.08),
+                            blurRadius: 26,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 92,
+                            height: 92,
+                            decoration: BoxDecoration(
+                              color: _tealSoft,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _teal.withOpacity(.10),
+                              ),
                             ),
                           ),
-                        ),
-
-                        const SizedBox(height: 14),
-
-                        const Row(
-                          children: [
-                            Expanded(
-                              child: _SkeletonStat(),
+                          const SizedBox(width: 15),
+                          const Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SkeletonLine(
+                                  width: 126,
+                                  height: 22,
+                                  light: false,
+                                ),
+                                SizedBox(height: 9),
+                                _SkeletonLine(
+                                  width: 112,
+                                  height: 28,
+                                  light: false,
+                                ),
+                                SizedBox(height: 9),
+                                _SkeletonLine(
+                                  width: 176,
+                                  height: 24,
+                                  light: false,
+                                ),
+                              ],
                             ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: _SkeletonStat(),
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: _SkeletonStat(),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                18,
+                12,
+                18,
+                28,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    height: 350,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(27),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  const Row(
+                    children: [
+                      Expanded(child: _SkeletonStat()),
+                      SizedBox(width: 10),
+                      Expanded(child: _SkeletonStat()),
+                      SizedBox(width: 10),
+                      Expanded(child: _SkeletonStat()),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({
+    required this.width,
+    required this.height,
+    required this.light,
+  });
+
+  final double width;
+  final double height;
+  final bool light;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: light
+            ? Colors.white.withOpacity(.16)
+            : const Color(0xFFE9EEF2),
+        borderRadius: BorderRadius.circular(30),
       ),
     );
   }
@@ -1787,7 +2194,7 @@ class _SkeletonStat extends StatelessWidget {
     return Container(
       height: 124,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.96),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(22),
       ),
     );
@@ -2040,4 +2447,3 @@ String _initials(
 
   return '${words.first[0]}${words.last[0]}'.toUpperCase();
 }
-

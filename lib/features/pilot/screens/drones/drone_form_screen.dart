@@ -1,8 +1,8 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -11,7 +11,6 @@ import '../../controllers/drone_controller.dart';
 import '../../models/drone_form_request.dart';
 import '../../models/drone_model.dart';
 import '../../services/drone_service.dart';
-import 'package:tototl_app/core/localization/app_language.dart';
 
 // ============================================================================
 // COLORS
@@ -50,107 +49,112 @@ class DroneFormScreen extends StatefulWidget {
 class _DroneFormScreenState
     extends State<DroneFormScreen> {
   final GlobalKey<FormState> _formKey =
-  GlobalKey<FormState>();
+      GlobalKey<FormState>();
 
   late final DroneController _controller;
 
   final ImagePicker _picker =
-  ImagePicker();
+      ImagePicker();
 
   final TextEditingController _makeController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _modelController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _yearController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _serialController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _weightController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _flightTimeController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _batteriesController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _batteryTypeController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _batteryFeeController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _hourlyRateController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _dailyRateController =
-  TextEditingController();
+      TextEditingController();
 
   final TextEditingController _emergencyRateController =
-  TextEditingController();
+      TextEditingController();
 
   final Set<String> _capabilities =
-  <String>{};
+      <String>{};
 
   String? _selectedImagePath;
 
   bool _saving = false;
 
-  static   List<_CapabilityOption>
-  _capabilityOptions = [
+  static const List<_CapabilityOption>
+      _capabilityOptions = [
     _CapabilityOption(
-      value: 'thermal',
-      label: AppLanguage.text('Thermal'),
+      value: DroneCapabilities.thermal,
+      label: 'Thermal Camera',
       icon: Icons.thermostat_rounded,
     ),
     _CapabilityOption(
-      value: 'night_vision',
-      label: AppLanguage.text('Night Vision'),
-      icon: Icons.nights_stay_outlined,
-    ),
-    _CapabilityOption(
-      value: 'zoom',
-      label: AppLanguage.text('Zoom'),
-      icon: Icons.zoom_in_rounded,
-    ),
-    _CapabilityOption(
-      value: 'multispectral',
-      label: AppLanguage.text('Multispectral'),
-      icon: Icons.filter_center_focus_rounded,
-    ),
-    _CapabilityOption(
-      value: 'speaker',
-      label: AppLanguage.text('Speaker'),
-      icon: Icons.volume_up_outlined,
-    ),
-    _CapabilityOption(
-      value: 'spotlight',
-      label: AppLanguage.text('Spotlight'),
-      icon: Icons.light_mode_outlined,
-    ),
-    _CapabilityOption(
-      value: 'parachute',
-      label: AppLanguage.text('Parachute'),
-      icon: Icons.paragliding_rounded,
-    ),
-    _CapabilityOption(
-      value: 'rtk',
-      label: AppLanguage.text('RTK'),
+      value: DroneCapabilities.rtk,
+      label: 'RTK',
       icon: Icons.gps_fixed_rounded,
     ),
     _CapabilityOption(
-      value: 'winch',
-      label: AppLanguage.text('Winch'),
+      value: DroneCapabilities.zoom,
+      label: 'Zoom',
+      icon: Icons.zoom_in_rounded,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.lidar,
+      label: 'LiDAR',
+      icon: Icons.radar_rounded,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.laser,
+      label: 'Laser',
+      icon: Icons.center_focus_strong_rounded,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.multispectral,
+      label: 'Multispectral',
+      icon: Icons.filter_center_focus_rounded,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.nightVision,
+      label: 'Night Vision',
+      icon: Icons.nights_stay_outlined,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.spotlight,
+      label: 'Spotlight',
+      icon: Icons.light_mode_outlined,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.winch,
+      label: 'Winch',
       icon: Icons.vertical_align_bottom_rounded,
     ),
     _CapabilityOption(
-      value: 'laser',
-      label: AppLanguage.text('Laser'),
-      icon: Icons.center_focus_strong_rounded,
+      value: DroneCapabilities.speaker,
+      label: 'Speaker',
+      icon: Icons.volume_up_outlined,
+    ),
+    _CapabilityOption(
+      value: DroneCapabilities.parachute,
+      label: 'Parachute',
+      icon: Icons.paragliding_rounded,
     ),
   ];
 
@@ -194,7 +198,7 @@ class _DroneFormScreenState
 
     _flightTimeController.text =
         drone.flightTimePerBatteryMinutes
-            ?.toString() ??
+                ?.toString() ??
             '';
 
     _batteriesController.text =
@@ -214,11 +218,13 @@ class _DroneFormScreenState
 
     _emergencyRateController.text =
         _numberText(
-          drone.emergencyCalloutFee,
-        );
+      drone.emergencyCalloutFee,
+    );
 
     _capabilities.addAll(
-      drone.capabilities,
+      DroneCapabilities.canonicalizeAll(
+        drone.capabilities,
+      ),
     );
   }
 
@@ -246,7 +252,7 @@ class _DroneFormScreenState
 
   Future<void> _pickImage() async {
     final source =
-    await showModalBottomSheet<ImageSource>(
+        await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
@@ -254,42 +260,42 @@ class _DroneFormScreenState
           top: false,
           child: Container(
             margin:
-            const EdgeInsets.all(12),
+                const EdgeInsets.all(12),
             padding:
-            const EdgeInsets.fromLTRB(
+                const EdgeInsets.fromLTRB(
               20,
               12,
               20,
               20,
             ),
             decoration:
-            BoxDecoration(
+                BoxDecoration(
               color: Colors.white,
               borderRadius:
-              BorderRadius.circular(28),
+                  BorderRadius.circular(28),
             ),
             child: Column(
               mainAxisSize:
-              MainAxisSize.min,
+                  MainAxisSize.min,
               children: [
                 Container(
                   width: 42,
                   height: 4,
                   decoration:
-                  BoxDecoration(
+                      BoxDecoration(
                     color: _border,
                     borderRadius:
-                    BorderRadius.circular(20),
+                        BorderRadius.circular(20),
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  AppLanguage.text('Drone Photo'),
+                const Text(
+                  'Drone Photo',
                   style: TextStyle(
                     color: _ink,
                     fontSize: 17,
                     fontWeight:
-                    FontWeight.w800,
+                        FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -298,9 +304,9 @@ class _DroneFormScreenState
                     Expanded(
                       child: _SourceButton(
                         icon:
-                        Icons.camera_alt_outlined,
+                            Icons.camera_alt_outlined,
                         title:
-                        AppLanguage.text('Camera'),
+                            'Camera',
                         onTap: () {
                           Navigator.pop(
                             sheetContext,
@@ -313,9 +319,9 @@ class _DroneFormScreenState
                     Expanded(
                       child: _SourceButton(
                         icon:
-                        Icons.photo_library_outlined,
+                            Icons.photo_library_outlined,
                         title:
-                        AppLanguage.text('Gallery'),
+                            'Gallery',
                         onTap: () {
                           Navigator.pop(
                             sheetContext,
@@ -336,7 +342,7 @@ class _DroneFormScreenState
     if (source == null) return;
 
     final image =
-    await _picker.pickImage(
+        await _picker.pickImage(
       source: source,
       imageQuality: 88,
       maxWidth: 1800,
@@ -348,10 +354,10 @@ class _DroneFormScreenState
     }
 
     final file =
-    File(image.path);
+        File(image.path);
 
     final size =
-    await file.length();
+        await file.length();
 
     if (size >
         10 * 1024 * 1024) {
@@ -400,51 +406,53 @@ class _DroneFormScreenState
     }
 
     final request =
-    DroneFormRequest(
+        DroneFormRequest(
       make:
-      _makeController.text,
+          _makeController.text,
       model:
-      _modelController.text,
+          _modelController.text,
       manufactureYear:
-      int.parse(
+          int.parse(
         _yearController.text.trim(),
       ),
       serialNumber:
-      _serialController.text,
+          _serialController.text,
       weightKg:
-      double.parse(
+          double.parse(
         _weightController.text.trim(),
       ),
       capabilities:
-      _capabilities.toList(),
+          DroneCapabilities.canonicalizeAll(
+            _capabilities,
+          ),
       flightTimePerBatteryMinutes:
-      int.parse(
+          int.parse(
         _flightTimeController.text.trim(),
       ),
       totalBatteries:
-      int.parse(
+          int.parse(
         _batteriesController.text.trim(),
       ),
       batteryType:
-      _batteryTypeController.text,
+          _batteryTypeController.text,
       batteryUsageFee:
-      _optionalDouble(
+          _optionalDouble(
         _batteryFeeController.text,
       ),
       hourlyRate:
-      double.parse(
+          double.parse(
         _hourlyRateController.text.trim(),
       ),
       dailyRate:
-      double.parse(
+          double.parse(
         _dailyRateController.text.trim(),
       ),
       emergencyCalloutFee:
-      double.parse(
+          double.parse(
         _emergencyRateController.text.trim(),
       ),
       imagePath:
-      _selectedImagePath,
+          _selectedImagePath,
     );
 
     setState(() {
@@ -452,14 +460,14 @@ class _DroneFormScreenState
     });
 
     final result =
-    widget.isEditing
-        ? await _controller.updateDrone(
-      widget.initialDrone!.id,
-      request,
-    )
-        : await _controller.createDrone(
-      request,
-    );
+        widget.isEditing
+            ? await _controller.updateDrone(
+                widget.initialDrone!.id,
+                request,
+              )
+            : await _controller.createDrone(
+                request,
+              );
 
     if (!mounted) return;
 
@@ -485,27 +493,27 @@ class _DroneFormScreenState
   }
 
   void _showSnack(
-      String message, {
-        bool isError = false,
-      }) {
+    String message, {
+    bool isError = false,
+  }) {
     ScaffoldMessenger.of(context)
         .hideCurrentSnackBar();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior:
-        SnackBarBehavior.floating,
+            SnackBarBehavior.floating,
         backgroundColor:
-        isError ? _danger : _ink,
+            isError ? _danger : _ink,
         margin:
-        const EdgeInsets.all(16),
+            const EdgeInsets.all(16),
         shape:
-        RoundedRectangleBorder(
+            RoundedRectangleBorder(
           borderRadius:
-          BorderRadius.circular(16),
+              BorderRadius.circular(16),
         ),
         content:
-        Text(message),
+            Text(message),
       ),
     );
   }
@@ -516,8 +524,8 @@ class _DroneFormScreenState
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -526,12 +534,12 @@ class _DroneFormScreenState
         elevation: 0,
         leading: IconButton(
           onPressed:
-          _saving
-              ? null
-              : () =>
-              Navigator.pop(context),
+              _saving
+                  ? null
+                  : () =>
+                      Navigator.pop(context),
           icon:
-          const Icon(
+              const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: _ink,
             size: 18,
@@ -542,11 +550,11 @@ class _DroneFormScreenState
               ? 'Edit Drone'
               : 'Add Drone',
           style:
-          const TextStyle(
+              const TextStyle(
             color: _ink,
-            fontSize: 16,
+            fontSize: 18,
             fontWeight:
-            FontWeight.w900,
+                FontWeight.w900,
           ),
         ),
       ),
@@ -558,10 +566,10 @@ class _DroneFormScreenState
             children: [
               ListView(
                 keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior
-                    .onDrag,
+                    ScrollViewKeyboardDismissBehavior
+                        .onDrag,
                 padding:
-                const EdgeInsets.fromLTRB(
+                    const EdgeInsets.fromLTRB(
                   18,
                   8,
                   18,
@@ -570,13 +578,13 @@ class _DroneFormScreenState
                 children: [
                   _DroneImageCard(
                     selectedImagePath:
-                    _selectedImagePath,
+                        _selectedImagePath,
                     currentImageUrl:
-                    widget.initialDrone
-                        ?.imageUrl ??
-                        '',
+                        widget.initialDrone
+                                ?.imageUrl ??
+                            '',
                     onTap:
-                    _pickImage,
+                        _pickImage,
                   ),
 
                   const SizedBox(height: 14),
@@ -584,28 +592,28 @@ class _DroneFormScreenState
                   _SectionCard(
                     number: '01',
                     icon:
-                    Icons.flight_takeoff_rounded,
+                        Icons.flight_takeoff_rounded,
                     title:
-                    AppLanguage.text('Aircraft details'),
+                        'Aircraft details',
                     subtitle:
-                    AppLanguage.text('Identity and physical information'),
+                        'Identity and physical information',
                     child: Column(
                       children: [
                         Row(
                           children: [
                             Expanded(
                               child:
-                              _Input(
+                                  _Input(
                                 controller:
-                                _makeController,
+                                    _makeController,
                                 label:
-                                AppLanguage.text('Make'),
+                                    'Make',
                                 hint:
-                                'DJI',
+                                    'DJI',
                                 icon:
-                                Icons.apartment_rounded,
+                                    Icons.apartment_rounded,
                                 validator:
-                                _required,
+                                    _required,
                               ),
                             ),
                             const SizedBox(
@@ -613,17 +621,17 @@ class _DroneFormScreenState
                             ),
                             Expanded(
                               child:
-                              _Input(
+                                  _Input(
                                 controller:
-                                _modelController,
+                                    _modelController,
                                 label:
-                                AppLanguage.text('Model'),
+                                    'Model',
                                 hint:
-                                'Mavic 3 Pro',
+                                    'Mavic 3 Pro',
                                 icon:
-                                Icons.flight_rounded,
+                                    Icons.flight_rounded,
                                 validator:
-                                _required,
+                                    _required,
                               ),
                             ),
                           ],
@@ -635,19 +643,19 @@ class _DroneFormScreenState
                           children: [
                             Expanded(
                               child:
-                              _Input(
+                                  _Input(
                                 controller:
-                                _yearController,
+                                    _yearController,
                                 label:
-                                AppLanguage.text('Year'),
+                                    'Year',
                                 hint:
-                                '2026',
+                                    '2026',
                                 icon:
-                                Icons.calendar_month_outlined,
+                                    Icons.calendar_month_outlined,
                                 keyboardType:
-                                TextInputType.number,
+                                    TextInputType.number,
                                 validator:
-                                _yearValidator,
+                                    _yearValidator,
                               ),
                             ),
                             const SizedBox(
@@ -655,24 +663,24 @@ class _DroneFormScreenState
                             ),
                             Expanded(
                               child:
-                              _Input(
+                                  _Input(
                                 controller:
-                                _weightController,
+                                    _weightController,
                                 label:
-                                AppLanguage.text('Weight (kg)'),
+                                    'Weight (kg)',
                                 hint:
-                                '0.95',
+                                    '0.95',
                                 icon:
-                                Icons.scale_outlined,
+                                    Icons.scale_outlined,
                                 keyboardType:
-                                const TextInputType.numberWithOptions(
+                                    const TextInputType.numberWithOptions(
                                   decimal: true,
                                 ),
                                 validator: (value) =>
                                     _positiveNumber(
-                                      value,
-                                      'Weight',
-                                    ),
+                                  value,
+                                  'Weight',
+                                ),
                               ),
                             ),
                           ],
@@ -682,15 +690,15 @@ class _DroneFormScreenState
 
                         _Input(
                           controller:
-                          _serialController,
+                              _serialController,
                           label:
-                          AppLanguage.text('Serial number'),
+                              'Serial number',
                           hint:
-                          'Enter aircraft serial number',
+                              'Enter aircraft serial number',
                           icon:
-                          Icons.qr_code_rounded,
+                              Icons.qr_code_rounded,
                           validator:
-                          _required,
+                              _required,
                         ),
                       ],
                     ),
@@ -701,35 +709,35 @@ class _DroneFormScreenState
                   _SectionCard(
                     number: '02',
                     icon:
-                    Icons.battery_charging_full_rounded,
+                        Icons.battery_charging_full_rounded,
                     title:
-                    AppLanguage.text('Power & capabilities'),
+                        'Power & capabilities',
                     subtitle:
-                    AppLanguage.text('Battery setup and aircraft equipment'),
+                        'Battery setup and aircraft equipment',
                     child: Column(
                       children: [
                         Row(
                           children: [
                             Expanded(
                               child:
-                              _Input(
+                                  _Input(
                                 controller:
-                                _flightTimeController,
+                                    _flightTimeController,
                                 label:
-                                AppLanguage.text('Flight time'),
+                                    'Flight time',
                                 hint:
-                                '45',
+                                    '45',
                                 suffix:
-                                'min',
+                                    'min',
                                 icon:
-                                Icons.timer_outlined,
+                                    Icons.timer_outlined,
                                 keyboardType:
-                                TextInputType.number,
+                                    TextInputType.number,
                                 validator: (value) =>
                                     _positiveInt(
-                                      value,
-                                      'Flight time',
-                                    ),
+                                  value,
+                                  'Flight time',
+                                ),
                               ),
                             ),
                             const SizedBox(
@@ -737,22 +745,22 @@ class _DroneFormScreenState
                             ),
                             Expanded(
                               child:
-                              _Input(
+                                  _Input(
                                 controller:
-                                _batteriesController,
+                                    _batteriesController,
                                 label:
-                                AppLanguage.text('Batteries'),
+                                    'Batteries',
                                 hint:
-                                '3',
+                                    '3',
                                 icon:
-                                Icons.battery_std_rounded,
+                                    Icons.battery_std_rounded,
                                 keyboardType:
-                                TextInputType.number,
+                                    TextInputType.number,
                                 validator: (value) =>
                                     _positiveInt(
-                                      value,
-                                      'Batteries',
-                                    ),
+                                  value,
+                                  'Batteries',
+                                ),
                               ),
                             ),
                           ],
@@ -762,50 +770,50 @@ class _DroneFormScreenState
 
                         _Input(
                           controller:
-                          _batteryTypeController,
+                              _batteryTypeController,
                           label:
-                          AppLanguage.text('Battery type'),
+                              'Battery type',
                           hint:
-                          'Optional',
+                              'Optional',
                           icon:
-                          Icons.battery_6_bar_rounded,
+                              Icons.battery_6_bar_rounded,
                         ),
 
                         const SizedBox(height: 12),
 
                         _Input(
                           controller:
-                          _batteryFeeController,
+                              _batteryFeeController,
                           label:
-                          AppLanguage.text('Battery usage fee'),
+                              'Battery usage fee',
                           hint:
-                          'Optional',
+                              'Optional',
                           prefixText:
-                          '\$ ',
+                              '\$ ',
                           icon:
-                          Icons.payments_outlined,
+                              Icons.payments_outlined,
                           keyboardType:
-                          const TextInputType.numberWithOptions(
+                              const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           validator:
-                          _optionalMoney,
+                              _optionalMoney,
                         ),
 
                         const SizedBox(height: 18),
 
-                        Align(
+                        const Align(
                           alignment:
-                          Alignment.centerLeft,
+                              Alignment.centerLeft,
                           child:
-                          Text(
-                            AppLanguage.text('Capabilities'),
+                              Text(
+                            'Capabilities',
                             style:
-                            TextStyle(
+                                TextStyle(
                               color: _ink,
                               fontSize: 12,
                               fontWeight:
-                              FontWeight.w800,
+                                  FontWeight.w800,
                             ),
                           ),
                         ),
@@ -816,30 +824,30 @@ class _DroneFormScreenState
                           spacing: 8,
                           runSpacing: 8,
                           children:
-                          _capabilityOptions.map(
-                                (option) {
+                              _capabilityOptions.map(
+                            (option) {
                               final selected =
-                              _capabilities.contains(
+                                  _capabilities.contains(
                                 option.value,
                               );
 
                               return FilterChip(
                                 selected:
-                                selected,
+                                    selected,
                                 showCheckmark:
-                                false,
+                                    false,
                                 backgroundColor:
-                                Colors.white,
+                                    Colors.white,
                                 selectedColor:
-                                _tealSoft,
+                                    _tealSoft,
                                 side:
-                                BorderSide(
+                                    BorderSide(
                                   color: selected
                                       ? _teal
                                       : _border,
                                 ),
                                 avatar:
-                                Icon(
+                                    Icon(
                                   option.icon,
                                   size: 15,
                                   color: selected
@@ -847,15 +855,15 @@ class _DroneFormScreenState
                                       : _hint,
                                 ),
                                 label:
-                                Text(
+                                    Text(
                                   option.label,
                                   style:
-                                  TextStyle(
+                                      TextStyle(
                                     color: selected
                                         ? _tealDark
                                         : _muted,
                                     fontWeight:
-                                    FontWeight.w700,
+                                        FontWeight.w700,
                                     fontSize: 10.5,
                                   ),
                                 ),
@@ -886,81 +894,81 @@ class _DroneFormScreenState
                   _SectionCard(
                     number: '03',
                     icon:
-                    Icons.attach_money_rounded,
+                        Icons.attach_money_rounded,
                     title:
-                    AppLanguage.text('Pricing'),
+                        'Pricing',
                     subtitle:
-                    AppLanguage.text('Pilot rates for this aircraft'),
+                        'Pilot rates for this aircraft',
                     child: Column(
                       children: [
                         _Input(
                           controller:
-                          _hourlyRateController,
+                              _hourlyRateController,
                           label:
-                          AppLanguage.text('Hourly rate'),
+                              'Hourly rate',
                           hint:
-                          '150',
+                              '150',
                           prefixText:
-                          '\$ ',
+                              '\$ ',
                           icon:
-                          Icons.schedule_rounded,
+                              Icons.schedule_rounded,
                           keyboardType:
-                          const TextInputType.numberWithOptions(
+                              const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           validator: (value) =>
                               _positiveNumber(
-                                value,
-                                'Hourly rate',
-                              ),
+                            value,
+                            'Hourly rate',
+                          ),
                         ),
 
                         const SizedBox(height: 12),
 
                         _Input(
                           controller:
-                          _dailyRateController,
+                              _dailyRateController,
                           label:
-                          AppLanguage.text('Daily rate'),
+                              'Daily rate',
                           hint:
-                          '800',
+                              '800',
                           prefixText:
-                          '\$ ',
+                              '\$ ',
                           icon:
-                          Icons.today_outlined,
+                              Icons.today_outlined,
                           keyboardType:
-                          const TextInputType.numberWithOptions(
+                              const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           validator: (value) =>
                               _positiveNumber(
-                                value,
-                                'Daily rate',
-                              ),
+                            value,
+                            'Daily rate',
+                          ),
                         ),
 
                         const SizedBox(height: 12),
 
                         _Input(
                           controller:
-                          _emergencyRateController,
+                              _emergencyRateController,
                           label:
-                          AppLanguage.text('Emergency callout fee'),
+                              'Emergency callout fee',
                           hint:
-                          '250',
+                              '250',
                           prefixText:
-                          '\$ ',
+                              '\$ ',
                           icon:
-                          Icons.bolt_rounded,
+                              Icons.bolt_rounded,
                           keyboardType:
-                          const TextInputType.numberWithOptions(
+                              const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           validator: (value) =>
                               _nonNegativeNumber(
-                                value,
-                                'Emergency fee',
-                              ),
+                            value,
+                            'Emergency fee',
+                          ),
                         ),
                       ],
                     ),
@@ -973,13 +981,13 @@ class _DroneFormScreenState
                 right: 0,
                 bottom: 0,
                 child:
-                _SaveBar(
+                    _SaveBar(
                   editing:
-                  widget.isEditing,
+                      widget.isEditing,
                   saving:
-                  _saving,
+                      _saving,
                   onSave:
-                  _save,
+                      _save,
                 ),
               ),
             ],
@@ -994,8 +1002,8 @@ class _DroneFormScreenState
   // ==========================================================================
 
   String? _required(
-      String? value,
-      ) {
+    String? value,
+  ) {
     if (value == null ||
         value.trim().isEmpty) {
       return 'Required';
@@ -1005,13 +1013,13 @@ class _DroneFormScreenState
   }
 
   String? _yearValidator(
-      String? value,
-      ) {
+    String? value,
+  ) {
     final clean =
         value?.trim() ?? '';
 
     final year =
-    int.tryParse(clean);
+        int.tryParse(clean);
 
     if (year == null) {
       return 'Enter a valid year';
@@ -1029,11 +1037,11 @@ class _DroneFormScreenState
   }
 
   String? _positiveInt(
-      String? value,
-      String label,
-      ) {
+    String? value,
+    String label,
+  ) {
     final number =
-    int.tryParse(
+        int.tryParse(
       value?.trim() ?? '',
     );
 
@@ -1046,11 +1054,11 @@ class _DroneFormScreenState
   }
 
   String? _positiveNumber(
-      String? value,
-      String label,
-      ) {
+    String? value,
+    String label,
+  ) {
     final number =
-    double.tryParse(
+        double.tryParse(
       value?.trim() ?? '',
     );
 
@@ -1063,11 +1071,11 @@ class _DroneFormScreenState
   }
 
   String? _nonNegativeNumber(
-      String? value,
-      String label,
-      ) {
+    String? value,
+    String label,
+  ) {
     final number =
-    double.tryParse(
+        double.tryParse(
       value?.trim() ?? '',
     );
 
@@ -1080,8 +1088,8 @@ class _DroneFormScreenState
   }
 
   String? _optionalMoney(
-      String? value,
-      ) {
+    String? value,
+  ) {
     final clean =
         value?.trim() ?? '';
 
@@ -1090,7 +1098,7 @@ class _DroneFormScreenState
     }
 
     final number =
-    double.tryParse(clean);
+        double.tryParse(clean);
 
     if (number == null ||
         number < 0) {
@@ -1118,8 +1126,8 @@ class _DroneImageCard extends StatelessWidget {
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     final hasLocal =
         selectedImagePath != null &&
             selectedImagePath!.isNotEmpty;
@@ -1130,33 +1138,33 @@ class _DroneImageCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       borderRadius:
-      BorderRadius.circular(26),
+          BorderRadius.circular(26),
       child: InkWell(
         onTap:
-        onTap,
+            onTap,
         borderRadius:
-        BorderRadius.circular(26),
+            BorderRadius.circular(26),
         child:
-        Container(
+            Container(
           height: 210,
           clipBehavior:
-          Clip.antiAlias,
+              Clip.antiAlias,
           decoration:
-          BoxDecoration(
+              BoxDecoration(
             color:
-            const Color(0xFFEAF5F7),
+                const Color(0xFFEAF5F7),
             borderRadius:
-            BorderRadius.circular(26),
+                BorderRadius.circular(26),
             border:
-            Border.all(
+                Border.all(
               color:
-              _border,
+                  _border,
             ),
           ),
           child:
-          Stack(
+              Stack(
             fit:
-            StackFit.expand,
+                StackFit.expand,
             children: [
               if (hasLocal)
                 Image.file(
@@ -1164,31 +1172,31 @@ class _DroneImageCard extends StatelessWidget {
                     selectedImagePath!,
                   ),
                   fit:
-                  BoxFit.cover,
+                      BoxFit.cover,
                 )
               else if (hasRemote)
                 Image.network(
                   currentImageUrl,
                   fit:
-                  BoxFit.cover,
+                      BoxFit.cover,
                   errorBuilder:
                       (_, __, ___) =>
-                  const _DroneImageFallback(),
+                          const _DroneImageFallback(),
                 )
               else
                 const _DroneImageFallback(),
 
               Positioned.fill(
                 child:
-                DecoratedBox(
+                    DecoratedBox(
                   decoration:
-                  BoxDecoration(
+                      BoxDecoration(
                     gradient:
-                    LinearGradient(
+                        LinearGradient(
                       begin:
-                      Alignment.topCenter,
+                          Alignment.topCenter,
                       end:
-                      Alignment.bottomCenter,
+                          Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
                         _ink.withOpacity(
@@ -1208,56 +1216,56 @@ class _DroneImageCard extends StatelessWidget {
                 right: 16,
                 bottom: 14,
                 child:
-                Row(
+                    Row(
                   children: [
                     Container(
                       width: 42,
                       height: 42,
                       decoration:
-                      BoxDecoration(
+                          BoxDecoration(
                         color:
-                        Colors.white.withOpacity(
+                            Colors.white.withOpacity(
                           0.92,
                         ),
                         shape:
-                        BoxShape.circle,
+                            BoxShape.circle,
                       ),
                       child:
-                      const Icon(
+                          const Icon(
                         Icons.add_a_photo_outlined,
                         color:
-                        _tealDark,
+                            _tealDark,
                         size: 19,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(
+                    const Expanded(
                       child:
-                      Column(
+                          Column(
                         crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                            CrossAxisAlignment.start,
                         children: [
                           Text(
-                            AppLanguage.text('Drone photo'),
+                            'Drone photo',
                             style:
-                            TextStyle(
+                                TextStyle(
                               color:
-                              Colors.white,
+                                  Colors.white,
                               fontSize:
-                              14,
+                                  14,
                               fontWeight:
-                              FontWeight.w800,
+                                  FontWeight.w800,
                             ),
                           ),
                           SizedBox(height: 2),
                           Text(
-                            AppLanguage.text('Tap to choose or replace • max 10 MB'),
+                            'Tap to choose or replace • max 10 MB',
                             style:
-                            TextStyle(
+                                TextStyle(
                               color:
-                              Colors.white70,
+                                  Colors.white70,
                               fontSize:
-                              10,
+                                  10,
                             ),
                           ),
                         ],
@@ -1280,17 +1288,17 @@ class _DroneImageFallback
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     return const DecoratedBox(
       decoration:
-      BoxDecoration(
+          BoxDecoration(
         gradient:
-        LinearGradient(
+            LinearGradient(
           begin:
-          Alignment.topLeft,
+              Alignment.topLeft,
           end:
-          Alignment.bottomRight,
+              Alignment.bottomRight,
           colors: [
             Color(0xFFEAF7F7),
             Color(0xFFDCEFF2),
@@ -1298,12 +1306,12 @@ class _DroneImageFallback
         ),
       ),
       child:
-      Center(
+          Center(
         child:
-        Icon(
+            Icon(
           Icons.flight_takeoff_rounded,
           color:
-          Color(0x55078B98),
+              Color(0x55078B98),
           size: 84,
         ),
       ),
@@ -1332,37 +1340,37 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     return Container(
       padding:
-      const EdgeInsets.all(16),
+          const EdgeInsets.all(16),
       decoration:
-      BoxDecoration(
+          BoxDecoration(
         color:
-        Colors.white,
+            Colors.white,
         borderRadius:
-        BorderRadius.circular(24),
+            BorderRadius.circular(24),
         border:
-        Border.all(
+            Border.all(
           color:
-          _border,
+              _border,
         ),
         boxShadow: [
           BoxShadow(
             color:
-            _ink.withOpacity(0.035),
+                _ink.withOpacity(0.035),
             blurRadius:
-            18,
+                18,
             offset:
-            const Offset(0, 7),
+                const Offset(0, 7),
           ),
         ],
       ),
       child:
-      Column(
+          Column(
         crossAxisAlignment:
-        CrossAxisAlignment.start,
+            CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -1370,48 +1378,48 @@ class _SectionCard extends StatelessWidget {
                 width: 43,
                 height: 43,
                 decoration:
-                BoxDecoration(
+                    BoxDecoration(
                   color:
-                  _tealSoft,
+                      _tealSoft,
                   borderRadius:
-                  BorderRadius.circular(14),
+                      BorderRadius.circular(14),
                 ),
                 child:
-                Icon(
+                    Icon(
                   icon,
                   color:
-                  _tealDark,
+                      _tealDark,
                   size: 19,
                 ),
               ),
               const SizedBox(width: 11),
               Expanded(
                 child:
-                Column(
+                    Column(
                   crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
                       style:
-                      const TextStyle(
+                          const TextStyle(
                         color:
-                        _ink,
+                            _ink,
                         fontSize:
-                        14.5,
+                            14.5,
                         fontWeight:
-                        FontWeight.w900,
+                            FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style:
-                      const TextStyle(
+                          const TextStyle(
                         color:
-                        _muted,
+                            _muted,
                         fontSize:
-                        9.8,
+                            9.8,
                       ),
                     ),
                   ],
@@ -1420,15 +1428,15 @@ class _SectionCard extends StatelessWidget {
               Text(
                 number,
                 style:
-                const TextStyle(
+                    const TextStyle(
                   color:
-                  _teal,
+                      _teal,
                   fontSize:
-                  12,
+                      12,
                   fontWeight:
-                  FontWeight.w900,
+                      FontWeight.w900,
                   letterSpacing:
-                  1,
+                      1,
                 ),
               ),
             ],
@@ -1468,121 +1476,121 @@ class _Input extends StatelessWidget {
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     return Column(
       crossAxisAlignment:
-      CrossAxisAlignment.start,
+          CrossAxisAlignment.start,
       children: [
         Padding(
           padding:
-          const EdgeInsets.only(
+              const EdgeInsets.only(
             left: 2,
             bottom: 7,
           ),
           child:
-          Text(
+              Text(
             label,
             style:
-            const TextStyle(
+                const TextStyle(
               color:
-              _ink,
+                  _ink,
               fontSize:
-              10.8,
+                  10.8,
               fontWeight:
-              FontWeight.w700,
+                  FontWeight.w700,
             ),
           ),
         ),
         TextFormField(
           controller:
-          controller,
+              controller,
           validator:
-          validator,
+              validator,
           keyboardType:
-          keyboardType,
+              keyboardType,
           textInputAction:
-          TextInputAction.next,
+              TextInputAction.next,
           style:
-          const TextStyle(
+              const TextStyle(
             color:
-            _ink,
+                _ink,
             fontSize:
-            12.3,
+                12.3,
             fontWeight:
-            FontWeight.w600,
+                FontWeight.w600,
           ),
           decoration:
-          InputDecoration(
+              InputDecoration(
             hintText:
-            hint,
+                hint,
             hintStyle:
-            const TextStyle(
+                const TextStyle(
               color:
-              _hint,
+                  _hint,
               fontSize:
-              11,
+                  11,
             ),
             prefixIcon:
-            Icon(
+                Icon(
               icon,
               color:
-              _tealDark,
+                  _tealDark,
               size:
-              18,
+                  18,
             ),
             prefixText:
-            prefixText,
+                prefixText,
             suffixText:
-            suffix,
+                suffix,
             filled:
-            true,
+                true,
             fillColor:
-            const Color(
+                const Color(
               0xFFF8FAFC,
             ),
             enabledBorder:
-            OutlineInputBorder(
+                OutlineInputBorder(
               borderRadius:
-              BorderRadius.circular(15),
+                  BorderRadius.circular(15),
               borderSide:
-              const BorderSide(
+                  const BorderSide(
                 color:
-                _border,
+                    _border,
               ),
             ),
             focusedBorder:
-            OutlineInputBorder(
+                OutlineInputBorder(
               borderRadius:
-              BorderRadius.circular(15),
+                  BorderRadius.circular(15),
               borderSide:
-              const BorderSide(
+                  const BorderSide(
                 color:
-                _teal,
+                    _teal,
                 width:
-                1.3,
+                    1.3,
               ),
             ),
             errorBorder:
-            OutlineInputBorder(
+                OutlineInputBorder(
               borderRadius:
-              BorderRadius.circular(15),
+                  BorderRadius.circular(15),
               borderSide:
-              const BorderSide(
+                  const BorderSide(
                 color:
-                _danger,
+                    _danger,
               ),
             ),
             focusedErrorBorder:
-            OutlineInputBorder(
+                OutlineInputBorder(
               borderRadius:
-              BorderRadius.circular(15),
+                  BorderRadius.circular(15),
               borderSide:
-              const BorderSide(
+                  const BorderSide(
                 color:
-                _danger,
+                    _danger,
                 width:
-                1.2,
+                    1.2,
               ),
             ),
           ),
@@ -1609,11 +1617,11 @@ class _SaveBar extends StatelessWidget {
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     return Container(
       padding:
-      EdgeInsets.fromLTRB(
+          EdgeInsets.fromLTRB(
         18,
         10,
         18,
@@ -1621,85 +1629,85 @@ class _SaveBar extends StatelessWidget {
             10,
       ),
       decoration:
-      BoxDecoration(
+          BoxDecoration(
         color:
-        Colors.white.withOpacity(0.97),
+            Colors.white.withOpacity(0.97),
         border:
-        const Border(
+            const Border(
           top:
-          BorderSide(
+              BorderSide(
             color:
-            _border,
+                _border,
           ),
         ),
         boxShadow: [
           BoxShadow(
             color:
-            Colors.black.withOpacity(0.04),
+                Colors.black.withOpacity(0.04),
             blurRadius:
-            18,
+                18,
             offset:
-            const Offset(0, -5),
+                const Offset(0, -5),
           ),
         ],
       ),
       child:
-      SizedBox(
+          SizedBox(
         width:
-        double.infinity,
+            double.infinity,
         child:
-        FilledButton.icon(
+            FilledButton.icon(
           onPressed:
-          saving
-              ? null
-              : onSave,
+              saving
+                  ? null
+                  : onSave,
           style:
-          FilledButton.styleFrom(
+              FilledButton.styleFrom(
             backgroundColor:
-            _tealDark,
+                _tealDark,
             foregroundColor:
-            Colors.white,
+                Colors.white,
             disabledBackgroundColor:
-            _tealDark.withOpacity(0.55),
+                _tealDark.withOpacity(0.55),
             padding:
-            const EdgeInsets.symmetric(
+                const EdgeInsets.symmetric(
               vertical:
-              15,
+                  15,
             ),
             shape:
-            RoundedRectangleBorder(
+                RoundedRectangleBorder(
               borderRadius:
-              BorderRadius.circular(17),
+                  BorderRadius.circular(17),
             ),
           ),
           icon:
-          saving
-              ? const SizedBox(
-            width: 19,
-            height: 19,
-            child:
-            CircularProgressIndicator(
-              strokeWidth: 2.2,
-              color: Colors.white,
-            ),
-          )
-              : Icon(
-            editing
-                ? Icons.save_outlined
-                : Icons.add_rounded,
-            size: 18,
-          ),
+              saving
+                  ? const SizedBox(
+                      width: 19,
+                      height: 19,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      editing
+                          ? Icons.save_outlined
+                          : Icons.add_rounded,
+                      size: 18,
+                    ),
           label:
-          Text(
+              Text(
             saving
                 ? 'Saving...'
                 : editing
-                ? 'Save Changes'
-                : 'Add Drone',
+                    ? 'Save Changes'
+                    : 'Add Drone',
             style:
-            const TextStyle(
+                const TextStyle(
               fontWeight:
-              FontWeight.w800,
+                  FontWeight.w800,
             ),
           ),
         ),
@@ -1722,44 +1730,44 @@ class _SourceButton
 
   @override
   Widget build(
-      BuildContext context,
-      ) {
+    BuildContext context,
+  ) {
     return OutlinedButton.icon(
       onPressed:
-      onTap,
+          onTap,
       style:
-      OutlinedButton.styleFrom(
+          OutlinedButton.styleFrom(
         foregroundColor:
-        _tealDark,
+            _tealDark,
         side:
-        const BorderSide(
+            const BorderSide(
           color:
-          _border,
+              _border,
         ),
         padding:
-        const EdgeInsets.symmetric(
+            const EdgeInsets.symmetric(
           vertical:
-          14,
+              14,
         ),
         shape:
-        RoundedRectangleBorder(
+            RoundedRectangleBorder(
           borderRadius:
-          BorderRadius.circular(16),
+              BorderRadius.circular(16),
         ),
       ),
       icon:
-      Icon(
+          Icon(
         icon,
         size:
-        18,
+            18,
       ),
       label:
-      Text(
+          Text(
         title,
         style:
-        const TextStyle(
+            const TextStyle(
           fontWeight:
-          FontWeight.w700,
+              FontWeight.w700,
         ),
       ),
     );
@@ -1779,10 +1787,10 @@ class _CapabilityOption {
 }
 
 double? _optionalDouble(
-    String value,
-    ) {
+  String value,
+) {
   final clean =
-  value.trim();
+      value.trim();
 
   if (clean.isEmpty) {
     return null;
@@ -1792,8 +1800,8 @@ double? _optionalDouble(
 }
 
 String _numberText(
-    double? value,
-    ) {
+  double? value,
+) {
   if (value == null) return '';
 
   if (value == value.roundToDouble()) {

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
@@ -817,7 +819,7 @@ class CompanyJobService {
       for (var i = 0; i < request.requiredCapabilities.length; i++) {
         addField(
           'required_capabilities[$i]',
-          request.requiredCapabilities[i],
+          DroneCapabilities.canonicalize(request.requiredCapabilities[i]),
         );
       }
 
@@ -997,7 +999,7 @@ class CompanyJobService {
       for (var i = 0; i < request.requiredCapabilities.length; i++) {
         addRequired(
           'required_capabilities[$i]',
-          request.requiredCapabilities[i],
+          DroneCapabilities.canonicalize(request.requiredCapabilities[i]),
         );
       }
 
