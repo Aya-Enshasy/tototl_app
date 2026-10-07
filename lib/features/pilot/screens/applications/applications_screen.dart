@@ -1,13 +1,19 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
+import 'package:tototl_app/core/storage/token_storage.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 
 import '../../controllers/pilot_application_controller.dart';
 import '../../models/pilot_application_model.dart';
+import '../../models/pilot_contract_model.dart';
 import '../../services/pilot_application_service.dart';
 import '../../services/pilot_job_service.dart';
 import 'application_details_screen.dart';
+import '../contract/pilot_contract_detail_screen.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
 class ApplicationsScreen extends StatefulWidget {
@@ -22,28 +28,290 @@ class ApplicationsScreen extends StatefulWidget {
   State<ApplicationsScreen> createState() => _ApplicationsScreenState();
 }
 
-class _ApplicationsScreenState extends State<ApplicationsScreen> {
+class _ApplicationsScreenState extends State<ApplicationsScreen>
+    with WidgetsBindingObserver {
   late final PilotApplicationController _controller;
+  late final ApiClient _apiClient;
+
+  int _sectionIndex = 0;
+
+  List<PilotContractModel> _contracts = const <PilotContractModel>[];
+  bool _contractsLoading = true;
+  bool _contractsRefreshing = false;
+  String? _contractsError;
+
+  Timer? _liveRefreshTimer;
+  bool _liveRefreshInFlight = false;
 
   @override
   void initState() {
     super.initState();
 
-    final apiClient = ApiClient();
+    _apiClient = ApiClient();
 
     _controller = PilotApplicationController(
-      PilotApplicationService(apiClient),
-      jobService: PilotJobService(apiClient),
+      PilotApplicationService(_apiClient),
+      jobService: PilotJobService(_apiClient),
     );
 
+    WidgetsBinding.instance.addObserver(this);
+
     _controller.load();
+
+    if (!widget.compact) {
+      unawaited(_loadContracts());
+      _liveRefreshTimer = Timer.periodic(
+        const Duration(seconds: 10),
+        (_) => unawaited(_silentRefresh()),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.compact && state == AppLifecycleState.resumed) {
+      unawaited(_silentRefresh(force: true));
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveRefreshTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
+
+  Future<List<PilotContractModel>> _fetchContracts() async {
+    final token = await TokenStorage.getAccessToken();
+
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Authentication token not found.');
+    }
+
+    final result = <PilotContractModel>[];
+    final seenIds = <int>{};
+
+    var page = 1;
+    var lastPage = 1;
+
+    do {
+      final response = await _apiClient.get(
+        '/contracts?per_page=50&page=$page',
+        options: Options(
+          headers: <String, dynamic>{
+            'Accept': 'application/json',
+            'Authorization': 'Bearer ${token.trim()}',
+          },
+        ),
+      );
+
+      final raw = response.data;
+      if (raw is! Map) {
+        throw StateError('Invalid contracts response.');
+      }
+
+      final body = Map<String, dynamic>.from(raw);
+
+      if (body['success'] != true) {
+        final message = body['message']?.toString().trim() ?? '';
+        throw StateError(
+          message.isEmpty ? 'Unable to load contracts.' : message,
+        );
+      }
+
+      final rawData = body['data'];
+      List<dynamic> pageRows = const <dynamic>[];
+
+      if (rawData is List) {
+        pageRows = rawData;
+
+        final rawMeta = body['meta'];
+        if (rawMeta is Map) {
+          final meta = Map<String, dynamic>.from(rawMeta);
+          lastPage = _pilotAsInt(meta['last_page']) ?? page;
+        } else {
+          lastPage = page;
+        }
+      } else if (rawData is Map) {
+        final paginator = Map<String, dynamic>.from(rawData);
+
+        final rawRows = paginator['data'];
+        if (rawRows is List) {
+          pageRows = rawRows;
+        }
+
+        lastPage = _pilotAsInt(paginator['last_page']) ?? page;
+      } else {
+        throw StateError('Contracts data is missing.');
+      }
+
+      for (final rawItem in pageRows.whereType<Map>()) {
+        final contract = PilotContractModel.fromJson(
+          Map<String, dynamic>.from(rawItem),
+        );
+
+        if (contract.id <= 0 || !seenIds.add(contract.id)) {
+          continue;
+        }
+
+        result.add(contract);
+      }
+
+      page++;
+    } while (page <= lastPage && page <= 50);
+
+    result.sort((a, b) {
+      final aDate = a.updatedAt ??
+          a.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+
+      final bDate = b.updatedAt ??
+          b.createdAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+
+      return bDate.compareTo(aDate);
+    });
+
+    return List<PilotContractModel>.unmodifiable(result);
+  }
+
+  Future<void> _loadContracts({
+    bool silent = false,
+  }) async {
+    if (!mounted) return;
+
+    if (!silent) {
+      setState(() {
+        if (_contracts.isEmpty) {
+          _contractsLoading = true;
+        } else {
+          _contractsRefreshing = true;
+        }
+
+        _contractsError = null;
+      });
+    }
+
+    try {
+      final contracts = await _fetchContracts();
+
+      if (!mounted) return;
+
+      setState(() {
+        _contracts = contracts;
+        _contractsError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      if (!silent || _contracts.isEmpty) {
+        setState(() {
+          _contractsError =
+              e.toString().replaceFirst('Bad state: ', '');
+        });
+      }
+    } finally {
+      if (mounted && !silent) {
+        setState(() {
+          _contractsLoading = false;
+          _contractsRefreshing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _silentRefresh({
+    bool force = false,
+  }) async {
+    if (!mounted || _liveRefreshInFlight) return;
+
+    final lifecycle =
+        WidgetsBinding.instance.lifecycleState;
+
+    if (!force &&
+        lifecycle != AppLifecycleState.resumed) {
+      return;
+    }
+
+    _liveRefreshInFlight = true;
+
+    try {
+      await Future.wait<void>([
+        _controller.refresh().then((_) {}),
+        _loadContracts(silent: true),
+      ]);
+    } finally {
+      _liveRefreshInFlight = false;
+    }
+  }
+
+  Future<void> _refreshCurrentSection() async {
+    HapticFeedback.selectionClick();
+
+    if (_sectionIndex == 0) {
+      await _refresh();
+      return;
+    }
+
+    await _loadContracts();
+
+    if (!mounted ||
+        _contractsError == null ||
+        _contractsError!.trim().isEmpty) {
+      return;
+    }
+
+    _snack(_contractsError!);
+  }
+
+  void _selectSection(int index) {
+    if (_sectionIndex == index) return;
+
+    HapticFeedback.selectionClick();
+
+    setState(() {
+      _sectionIndex = index;
+    });
+
+    if (index == 1 &&
+        _contracts.isEmpty &&
+        !_contractsLoading) {
+      unawaited(_loadContracts());
+    }
+  }
+
+  Future<void> _openContract(
+    PilotContractModel contract,
+  ) async {
+    HapticFeedback.selectionClick();
+
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PilotContractDetailScreen(
+          contractId: contract.id,
+          initialContract: contract,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    await _silentRefresh(force: true);
+  }
+
+  int get _contractsAwaitingAction =>
+      _contracts.where((item) => item.isPending).length;
+
+  int get _contractsInWork =>
+      _contracts.where((item) {
+        return item.isActive ||
+            item.isInProgress ||
+            item.isSubmitted;
+      }).length;
+
+  int get _completedContracts =>
+      _contracts.where((item) => item.isCompleted).length;
 
   Future<void> _refresh() async {
     HapticFeedback.selectionClick();
@@ -77,11 +345,13 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
     if (!mounted) return;
 
-    // Only a real mutation deserves a refresh. We deliberately do not read a
-    // cached detail snapshot here because that can reintroduce a stale flash.
+    // Reconcile both tabs after returning. The company may have changed the
+    // application or contract while this route was open.
     if (changed == true) {
       await _refresh();
     }
+
+    await _silentRefresh(force: true);
   }
 
   void _snack(String message) {
@@ -169,8 +439,14 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _fullScreen() {
-    final firstLoad =
-        _controller.isLoading && _controller.applications.isEmpty;
+    final applicationsFirstLoad =
+        _controller.isLoading &&
+        _controller.applications.isEmpty;
+
+    final currentRefreshing =
+        _sectionIndex == 0
+            ? _controller.isRefreshing
+            : _contractsRefreshing;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -178,19 +454,64 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
         children: [
           const _ApplicationsBackdrop(),
           SafeArea(
-            child: firstLoad
-                ? const _ApplicationsPageShimmer()
-                : Column(
+            child: Column(
               children: [
-                _Header(
-                  total: _controller.totalCount,
-                  pending: _controller.pendingCount,
-                  accepted: _controller.acceptedCount,
-                  rejected: _controller.rejectedCount,
-                  refreshing: _controller.isRefreshing,
-                  onRefresh: _controller.isRefreshing ? null : _refresh,
+                _PilotOperationsHeader(
+                  selectedIndex: _sectionIndex,
+                  applicationsCount:
+                      _controller.totalCount,
+                  contractsCount: _contracts.length,
+                  refreshing: currentRefreshing,
+                  onRefresh: currentRefreshing
+                      ? null
+                      : _refreshCurrentSection,
+                  onChanged: _selectSection,
                 ),
-                Expanded(child: _body()),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration:
+                        const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: _sectionIndex == 0
+                        ? KeyedSubtree(
+                            key: const ValueKey(
+                              'pilot-applications',
+                            ),
+                            child: applicationsFirstLoad
+                                ? const _ApplicationsPageShimmer()
+                                : Column(
+                                    children: [
+                                      _Header(
+                                        total:
+                                            _controller.totalCount,
+                                        pending:
+                                            _controller.pendingCount,
+                                        accepted:
+                                            _controller.acceptedCount,
+                                        rejected:
+                                            _controller.rejectedCount,
+                                        refreshing:
+                                            _controller.isRefreshing,
+                                        onRefresh:
+                                            _controller.isRefreshing
+                                                ? null
+                                                : _refresh,
+                                      ),
+                                      Expanded(
+                                        child: _body(),
+                                      ),
+                                    ],
+                                  ),
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey(
+                              'pilot-contracts',
+                            ),
+                            child: _contractsBody(),
+                          ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -245,6 +566,1169 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
       },
     );
   }
+  Widget _contractsBody() {
+    if (_contractsLoading && _contracts.isEmpty) {
+      return const _PilotContractsLoading();
+    }
+
+    if (_contractsError != null &&
+        _contracts.isEmpty) {
+      return _FullMessage(
+        icon: Icons.cloud_off_rounded,
+        title: AppLanguage.text(
+          'Couldn’t load contracts',
+        ),
+        text: _contractsError!,
+        actionLabel: 'Try Again',
+        onAction: () {
+          unawaited(_loadContracts());
+        },
+      );
+    }
+
+    if (_contracts.isEmpty) {
+      return const _EmptyPilotContracts();
+    }
+
+    return Column(
+      children: [
+        _PilotContractsOverview(
+          total: _contracts.length,
+          awaitingAction:
+              _contractsAwaitingAction,
+          inWork: _contractsInWork,
+          completed: _completedContracts,
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            color: AppColors.logoTurquoiseDark,
+            onRefresh: _loadContracts,
+            child: ListView.separated(
+              physics:
+                  const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding:
+                  const EdgeInsets.fromLTRB(
+                16,
+                3,
+                16,
+                110,
+              ),
+              itemCount: _contracts.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final contract = _contracts[index];
+
+                return TweenAnimationBuilder<double>(
+                  duration: Duration(
+                    milliseconds:
+                        260 +
+                        (index.clamp(0, 5) * 45)
+                            .toInt(),
+                  ),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween(
+                    begin: 0,
+                    end: 1,
+                  ),
+                  builder: (
+                    context,
+                    value,
+                    child,
+                  ) {
+                    return Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(
+                          0,
+                          10 * (1 - value),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _PilotContractCard(
+                    contract: contract,
+                    onTap: () =>
+                        _openContract(contract),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+}
+
+class _PilotOperationsHeader extends StatelessWidget {
+  const _PilotOperationsHeader({
+    required this.selectedIndex,
+    required this.applicationsCount,
+    required this.contractsCount,
+    required this.refreshing,
+    required this.onRefresh,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final int applicationsCount;
+  final int contractsCount;
+  final bool refreshing;
+  final VoidCallback? onRefresh;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(
+        16,
+        13,
+        16,
+        7,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 43,
+                height: 43,
+                decoration: BoxDecoration(
+                  color:
+                      const Color(0xFFE9F8F8),
+                  borderRadius:
+                      BorderRadius.circular(14),
+                  border: Border.all(
+                    color:
+                        const Color(0xFF0EA7B4)
+                            .withOpacity(.08),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.work_outline_rounded,
+                  color: Color(0xFF078FA5),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppLanguage.text('My Work'),
+                      style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 16.2,
+                        height: 1.04,
+                        fontWeight:
+                            FontWeight.w900,
+                        letterSpacing: -.35,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      AppLanguage.text(
+                        'Applications and contracts in one place',
+                      ),
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 9.6,
+                        fontWeight:
+                            FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 9),
+              refreshing
+                  ? const _LiveRefreshBadge(
+                      compact: true,
+                    )
+                  : _RefreshButton(
+                      onTap: onRefresh,
+                    ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding:
+                const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color:
+                  const Color(0xFFEAF0F3),
+              borderRadius:
+                  BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _PilotWorkTab(
+                    selected:
+                        selectedIndex == 0,
+                    label:
+                        AppLanguage.text(
+                      'Applications',
+                    ),
+                    icon: Icons
+                        .assignment_turned_in_outlined,
+                    count:
+                        applicationsCount,
+                    onTap: () =>
+                        onChanged(0),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _PilotWorkTab(
+                    selected:
+                        selectedIndex == 1,
+                    label:
+                        AppLanguage.text(
+                      'Contracts',
+                    ),
+                    icon: Icons
+                        .description_outlined,
+                    count: contractsCount,
+                    onTap: () =>
+                        onChanged(1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PilotWorkTab extends StatelessWidget {
+  const _PilotWorkTab({
+    required this.selected,
+    required this.label,
+    required this.icon,
+    required this.count,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String label;
+  final IconData icon;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected
+        ? Colors.white
+        : AppColors.navy;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+            BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration:
+              const Duration(milliseconds: 190),
+          height: 43,
+          padding:
+              const EdgeInsets.symmetric(
+            horizontal: 10,
+          ),
+          decoration: BoxDecoration(
+            gradient: selected
+                ? const LinearGradient(
+                    colors: [
+                      Color(0xFF0A91A6),
+                      Color(0xFF12AEBB),
+                    ],
+                  )
+                : null,
+            borderRadius:
+                BorderRadius.circular(12),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: const Color(
+                        0xFF0A91A6,
+                      ).withOpacity(.15),
+                      blurRadius: 12,
+                      offset:
+                          const Offset(0, 5),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: foreground,
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 10.3,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              _PilotTabCount(
+                count: count,
+                selected: selected,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PilotTabCount extends StatelessWidget {
+  const _PilotTabCount({
+    required this.count,
+    required this.selected,
+  });
+
+  final int count;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final text =
+        count > 99 ? '99+' : '$count';
+
+    final singleDigit =
+        count >= 0 && count <= 9;
+
+    return Container(
+      width: singleDigit ? 20 : null,
+      height: 20,
+      constraints: singleDigit
+          ? const BoxConstraints.tightFor(
+              width: 20,
+              height: 20,
+            )
+          : const BoxConstraints(
+              minWidth: 24,
+              minHeight: 20,
+            ),
+      padding: singleDigit
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(
+              horizontal: 6,
+            ),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: selected
+            ? Colors.white.withOpacity(.16)
+            : Colors.white,
+        shape: singleDigit
+            ? BoxShape.circle
+            : BoxShape.rectangle,
+        borderRadius: singleDigit
+            ? null
+            : BorderRadius.circular(20),
+        border: Border.all(
+          color: selected
+              ? Colors.white.withOpacity(.16)
+              : AppColors.cardBorder,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: selected
+              ? Colors.white
+              : AppColors
+                  .logoTurquoiseDark,
+          fontSize: 8.7,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _PilotContractsOverview
+    extends StatelessWidget {
+  const _PilotContractsOverview({
+    required this.total,
+    required this.awaitingAction,
+    required this.inWork,
+    required this.completed,
+  });
+
+  final int total;
+  final int awaitingAction;
+  final int inWork;
+  final int completed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(
+        16,
+        4,
+        16,
+        10,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding:
+            const EdgeInsets.fromLTRB(
+          13,
+          11,
+          13,
+          11,
+        ),
+        decoration: BoxDecoration(
+          borderRadius:
+              BorderRadius.circular(18),
+          gradient:
+              const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF08273D),
+              Color(0xFF0A4A5C),
+              Color(0xFF078B96),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color:
+                  const Color(0xFF0B5664)
+                      .withOpacity(.12),
+              blurRadius: 18,
+              offset:
+                  const Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons
+                      .description_outlined,
+                  color:
+                      Color(0xFF7BE1DD),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Contract overview',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.7,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '$total total',
+                  style: TextStyle(
+                    color: Colors.white
+                        .withOpacity(.65),
+                    fontSize: 8.8,
+                    fontWeight:
+                        FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child:
+                      _PilotContractMetric(
+                    label: 'Action',
+                    value: awaitingAction,
+                    icon: Icons
+                        .notifications_active_outlined,
+                    accent:
+                        const Color(
+                      0xFFFFCC72,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child:
+                      _PilotContractMetric(
+                    label: 'In work',
+                    value: inWork,
+                    icon: Icons
+                        .flight_takeoff_rounded,
+                    accent:
+                        const Color(
+                      0xFF80DDF1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child:
+                      _PilotContractMetric(
+                    label: 'Complete',
+                    value: completed,
+                    icon: Icons
+                        .check_circle_outline_rounded,
+                    accent:
+                        const Color(
+                      0xFF7DE2B2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PilotContractMetric
+    extends StatelessWidget {
+  const _PilotContractMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accent,
+  });
+
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 50,
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 9,
+      ),
+      decoration: BoxDecoration(
+        color:
+            Colors.white.withOpacity(.075),
+        borderRadius:
+            BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              Colors.white.withOpacity(.055),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 27,
+            height: 27,
+            decoration: BoxDecoration(
+              color:
+                  accent.withOpacity(.12),
+              borderRadius:
+                  BorderRadius.circular(9),
+            ),
+            child: Icon(
+              icon,
+              color: accent,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$value',
+                  style:
+                      const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.2,
+                    height: 1,
+                    fontWeight:
+                        FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white
+                        .withOpacity(.58),
+                    fontSize: 7.8,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PilotContractCard
+    extends StatelessWidget {
+  const _PilotContractCard({
+    required this.contract,
+    required this.onTap,
+  });
+
+  final PilotContractModel contract;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual =
+        _pilotContractVisual(contract);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+            BorderRadius.circular(19),
+        child: Ink(
+          padding:
+              const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.circular(19),
+            border: Border.all(
+              color: AppColors.cardBorder
+                  .withOpacity(.90),
+              width: .8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.navy
+                    .withOpacity(.028),
+                blurRadius: 14,
+                offset:
+                    const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration:
+                        BoxDecoration(
+                      color: visual.$2,
+                      borderRadius:
+                          BorderRadius
+                              .circular(13),
+                    ),
+                    child: Icon(
+                      visual.$3,
+                      color: visual.$1,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Contract #${contract.id}',
+                                maxLines: 1,
+                                overflow:
+                                    TextOverflow
+                                        .ellipsis,
+                                style:
+                                    const TextStyle(
+                                  color:
+                                      AppColors
+                                          .navy,
+                                  fontSize:
+                                      12.8,
+                                  fontWeight:
+                                      FontWeight
+                                          .w900,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                              width: 7,
+                            ),
+                            Container(
+                              padding:
+                                  const EdgeInsets
+                                      .symmetric(
+                                horizontal: 8,
+                                vertical: 5,
+                              ),
+                              decoration:
+                                  BoxDecoration(
+                                color:
+                                    visual.$2,
+                                borderRadius:
+                                    BorderRadius
+                                        .circular(
+                                  30,
+                                ),
+                              ),
+                              child: Text(
+                                contract
+                                    .statusLabel,
+                                style:
+                                    TextStyle(
+                                  color:
+                                      visual.$1,
+                                  fontSize: 8.3,
+                                  fontWeight:
+                                      FontWeight
+                                          .w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Application #${contract.jobApplicationId} · Job #${contract.jobPostingId}',
+                          style:
+                              const TextStyle(
+                            color:
+                                AppColors.grey,
+                            fontSize: 8.8,
+                            fontWeight:
+                                FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              Row(
+                children: [
+                  Expanded(
+                    child:
+                        _PilotContractInfo(
+                      icon: Icons
+                          .payments_outlined,
+                      label: 'Value',
+                      value:
+                          contract.amountLabel,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child:
+                        _PilotContractInfo(
+                      icon: Icons
+                          .calendar_month_outlined,
+                      label: 'Schedule',
+                      value: contract
+                          .dateRangeLabel,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(
+                    contract.isPending
+                        ? Icons
+                            .touch_app_outlined
+                        : contract.isActive
+                            ? Icons
+                                .location_on_outlined
+                            : contract
+                                    .isInProgress
+                                ? Icons
+                                    .flight_takeoff_rounded
+                                : contract
+                                        .isSubmitted
+                                    ? Icons
+                                        .rate_review_outlined
+                                    : Icons
+                                        .timeline_rounded,
+                    color: visual.$1,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _pilotContractNextAction(
+                        contract,
+                      ),
+                      style:
+                          const TextStyle(
+                        color:
+                            AppColors.grey,
+                        fontSize: 9.1,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons
+                        .arrow_forward_ios_rounded,
+                    color:
+                        AppColors.lightGrey,
+                    size: 12,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PilotContractInfo
+    extends StatelessWidget {
+  const _PilotContractInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.fromLTRB(
+        9,
+        8,
+        9,
+        8,
+      ),
+      decoration: BoxDecoration(
+        color:
+            const Color(0xFFF7FAFB),
+        borderRadius:
+            BorderRadius.circular(11),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: AppColors
+                .logoTurquoiseDark,
+            size: 13,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.lightGrey,
+                    fontSize: 7.6,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(
+                    color:
+                        AppColors.navy,
+                    fontSize: 8.8,
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPilotContracts
+    extends StatelessWidget {
+  const _EmptyPilotContracts();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics:
+          const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding:
+          const EdgeInsets.fromLTRB(
+        24,
+        56,
+        24,
+        110,
+      ),
+      children: [
+        Center(
+          child: Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color:
+                  const Color(0xFFE9F8F8),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors
+                    .logoTurquoiseDark
+                    .withOpacity(.08),
+              ),
+            ),
+            child: const Icon(
+              Icons.description_outlined,
+              color: AppColors
+                  .logoTurquoiseDark,
+              size: 30,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'No contracts yet',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.navy,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 7),
+        const Text(
+          'Accepted applications will appear here once the company creates a contract.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.grey,
+            fontSize: 10.5,
+            height: 1.45,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PilotContractsLoading
+    extends StatelessWidget {
+  const _PilotContractsLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics:
+          const NeverScrollableScrollPhysics(),
+      padding:
+          const EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        110,
+      ),
+      children: List.generate(
+        4,
+        (index) => Container(
+          height: 126,
+          margin:
+              const EdgeInsets.only(
+            bottom: 9,
+          ),
+          decoration: BoxDecoration(
+            color:
+                const Color(0xFFEDF2F4),
+            borderRadius:
+                BorderRadius.circular(19),
+            border: Border.all(
+              color: AppColors.cardBorder,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+(Color, Color, IconData)
+    _pilotContractVisual(
+  PilotContractModel contract,
+) {
+  if (contract.isPending) {
+    return (
+      AppColors.orange,
+      AppColors.orangeBg,
+      Icons.pending_actions_rounded,
+    );
+  }
+
+  if (contract.isAccepted) {
+    return (
+      AppColors.green,
+      AppColors.greenBg,
+      Icons.handshake_outlined,
+    );
+  }
+
+  if (contract.isActive) {
+    return (
+      AppColors.blue,
+      AppColors.blueBg,
+      Icons.location_on_outlined,
+    );
+  }
+
+  if (contract.isInProgress) {
+    return (
+      AppColors.blue,
+      AppColors.blueBg,
+      Icons.flight_takeoff_rounded,
+    );
+  }
+
+  if (contract.isSubmitted) {
+    return (
+      AppColors.orange,
+      AppColors.orangeBg,
+      Icons.rate_review_outlined,
+    );
+  }
+
+  if (contract.isCompleted) {
+    return (
+      AppColors.green,
+      AppColors.greenBg,
+      Icons
+          .check_circle_outline_rounded,
+    );
+  }
+
+  return (
+    AppColors.grey,
+    const Color(0xFFF0F4F7),
+    Icons.description_outlined,
+  );
+}
+
+String _pilotContractNextAction(
+  PilotContractModel contract,
+) {
+  if (contract.isPending) {
+    return 'Your decision is required: accept or reject this contract.';
+  }
+
+  if (contract.isAccepted) {
+    return 'Waiting for the company to fund the contract.';
+  }
+
+  if (contract.isActive) {
+    return 'Open the contract, review the exact location, then start work.';
+  }
+
+  if (contract.isInProgress) {
+    return 'Work is in progress. Submit your work when ready.';
+  }
+
+  if (contract.isSubmitted) {
+    return 'Waiting for company review.';
+  }
+
+  if (contract.isCompleted) {
+    return 'Mission completed. Payment status is tracked in the contract.';
+  }
+
+  if (contract.isRejected) {
+    return 'You rejected this contract.';
+  }
+
+  if (contract.isCancelled) {
+    return 'This contract was cancelled.';
+  }
+
+  if (contract.isTerminated) {
+    return 'This contract was terminated.';
+  }
+
+  return contract.statusLabel;
+}
+
+int? _pilotAsInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+
+  return int.tryParse(
+    value?.toString() ?? '',
+  );
 }
 
 // =============================================================================

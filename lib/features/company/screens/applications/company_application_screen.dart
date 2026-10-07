@@ -36,13 +36,16 @@ class CompanyOperationsScreen extends StatelessWidget {
   Widget build(BuildContext context) => const CompanyApplicationsScreen();
 }
 
-class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
+class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen>
+    with WidgetsBindingObserver {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _cachePrefix = 'company_all_applications_v3_';
   static const int _perPage = 50;
 
   late final CompanyJobController _controller;
   late final CompanyContractController _contractController;
+
+  Timer? _liveRefreshTimer;
 
   final List<CompanyApplicantListItem> _items = <CompanyApplicantListItem>[];
 
@@ -71,6 +74,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     final apiClient = ApiClient();
     _controller = CompanyJobController(
@@ -82,6 +86,57 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
 
     unawaited(_loadCompanyIdentity());
     unawaited(_loadStatus(null));
+    _startLiveRefresh();
+  }
+
+  void _startLiveRefresh() {
+    _liveRefreshTimer?.cancel();
+    _liveRefreshTimer = Timer.periodic(
+      const Duration(seconds: 12),
+          (_) {
+        if (!_canAutoRefresh) return;
+        unawaited(_refreshLiveData());
+      },
+    );
+  }
+
+  bool get _canAutoRefresh {
+    if (!mounted) return false;
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return false;
+    }
+
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    if (!TickerMode.of(context)) return false;
+
+    return true;
+  }
+
+  Future<void> _refreshLiveData() async {
+    if (!_canAutoRefresh) return;
+
+    final serial = _viewSerial;
+    final status = _selectedStatus;
+
+    await _refreshFromNetwork(
+      status: status,
+      serial: serial,
+    );
+
+    if (!mounted || serial != _viewSerial) return;
+    await _refreshContracts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+
+    scheduleMicrotask(() {
+      if (_canAutoRefresh) {
+        unawaited(_refreshLiveData());
+      }
+    });
   }
 
   Future<void> _loadCompanyIdentity() async {
@@ -369,6 +424,13 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen> {
     if (changed == true) {
       _showSnack('Application updated.');
     }
+  }
+
+  @override
+  void dispose() {
+    _liveRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   bool get _showInitialShimmer =>
@@ -1678,32 +1740,14 @@ class _PrimarySectionTab extends StatelessWidget {
               ),
               if (count != null) ...[
                 const SizedBox(width: 6),
-                Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                  ),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: alert
-                        ? _ApplicationsPalette.orange
-                        : _ApplicationsPalette.tealSoft,
-                    borderRadius:
-                    BorderRadius.circular(9),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: TextStyle(
-                      color: alert
-                          ? Colors.white
-                          : _ApplicationsPalette.tealDark,
-                      fontSize: 8.8,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                _LiveCountBadge(
+                  count: count!,
+                  backgroundColor: alert
+                      ? _ApplicationsPalette.orange
+                      : _ApplicationsPalette.tealSoft,
+                  foregroundColor: alert
+                      ? Colors.white
+                      : _ApplicationsPalette.tealDark,
                 ),
               ],
             ],
@@ -1773,32 +1817,14 @@ class _CompactContractFilter extends StatelessWidget {
               ),
               if (badge != null) ...[
                 const SizedBox(width: 6),
-                Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? const Color(0xFFF06446)
-                        : _ApplicationsPalette.orangeSoft,
-                    borderRadius:
-                    BorderRadius.circular(9),
-                  ),
-                  child: Text(
-                    '$badge',
-                    style: TextStyle(
-                      color: selected
-                          ? Colors.white
-                          : _ApplicationsPalette.orange,
-                      fontSize: 8.8,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                _LiveCountBadge(
+                  count: badge!,
+                  backgroundColor: selected
+                      ? const Color(0xFFF06446)
+                      : _ApplicationsPalette.orangeSoft,
+                  foregroundColor: selected
+                      ? Colors.white
+                      : _ApplicationsPalette.orange,
                 ),
               ],
             ],
@@ -2406,34 +2432,65 @@ class _ReferenceFilterButton extends StatelessWidget {
                 ),
                 if (badge != null) ...[
                   const SizedBox(width: 6),
-                  Container(
-                    constraints: const BoxConstraints(
-                      minWidth: 19,
-                      minHeight: 19,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? const Color(0xFFF06446)
-                          : _ApplicationsPalette.orangeSoft,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '$badge',
-                      style: TextStyle(
-                        color: selected
-                            ? Colors.white
-                            : _ApplicationsPalette.orange,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                  _LiveCountBadge(
+                    count: badge!,
+                    backgroundColor: selected
+                        ? const Color(0xFFF06446)
+                        : _ApplicationsPalette.orangeSoft,
+                    foregroundColor: selected
+                        ? Colors.white
+                        : _ApplicationsPalette.orange,
                   ),
                 ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveCountBadge extends StatelessWidget {
+  const _LiveCountBadge({
+    required this.count,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final int count;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final singleDigit = count >= 0 && count < 10;
+    final label = count > 99 ? '99+' : '$count';
+
+    return Container(
+      width: singleDigit ? 20 : null,
+      height: 20,
+      constraints: BoxConstraints(
+        minWidth: singleDigit ? 20 : 24,
+      ),
+      padding: singleDigit
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 6),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: singleDigit ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: singleDigit ? null : BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: foregroundColor,
+          fontSize: 8.8,
+          height: 1,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

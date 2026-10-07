@@ -37,8 +37,8 @@ class CompanyJobApplicationModel {
   });
 
   factory CompanyJobApplicationModel.fromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     final pilotRaw =
         json['pilot_profile'] ?? json['pilot'] ?? json['profile'];
     final droneRaw = json['drone'] ?? json['committed_drone'];
@@ -57,32 +57,32 @@ class CompanyJobApplicationModel {
       rejectionReason: _asString(json['rejection_reason']),
       pilotProfile: pilotRaw is Map
           ? CompanyApplicantPilotModel.fromJson(
-        Map<String, dynamic>.from(pilotRaw),
-      )
+              Map<String, dynamic>.from(pilotRaw),
+            )
           : null,
       drone: droneRaw is Map
           ? CompanyApplicantDroneModel.fromJson(
-        Map<String, dynamic>.from(droneRaw),
-      )
+              Map<String, dynamic>.from(droneRaw),
+            )
           : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'job_posting_id': jobPostingId,
-    'pilot_profile_id': pilotProfileId,
-    'drone_id': droneId,
-    'cover_message': coverMessage,
-    'status': status,
-    'decided_at': decidedAt?.toIso8601String(),
-    'withdrawn_at': withdrawnAt?.toIso8601String(),
-    'created_at': createdAt?.toIso8601String(),
-    'updated_at': updatedAt?.toIso8601String(),
-    'rejection_reason': rejectionReason,
-    'pilot_profile': pilotProfile?.toJson(),
-    'drone': drone?.toJson(),
-  };
+        'id': id,
+        'job_posting_id': jobPostingId,
+        'pilot_profile_id': pilotProfileId,
+        'drone_id': droneId,
+        'cover_message': coverMessage,
+        'status': status,
+        'decided_at': decidedAt?.toIso8601String(),
+        'withdrawn_at': withdrawnAt?.toIso8601String(),
+        'created_at': createdAt?.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
+        'rejection_reason': rejectionReason,
+        'pilot_profile': pilotProfile?.toJson(),
+        'drone': drone?.toJson(),
+      };
 
   CompanyJobApplicationModel copyWith({
     String? coverMessage,
@@ -140,6 +140,7 @@ class CompanyApplicantPilotModel {
   final String state;
   final String city;
   final List<CompanyPilotWorkRegionModel> workRegions;
+  final List<CompanyPilotCredentialModel> licenses;
 
   const CompanyApplicantPilotModel({
     required this.id,
@@ -158,11 +159,12 @@ class CompanyApplicantPilotModel {
     this.state = '',
     this.city = '',
     this.workRegions = const [],
+    this.licenses = const [],
   });
 
   factory CompanyApplicantPilotModel.fromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     final userRaw = json['user'];
     final user = userRaw is Map
         ? Map<String, dynamic>.from(userRaw)
@@ -218,31 +220,35 @@ class CompanyApplicantPilotModel {
       workRegions: _asMapList(json['work_regions'])
           .map(CompanyPilotWorkRegionModel.fromJson)
           .toList(growable: false),
+      licenses: _asMapList(json['licenses'])
+          .map(CompanyPilotCredentialModel.fromJson)
+          .toList(growable: false),
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'user_id': userId,
-    'name': name,
-    'profile_photo': profilePhoto,
-    'verified': verified,
-    'bio': bio,
-    'experience_years': experienceYears,
-    'nationality': nationality,
-    'date_of_birth': dateOfBirth?.toIso8601String(),
-    'linkedin_url': linkedinUrl,
-    'previous_company': previousCompany,
-    'languages': languages,
-    'current_country': country,
-    'current_state': state,
-    'current_city': city,
-    'work_regions': workRegions.map((e) => e.toJson()).toList(),
-  };
+        'id': id,
+        'user_id': userId,
+        'name': name,
+        'profile_photo': profilePhoto,
+        'verified': verified,
+        'bio': bio,
+        'experience_years': experienceYears,
+        'nationality': nationality,
+        'date_of_birth': dateOfBirth?.toIso8601String(),
+        'linkedin_url': linkedinUrl,
+        'previous_company': previousCompany,
+        'languages': languages,
+        'current_country': country,
+        'current_state': state,
+        'current_city': city,
+        'work_regions': workRegions.map((e) => e.toJson()).toList(),
+        'licenses': licenses.map((e) => e.toJson()).toList(),
+      };
 
   CompanyApplicantPilotModel mergeWith(
-      CompanyApplicantPilotModel other,
-      ) {
+    CompanyApplicantPilotModel other,
+  ) {
     return CompanyApplicantPilotModel(
       id: other.id > 0 ? other.id : id,
       userId: other.userId ?? userId,
@@ -268,7 +274,8 @@ class CompanyApplicantPilotModel {
       state: other.state.trim().isNotEmpty ? other.state : state,
       city: other.city.trim().isNotEmpty ? other.city : city,
       workRegions:
-      other.workRegions.isNotEmpty ? other.workRegions : workRegions,
+          other.workRegions.isNotEmpty ? other.workRegions : workRegions,
+      licenses: other.licenses.isNotEmpty ? other.licenses : licenses,
     );
   }
 
@@ -316,12 +323,12 @@ class CompanyPilotWorkRegionModel {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'pilot_profile_id': pilotProfileId,
-    'country': country,
-    'state': state,
-    'city': city,
-  };
+        'id': id,
+        'pilot_profile_id': pilotProfileId,
+        'country': country,
+        'state': state,
+        'city': city,
+      };
 
   String get label {
     final parts = <String>[city, state, country]
@@ -377,125 +384,33 @@ class CompanyApplicantDroneModel {
   });
 
   factory CompanyApplicantDroneModel.fromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     String image = '';
 
-    // IMPORTANT:
-    // A drone image must come from a drone-specific image field/media item.
-    // Do NOT use a generic `photo` fallback here because some applicant/pilot
-    // serializers can expose the pilot profile photo under a generic key.
-    final directCandidates = <dynamic>[
-      json['image_url'],
-      json['drone_image_url'],
-      json['drone_image'],
-      json['image'],
-      json['original_url'],
-    ];
-
-    for (final candidate in directCandidates) {
-      if (candidate is String) {
-        final value = candidate.trim();
-        if (value.isNotEmpty) {
-          image = value;
-          break;
-        }
-      } else if (candidate is Map) {
-        final value = _firstNonEmpty([
-          _asString(candidate['original_url']),
-          _asString(candidate['url']),
-        ]);
-
-        if (value.isNotEmpty) {
-          image = value;
-          break;
-        }
-      }
-    }
-
-    String mediaValue(Map item) {
-      return _firstNonEmpty([
-        _asString(item['original_url']),
-        _asString(item['url']),
+    final rawImage = json['image'] ?? json['image_url'] ?? json['photo'];
+    if (rawImage is String) {
+      image = rawImage.trim();
+    } else if (rawImage is Map) {
+      image = _firstNonEmpty([
+        _asString(rawImage['url']),
+        _asString(rawImage['original_url']),
       ]);
     }
 
-    bool isDroneImageCollection(Map item) {
-      final collection = _asString(
-        item['collection_name'] ??
-            item['collection'] ??
-            item['name'],
-      ).toLowerCase();
-
-      return collection == 'image' ||
-          collection == 'drone_image' ||
-          collection == 'drone-image' ||
-          collection == 'drone_photo' ||
-          collection == 'drone-photo';
-    }
-
-    bool isKnownNonDroneCollection(Map item) {
-      final collection = _asString(
-        item['collection_name'] ??
-            item['collection'] ??
-            item['name'],
-      ).toLowerCase();
-
-      return collection == 'profile_photo' ||
-          collection == 'profile-photo' ||
-          collection == 'avatar' ||
-          collection == 'company_photo' ||
-          collection == 'company_logo';
-    }
-
     final rawMedia = json['media'];
-
     if (image.isEmpty && rawMedia is List) {
-      // First pass: only accept the documented drone-image collection.
-      for (final rawItem in rawMedia) {
-        if (rawItem is! Map) continue;
-
-        final item = Map<String, dynamic>.from(rawItem);
-
-        if (!isDroneImageCollection(item)) continue;
-
-        final value = mediaValue(item);
-        if (value.isNotEmpty) {
-          image = value;
-          break;
-        }
-      }
-
-      // Compatibility pass for older responses that omitted collection_name.
-      // Explicit profile/avatar media is NEVER accepted as a drone image.
-      if (image.isEmpty) {
-        for (final rawItem in rawMedia) {
-          if (rawItem is! Map) continue;
-
-          final item = Map<String, dynamic>.from(rawItem);
-
-          if (isKnownNonDroneCollection(item)) continue;
-
-          final collection = _asString(
-            item['collection_name'] ??
-                item['collection'] ??
-                item['name'],
-          ).trim();
-
-          if (collection.isNotEmpty) continue;
-
-          final value = mediaValue(item);
+      for (final item in rawMedia) {
+        if (item is Map) {
+          final value = _firstNonEmpty([
+            _asString(item['url']),
+            _asString(item['original_url']),
+          ]);
           if (value.isNotEmpty) {
             image = value;
             break;
           }
         }
-      }
-    } else if (image.isEmpty && rawMedia is Map) {
-      final item = Map<String, dynamic>.from(rawMedia);
-
-      if (!isKnownNonDroneCollection(item)) {
-        image = mediaValue(item);
       }
     }
 
@@ -523,85 +438,30 @@ class CompanyApplicantDroneModel {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'pilot_profile_id': pilotProfileId,
-    'make': make,
-    'model': model,
-    'manufacture_year': manufactureYear,
-    'serial_number': serialNumber,
-    'weight_kg': weightKg,
-    'capabilities': capabilities,
-    'flight_time': flightTimePerBatteryMinutes,
-    'charging_time': chargingTimeMinutes,
-    'total_batteries': totalBatteries,
-    'battery_type': batteryType,
-    'battery_usage_fee': batteryUsageFee,
-    'hourly_rate': hourlyRate,
-    'daily_rate': dailyRate,
-    'emergency_callout_fee': emergencyCalloutFee,
-    if (imageUrl.isNotEmpty)
-      'media': [
-        {
-          'collection_name': 'image',
-          'url': imageUrl,
-        }
-      ],
-  };
-
-  CompanyApplicantDroneModel copyWith({
-    int? id,
-    int? pilotProfileId,
-    String? make,
-    String? model,
-    int? manufactureYear,
-    String? serialNumber,
-    double? weightKg,
-    List<String>? capabilities,
-    int? flightTimePerBatteryMinutes,
-    int? chargingTimeMinutes,
-    int? totalBatteries,
-    String? batteryType,
-    double? batteryUsageFee,
-    double? hourlyRate,
-    double? dailyRate,
-    double? emergencyCalloutFee,
-    String? imageUrl,
-  }) {
-    return CompanyApplicantDroneModel(
-      id: id ?? this.id,
-      pilotProfileId:
-      pilotProfileId ?? this.pilotProfileId,
-      make: make ?? this.make,
-      model: model ?? this.model,
-      manufactureYear:
-      manufactureYear ?? this.manufactureYear,
-      serialNumber:
-      serialNumber ?? this.serialNumber,
-      weightKg: weightKg ?? this.weightKg,
-      capabilities:
-      capabilities ?? this.capabilities,
-      flightTimePerBatteryMinutes:
-      flightTimePerBatteryMinutes ??
-          this.flightTimePerBatteryMinutes,
-      chargingTimeMinutes:
-      chargingTimeMinutes ??
-          this.chargingTimeMinutes,
-      totalBatteries:
-      totalBatteries ?? this.totalBatteries,
-      batteryType:
-      batteryType ?? this.batteryType,
-      batteryUsageFee:
-      batteryUsageFee ?? this.batteryUsageFee,
-      hourlyRate:
-      hourlyRate ?? this.hourlyRate,
-      dailyRate:
-      dailyRate ?? this.dailyRate,
-      emergencyCalloutFee:
-      emergencyCalloutFee ??
-          this.emergencyCalloutFee,
-      imageUrl: imageUrl ?? this.imageUrl,
-    );
-  }
+        'id': id,
+        'pilot_profile_id': pilotProfileId,
+        'make': make,
+        'model': model,
+        'manufacture_year': manufactureYear,
+        'serial_number': serialNumber,
+        'weight_kg': weightKg,
+        'capabilities': capabilities,
+        'flight_time': flightTimePerBatteryMinutes,
+        'charging_time': chargingTimeMinutes,
+        'total_batteries': totalBatteries,
+        'battery_type': batteryType,
+        'battery_usage_fee': batteryUsageFee,
+        'hourly_rate': hourlyRate,
+        'daily_rate': dailyRate,
+        'emergency_callout_fee': emergencyCalloutFee,
+        if (imageUrl.isNotEmpty)
+          'media': [
+            {
+              'collection_name': 'image',
+              'url': imageUrl,
+            }
+          ],
+      };
 
   String get displayName {
     final value = <String>[make, model]
@@ -635,8 +495,8 @@ class CompanyPilotCredentialModel {
   });
 
   factory CompanyPilotCredentialModel.fromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     return CompanyPilotCredentialModel(
       id: _asInt(json['id']) ?? 0,
       pilotProfileId: _asInt(json['pilot_profile_id']) ?? 0,
@@ -653,16 +513,16 @@ class CompanyPilotCredentialModel {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'pilot_profile_id': pilotProfileId,
-    'license_type': licenseType,
-    'license_number': licenseNumber,
-    'issuing_authority': issuingAuthority,
-    'expires_at': expiresAt?.toIso8601String(),
-    'created_at': createdAt?.toIso8601String(),
-    'updated_at': updatedAt?.toIso8601String(),
-    'media': media.map((e) => e.toJson()).toList(),
-  };
+        'id': id,
+        'pilot_profile_id': pilotProfileId,
+        'license_type': licenseType,
+        'license_number': licenseNumber,
+        'issuing_authority': issuingAuthority,
+        'expires_at': expiresAt?.toIso8601String(),
+        'created_at': createdAt?.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
+        'media': media.map((e) => e.toJson()).toList(),
+      };
 
   bool get isExpired {
     final expiry = expiresAt;
@@ -680,7 +540,7 @@ class CompanyPilotCredentialModel {
   List<CompanyPilotMediaModel> get permitOrInsuranceDocuments => media
       .where(
         (item) => item.collectionName == 'permit_or_insurance_document',
-  )
+      )
       .toList(growable: false);
 }
 
@@ -719,15 +579,15 @@ class CompanyPilotMediaModel {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'collection_name': collectionName,
-    'file_name': fileName,
-    'mime_type': mimeType,
-    'size': size,
-    'url': url,
-    'download_url': downloadUrl,
-    'created_at': createdAt?.toIso8601String(),
-  };
+        'id': id,
+        'collection_name': collectionName,
+        'file_name': fileName,
+        'mime_type': mimeType,
+        'size': size,
+        'url': url,
+        'download_url': downloadUrl,
+        'created_at': createdAt?.toIso8601String(),
+      };
 
   String get bestDownloadUrl =>
       downloadUrl.trim().isNotEmpty ? downloadUrl.trim() : url.trim();
@@ -819,7 +679,7 @@ String _pretty(String value) {
       .where((part) => part.isNotEmpty)
       .map(
         (part) =>
-    '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-  )
+            '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
       .join(' ');
 }

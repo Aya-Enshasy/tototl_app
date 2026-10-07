@@ -18,13 +18,17 @@ class PilotContractsScreen extends StatefulWidget {
   State<PilotContractsScreen> createState() => _PilotContractsScreenState();
 }
 
-class _PilotContractsScreenState extends State<PilotContractsScreen> {
+class _PilotContractsScreenState extends State<PilotContractsScreen>
+    with WidgetsBindingObserver {
   late final PilotContractController _controller;
 
   bool _loading = true;
   bool _refreshing = false;
+  bool _silentRefreshing = false;
   String? _error;
   String _filter = '';
+
+  Timer? _liveRefreshTimer;
 
   static const List<_ContractFilter> _filters = [
     _ContractFilter('', 'All'),
@@ -39,10 +43,60 @@ class _PilotContractsScreenState extends State<PilotContractsScreen> {
   @override
   void initState() {
     super.initState();
+
     _controller = PilotContractController(
       PilotContractService(ApiClient()),
     );
+
+    WidgetsBinding.instance.addObserver(this);
+
     unawaited(_load());
+
+    _liveRefreshTimer = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) => unawaited(_silentRefresh()),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_silentRefresh(force: true));
+    }
+  }
+
+  Future<void> _silentRefresh({
+    bool force = false,
+  }) async {
+    if (!mounted || _silentRefreshing || _loading || _refreshing) return;
+
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (!force && lifecycle != AppLifecycleState.resumed) return;
+
+    _silentRefreshing = true;
+
+    try {
+      final success = await _controller.loadContracts(
+        status: _filter.isEmpty ? null : _filter,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        setState(() {
+          _error = null;
+        });
+      }
+    } finally {
+      _silentRefreshing = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load({
@@ -103,21 +157,43 @@ class _PilotContractsScreenState extends State<PilotContractsScreen> {
 
     if (changed == true) {
       await _load(refresh: true);
+    } else {
+      unawaited(_silentRefresh(force: true));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final contractsCount = _controller.contracts.length;
+    final actionCount = _controller.contracts
+        .where((item) => item.isPending)
+        .length;
+    final activeCount = _controller.contracts
+        .where((item) =>
+            item.isActive ||
+            item.isInProgress ||
+            item.isSubmitted)
+        .length;
+
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: const Color(0xFFF6F8FA),
       body: Stack(
         children: [
-          const _ContractsBackdrop(),
+          const _PremiumContractsBackdrop(),
           SafeArea(
             child: Column(
               children: [
-                _topBar(),
-                _filtersBar(),
+                _PremiumContractsHeader(
+                  total: contractsCount,
+                  actionCount: actionCount,
+                  activeCount: activeCount,
+                  syncing: _silentRefreshing || _refreshing,
+                  onBack: () => Navigator.of(context).pop(),
+                  onRefresh: _refreshing
+                      ? null
+                      : () => _load(refresh: true),
+                ),
+                _premiumFiltersBar(),
                 Expanded(
                   child: _loading
                       ? const _ContractsShimmer()
@@ -136,75 +212,11 @@ class _PilotContractsScreenState extends State<PilotContractsScreen> {
     );
   }
 
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 12, 6),
-      child: Row(
-        children: [
-          _CircleButton(
-            icon: Icons.arrow_back_ios_new_rounded,
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLanguage.text('My Contracts'),
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  AppLanguage.text(
-                    'Review and manage your mission agreements',
-                  ),
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 10.2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _refreshing
-              ? const SizedBox(
-                  width: 42,
-                  height: 42,
-                  child: Center(
-                    child: SizedBox(
-                      width: 17,
-                      height: 17,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.blue,
-                      ),
-                    ),
-                  ),
-                )
-              : _CircleButton(
-                  icon: Icons.refresh_rounded,
-                  onTap: () => _load(refresh: true),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _filtersBar() {
+  Widget _premiumFiltersBar() {
     return SizedBox(
-      height: 52,
+      height: 50,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 7,
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: _filters.length,
@@ -213,33 +225,53 @@ class _PilotContractsScreenState extends State<PilotContractsScreen> {
           final item = _filters[index];
           final selected = _filter == item.value;
 
-          return ChoiceChip(
-            selected: selected,
-            showCheckmark: false,
-            label: Text(AppLanguage.text(item.label)),
-            onSelected: (_) => _changeFilter(item.value),
-            selectedColor: AppColors.navy,
-            backgroundColor: Colors.white,
-            side: BorderSide(
-              color: selected
-                  ? AppColors.navy
-                  : AppColors.cardBorder,
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _changeFilter(item.value),
+              borderRadius: BorderRadius.circular(30),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 13),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? const Color(0xFF09283F)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: selected
+                        ? const Color(0xFF09283F)
+                        : AppColors.cardBorder,
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF09283F).withOpacity(.12),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  AppLanguage.text(item.label),
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.grey,
+                    fontSize: 9.7,
+                    fontWeight:
+                        selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            labelStyle: TextStyle(
-              color: selected ? Colors.white : AppColors.grey,
-              fontSize: 10.5,
-              fontWeight:
-                  selected ? FontWeight.w800 : FontWeight.w600,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 5),
           );
         },
       ),
     );
   }
+
 
   Widget _content() {
     final contracts = _controller.contracts;
@@ -297,6 +329,340 @@ class _PilotContractsScreenState extends State<PilotContractsScreen> {
   }
 }
 
+class _PremiumContractsHeader extends StatelessWidget {
+  const _PremiumContractsHeader({
+    required this.total,
+    required this.actionCount,
+    required this.activeCount,
+    required this.syncing,
+    required this.onBack,
+    required this.onRefresh,
+  });
+
+  final int total;
+  final int actionCount;
+  final int activeCount;
+  final bool syncing;
+  final VoidCallback onBack;
+  final VoidCallback? onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 5),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(13, 13, 13, 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF06182A),
+              Color(0xFF07384A),
+              Color(0xFF087C88),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF087C88).withOpacity(.14),
+              blurRadius: 25,
+              offset: const Offset(0, 11),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _DarkRoundButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  onTap: onBack,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'MISSION CONTRACTS',
+                        style: TextStyle(
+                          color: Color(0xFF78DDD6),
+                          fontSize: 7.9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppLanguage.text('My Contracts'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.5,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (syncing)
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.09),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Row(
+                      children: [
+                        SizedBox(
+                          width: 11,
+                          height: 11,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Color(0xFF7CE2DA),
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Live',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8.4,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  _DarkRoundButton(
+                    icon: Icons.sync_rounded,
+                    onTap: onRefresh ?? () {},
+                  ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: _HeaderMetric(
+                    label: 'Total',
+                    value: total,
+                    icon: Icons.description_outlined,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _HeaderMetric(
+                    label: 'Your action',
+                    value: actionCount,
+                    icon: Icons.notifications_active_outlined,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _HeaderMetric(
+                    label: 'Live',
+                    value: activeCount,
+                    icon: Icons.flight_takeoff_rounded,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderMetric extends StatelessWidget {
+  const _HeaderMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final int value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 53,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.075),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: Colors.white.withOpacity(.055),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF7CE2DA),
+            size: 14,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.5,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.52),
+                    fontSize: 7.3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DarkRoundButton extends StatelessWidget {
+  const _DarkRoundButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(.09),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 39,
+          height: 39,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withOpacity(.10),
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 17,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumContractsBackdrop extends StatelessWidget {
+  const _PremiumContractsBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            Positioned(
+              top: -160,
+              right: -120,
+              child: Container(
+                width: 330,
+                height: 330,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF0FA6B4).withOpacity(.08),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -170,
+              left: -120,
+              child: Container(
+                width: 310,
+                height: 310,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF0AA37F).withOpacity(.045),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _contractNextStep(PilotContractModel contract) {
+  if (contract.isPending) {
+    return 'Review and accept or reject the agreement';
+  }
+  if (contract.isAccepted) {
+    return 'Waiting for company funding';
+  }
+  if (contract.isActive) {
+    return 'Review exact location and start the mission';
+  }
+  if (contract.isInProgress) {
+    return 'Complete the mission and submit your work';
+  }
+  if (contract.isSubmitted) {
+    return 'Waiting for company review';
+  }
+  if (contract.isCompleted) {
+    return 'Mission complete';
+  }
+  if (contract.isRejected) {
+    return 'Contract rejected';
+  }
+  if (contract.isCancelled) {
+    return 'Contract cancelled';
+  }
+  if (contract.isTerminated) {
+    return 'Contract terminated';
+  }
+  return contract.statusLabel;
+}
+
 class _ContractFilter {
   final String value;
   final String label;
@@ -316,132 +682,208 @@ class _ContractCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = _statusVisual(contract.status);
+    final next = _contractNextStep(contract);
 
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(21),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(21),
-        child: Container(
-          padding: const EdgeInsets.all(15),
+        borderRadius: BorderRadius.circular(22),
+        child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(21),
-            border: Border.all(color: AppColors.cardBorder),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppColors.cardBorder.withOpacity(.92),
+            ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.navy.withOpacity(0.028),
+                color: AppColors.navy.withOpacity(.032),
                 blurRadius: 18,
                 offset: const Offset(0, 7),
               ),
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 41,
-                    height: 41,
-                    decoration: BoxDecoration(
-                      color: AppColors.blue.withOpacity(0.07),
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: const Icon(
-                      Icons.description_outlined,
-                      color: AppColors.blue,
-                      size: 20,
-                    ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(22),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF08263D),
+                            Color(0xFF0A7F8E),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.description_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Contract #${contract.id}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.navy,
+                              fontSize: 13.4,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -.25,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Mission #${contract.jobPostingId} · Application #${contract.jobApplicationId}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.grey,
+                              fontSize: 8.7,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _StatusBadge(
+                      label: contract.statusLabel,
+                      foreground: visual.foreground,
+                      background: visual.background,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                height: 1,
+                color: const Color(0xFFF0F3F5),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          'Contract #${contract.id}',
-                          style: const TextStyle(
-                            color: AppColors.navy,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w900,
+                        Expanded(
+                          child: _PremiumListMetric(
+                            label: 'Contract Value',
+                            value: contract.amountLabel,
+                            icon: Icons.account_balance_wallet_outlined,
+                            accent: const Color(0xFF0AA37F),
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Job #${contract.jobPostingId} · Application #${contract.jobApplicationId}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.grey,
-                            fontSize: 9.8,
-                            fontWeight: FontWeight.w600,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _PremiumListMetric(
+                            label: 'Payment',
+                            value: contract.paymentTypeLabel,
+                            icon: Icons.tune_rounded,
+                            accent: const Color(0xFF0B8FA8),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  _StatusBadge(
-                    label: contract.statusLabel,
-                    foreground: visual.foreground,
-                    background: visual.background,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Metric(
-                      icon: Icons.payments_outlined,
-                      label: 'Value',
-                      value: contract.amountLabel,
-                      accent: AppColors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Metric(
-                      icon: Icons.tune_rounded,
-                      label: 'Payment',
-                      value: contract.paymentTypeLabel,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today_outlined,
-                      color: AppColors.grey,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        contract.dateRangeLabel,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    const SizedBox(height: 9),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(10, 9, 9, 9),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7FAFB),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.route_outlined,
+                            color: Color(0xFF0B8FA8),
+                            size: 15,
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'NEXT STEP',
+                                  style: TextStyle(
+                                    color: AppColors.lightGrey,
+                                    fontSize: 7.1,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: .55,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  next,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.navy,
+                                    fontSize: 9.4,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE9F8F7),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_forward_rounded,
+                              color: Color(0xFF078B98),
+                              size: 15,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: AppColors.lightGrey,
-                      size: 12,
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 12,
+                          color: AppColors.lightGrey,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            contract.dateRangeLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.grey,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -453,6 +895,78 @@ class _ContractCard extends StatelessWidget {
     );
   }
 }
+
+class _PremiumListMetric extends StatelessWidget {
+  const _PremiumListMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFB),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(.09),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: accent,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.lightGrey,
+                    fontSize: 7.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 9.3,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _Metric extends StatelessWidget {
   const _Metric({

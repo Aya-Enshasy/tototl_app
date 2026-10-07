@@ -34,7 +34,7 @@ class CompanyHomeScreen extends StatefulWidget {
 }
 
 class _CompanyHomeScreenState extends State<CompanyHomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const FlutterSecureStorage _cacheStorage = FlutterSecureStorage();
   static const String _dashboardCachePrefix = 'company_home_dashboard_v2_';
 
@@ -43,6 +43,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
   late final Phase3DashboardService _phase3Service;
   late final CompanyProfileSync _profileSync;
 
+  Timer? _liveRefreshTimer;
   bool _identityReloadQueued = false;
 
   Phase3AccountSummary _phase3Summary = const Phase3AccountSummary();
@@ -73,6 +74,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
     _profileSync = CompanyProfileSync.instance;
     UserSessionStorage.revision.addListener(_onSessionRevision);
+    WidgetsBinding.instance.addObserver(this);
 
     _phase3Service = Phase3DashboardService(
       ApiClient(),
@@ -88,6 +90,54 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     // for the newest version without blocking the user on every visit.
     unawaited(_bootstrap());
     unawaited(_loadPhase3());
+    _startLiveRefresh();
+  }
+
+  void _startLiveRefresh() {
+    _liveRefreshTimer?.cancel();
+    _liveRefreshTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) {
+        if (!_canAutoRefresh) return;
+        unawaited(_refreshLiveData());
+      },
+    );
+  }
+
+  bool get _canAutoRefresh {
+    if (!mounted) return false;
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return false;
+    }
+
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+
+    // CompanyShell may keep tabs alive. When the shell disables tickers for an
+    // inactive tab, do not poll from that hidden tab.
+    if (!TickerMode.of(context)) return false;
+
+    return true;
+  }
+
+  Future<void> _refreshLiveData() async {
+    if (!_canAutoRefresh) return;
+
+    await Future.wait<void>([
+      _refreshDashboardFromNetwork(),
+      _loadPhase3(),
+    ]);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+
+    scheduleMicrotask(() {
+      if (_canAutoRefresh) {
+        unawaited(_refreshLiveData());
+      }
+    });
   }
 
   Future<void> _loadPhase3() async {
@@ -353,6 +403,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
         builder: (_) => const PilotNotificationsScreen(),
       ),
     );
+
+    if (mounted) {
+      unawaited(_refreshLiveData());
+    }
   }
 
   Future<void> _openPostJob() async {
@@ -448,6 +502,8 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
   @override
   void dispose() {
+    _liveRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     UserSessionStorage.revision.removeListener(_onSessionRevision);
     _controller.dispose();
     _entrance.dispose();

@@ -7,13 +7,10 @@ import '../../../../core/localization/app_language.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../company/models/contract_submission_model.dart';
-import '../../../payments/models/payment_model.dart';
-import '../../../payments/screens/payment_history_screen.dart';
-import '../../../payments/services/payment_service.dart';
 import '../../controllers/pilot_contract_controller.dart';
-import '../../models/pilot_contract_model.dart';
+ import '../../models/pilot_contract_model.dart';
 import '../../models/pilot_contract_location_model.dart';
-import '../../services/pilot_contract_service.dart';
+ import '../../services/pilot_contract_service.dart';
 import 'pilot_submit_work_screen.dart';
 
 class PilotContractDetailScreen extends StatefulWidget {
@@ -32,8 +29,10 @@ class PilotContractDetailScreen extends StatefulWidget {
 }
 
 class _PilotContractDetailScreenState
-    extends State<PilotContractDetailScreen> {
+    extends State<PilotContractDetailScreen>
+    with WidgetsBindingObserver {
   late final PilotContractController _controller;
+  late final PilotContractController _locationWatcherController;
 
   PilotContractModel? _contract;
   PilotContractLocationModel? _location;
@@ -41,6 +40,13 @@ class _PilotContractDetailScreenState
   bool _loading = true;
   bool _refreshing = false;
   bool _changed = false;
+
+  Timer? _liveRefreshTimer;
+  Timer? _locationWatchTimer;
+
+  bool _liveSyncInFlight = false;
+  bool _locationWatchInFlight = false;
+
   String? _error;
 
   bool get _acting =>
@@ -57,10 +63,189 @@ class _PilotContractDetailScreenState
       PilotContractService(ApiClient()),
     );
 
+    // Dedicated controller for Exact Location polling. It is intentionally
+    // separate from the main contract controller so a contract/submission
+    // request can never block the location watcher.
+    _locationWatcherController = PilotContractController(
+      PilotContractService(ApiClient()),
+    );
+
     _contract = widget.initialContract;
     _loading = _contract == null;
 
-    unawaited(_load(initial: true));
+    WidgetsBinding.instance.addObserver(this);
+
+    unawaited(
+      _load(initial: true).whenComplete(() {
+        if (mounted) {
+          unawaited(_syncExactLocation(force: true));
+        }
+      }),
+    );
+
+    _startLiveRefresh();
+    _startLocationWatcher();
+  }
+
+  void _startLiveRefresh() {
+    _liveRefreshTimer?.cancel();
+
+    _liveRefreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_syncLiveWorkflow()),
+    );
+  }
+
+  void _startLocationWatcher() {
+    _locationWatchTimer?.cancel();
+
+    // Exact Location is time-sensitive for the Pilot because Start Work is
+    // blocked until it exists. Poll it independently and more frequently than
+    // the rest of the workflow.
+    _locationWatchTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_syncExactLocation()),
+    );
+  }
+
+  Future<void> _syncExactLocation({
+    bool force = false,
+  }) async {
+    if (!mounted || _locationWatchInFlight) return;
+
+    final contract = _contract;
+    if (contract == null) return;
+
+    if (!contract.canViewExactLocation) {
+      if (_location != null && mounted) {
+        setState(() => _location = null);
+      }
+      return;
+    }
+
+    // Once a location is present we do not need aggressive polling anymore.
+    // The normal workflow sync still refreshes it later if needed.
+    if (!force && _location != null) return;
+
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (!force && lifecycle != AppLifecycleState.resumed) return;
+
+    _locationWatchInFlight = true;
+
+    try {
+      final freshLocation =
+          await _locationWatcherController.loadLocation(contract.id);
+
+      if (!mounted || freshLocation == null) return;
+
+      setState(() {
+        _location = freshLocation;
+        _changed = true;
+      });
+
+      // The dependency is resolved. Stop the high-frequency watcher.
+      _locationWatchTimer?.cancel();
+      _locationWatchTimer = null;
+    } finally {
+      _locationWatchInFlight = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_syncLiveWorkflow(force: true));
+      unawaited(_syncExactLocation(force: true));
+
+      if (_location == null && _locationWatchTimer == null) {
+        _startLocationWatcher();
+      }
+    }
+  }
+
+  Future<void> _syncLiveWorkflow({
+    bool force = false,
+  }) async {
+    if (!mounted || _liveSyncInFlight) return;
+
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (!force && lifecycle != AppLifecycleState.resumed) return;
+
+    if (_acting || _refreshing || _loading) return;
+
+    _liveSyncInFlight = true;
+
+    try {
+      final previousStatus =
+          _contract?.normalizedStatus.trim().toLowerCase();
+
+      final freshContract =
+          await _controller.loadContract(widget.contractId);
+
+      if (!mounted || freshContract == null) return;
+
+      PilotContractLocationModel? freshLocation = _location;
+
+      if (freshContract.canViewExactLocation) {
+        final loadedLocation = await _controller.loadLocation(
+          freshContract.id,
+        );
+
+        // Never erase a confirmed location because one transient refresh
+        // returned null. If it is not loaded yet, the dedicated watcher keeps
+        // checking independently every two seconds.
+        if (loadedLocation != null) {
+          freshLocation = loadedLocation;
+        }
+      } else {
+        freshLocation = null;
+      }
+
+      List<ContractSubmissionModel> freshSubmissions = _submissions;
+      if (freshContract.isInProgress ||
+          freshContract.isSubmitted ||
+          freshContract.isCompleted) {
+        freshSubmissions = await _controller.loadSubmissions(
+          freshContract.id,
+        );
+      } else {
+        freshSubmissions = const <ContractSubmissionModel>[];
+      }
+
+      if (!mounted) return;
+
+      final nextStatus =
+          freshContract.normalizedStatus.trim().toLowerCase();
+
+      setState(() {
+        _contract = freshContract;
+        _location = freshLocation;
+        _submissions = List<ContractSubmissionModel>.unmodifiable(
+          freshSubmissions,
+        );
+
+        if (previousStatus != null && previousStatus != nextStatus) {
+          _changed = true;
+        }
+      });
+
+      if (freshContract.canViewExactLocation &&
+          _location == null &&
+          _locationWatchTimer == null) {
+        _startLocationWatcher();
+        unawaited(_syncExactLocation(force: true));
+      }
+    } finally {
+      _liveSyncInFlight = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _liveRefreshTimer?.cancel();
+    _locationWatchTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load({
@@ -83,8 +268,15 @@ class _PilotContractDetailScreenState
     final resolvedContract = loadedContract ?? _contract;
 
     PilotContractLocationModel? resolvedLocation = _location;
-    if (resolvedContract != null && resolvedContract.canViewExactLocation) {
-      resolvedLocation = await _controller.loadLocation(resolvedContract.id);
+
+    if (resolvedContract != null &&
+        resolvedContract.canViewExactLocation) {
+      final loadedLocation =
+          await _controller.loadLocation(resolvedContract.id);
+
+      if (loadedLocation != null) {
+        resolvedLocation = loadedLocation;
+      }
     } else {
       resolvedLocation = null;
     }
@@ -112,6 +304,15 @@ class _PilotContractDetailScreenState
       _loading = false;
       _refreshing = false;
     });
+
+    if (resolvedContract != null &&
+        resolvedContract.canViewExactLocation &&
+        _location == null) {
+      if (_locationWatchTimer == null) {
+        _startLocationWatcher();
+      }
+      unawaited(_syncExactLocation(force: true));
+    }
   }
 
   Future<void> _startWork() async {
@@ -211,6 +412,8 @@ class _PilotContractDetailScreenState
       'Work started. Contract is now In Progress.',
       success: true,
     );
+
+    unawaited(_syncLiveWorkflow(force: true));
   }
 
   Future<void> _openSubmitWork() async {
@@ -261,24 +464,7 @@ class _PilotContractDetailScreenState
     }
 
     _snack('Work submitted. Waiting for company review.', success: true);
-  }
-
-  Future<void> _openPaymentHistory() async {
-    final contract = _contract;
-    if (contract == null) return;
-
-    HapticFeedback.selectionClick();
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PaymentHistoryScreen(
-          audience: PaymentAudience.pilot,
-          contractId: contract.id,
-        ),
-      ),
-    );
-
-    if (!mounted) return;
-    await _load();
+    unawaited(_syncLiveWorkflow(force: true));
   }
 
   Future<void> _accept() async {
@@ -356,6 +542,7 @@ class _PilotContractDetailScreenState
       'Contract accepted. Waiting for company funding.',
       success: true,
     );
+    unawaited(_syncLiveWorkflow(force: true));
   }
 
   Future<void> _reject() async {
@@ -510,63 +697,70 @@ class _PilotContractDetailScreenState
   }
 
   Widget _topBar() {
+    final contract = _contract;
+    final status = contract?.statusLabel ?? 'Loading';
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 10, 6),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 7),
       child: Row(
         children: [
-          _CircleButton(
+          _PremiumRoundButton(
             icon: Icons.arrow_back_ios_new_rounded,
             onTap: _back,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLanguage.text('Contract Details'),
+                  AppLanguage.text('Mission Contract'),
                   style: const TextStyle(
                     color: AppColors.navy,
-                    fontSize: 16.5,
+                    fontSize: 17.2,
+                    height: 1,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
+                    letterSpacing: -0.45,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  AppLanguage.text('Review the agreement before you decide'),
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 9.8,
-                  ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF13B8A6),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '$status · Live workflow',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.grey,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          if (_refreshing)
-            const SizedBox(
-              width: 42,
-              height: 42,
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.blue,
-                  ),
-                ),
-              ),
-            )
-          else
-            _CircleButton(
-              icon: Icons.refresh_rounded,
-              onTap: _acting ? () {} : () => _load(),
-            ),
+          const SizedBox(width: 8),
+          _LiveSyncPill(
+            active: _liveSyncInFlight || _locationWatchInFlight,
+          ),
         ],
       ),
     );
   }
+
 
   Widget _content() {
     final contract = _contract!;
@@ -583,6 +777,11 @@ class _PilotContractDetailScreenState
         children: [
           _hero(contract, visual),
           const SizedBox(height: 12),
+          _PremiumWorkflowTracker(
+            contract: contract,
+            hasLocation: _location != null,
+          ),
+          const SizedBox(height: 12),
           _statusMessage(contract),
           const SizedBox(height: 12),
           _overview(contract),
@@ -597,14 +796,6 @@ class _PilotContractDetailScreenState
               contract.isCompleted) ...[
             const SizedBox(height: 12),
             _workSubmissionSection(contract),
-          ],
-          if (contract.isAccepted ||
-              contract.isActive ||
-              contract.isInProgress ||
-              contract.isSubmitted ||
-              contract.isCompleted) ...[
-            const SizedBox(height: 12),
-            _paymentSection(contract),
           ],
           const SizedBox(height: 12),
           _terms(contract),
@@ -626,102 +817,148 @@ class _PilotContractDetailScreenState
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(18, 17, 18, 17),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF071D39),
-            Color(0xFF0A4055),
-            Color(0xFF087E91),
+            Color(0xFF061728),
+            Color(0xFF07394C),
+            Color(0xFF087D88),
           ],
+          stops: [0.0, .58, 1.0],
         ),
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF087E91).withOpacity(0.16),
-            blurRadius: 26,
-            offset: const Offset(0, 11),
+            color: const Color(0xFF087E91).withOpacity(.17),
+            blurRadius: 28,
+            offset: const Offset(0, 13),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
+          Positioned(
+            right: -28,
+            top: -44,
+            child: Container(
+              width: 128,
+              height: 128,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(.07),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 20,
+            bottom: -46,
+            child: Container(
+              width: 95,
+              height: 95,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF4FE2D1).withOpacity(.055),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StatusBadge(
-                label: contract.statusLabel,
-                foreground: visual.foreground,
-                background: visual.background,
-              ),
-              const Spacer(),
-              Text(
-                '#${contract.id}',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.58),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Text(
-            contract.amountLabel,
-            style: const TextStyle(
-              color: AppColors.logoTurquoiseLight,
-              fontSize: 25,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            '${contract.paymentTypeLabel} contract',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.72),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  color: Colors.white70,
-                  size: 15,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    contract.dateRangeLabel,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10.7,
-                      fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.09),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(.10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          color: Colors.white.withOpacity(.82),
+                          size: 13,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'CONTRACT #${contract.id}',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.82),
+                            fontSize: 8.4,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .55,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  const Spacer(),
+                  _StatusBadge(
+                    label: contract.statusLabel,
+                    foreground: visual.foreground,
+                    background: visual.background,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Text(
+                contract.amountLabel,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 29,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -.8,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${contract.paymentTypeLabel} agreement',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(.64),
+                  fontSize: 10.7,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _HeroInfoChip(
+                      icon: Icons.calendar_month_outlined,
+                      label: 'Schedule',
+                      value: contract.dateRangeLabel,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: _HeroInfoChip(
+                      icon: Icons.assignment_outlined,
+                      label: 'Application',
+                      value: '#${contract.jobApplicationId}',
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
 
   Widget _statusMessage(PilotContractModel contract) {
     String title;
@@ -752,7 +989,7 @@ class _PilotContractDetailScreenState
             ? 'Waiting for exact job location'
             : 'Ready to start work';
         message = _location == null
-            ? 'Funding is confirmed, but the company has not saved the exact private location yet. Refresh after the company adds it.'
+            ? 'Funding is confirmed. This screen is checking automatically and will unlock Start Work as soon as the company location becomes available.'
             : 'The exact location is available. Review it below, then use Start Work when you are ready.';
         icon = _location == null
             ? Icons.location_off_outlined
@@ -1051,179 +1288,6 @@ class _PilotContractDetailScreenState
     );
   }
 
-  Widget _paymentSection(PilotContractModel contract) {
-    final payment = _latestPayment(contract);
-
-    return _section(
-      icon: Icons.account_balance_wallet_outlined,
-      title: 'Payment',
-      child: payment == null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.receipt_long_outlined,
-                        color: AppColors.grey,
-                        size: 18,
-                      ),
-                      SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          'No payment record was returned for this contract yet. Pull to refresh after funding or completion.',
-                          style: TextStyle(
-                            color: AppColors.text,
-                            fontSize: 10.7,
-                            height: 1.45,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _paymentHistoryButton(),
-              ],
-            )
-          : _pilotPaymentContent(payment),
-    );
-  }
-
-  Widget _pilotPaymentContent(PaymentModel payment) {
-    final visual = _paymentVisual(payment);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: visual.$2,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: visual.$1.withOpacity(0.12)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(visual.$3, color: visual.$1, size: 20),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      payment.statusLabel,
-                      style: TextStyle(
-                        color: visual.$1,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _pilotPaymentMessage(payment),
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: 10.6,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        _infoLine('Amount', payment.amountLabel),
-        if (payment.fundedAt != null)
-          _infoLine('Funded', _formatDateTime(payment.fundedAt)),
-        if (payment.eligibleReleaseAt != null)
-          _infoLine('Eligible release', _formatDateTime(payment.eligibleReleaseAt)),
-        if (payment.releasedAt != null)
-          _infoLine('Released', _formatDateTime(payment.releasedAt)),
-        if (payment.provider.isNotEmpty)
-          _infoLine('Provider', payment.provider),
-        if (payment.transactionReference.isNotEmpty)
-          _infoLine('Reference', payment.transactionReference),
-        if (payment.failureReason.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            payment.failureReason,
-            style: const TextStyle(
-              color: AppColors.red,
-              fontSize: 10.2,
-              height: 1.4,
-            ),
-          ),
-        ],
-        const SizedBox(height: 10),
-        _paymentHistoryButton(),
-      ],
-    );
-  }
-
-  Widget _paymentHistoryButton() {
-    return OutlinedButton.icon(
-      onPressed: _acting ? null : _openPaymentHistory,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 46),
-        foregroundColor: AppColors.navy,
-        side: const BorderSide(color: AppColors.cardBorder),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      icon: const Icon(Icons.receipt_long_outlined, size: 17),
-      label: const Text(
-        'View Payment History',
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-    );
-  }
-
-  PaymentModel? _latestPayment(PilotContractModel contract) {
-    for (final raw in contract.payments.reversed) {
-      if (raw is Map) {
-        return PaymentModel.fromJson(Map<String, dynamic>.from(raw));
-      }
-    }
-    return null;
-  }
-
-  String _pilotPaymentMessage(PaymentModel payment) {
-    if (payment.isReleasePending) {
-      return payment.eligibleReleaseAt == null
-          ? 'The company approved the completed work. Your payment is waiting for backend release eligibility.'
-          : 'The company approved the completed work. Payment becomes eligible for release at ${_formatDateTime(payment.eligibleReleaseAt)}.';
-    }
-    if (payment.isReleased) {
-      return 'Payment has been released. The backend has completed the payout stage for this contract.';
-    }
-    if (payment.isFunded || payment.isHeld) {
-      return 'The company funding is secured. Complete the mission and submit the work for review.';
-    }
-    if (payment.isFailed) {
-      return 'The payment record is marked as failed. Refresh or contact support if this persists.';
-    }
-    if (payment.isRefunded || payment.isPartiallyRefunded) {
-      return 'A refund is recorded for this contract payment.';
-    }
-    if (payment.isCancelled) {
-      return 'This payment was cancelled.';
-    }
-    return 'The payment record is pending.';
-  }
-
   Widget _terms(PilotContractModel contract) {
     return _section(
       icon: Icons.gavel_outlined,
@@ -1275,59 +1339,78 @@ class _PilotContractDetailScreenState
           : location == null
               ? Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(13),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.orangeBg.withOpacity(0.65),
-                    borderRadius: BorderRadius.circular(14),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFFFFF8EC),
+                        Color(0xFFFFFCF6),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.orange.withOpacity(0.10),
+                      color: AppColors.orange.withOpacity(.12),
                     ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.location_off_outlined,
-                        color: AppColors.orange,
-                        size: 19,
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withOpacity(.10),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.location_searching_rounded,
+                          color: AppColors.orange,
+                          size: 19,
+                        ),
                       ),
-                      const SizedBox(width: 9),
+                      const SizedBox(width: 11),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Waiting for company location',
+                              'Waiting for Exact Location',
                               style: TextStyle(
                                 color: AppColors.navy,
-                                fontSize: 11.5,
+                                fontSize: 11.8,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'The contract is active, but the exact location has not been saved yet. Start Work stays locked until it is available.',
+                              'No action is needed from you. This screen checks the protected location automatically and unlocks Start Work the moment it becomes available.',
                               style: TextStyle(
                                 color: AppColors.text,
-                                fontSize: 10.5,
+                                fontSize: 10.4,
                                 height: 1.45,
                               ),
                             ),
-                            if (_controller.locationErrorMessage != null) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                _controller.locationErrorMessage!,
-                                style: const TextStyle(
-                                  color: AppColors.red,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
                             const SizedBox(height: 9),
-                            OutlinedButton.icon(
-                              onPressed: _acting ? null : () => _load(),
-                              icon: const Icon(Icons.refresh_rounded, size: 16),
-                              label: const Text('Refresh Location'),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.7,
+                                    color: AppColors.orange.withOpacity(.82),
+                                  ),
+                                ),
+                                const SizedBox(width: 7),
+                                const Text(
+                                  'Live checking every 2 seconds',
+                                  style: TextStyle(
+                                    color: AppColors.orange,
+                                    fontSize: 9.2,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1824,6 +1907,341 @@ class _PilotContractDetailScreenState
   }
 }
 
+
+class _HeroInfoChip extends StatelessWidget {
+  const _HeroInfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.075),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withOpacity(.075),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 29,
+            height: 29,
+            decoration: BoxDecoration(
+              color: const Color(0xFF79E2D8).withOpacity(.11),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF83E7DF),
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.45),
+                    fontSize: 7.7,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.92),
+                    fontSize: 8.8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveSyncPill extends StatelessWidget {
+  const _LiveSyncPill({
+    required this.active,
+  });
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF8F6),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: const Color(0xFF11A99D).withOpacity(.10),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (active)
+            const SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Color(0xFF0B9A91),
+              ),
+            )
+          else
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: Color(0xFF13B8A6),
+                shape: BoxShape.circle,
+              ),
+            ),
+          const SizedBox(width: 6),
+          Text(
+            active ? 'Syncing' : 'Live',
+            style: const TextStyle(
+              color: Color(0xFF087F79),
+              fontSize: 8.8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PremiumRoundButton extends StatelessWidget {
+  const _PremiumRoundButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.cardBorder,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.navy.withOpacity(.035),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.navy,
+            size: 17,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumWorkflowTracker extends StatelessWidget {
+  const _PremiumWorkflowTracker({
+    required this.contract,
+    required this.hasLocation,
+  });
+
+  final PilotContractModel contract;
+  final bool hasLocation;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = <String>[
+      'Agreement',
+      'Fund',
+      'Location',
+      'Work',
+      'Review',
+      'Complete',
+    ];
+
+    final status = contract.normalizedStatus;
+
+    int current;
+    int completeThrough;
+
+    if (status == 'pending') {
+      current = 0;
+      completeThrough = -1;
+    } else if (status == 'accepted') {
+      current = 1;
+      completeThrough = 0;
+    } else if (status == 'active' && !hasLocation) {
+      current = 2;
+      completeThrough = 1;
+    } else if (status == 'active') {
+      current = 3;
+      completeThrough = 2;
+    } else if (status == 'in_progress') {
+      current = 3;
+      completeThrough = 2;
+    } else if (status == 'submitted') {
+      current = 4;
+      completeThrough = 3;
+    } else if (status == 'completed') {
+      current = 5;
+      completeThrough = 5;
+    } else {
+      current = 0;
+      completeThrough = -1;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(.022),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: List.generate(
+              labels.length * 2 - 1,
+              (index) {
+                if (index.isOdd) {
+                  final segment = index ~/ 2;
+                  final filled = segment < completeThrough;
+                  return Expanded(
+                    child: Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: filled
+                            ? const Color(0xFF0CA49B)
+                            : const Color(0xFFDCE5E9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                }
+
+                final step = index ~/ 2;
+                final complete = step <= completeThrough;
+                final active = step == current && !complete;
+
+                return Container(
+                  width: 23,
+                  height: 23,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: complete
+                        ? const Color(0xFF0CA49B)
+                        : active
+                            ? const Color(0xFFE8F8F6)
+                            : Colors.white,
+                    border: Border.all(
+                      color: complete || active
+                          ? const Color(0xFF0CA49B)
+                          : const Color(0xFFC9D5DA),
+                      width: active ? 2 : 1.2,
+                    ),
+                  ),
+                  child: complete
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 12,
+                          color: Colors.white,
+                        )
+                      : active
+                          ? const Center(
+                              child: SizedBox(
+                                width: 6,
+                                height: 6,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFF0CA49B),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: labels.asMap().entries.map((entry) {
+              final index = entry.key;
+              final emphasized =
+                  index <= completeThrough || index == current;
+
+              return Expanded(
+                child: Text(
+                  entry.value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: emphasized
+                        ? AppColors.navy
+                        : AppColors.lightGrey,
+                    fontSize: 7.7,
+                    fontWeight:
+                        emphasized ? FontWeight.w800 : FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
 class _Metric extends StatelessWidget {
   const _Metric({
     required this.label,
@@ -2083,22 +2501,6 @@ class _Skeleton extends StatelessWidget {
       ),
     );
   }
-}
-
-(Color, Color, IconData) _paymentVisual(PaymentModel payment) {
-  if (payment.isReleased) {
-    return (AppColors.green, AppColors.greenBg, Icons.check_circle_outline_rounded);
-  }
-  if (payment.isReleasePending) {
-    return (AppColors.orange, AppColors.orangeBg, Icons.schedule_send_outlined);
-  }
-  if (payment.isFailed || payment.isCancelled) {
-    return (AppColors.red, AppColors.redBg, Icons.error_outline_rounded);
-  }
-  if (payment.isRefunded || payment.isPartiallyRefunded) {
-    return (AppColors.orange, AppColors.orangeBg, Icons.undo_rounded);
-  }
-  return (AppColors.blue, AppColors.blueBg, Icons.account_balance_wallet_outlined);
 }
 
 _ContractVisual _statusVisual(String status) {

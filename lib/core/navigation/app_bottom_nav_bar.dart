@@ -294,26 +294,7 @@ class _BottomNavButton extends StatelessWidget {
                                 horizontal: 4,
                                 vertical: 2,
                               ),
-                              decoration: BoxDecoration(
-                                color: AppColors.red,
-                                borderRadius:
-                                BorderRadius.circular(
-                                  10,
-                                ),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.red
-                                        .withValues(
-                                      alpha: 0.22,
-                                    ),
-                                    blurRadius: 5,
-                                  ),
-                                ],
-                              ),
+
                               child: Text(
                                 item.badge! > 99
                                     ? '99+'
