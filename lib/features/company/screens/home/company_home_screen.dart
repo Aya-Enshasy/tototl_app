@@ -174,7 +174,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CompanyContractsScreen()),
     );
-    if (mounted) unawaited(_loadPhase3());
+    if (mounted) {
+      unawaited(_loadPhase3());
+      unawaited(_refreshDashboardFromNetwork());
+    }
   }
 
   Future<void> _openPhase3Payments() async {
@@ -190,6 +193,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
 
     if (mounted) {
       unawaited(_loadPhase3());
+      unawaited(_refreshDashboardFromNetwork());
     }
   }
 
@@ -197,7 +201,10 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SubscriptionCenterScreen()),
     );
-    if (mounted) unawaited(_loadPhase3());
+    if (mounted) {
+      unawaited(_loadPhase3());
+      unawaited(_refreshDashboardFromNetwork());
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -597,13 +604,23 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               const SizedBox(height: 14),
               _entry(
                 index: 5,
+                child: _CompanyPhase4OperationsCard(
+                  dashboard: dashboard,
+                  onContractsTap: _openPhase3Contracts,
+                  onPaymentsTap: _openPhase3Payments,
+                  onSubscriptionTap: _openSubscriptionCenter,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _entry(
+                index: 6,
                 child: _CompanyPaymentsShortcut(
                   onTap: _openPhase3Payments,
                 ),
               ),
               const SizedBox(height: 18),
               _entry(
-                index: 6,
+                index: 7,
                 child: _CompactSectionHeader(
                   title: 'Active mission',
                   actionText: 'View all',
@@ -614,7 +631,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               ),
               const SizedBox(height: 10),
               _entry(
-                index: 7,
+                index: 8,
                 child: _ActiveMissionPreview(
                   dashboard: dashboard,
                   onTap: dashboard.recentApplicants.isEmpty
@@ -624,7 +641,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               ),
               const SizedBox(height: 18),
               _entry(
-                index: 8,
+                index: 9,
                 child: _CompactSectionHeader(
                   title: 'Recent applicants',
                   actionText: dashboard.recentApplicants.isEmpty
@@ -637,7 +654,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
               ),
               const SizedBox(height: 8),
               _entry(
-                index: 9,
+                index: 10,
                 child: dashboard.recentApplicants.isEmpty
                     ? const _ReferenceEmptyApplicants()
                     : _ReferenceApplicantsCard(
@@ -663,6 +680,298 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
   }
 }
 
+
+
+class _CompanyPhase4OperationsCard extends StatelessWidget {
+  const _CompanyPhase4OperationsCard({
+    required this.dashboard,
+    required this.onContractsTap,
+    required this.onPaymentsTap,
+    required this.onSubscriptionTap,
+  });
+
+  final _CompanyDashboardUiSnapshot dashboard;
+  final VoidCallback onContractsTap;
+  final VoidCallback onPaymentsTap;
+  final VoidCallback onSubscriptionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final planLabel = dashboard.subscriptionPlanId > 0
+        ? 'Plan #${dashboard.subscriptionPlanId}'
+        : 'Free tier';
+
+    final statusLabel = dashboard.subscriptionStatus.trim().isEmpty
+        ? 'Default access'
+        : _titleCase(dashboard.subscriptionStatus);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: _HomePalette.line),
+        boxShadow: [
+          BoxShadow(
+            color: _HomePalette.navy.withOpacity(.025),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _HomePalette.paleBlue,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.insights_outlined,
+                  color: _HomePalette.tealDark,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 9),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Operations overview',
+                      style: TextStyle(
+                        color: _HomePalette.navy,
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Live workflow, review and subscription status',
+                      style: TextStyle(
+                        color: _HomePalette.muted,
+                        fontSize: 8.9,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              Expanded(
+                child: _CompanyPhase4Metric(
+                  value: '${dashboard.applicationsCount}',
+                  label: 'Applications',
+                  icon: Icons.description_outlined,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _CompanyPhase4Metric(
+                  value: '${dashboard.contractsAwaitingPilotActionCount}',
+                  label: 'Pilot action',
+                  icon: Icons.assignment_turned_in_outlined,
+                  onTap: onContractsTap,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _CompanyPhase4Metric(
+                  value: '${dashboard.submissionsAwaitingReviewCount}',
+                  label: 'Review work',
+                  icon: Icons.rate_review_outlined,
+                  onTap: onContractsTap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Funding queue ${dashboard.contractsAwaitingFundingCount}'
+            '  ·  Compliance records ${dashboard.complianceRecordsCount}',
+            style: const TextStyle(
+              color: _HomePalette.muted,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Material(
+            color: const Color(0xFFF8FBFC),
+            borderRadius: BorderRadius.circular(13),
+            child: InkWell(
+              onTap: onPaymentsTap,
+              borderRadius: BorderRadius.circular(13),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 9,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: _HomePalette.tealDark,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Funded ${_dashboardMoney(dashboard.fundedTotal)}'
+                        '  ·  Released ${_dashboardMoney(dashboard.releasedTotal)}'
+                        '  ·  Pending ${_dashboardMoney(dashboard.pendingReleaseTotal)}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _HomePalette.navy,
+                          fontSize: 9.2,
+                          height: 1.35,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: _HomePalette.muted,
+                      size: 17,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Material(
+            color: _HomePalette.paleMint,
+            borderRadius: BorderRadius.circular(13),
+            child: InkWell(
+              onTap: onSubscriptionTap,
+              borderRadius: BorderRadius.circular(13),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 9,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.workspace_premium_outlined,
+                      color: _HomePalette.mint,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$planLabel  ·  $statusLabel',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _HomePalette.navy,
+                          fontSize: 9.4,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      'Manage',
+                      style: TextStyle(
+                        color: _HomePalette.tealDark,
+                        fontSize: 8.7,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompanyPhase4Metric extends StatelessWidget {
+  const _CompanyPhase4Metric({
+    required this.value,
+    required this.label,
+    required this.icon,
+    this.onTap,
+  });
+
+  final String value;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _HomePalette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: _HomePalette.tealDark, size: 14),
+          const SizedBox(height: 7),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _HomePalette.navy,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _HomePalette.muted,
+              fontSize: 7.9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return child;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: child,
+      ),
+    );
+  }
+}
+
+String _dashboardMoney(double value) {
+  if (value == value.roundToDouble()) {
+    return '\$${value.toInt()}';
+  }
+  return '\$${value.toStringAsFixed(2)}';
+}
 
 class _CompanyPaymentsShortcut extends StatelessWidget {
   const _CompanyPaymentsShortcut({
@@ -2100,6 +2409,16 @@ class _CompanyDashboardUiSnapshot {
     required this.closedJobs,
     required this.cancelledJobs,
     required this.incomingApplicationsCount,
+    required this.applicationsCount,
+    required this.contractsAwaitingPilotActionCount,
+    required this.submissionsAwaitingReviewCount,
+    required this.contractsAwaitingFundingCount,
+    required this.complianceRecordsCount,
+    required this.fundedTotal,
+    required this.releasedTotal,
+    required this.pendingReleaseTotal,
+    required this.subscriptionPlanId,
+    required this.subscriptionStatus,
     required this.recentApplicants,
   });
 
@@ -2108,20 +2427,46 @@ class _CompanyDashboardUiSnapshot {
   final int closedJobs;
   final int cancelledJobs;
   final int incomingApplicationsCount;
+  final int applicationsCount;
+  final int contractsAwaitingPilotActionCount;
+  final int submissionsAwaitingReviewCount;
+  final int contractsAwaitingFundingCount;
+  final int complianceRecordsCount;
+  final double fundedTotal;
+  final double releasedTotal;
+  final double pendingReleaseTotal;
+  final int subscriptionPlanId;
+  final String subscriptionStatus;
   final List<_CompanyDashboardApplicantSnapshot> recentApplicants;
 
   int get totalJobs =>
       draftJobs + publishedJobs + closedJobs + cancelledJobs;
 
   factory _CompanyDashboardUiSnapshot.fromDashboard(
-      CompanyDashboardModel dashboard,
-      ) {
+    CompanyDashboardModel dashboard,
+  ) {
     return _CompanyDashboardUiSnapshot(
       draftJobs: dashboard.jobsByStatus.draft,
       publishedJobs: dashboard.jobsByStatus.published,
       closedJobs: dashboard.jobsByStatus.closed,
       cancelledJobs: dashboard.jobsByStatus.cancelled,
       incomingApplicationsCount: dashboard.incomingApplicationsCount,
+      applicationsCount: dashboard.applicationsCount,
+      contractsAwaitingPilotActionCount:
+          dashboard.contractsAwaitingPilotActionCount,
+      submissionsAwaitingReviewCount:
+          dashboard.submissionsAwaitingReviewCount,
+      contractsAwaitingFundingCount:
+          dashboard.contractsAwaitingFunding.length,
+      complianceRecordsCount:
+          dashboard.complianceRecords.length,
+      fundedTotal: dashboard.paymentSummary.fundedTotal,
+      releasedTotal: dashboard.paymentSummary.releasedTotal,
+      pendingReleaseTotal: dashboard.paymentSummary.pendingReleaseTotal,
+      subscriptionPlanId:
+          dashboard.currentSubscription?.subscriptionPlanId ?? 0,
+      subscriptionStatus:
+          dashboard.currentSubscription?.status ?? '',
       recentApplicants: dashboard.recentApplicants
           .map(_CompanyDashboardApplicantSnapshot.fromDashboardApplicant)
           .toList(growable: false),
@@ -2129,8 +2474,8 @@ class _CompanyDashboardUiSnapshot {
   }
 
   factory _CompanyDashboardUiSnapshot.fromJson(
-      Map<String, dynamic> json,
-      ) {
+    Map<String, dynamic> json,
+  ) {
     final rawApplicants = json['recent_applicants'];
     final applicants = <_CompanyDashboardApplicantSnapshot>[];
 
@@ -2152,7 +2497,23 @@ class _CompanyDashboardUiSnapshot {
       closedJobs: _asInt(json['closed_jobs']),
       cancelledJobs: _asInt(json['cancelled_jobs']),
       incomingApplicationsCount:
-      _asInt(json['incoming_applications_count']),
+          _asInt(json['incoming_applications_count']),
+      applicationsCount: _asInt(json['applications_count']),
+      contractsAwaitingPilotActionCount:
+          _asInt(json['contracts_awaiting_pilot_action_count']),
+      submissionsAwaitingReviewCount:
+          _asInt(json['submissions_awaiting_review_count']),
+      contractsAwaitingFundingCount:
+          _asInt(json['contracts_awaiting_funding_count']),
+      complianceRecordsCount:
+          _asInt(json['compliance_records_count']),
+      fundedTotal: _asDashboardDouble(json['funded_total']),
+      releasedTotal: _asDashboardDouble(json['released_total']),
+      pendingReleaseTotal:
+          _asDashboardDouble(json['pending_release_total']),
+      subscriptionPlanId: _asInt(json['subscription_plan_id']),
+      subscriptionStatus:
+          json['subscription_status']?.toString().trim() ?? '',
       recentApplicants: applicants,
     );
   }
@@ -2164,8 +2525,22 @@ class _CompanyDashboardUiSnapshot {
       'closed_jobs': closedJobs,
       'cancelled_jobs': cancelledJobs,
       'incoming_applications_count': incomingApplicationsCount,
+      'applications_count': applicationsCount,
+      'contracts_awaiting_pilot_action_count':
+          contractsAwaitingPilotActionCount,
+      'submissions_awaiting_review_count':
+          submissionsAwaitingReviewCount,
+      'contracts_awaiting_funding_count':
+          contractsAwaitingFundingCount,
+      'compliance_records_count':
+          complianceRecordsCount,
+      'funded_total': fundedTotal,
+      'released_total': releasedTotal,
+      'pending_release_total': pendingReleaseTotal,
+      'subscription_plan_id': subscriptionPlanId,
+      'subscription_status': subscriptionStatus,
       'recent_applicants':
-      recentApplicants.map((item) => item.toJson()).toList(),
+          recentApplicants.map((item) => item.toJson()).toList(),
     };
   }
 }
@@ -2266,6 +2641,11 @@ int _asInt(dynamic value) {
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
+double _asDashboardDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
 bool _asBool(dynamic value) {
   if (value is bool) return value;
   if (value is num) return value != 0;
@@ -2316,3 +2696,4 @@ String _titleCase(String value) {
   if (clean.isEmpty) return 'Pending';
   return '${clean[0].toUpperCase()}${clean.substring(1).toLowerCase()}';
 }
+

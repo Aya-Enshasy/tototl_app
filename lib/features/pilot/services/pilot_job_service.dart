@@ -48,7 +48,7 @@ class PilotJobService {
       print('PILOT JOBS PARSED COUNT: ${result.jobs.length}');
       print(
         'PILOT JOBS META: page=${result.currentPage}, '
-        'last=${result.lastPage}, total=${result.total}',
+            'last=${result.lastPage}, total=${result.total}',
       );
       print('================ PILOT JOBS SUCCESS ================');
 
@@ -67,6 +67,8 @@ class PilotJobService {
           e,
           fallback: 'Unable to load available jobs.',
         ),
+        code: _errorCodeFromDio(e),
+        statusCode: e.response?.statusCode,
       );
     } catch (e, stack) {
       print('================ PILOT JOBS GENERAL ERROR ================');
@@ -110,9 +112,9 @@ class PilotJobService {
 
       print(
         'PILOT JOB DETAIL PARSED: '
-        'id=${job.id}, title=${job.title}, '
-        'company=${job.company?.displayName}, '
-        'hasApplied=${job.application?.hasApplied}',
+            'id=${job.id}, title=${job.title}, '
+            'company=${job.company?.displayName}, '
+            'hasApplied=${job.application?.hasApplied}',
       );
       print('================ PILOT JOB DETAIL SUCCESS ================');
 
@@ -131,6 +133,8 @@ class PilotJobService {
           e,
           fallback: 'Unable to load job details.',
         ),
+        code: _errorCodeFromDio(e),
+        statusCode: e.response?.statusCode,
       );
     } catch (e, stack) {
       print('================ PILOT JOB DETAIL GENERAL ERROR ================');
@@ -204,7 +208,7 @@ class PilotJobService {
           jobs.add(job);
           print(
             'PILOT JOB PARSED: '
-            'id=${job.id}, title=${job.title}, status=${job.status}',
+                'id=${job.id}, title=${job.title}, status=${job.status}',
           );
         }
       } catch (e, stack) {
@@ -236,7 +240,18 @@ class PilotJobService {
     add('state', filters.state);
     add('city', filters.city);
     add('region', filters.region);
-    add('category', filters.category);
+
+    final categories = filters.effectiveCategories;
+
+    if (categories.length == 1) {
+      add('category', categories.first);
+    } else {
+      for (final category in categories) {
+        add('category[]', category);
+      }
+    }
+
+    add('payment_type', filters.paymentType);
 
     if (filters.dateFrom != null) {
       final value = filters.dateFrom!;
@@ -275,9 +290,9 @@ class PilotJobService {
     final query = params
         .map(
           (entry) =>
-              '${Uri.encodeQueryComponent(entry.key)}='
-              '${Uri.encodeQueryComponent(entry.value)}',
-        )
+      '${Uri.encodeQueryComponent(entry.key)}='
+          '${Uri.encodeQueryComponent(entry.value)}',
+    )
         .join('&');
 
     return query.isEmpty ? _jobsPath : '$_jobsPath?$query';
@@ -311,32 +326,97 @@ class PilotJobService {
   }
 
   void _ensureSuccess(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
     if (body['success'] == true) return;
 
     throw PilotJobException(
       _messageFromBody(body, fallback: fallback),
+      code: _errorCodeFromBody(body),
     );
   }
 
-  String _messageFromBody(
-    Map<String, dynamic> body, {
-    required String fallback,
-  }) {
+  String? _errorCodeFromBody(
+      Map<String, dynamic> body,
+      ) {
+    final direct = _normalizeErrorCode(
+      body['error_code'] ?? body['code'],
+    );
+
+    if (direct != null) return direct;
+
     final errors = body['errors'];
 
     if (errors is Map) {
-      for (final value in errors.values) {
+      final map = Map<String, dynamic>.from(errors);
+
+      return _normalizeErrorCode(
+        map['error_code'] ?? map['code'],
+      );
+    }
+
+    return null;
+  }
+
+  String? _errorCodeFromDio(DioException error) {
+    final raw = error.response?.data;
+
+    if (raw is! Map) return null;
+
+    return _errorCodeFromBody(
+      Map<String, dynamic>.from(raw),
+    );
+  }
+
+  String? _normalizeErrorCode(dynamic raw) {
+    if (raw is List) {
+      if (raw.isEmpty) return null;
+      return _normalizeErrorCode(raw.first);
+    }
+
+    final value = raw?.toString().trim();
+
+    if (value == null ||
+        value.isEmpty ||
+        value.toLowerCase() == 'null') {
+      return null;
+    }
+
+    return value;
+  }
+
+  String _messageFromBody(
+      Map<String, dynamic> body, {
+        required String fallback,
+      }) {
+    final errors = body['errors'];
+
+    if (errors is Map) {
+      for (final entry in errors.entries) {
+        final key = entry.key.toString().trim().toLowerCase();
+
+        if (key == 'error_code' || key == 'code') {
+          continue;
+        }
+
+        final value = entry.value;
+
         if (value is List && value.isNotEmpty) {
           final text = value.first.toString().trim();
           if (text.isNotEmpty) return text;
         }
 
         final text = value?.toString().trim() ?? '';
-        if (text.isNotEmpty) return text;
+        if (text.isNotEmpty && text.toLowerCase() != 'null') {
+          return text;
+        }
       }
+    }
+
+    if (errors is List && errors.isNotEmpty) {
+      final text = errors.first.toString().trim();
+      if (text.isNotEmpty) return text;
     }
 
     final message = body['message']?.toString().trim() ?? '';
@@ -344,9 +424,19 @@ class PilotJobService {
   }
 
   String _dioErrorMessage(
-    DioException error, {
-    required String fallback,
-  }) {
+      DioException error, {
+        required String fallback,
+      }) {
+    if (error.response?.statusCode == 429) {
+      final retryAfter = _retryAfterSeconds(error);
+
+      if (retryAfter != null) {
+        return 'Too many requests. Please try again in $retryAfter seconds.';
+      }
+
+      return 'Too many requests. Please try again shortly.';
+    }
+
     final raw = error.response?.data;
 
     if (raw is Map) {
@@ -356,32 +446,74 @@ class PilotJobService {
       );
     }
 
-    if (error.type == DioExceptionType.connectionTimeout) {
-      return 'Connection timed out. Please try again.';
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Connection timed out. Please try again.';
+
+      case DioExceptionType.receiveTimeout:
+        return 'Server response timed out. Please try again.';
+
+      case DioExceptionType.sendTimeout:
+        return 'Request timed out while sending. Please try again.';
+
+      case DioExceptionType.connectionError:
+        return 'No internet connection.';
+
+      case DioExceptionType.badCertificate:
+        return 'Unable to establish a secure connection.';
+
+      case DioExceptionType.cancel:
+        return 'Request was cancelled.';
+
+      case DioExceptionType.badResponse:
+      case DioExceptionType.unknown:
+      case DioExceptionType.transformTimeout:
+        return fallback;
+    }
+  }
+
+  int? _retryAfterSeconds(DioException error) {
+    final value = error.response?.headers.value('retry-after');
+
+    if (value == null || value.trim().isEmpty) {
+      return null;
     }
 
-    if (error.type == DioExceptionType.receiveTimeout) {
-      return 'Server response timed out. Please try again.';
-    }
-
-    if (error.type == DioExceptionType.connectionError) {
-      return 'No internet connection.';
-    }
-
-    return fallback;
+    return int.tryParse(value.trim());
   }
 
   int? _asInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
+    if (value is num) return value.toInt();
     return int.tryParse(value.toString());
   }
 }
 
 class PilotJobException implements Exception {
   final String message;
+  final String? code;
+  final int? statusCode;
 
-  const PilotJobException(this.message);
+  const PilotJobException(
+      this.message, {
+        this.code,
+        this.statusCode,
+      });
+
+  bool get isSubscriptionLimitReached =>
+      code == 'SUBSCRIPTION_LIMIT_REACHED';
+
+  bool get isFeatureUnavailable =>
+      code == 'SUBSCRIPTION_FEATURE_UNAVAILABLE';
+
+  bool get isAccountNotVerified =>
+      code == 'ACCOUNT_NOT_VERIFIED';
+
+  bool get isInvalidStatusTransition =>
+      code == 'INVALID_STATUS_TRANSITION';
+
+  bool get isRateLimited => statusCode == 429;
 
   @override
   String toString() => message;

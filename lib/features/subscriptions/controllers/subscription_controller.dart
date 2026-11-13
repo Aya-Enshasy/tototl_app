@@ -7,6 +7,7 @@ class SubscriptionController {
 
   bool isLoading = false;
   bool isActing = false;
+  bool currentLoaded = false;
   String? errorMessage;
   String? actionErrorMessage;
 
@@ -16,21 +17,22 @@ class SubscriptionController {
   List<SubscriptionPaymentModel> payments = const [];
 
   Future<bool> loadAll() async {
-    if (isLoading) return true;
+    if (isLoading) return plans.isNotEmpty && currentLoaded;
     isLoading = true;
+    // A failed refresh must never leave an old authorization state marked as fresh.
+    currentLoaded = false;
     errorMessage = null;
     try {
-      final result = await Future.wait<dynamic>([
-        service.getPlans(),
-        service.getCurrent(),
-        service.getHistory(),
-        service.getPayments(),
-      ]);
-      plans = List.unmodifiable(result[0] as List<SubscriptionPlanModel>);
-      current = result[1] as UserSubscriptionModel?;
-      history = List.unmodifiable(result[2] as List<UserSubscriptionModel>);
-      payments = List.unmodifiable(result[3] as List<SubscriptionPaymentModel>);
-      return true;
+      // Plans and current status are essential; history/payments are not.
+      plans = List.unmodifiable(await service.getPlans());
+      try {
+        current = await service.getCurrent();
+        currentLoaded = true;
+      } catch (e) {
+        errorMessage = 'Could not verify current subscription: $e';
+      }
+      await Future.wait<void>([_loadHistorySafe(), _loadPaymentsSafe()]);
+      return plans.isNotEmpty && currentLoaded;
     } catch (e) {
       errorMessage = e.toString();
       return false;
@@ -40,19 +42,35 @@ class SubscriptionController {
   }
 
   Future<bool> choosePlan(SubscriptionPlanModel plan) async {
-    if (isActing) return false;
+    if (isActing || !currentLoaded) return false;
     isActing = true;
     actionErrorMessage = null;
     try {
+      if (!plan.isActive || !plans.any((available) => available.id == plan.id)) {
+        throw const SubscriptionException('This plan is no longer available. Please refresh.');
+      }
       final active = current;
+      if (active != null && active.isActive && active.subscriptionPlanId == plan.id) {
+        return true;
+      }
+      // The backend does not yet expose Stripe checkout/verification.
+      // Never create a paid subscription through the simulated gateway.
+      if (!plan.isFree) {
+        throw const SubscriptionException(
+          'Secure Stripe checkout is not available yet. No payment was made.',
+        );
+      }
       if (active != null && active.isActive) {
-        if (active.subscriptionPlanId == plan.id) return true;
         current = await service.changePlan(subscriptionId: active.id, planId: plan.id);
       } else {
         current = await service.subscribe(plan.id);
       }
-      await _reloadHistory();
-      return true;
+      await refreshAfterAction();
+      if (currentLoaded && current?.isActive == true && current?.subscriptionPlanId == plan.id) {
+        return true;
+      }
+      actionErrorMessage = 'Subscription submitted, but activation is not confirmed. Refresh to check its status.';
+      return false;
     } catch (e) {
       actionErrorMessage = e.toString();
       return false;
@@ -68,8 +86,10 @@ class SubscriptionController {
     actionErrorMessage = null;
     try {
       current = await service.cancel(active.id);
-      await _reloadHistory();
-      return true;
+      await refreshAfterAction();
+      if (currentLoaded && current?.isActive != true) return true;
+      actionErrorMessage ??= 'Cancellation has not been confirmed yet. Please refresh your subscription.';
+      return false;
     } catch (e) {
       actionErrorMessage = e.toString();
       return false;
@@ -78,13 +98,31 @@ class SubscriptionController {
     }
   }
 
-  Future<void> _reloadHistory() async {
-    final result = await Future.wait<dynamic>([
-      service.getHistory(),
-      service.getPayments(),
-    ]);
-    history = List.unmodifiable(result[0] as List<UserSubscriptionModel>);
-    payments = List.unmodifiable(result[1] as List<SubscriptionPaymentModel>);
+  Future<void> refreshAfterAction() async {
+    currentLoaded = false;
+    try {
+      current = await service.getCurrent();
+      currentLoaded = true;
+    } catch (e) {
+      actionErrorMessage = 'Could not confirm the latest subscription state: $e';
+    }
+    await Future.wait<void>([_loadHistorySafe(), _loadPaymentsSafe()]);
+  }
+
+  Future<void> _loadHistorySafe() async {
+    try {
+      history = List.unmodifiable(await service.getHistory());
+    } catch (_) {
+      // History must not hide available plans or prevent free activation.
+    }
+  }
+
+  Future<void> _loadPaymentsSafe() async {
+    try {
+      payments = List.unmodifiable(await service.getPayments());
+    } catch (_) {
+      // Payment history can be retried separately.
+    }
   }
 
   SubscriptionPlanModel? planById(int id) {

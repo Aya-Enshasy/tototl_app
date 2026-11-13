@@ -41,13 +41,9 @@ class CompanyJobDetailScreen extends StatefulWidget {
 
 class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_job_detail_v5_';
+  static const String _cachePrefix = 'company_job_detail_v4_';
 
-  late final CompanyJobService _jobService;
   late final CompanyJobController _controller;
-
-  final Map<int, List<CompanyApplicantDroneModel>>
-  _pilotDronesCache = <int, List<CompanyApplicantDroneModel>>{};
 
   _JobDetailSnapshot? _job;
   List<_ApplicantSnapshot> _applicants = const [];
@@ -73,9 +69,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
   void initState() {
     super.initState();
 
-    final apiClient = ApiClient();
-    _jobService = CompanyJobService(apiClient);
-    _controller = CompanyJobController(_jobService);
+    _controller = CompanyJobController(CompanyJobService(ApiClient()));
 
     debugPrint(
       'COMPANY JOB DETAIL INIT -> '
@@ -213,7 +207,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     if (key == null || job == null) return;
 
     final payload = <String, dynamic>{
-      'version': 5,
+      'version': 4,
       'saved_at': DateTime.now().toIso8601String(),
       'job': job.toJson(),
       'applicants': _applicants.map((item) => item.toJson()).toList(),
@@ -281,213 +275,6 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     }
   }
 
-
-  int _applicationRank(CompanyJobApplicationModel value) {
-    switch (value.status.trim().toLowerCase()) {
-      case 'pending':
-        return 0;
-      case 'accepted':
-        return 1;
-      case 'rejected':
-        return 2;
-      case 'withdrawn':
-        return 3;
-      default:
-        return 4;
-    }
-  }
-
-  List<CompanyJobApplicationModel> _sortedApplicationModels(
-      List<CompanyJobApplicationModel> values,
-      ) {
-    final result =
-    List<CompanyJobApplicationModel>.from(values);
-
-    result.sort((a, b) {
-      final status =
-      _applicationRank(a).compareTo(
-        _applicationRank(b),
-      );
-
-      if (status != 0) return status;
-
-      final aDate =
-          a.createdAt ??
-              DateTime.fromMillisecondsSinceEpoch(0);
-
-      final bDate =
-          b.createdAt ??
-              DateTime.fromMillisecondsSinceEpoch(0);
-
-      return bDate.compareTo(aDate);
-    });
-
-    return result;
-  }
-
-  Future<CompanyJobApplicationModel> _withFullDroneImage(
-      CompanyJobApplicationModel application, {
-        bool precache = false,
-      }) async {
-    final currentDrone = application.drone;
-
-    if (currentDrone?.imageUrl.trim().isNotEmpty == true) {
-      if (precache && mounted) {
-        try {
-          await precacheImage(
-            NetworkImage(
-              currentDrone!.imageUrl.trim(),
-            ),
-            context,
-          );
-        } catch (_) {}
-      }
-
-      return application;
-    }
-
-    if (application.pilotProfileId <= 0 ||
-        application.droneId <= 0) {
-      return application;
-    }
-
-    try {
-      var drones =
-      _pilotDronesCache[application.pilotProfileId];
-
-      if (drones == null) {
-        drones = await _jobService.getCompanyPilotDrones(
-          application.pilotProfileId,
-        );
-
-        _pilotDronesCache[
-        application.pilotProfileId
-        ] = drones;
-      }
-
-      CompanyApplicantDroneModel? committedDrone;
-
-      for (final drone in drones) {
-        if (drone.id == application.droneId) {
-          committedDrone = drone;
-          break;
-        }
-      }
-
-      if (committedDrone == null) {
-        return application;
-      }
-
-      final imageUrl =
-      committedDrone.imageUrl.trim();
-
-      debugPrint(
-        'JOB DETAILS DRONE IMAGE -> '
-            'application=${application.id}, '
-            'drone=${application.droneId}, '
-            'url=${imageUrl.isEmpty ? 'EMPTY' : imageUrl}',
-      );
-
-      if (precache &&
-          imageUrl.isNotEmpty &&
-          mounted) {
-        try {
-          await precacheImage(
-            NetworkImage(imageUrl),
-            context,
-          );
-        } catch (_) {}
-      }
-
-      return application.copyWith(
-        drone: committedDrone,
-      );
-    } catch (e) {
-      debugPrint(
-        'JOB DETAILS DRONE IMAGE LOAD FAILED -> '
-            'application=${application.id}, error=$e',
-      );
-
-      return application;
-    }
-  }
-
-  Future<List<CompanyJobApplicationModel>>
-  _enrichVisibleApplicantDrones(
-      List<CompanyJobApplicationModel> applications,
-      ) async {
-    if (applications.isEmpty) {
-      return applications;
-    }
-
-    final sorted =
-    _sortedApplicationModels(applications);
-
-    final priorityIds = sorted
-        .take(2)
-        .map((item) => item.id)
-        .toSet();
-
-    final enriched =
-    <CompanyJobApplicationModel>[];
-
-    for (final application in applications) {
-      if (priorityIds.contains(application.id)) {
-        enriched.add(
-          await _withFullDroneImage(
-            application,
-            precache: true,
-          ),
-        );
-      } else {
-        enriched.add(application);
-      }
-    }
-
-    return enriched;
-  }
-
-  Future<void> _enrichRemainingApplicantDrones(
-      List<CompanyJobApplicationModel> applications,
-      ) async {
-    if (!mounted || applications.isEmpty) return;
-
-    var changed = false;
-    final enriched =
-    <CompanyJobApplicationModel>[];
-
-    for (final application in applications) {
-      final before =
-          application.drone?.imageUrl.trim() ?? '';
-
-      final resolved =
-      await _withFullDroneImage(application);
-
-      final after =
-          resolved.drone?.imageUrl.trim() ?? '';
-
-      if (before != after && after.isNotEmpty) {
-        changed = true;
-      }
-
-      enriched.add(resolved);
-    }
-
-    if (!mounted || !changed) return;
-
-    _controller.applicants = enriched;
-
-    final fresh = enriched
-        .map(_ApplicantSnapshot.fromModel)
-        .toList(growable: false);
-
-    setState(() {
-      _applicants = fresh;
-    });
-
-    unawaited(_saveCache());
-  }
-
   Future<void> _refreshApplicantsFromNetwork() async {
     if (_applicantsRefreshing) return;
     _applicantsRefreshing = true;
@@ -545,20 +332,6 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
         }
       }
 
-      // The job-applicants endpoint can contain the committed drone without
-      // its media relation. Before painting the two visible application cards,
-      // resolve those committed drones from /company/pilots/{pilot}/drones.
-      // That endpoint carries the public drone media/original_url.
-      applications =
-      await _enrichVisibleApplicantDrones(
-        applications,
-      );
-
-      if (!mounted) return;
-
-      // _openApplicant() should receive the same enriched application object.
-      _controller.applicants = applications;
-
       final fresh = applications
           .map(_ApplicantSnapshot.fromModel)
           .toList(growable: false);
@@ -569,15 +342,6 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
       });
 
       unawaited(_saveCache());
-
-      // Only the first two are visible in Job Details. Finish the rest after
-      // first paint so "View all" also gets real drone images without slowing
-      // down the main Job Details screen.
-      unawaited(
-        _enrichRemainingApplicantDrones(
-          applications,
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -641,6 +405,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
 
   Future<void> _edit() async {
     if (_actionLoading || !await _ensureLiveJob()) return;
+    if (!mounted) return;
 
     final job = _controller.selectedJob;
     if (job == null || job.status.toLowerCase() != 'draft') return;
@@ -770,6 +535,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
 
   Future<void> _cancelJob() async {
     if (_actionLoading || !await _ensureLiveJob()) return;
+    if (!mounted) return;
 
     final job = _controller.selectedJob;
     if (job == null || job.status.toLowerCase() != 'published') return;
@@ -1052,6 +818,10 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 _referenceJobHeader(job),
                 const SizedBox(height: 14),
                 _referenceRequirements(job),
+                if (job.hasPhase4Details) ...[
+                  const SizedBox(height: 10),
+                  _referencePhase4Details(job),
+                ],
                 const SizedBox(height: 10),
                 _referenceDescription(job),
                 const SizedBox(height: 10),
@@ -1485,6 +1255,136 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referencePhase4Details(_JobDetailSnapshot job) {
+    final estimatedDays = job.estimatedDays == null
+        ? 'Not specified'
+        : '${_compactDecimal(job.estimatedDays!)} '
+            '${job.estimatedDays == 1 ? 'day' : 'days'}';
+
+    final coordinates = job.latitude != null && job.longitude != null
+        ? '${job.latitude!.toStringAsFixed(7)}, '
+            '${job.longitude!.toStringAsFixed(7)}'
+        : 'Not specified';
+
+    return _ReferenceSectionCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ReferenceSectionHeader(
+            icon: Icons.assignment_outlined,
+            title: 'Delivery & access',
+            action: _isDraft(job) ? 'Edit' : null,
+            onActionTap: _isDraft(job) ? () => _referenceEdit(job) : null,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ReferenceRequirementStat(
+                  icon: Icons.event_available_outlined,
+                  label: 'Proposal deadline',
+                  value: job.proposalDeadline == null
+                      ? 'Not specified'
+                      : _formatDate(job.proposalDeadline),
+                  valueMaxLines: 2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReferenceRequirementStat(
+                  icon: Icons.timelapse_rounded,
+                  label: 'Estimated days',
+                  value: estimatedDays,
+                  valueMaxLines: 2,
+                ),
+              ),
+            ],
+          ),
+          if (job.latitude != null && job.longitude != null) ...[
+            const SizedBox(height: 10),
+            _ReferenceImportantInfoRow(
+              icon: Icons.my_location_rounded,
+              label: 'Coordinates',
+              value: coordinates,
+            ),
+          ],
+          if (job.deliverables.isNotEmpty) ...[
+            const SizedBox(height: 13),
+            const Text(
+              'Deliverables',
+              style: TextStyle(
+                color: _ReferenceJobPalette.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 7),
+            ...job.deliverables.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: _ReferenceJobPalette.mintSoft,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: _ReferenceJobPalette.greenDark,
+                        size: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          item,
+                          style: const TextStyle(
+                            color: _ReferenceJobPalette.text,
+                            fontSize: 10.7,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (job.clearanceNotes.trim().isNotEmpty) ...[
+            const SizedBox(height: 7),
+            const Text(
+              'Clearance / access notes',
+              style: TextStyle(
+                color: _ReferenceJobPalette.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              job.clearanceNotes.trim(),
+              style: const TextStyle(
+                color: _ReferenceJobPalette.text,
+                fontSize: 10.8,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -3038,7 +2938,18 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
     return '${_formatDate(local)} · $hour:$minute';
   }
 
-  String _fileSize(int bytes) {
+  String _compactDecimal(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+
+  return value
+      .toStringAsFixed(2)
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
+}
+
+String _fileSize(int bytes) {
     if (bytes <= 0) return 'Size unavailable';
     if (bytes < 1024) return '$bytes B';
     final kb = bytes / 1024;
@@ -3088,6 +2999,12 @@ class _JobDetailSnapshot {
     required this.region,
     required this.startDate,
     required this.endDate,
+    required this.latitude,
+    required this.longitude,
+    required this.proposalDeadline,
+    required this.estimatedDays,
+    required this.deliverables,
+    required this.clearanceNotes,
     required this.paymentType,
     required this.paymentMin,
     required this.paymentMax,
@@ -3116,6 +3033,12 @@ class _JobDetailSnapshot {
   final String region;
   final DateTime? startDate;
   final DateTime? endDate;
+  final double? latitude;
+  final double? longitude;
+  final DateTime? proposalDeadline;
+  final double? estimatedDays;
+  final List<String> deliverables;
+  final String clearanceNotes;
   final String paymentType;
   final double? paymentMin;
   final double? paymentMax;
@@ -3132,6 +3055,14 @@ class _JobDetailSnapshot {
   final _CompanySnapshot? company;
   final String imageUrl;
 
+  bool get hasPhase4Details =>
+      latitude != null ||
+      longitude != null ||
+      proposalDeadline != null ||
+      estimatedDays != null ||
+      deliverables.isNotEmpty ||
+      clearanceNotes.trim().isNotEmpty;
+
   factory _JobDetailSnapshot.fromModel(CompanyJobPostingModel job) {
     return _JobDetailSnapshot(
       id: job.id,
@@ -3145,6 +3076,12 @@ class _JobDetailSnapshot {
       region: job.region,
       startDate: job.startDate,
       endDate: job.endDate,
+      latitude: job.latitude,
+      longitude: job.longitude,
+      proposalDeadline: job.proposalDeadline,
+      estimatedDays: job.estimatedDays,
+      deliverables: List<String>.from(job.deliverables),
+      clearanceNotes: job.clearanceNotes,
       paymentType: job.paymentType,
       paymentMin: job.paymentMin,
       paymentMax: job.paymentMax,
@@ -3203,6 +3140,12 @@ class _JobDetailSnapshot {
       region: _asString(json['region']),
       startDate: _asDate(json['start_date']),
       endDate: _asDate(json['end_date']),
+      latitude: _asDouble(json['latitude']),
+      longitude: _asDouble(json['longitude']),
+      proposalDeadline: _asDate(json['proposal_deadline']),
+      estimatedDays: _asDouble(json['estimated_days']),
+      deliverables: _stringList(json['deliverables']),
+      clearanceNotes: _asString(json['clearance_notes']),
       paymentType: _asString(json['payment_type']),
       paymentMin: _asDouble(json['payment_min']),
       paymentMax: _asDouble(json['payment_max']),
@@ -3234,6 +3177,12 @@ class _JobDetailSnapshot {
       'region': region,
       'start_date': startDate?.toIso8601String(),
       'end_date': endDate?.toIso8601String(),
+      'latitude': latitude,
+      'longitude': longitude,
+      'proposal_deadline': proposalDeadline?.toIso8601String(),
+      'estimated_days': estimatedDays,
+      'deliverables': deliverables,
+      'clearance_notes': clearanceNotes,
       'payment_type': paymentType,
       'payment_min': paymentMin,
       'payment_max': paymentMax,
@@ -4031,7 +3980,9 @@ class _ReferenceApplicantRow extends StatelessWidget {
                   ),
                 ],
               ),
-              if (application.droneId > 0) ...[
+              if (droneName.isNotEmpty ||
+                  application.droneImage.trim().isNotEmpty ||
+                  droneCapabilities.isNotEmpty) ...[
                 const SizedBox(height: 9),
                 Container(
                   padding: const EdgeInsets.all(7),
@@ -4057,7 +4008,7 @@ class _ReferenceApplicantRow extends StatelessWidget {
                           children: [
                             Text(
                               droneName.isEmpty
-                                  ? 'Selected drone'
+                                  ? 'Drone details'
                                   : droneName,
                               maxLines: 1,
                               overflow:
@@ -4183,28 +4134,7 @@ class _DronePhoto extends StatelessWidget {
         cleanUrl,
         fit: BoxFit.cover,
         alignment: Alignment.center,
-        filterQuality: FilterQuality.high,
-        gaplessPlayback: true,
-        loadingBuilder: (
-            context,
-            child,
-            progress,
-            ) {
-          if (progress == null) {
-            return child;
-          }
-
-          return const Center(
-            child: SizedBox(
-              width: 15,
-              height: 15,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.8,
-                color: _ReferenceJobPalette.teal,
-              ),
-            ),
-          );
-        },
+        filterQuality: FilterQuality.medium,
         errorBuilder: (_, __, ___) =>
             fallback(),
       ),

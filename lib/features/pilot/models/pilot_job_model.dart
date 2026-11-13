@@ -9,6 +9,18 @@ class PilotJobModel {
   final String region;
   final DateTime? startDate;
   final DateTime? endDate;
+
+  // Phase 4 Job API fields.
+  final double? latitude;
+  final double? longitude;
+  final DateTime? proposalDeadline;
+  final double? estimatedDays;
+  final List<String> deliverables;
+  final String clearanceNotes;
+
+  /// Returned by GET /jobs list items.
+  final int applicationsCount;
+
   final String paymentType;
   final double? paymentMin;
   final double? paymentMax;
@@ -46,6 +58,13 @@ class PilotJobModel {
     this.region = '',
     this.startDate,
     this.endDate,
+    this.latitude,
+    this.longitude,
+    this.proposalDeadline,
+    this.estimatedDays,
+    this.deliverables = const [],
+    this.clearanceNotes = '',
+    this.applicationsCount = 0,
     this.paymentType = '',
     this.paymentMin,
     this.paymentMax,
@@ -70,47 +89,132 @@ class PilotJobModel {
   });
 
   factory PilotJobModel.fromJson(Map<String, dynamic> json) {
-    final rawCompany = json['company_profile'] ?? json['company'];
-    final rawApplication = json['application'];
+    final rawCompany =
+        json['company_profile'] ?? json['company'];
+
+    final rawApplication =
+    json['application'];
 
     return PilotJobModel(
       id: _asInt(json['id']) ?? 0,
-      companyProfileId: _asInt(json['company_profile_id']),
-      title: _asString(json['title']),
-      description: _asString(json['description']),
-      country: _asString(json['country']),
-      state: _asString(json['state']),
-      city: _asString(json['city']),
-      region: _asString(json['region']),
-      startDate: _asDate(json['start_date']),
-      endDate: _asDate(json['end_date']),
-      paymentType: _asString(json['payment_type']),
-      paymentMin: _asDouble(json['payment_min']),
-      paymentMax: _asDouble(json['payment_max']),
-      requiredCapabilities: _asStringList(json['required_capabilities']),
-      requirementsNotes: _asString(json['requirements_notes']),
-      status: _asString(json['status']),
-      publishedAt: _asDate(json['published_at']),
-      closedAt: _asDate(json['closed_at']),
-      cancelledAt: _asDate(json['cancelled_at']),
-      createdAt: _asDate(json['created_at']),
-      updatedAt: _asDate(json['updated_at']),
-      serviceCategory: _asString(json['service_category']),
-      requiredExperience: _asString(json['required_experience']),
-      requiredCertifications: _asStringList(json['required_certifications']),
-      droneSize: _asString(json['drone_size']),
-      trainingSafetyRequired: _asBool(json['training_safety_required']),
-      ndaRequired: _asBool(json['nda_required']),
-      cancellationReason: _asString(json['cancellation_reason']),
-      attachments: _asAttachments(json['attachments']),
+      companyProfileId:
+      _asInt(json['company_profile_id']),
+      title:
+      _asString(json['title']),
+      description:
+      _asString(json['description']),
+      country:
+      _asString(json['country']),
+      state:
+      _asString(json['state']),
+      city:
+      _asString(json['city']),
+      region:
+      _asString(json['region']),
+      startDate:
+      _asDate(json['start_date']),
+      endDate:
+      _asDate(json['end_date']),
+
+      latitude:
+      _asDouble(json['latitude']),
+      longitude:
+      _asDouble(json['longitude']),
+      proposalDeadline:
+      _asDate(json['proposal_deadline']),
+      estimatedDays:
+      _asDouble(json['estimated_days']),
+      deliverables:
+      _asStringList(json['deliverables']),
+      clearanceNotes:
+      _asString(json['clearance_notes']),
+      applicationsCount:
+      _asInt(json['applications_count']) ?? 0,
+
+      paymentType:
+      _asString(json['payment_type']),
+      paymentMin:
+      _asDouble(json['payment_min']),
+      paymentMax:
+      _asDouble(json['payment_max']),
+
+      requiredCapabilities:
+      _asStringList(
+        json['required_capabilities'],
+      ),
+
+      requirementsNotes:
+      _asString(
+        json['requirements_notes'],
+      ),
+
+      status:
+      _asString(json['status']),
+
+      publishedAt:
+      _asDate(json['published_at']),
+      closedAt:
+      _asDate(json['closed_at']),
+      cancelledAt:
+      _asDate(json['cancelled_at']),
+      createdAt:
+      _asDate(json['created_at']),
+      updatedAt:
+      _asDate(json['updated_at']),
+
+      serviceCategory:
+      _asString(
+        json['service_category'],
+      ),
+
+      requiredExperience:
+      _asString(
+        json['required_experience'],
+      ),
+
+      requiredCertifications:
+      _asStringList(
+        json['required_certifications'],
+      ),
+
+      droneSize:
+      _asString(json['drone_size']),
+
+      trainingSafetyRequired:
+      _asBool(
+        json['training_safety_required'],
+      ),
+
+      ndaRequired:
+      _asBool(
+        json['nda_required'],
+      ),
+
+      cancellationReason:
+      _asString(
+        json['cancellation_reason'],
+      ),
+
+      attachments:
+      _asAttachments(
+        json['attachments'],
+      ),
+
       company: rawCompany is Map
           ? PilotJobCompanySummary.fromJson(
-        Map<String, dynamic>.from(rawCompany),
+        Map<String, dynamic>.from(
+          rawCompany,
+        ),
       )
           : null,
-      application: rawApplication is Map
-          ? PilotJobApplicationSummary.fromJson(
-        Map<String, dynamic>.from(rawApplication),
+
+      application:
+      rawApplication is Map
+          ? PilotJobApplicationSummary
+          .fromJson(
+        Map<String, dynamic>.from(
+          rawApplication,
+        ),
       )
           : null,
     );
@@ -123,51 +227,82 @@ class PilotJobModel {
       if (country.isNotEmpty) country,
     ];
 
-    if (parts.isEmpty && region.isNotEmpty) return region;
-    return parts.isEmpty ? 'Location not specified' : parts.join(', ');
+    if (parts.isEmpty &&
+        region.isNotEmpty) {
+      return region;
+    }
+
+    return parts.isEmpty
+        ? 'Location not specified'
+        : parts.join(', ');
   }
 
   String get detailedLocationLabel {
-    final cleanRegion = region.trim();
-    final cleanCity = city.trim();
-    final cleanState = state.trim();
-    final cleanCountry = country.trim();
+    final cleanRegion =
+    region.trim();
+    final cleanCity =
+    city.trim();
+    final cleanState =
+    state.trim();
+    final cleanCountry =
+    country.trim();
 
-    final regionDuplicatesCity = cleanRegion.isNotEmpty &&
-        cleanCity.isNotEmpty &&
-        cleanRegion.toLowerCase() == cleanCity.toLowerCase();
-    final regionDuplicatesState = cleanRegion.isNotEmpty &&
-        cleanState.isNotEmpty &&
-        cleanRegion.toLowerCase() == cleanState.toLowerCase();
+    final regionDuplicatesCity =
+        cleanRegion.isNotEmpty &&
+            cleanCity.isNotEmpty &&
+            cleanRegion.toLowerCase() ==
+                cleanCity.toLowerCase();
+
+    final regionDuplicatesState =
+        cleanRegion.isNotEmpty &&
+            cleanState.isNotEmpty &&
+            cleanRegion.toLowerCase() ==
+                cleanState.toLowerCase();
 
     final parts = <String>[
       if (cleanRegion.isNotEmpty &&
           !regionDuplicatesCity &&
           !regionDuplicatesState)
         cleanRegion,
-      if (cleanCity.isNotEmpty) cleanCity,
-      if (cleanState.isNotEmpty) cleanState,
-      if (cleanCountry.isNotEmpty) cleanCountry,
+      if (cleanCity.isNotEmpty)
+        cleanCity,
+      if (cleanState.isNotEmpty)
+        cleanState,
+      if (cleanCountry.isNotEmpty)
+        cleanCountry,
     ];
 
-    return parts.isEmpty ? 'Location not specified' : parts.join(', ');
+    return parts.isEmpty
+        ? 'Location not specified'
+        : parts.join(', ');
   }
 
   String get categoryLabel =>
-      _pretty(serviceCategory, fallback: 'Drone Service');
+      _pretty(
+        serviceCategory,
+        fallback: 'Drone Service',
+      );
 
   String get paymentTypeLabel =>
-      _pretty(paymentType, fallback: 'Payment');
+      _pretty(
+        paymentType,
+        fallback: 'Payment',
+      );
 
   String get payLabel {
-    if (paymentType.toLowerCase() == 'negotiable') {
+    if (paymentType
+        .toLowerCase() ==
+        'negotiable') {
       return 'Negotiable';
     }
 
-    final min = _money(paymentMin);
-    final max = _money(paymentMax);
+    final min =
+    _money(paymentMin);
+    final max =
+    _money(paymentMax);
 
-    if (paymentMin == null && paymentMax == null) {
+    if (paymentMin == null &&
+        paymentMax == null) {
       return paymentTypeLabel;
     }
 
@@ -179,50 +314,134 @@ class PilotJobModel {
   }
 
   String get dateLabel {
-    if (startDate == null && endDate == null) {
+    if (startDate == null &&
+        endDate == null) {
       return 'Date not specified';
     }
 
     if (startDate != null &&
-        (endDate == null || _sameDay(startDate!, endDate!))) {
-      return _friendlyDate(startDate!);
+        (endDate == null ||
+            _sameDay(
+              startDate!,
+              endDate!,
+            ))) {
+      return _friendlyDate(
+        startDate!,
+      );
     }
 
-    if (startDate == null) return _friendlyDate(endDate!);
+    if (startDate == null) {
+      return _friendlyDate(
+        endDate!,
+      );
+    }
 
     return '${_friendlyDate(startDate!)} – ${_friendlyDate(endDate!)}';
   }
 
   String get publishedLabel {
-    if (publishedAt == null) return '';
+    if (publishedAt == null) {
+      return '';
+    }
+
     return 'Posted ${_friendlyDate(publishedAt!)}';
   }
 
-  List<String> get requirementLines {
-    final values = <String>[];
+  bool get hasCoordinates =>
+      latitude != null &&
+          longitude != null;
 
-    if (requiredExperience.isNotEmpty) {
-      values.add('Experience: $requiredExperience');
+  String get proposalDeadlineLabel {
+    if (proposalDeadline == null) {
+      return '';
+    }
+
+    return _friendlyDate(
+      proposalDeadline!,
+    );
+  }
+
+  String get estimatedDaysLabel {
+    final value =
+        estimatedDays;
+
+    if (value == null) {
+      return '';
+    }
+
+    final text =
+    value ==
+        value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value
+        .toStringAsFixed(2)
+        .replaceFirst(
+      RegExp(r'0+$'),
+      '',
+    )
+        .replaceFirst(
+      RegExp(r'\.$'),
+      '',
+    );
+
+    return '$text ${value == 1 ? 'day' : 'days'}';
+  }
+
+  List<String>
+  get requirementLines {
+    final values =
+    <String>[];
+
+    if (requiredExperience
+        .isNotEmpty) {
+      values.add(
+        'Experience: $requiredExperience',
+      );
     }
 
     if (droneSize.isNotEmpty) {
-      values.add('Drone size: ${_pretty(droneSize)}');
+      values.add(
+        'Drone size: ${_pretty(droneSize)}',
+      );
     }
 
-    if (requiredCertifications.isNotEmpty) {
-      values.add('Certifications: ${requiredCertifications.join(', ')}');
+    if (requiredCertifications
+        .isNotEmpty) {
+      values.add(
+        'Certifications: ${requiredCertifications.join(', ')}',
+      );
     }
 
     if (trainingSafetyRequired) {
-      values.add('Safety training required');
+      values.add(
+        'Safety training required',
+      );
     }
 
     if (ndaRequired) {
-      values.add('NDA required');
+      values.add(
+        'NDA required',
+      );
     }
 
-    if (requirementsNotes.isNotEmpty) {
-      values.add(requirementsNotes);
+    if (requirementsNotes
+        .isNotEmpty) {
+      values.add(
+        requirementsNotes,
+      );
+    }
+
+    if (deliverables.isNotEmpty) {
+      values.add(
+        'Deliverables: ${deliverables.join(', ')}',
+      );
+    }
+
+    if (clearanceNotes
+        .isNotEmpty) {
+      values.add(
+        'Clearance: $clearanceNotes',
+      );
     }
 
     return values;
@@ -246,7 +465,9 @@ class PilotJobCompanySummary {
   final String website;
   final String profilePhoto;
   final bool verified;
-  final List<PilotCompanyWorkRegion> workRegions;
+
+  final List<PilotCompanyWorkRegion>
+  workRegions;
 
   const PilotJobCompanySummary({
     required this.id,
@@ -264,49 +485,125 @@ class PilotJobCompanySummary {
     this.workRegions = const [],
   });
 
-  factory PilotJobCompanySummary.fromJson(Map<String, dynamic> json) {
-    final companyName = _asString(json['company_name']);
-    final summaryName = _asString(json['name']);
+  factory PilotJobCompanySummary.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    final companyName =
+    _asString(
+      json['company_name'],
+    );
+
+    final summaryName =
+    _asString(
+      json['name'],
+    );
 
     return PilotJobCompanySummary(
-      id: _asInt(json['id']) ?? 0,
-      userId: _asInt(json['user_id']),
-      // GET /jobs returns `name`, while GET /jobs/{id} returns `company_name`.
-      // Supporting both keeps list and detail responses compatible.
-      name: companyName.isNotEmpty ? companyName : summaryName,
-      industryType: _asString(json['industry_type']),
-      description: _asString(json['description']),
-      country: _asString(json['country']),
-      state: _asString(json['state']),
-      city: _asString(json['city']),
-      address: _asString(json['address']),
-      website: _asString(json['website']),
-      profilePhoto: _asString(json['profile_photo']),
-      verified: _asBool(json['verified']),
-      workRegions: _asCompanyWorkRegions(json['work_regions']),
+      id:
+      _asInt(json['id']) ?? 0,
+      userId:
+      _asInt(json['user_id']),
+
+      // GET /jobs can return `name`
+      // while GET /jobs/{id} can return `company_name`.
+      name: companyName.isNotEmpty
+          ? companyName
+          : summaryName,
+
+      industryType:
+      _asString(
+        json['industry_type'],
+      ),
+
+      description:
+      _asString(
+        json['description'],
+      ),
+
+      country:
+      _asString(
+        json['country'],
+      ),
+
+      state:
+      _asString(
+        json['state'],
+      ),
+
+      city:
+      _asString(
+        json['city'],
+      ),
+
+      address:
+      _asString(
+        json['address'],
+      ),
+
+      website:
+      _asString(
+        json['website'],
+      ),
+
+      profilePhoto:
+      _asString(
+        json['profile_photo'],
+      ),
+
+      verified:
+      _asBool(
+        json['verified'],
+      ),
+
+      workRegions:
+      _asCompanyWorkRegions(
+        json['work_regions'],
+      ),
     );
   }
 
-  String get displayName => name.isEmpty ? 'Company #$id' : name;
+  String get displayName =>
+      name.isEmpty
+          ? 'Company #$id'
+          : name;
 
-  bool get hasProfilePhoto => profilePhoto.trim().isNotEmpty;
+  bool get hasProfilePhoto =>
+      profilePhoto
+          .trim()
+          .isNotEmpty;
 
   String get locationLabel {
-    final parts = <String>[];
-    final seen = <String>{};
+    final parts =
+    <String>[];
 
-    void add(String value) {
-      final clean = value.trim();
-      if (clean.isEmpty) return;
-      final key = clean.toLowerCase();
-      if (seen.add(key)) parts.add(clean);
+    final seen =
+    <String>{};
+
+    void add(
+        String value,
+        ) {
+      final clean =
+      value.trim();
+
+      if (clean.isEmpty) {
+        return;
+      }
+
+      final key =
+      clean.toLowerCase();
+
+      if (seen.add(key)) {
+        parts.add(clean);
+      }
     }
 
     add(city);
     add(state);
     add(country);
 
-    return parts.isEmpty ? 'Location not specified' : parts.join(', ');
+    return parts.isEmpty
+        ? 'Location not specified'
+        : parts.join(', ');
   }
 }
 
@@ -325,32 +622,63 @@ class PilotCompanyWorkRegion {
     this.city = '',
   });
 
-  factory PilotCompanyWorkRegion.fromJson(Map<String, dynamic> json) {
+  factory PilotCompanyWorkRegion.fromJson(
+      Map<String, dynamic> json,
+      ) {
     return PilotCompanyWorkRegion(
-      id: _asInt(json['id']),
-      companyProfileId: _asInt(json['company_profile_id']),
-      country: _asString(json['country']),
-      state: _asString(json['state']),
-      city: _asString(json['city']),
+      id:
+      _asInt(json['id']),
+      companyProfileId:
+      _asInt(
+        json['company_profile_id'],
+      ),
+      country:
+      _asString(
+        json['country'],
+      ),
+      state:
+      _asString(
+        json['state'],
+      ),
+      city:
+      _asString(
+        json['city'],
+      ),
     );
   }
 
   String get locationLabel {
-    final parts = <String>[];
-    final seen = <String>{};
+    final parts =
+    <String>[];
 
-    void add(String value) {
-      final clean = value.trim();
-      if (clean.isEmpty) return;
-      final key = clean.toLowerCase();
-      if (seen.add(key)) parts.add(clean);
+    final seen =
+    <String>{};
+
+    void add(
+        String value,
+        ) {
+      final clean =
+      value.trim();
+
+      if (clean.isEmpty) {
+        return;
+      }
+
+      final key =
+      clean.toLowerCase();
+
+      if (seen.add(key)) {
+        parts.add(clean);
+      }
     }
 
     add(city);
     add(state);
     add(country);
 
-    return parts.isEmpty ? 'Region not specified' : parts.join(', ');
+    return parts.isEmpty
+        ? 'Region not specified'
+        : parts.join(', ');
   }
 }
 
@@ -365,16 +693,31 @@ class PilotJobApplicationSummary {
     this.status = '',
   });
 
-  factory PilotJobApplicationSummary.fromJson(Map<String, dynamic> json) {
+  factory PilotJobApplicationSummary.fromJson(
+      Map<String, dynamic> json,
+      ) {
     return PilotJobApplicationSummary(
-      hasApplied: _asBool(json['has_applied']),
-      id: _asInt(json['id']),
-      status: _asString(json['status']),
+      hasApplied:
+      _asBool(
+        json['has_applied'],
+      ),
+      id:
+      _asInt(json['id']),
+      status:
+      _asString(
+        json['status'],
+      ),
     );
   }
 
   String get statusLabel =>
-      _pretty(status, fallback: hasApplied ? 'Submitted' : '');
+      _pretty(
+        status,
+        fallback:
+        hasApplied
+            ? 'Submitted'
+            : '',
+      );
 }
 
 class PilotJobAttachmentModel {
@@ -390,16 +733,36 @@ class PilotJobAttachmentModel {
     this.url = '',
   });
 
-  factory PilotJobAttachmentModel.fromJson(Map<String, dynamic> json) {
+  factory PilotJobAttachmentModel.fromJson(
+      Map<String, dynamic> json,
+      ) {
     return PilotJobAttachmentModel(
-      type: _asString(json['type']),
-      name: _asString(json['name']),
-      size: _asInt(json['size']) ?? 0,
-      url: _asString(json['url']),
+      type:
+      _asString(
+        json['type'],
+      ),
+      name:
+      _asString(
+        json['name'],
+      ),
+      size:
+      _asInt(
+        json['size'],
+      ) ??
+          0,
+      url:
+      _asString(
+        json['url'],
+      ),
     );
   }
 
-  bool get isImage => type.toLowerCase().startsWith('image/');
+  bool get isImage =>
+      type
+          .toLowerCase()
+          .startsWith(
+        'image/',
+      );
 }
 
 class PilotJobsPage {
@@ -417,72 +780,167 @@ class PilotJobsPage {
     this.lastPage = 1,
   });
 
-  bool get hasNextPage => currentPage < lastPage;
+  bool get hasNextPage =>
+      currentPage <
+          lastPage;
 }
 
-String _asString(dynamic value) =>
-    value == null ? '' : value.toString().trim();
+String _asString(
+    dynamic value,
+    ) =>
+    value == null
+        ? ''
+        : value
+        .toString()
+        .trim();
 
-int? _asInt(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  return int.tryParse(value.toString());
+int? _asInt(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return int.tryParse(
+    value.toString(),
+  );
 }
 
-double? _asDouble(dynamic value) {
-  if (value == null) return null;
-  if (value is num) return value.toDouble();
-  return double.tryParse(value.toString());
+double? _asDouble(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  return double.tryParse(
+    value.toString(),
+  );
 }
 
-DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  final text = value.toString().trim();
-  return text.isEmpty ? null : DateTime.tryParse(text);
+DateTime? _asDate(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  final text =
+  value
+      .toString()
+      .trim();
+
+  return text.isEmpty
+      ? null
+      : DateTime.tryParse(
+    text,
+  );
 }
 
-bool _asBool(dynamic value) {
-  if (value is bool) return value;
-  final text = value?.toString().trim().toLowerCase();
-  return text == 'true' || text == '1';
+bool _asBool(
+    dynamic value,
+    ) {
+  if (value is bool) {
+    return value;
+  }
+
+  final text =
+  value
+      ?.toString()
+      .trim()
+      .toLowerCase();
+
+  return text == 'true' ||
+      text == '1';
 }
 
-List<String> _asStringList(dynamic value) {
-  if (value is! List) return const [];
+List<String> _asStringList(
+    dynamic value,
+    ) {
+  if (value is! List) {
+    return const [];
+  }
 
   return value
-      .map((item) => item?.toString().trim() ?? '')
-      .where((item) => item.isNotEmpty)
-      .toList();
+      .map(
+        (item) =>
+    item
+        ?.toString()
+        .trim() ??
+        '',
+  )
+      .where(
+        (item) =>
+    item.isNotEmpty,
+  )
+      .toList(
+    growable: false,
+  );
 }
 
-List<PilotCompanyWorkRegion> _asCompanyWorkRegions(dynamic value) {
-  if (value is! List) return const [];
+List<PilotCompanyWorkRegion>
+_asCompanyWorkRegions(
+    dynamic value,
+    ) {
+  if (value is! List) {
+    return const [];
+  }
 
   return value
       .whereType<Map>()
       .map(
-        (item) => PilotCompanyWorkRegion.fromJson(
-      Map<String, dynamic>.from(item),
-    ),
+        (item) =>
+        PilotCompanyWorkRegion
+            .fromJson(
+          Map<String, dynamic>.from(
+            item,
+          ),
+        ),
   )
-      .toList();
+      .toList(
+    growable: false,
+  );
 }
 
-List<PilotJobAttachmentModel> _asAttachments(dynamic value) {
+List<PilotJobAttachmentModel>
+_asAttachments(
+    dynamic value,
+    ) {
   if (value is List) {
     return value
         .whereType<Map>()
         .map(
-          (item) => PilotJobAttachmentModel.fromJson(
-        Map<String, dynamic>.from(item),
-      ),
+          (item) =>
+          PilotJobAttachmentModel
+              .fromJson(
+            Map<String, dynamic>.from(
+              item,
+            ),
+          ),
     )
-        .toList();
+        .toList(
+      growable: false,
+    );
   }
 
-  final text = _asString(value);
-  if (text.isEmpty) return const [];
+  final text =
+  _asString(value);
+
+  if (text.isEmpty) {
+    return const [];
+  }
 
   return [
     PilotJobAttachmentModel(
@@ -492,13 +950,27 @@ List<PilotJobAttachmentModel> _asAttachments(dynamic value) {
   ];
 }
 
-String _pretty(String value, {String fallback = ''}) {
-  final clean = value.trim();
-  if (clean.isEmpty) return fallback;
+String _pretty(
+    String value, {
+      String fallback = '',
+    }) {
+  final clean =
+  value.trim();
+
+  if (clean.isEmpty) {
+    return fallback;
+  }
 
   return clean
-      .split(RegExp(r'[_\s-]+'))
-      .where((part) => part.isNotEmpty)
+      .split(
+    RegExp(
+      r'[_\s-]+',
+    ),
+  )
+      .where(
+        (part) =>
+    part.isNotEmpty,
+  )
       .map(
         (part) =>
     '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
@@ -506,16 +978,36 @@ String _pretty(String value, {String fallback = ''}) {
       .join(' ');
 }
 
-String _money(double? value) {
-  if (value == null) return '';
-  if (value == value.roundToDouble()) return value.toStringAsFixed(0);
-  return value.toStringAsFixed(2);
+String _money(
+    double? value,
+    ) {
+  if (value == null) {
+    return '';
+  }
+
+  if (value ==
+      value.roundToDouble()) {
+    return value.toStringAsFixed(
+      0,
+    );
+  }
+
+  return value.toStringAsFixed(
+    2,
+  );
 }
 
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
+bool _sameDay(
+    DateTime a,
+    DateTime b,
+    ) =>
+    a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
 
-String _friendlyDate(DateTime date) {
+String _friendlyDate(
+    DateTime date,
+    ) {
   const months = [
     'Jan',
     'Feb',

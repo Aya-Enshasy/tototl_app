@@ -19,6 +19,8 @@ class PilotJobController extends ChangeNotifier {
   bool isLoadingMore = false;
 
   String? errorMessage;
+  String? errorCode;
+  int? errorStatusCode;
 
   int currentPage = 1;
   int lastPage = 1;
@@ -26,15 +28,17 @@ class PilotJobController extends ChangeNotifier {
 
   bool get canLoadMore =>
       !isInitialLoading &&
-      !isRefreshing &&
-      !isLoadingMore &&
-      currentPage < lastPage;
+          !isRefreshing &&
+          !isLoadingMore &&
+          currentPage < lastPage;
+
+  bool get isRateLimited => errorStatusCode == 429;
 
   Future<void> loadInitial() async {
     if (isInitialLoading) return;
 
     isInitialLoading = true;
-    errorMessage = null;
+    _clearError();
     notifyListeners();
 
     try {
@@ -44,8 +48,9 @@ class PilotJobController extends ChangeNotifier {
       );
 
       _replaceWith(result);
+      _clearError();
     } catch (e) {
-      errorMessage = e.toString();
+      _captureError(e);
     } finally {
       isInitialLoading = false;
       notifyListeners();
@@ -56,7 +61,7 @@ class PilotJobController extends ChangeNotifier {
     if (isRefreshing) return;
 
     isRefreshing = true;
-    errorMessage = null;
+    _clearError();
     notifyListeners();
 
     try {
@@ -66,8 +71,9 @@ class PilotJobController extends ChangeNotifier {
       );
 
       _replaceWith(result);
+      _clearError();
     } catch (e) {
-      errorMessage = e.toString();
+      _captureError(e);
     } finally {
       isRefreshing = false;
       notifyListeners();
@@ -97,10 +103,10 @@ class PilotJobController extends ChangeNotifier {
       currentPage = result.currentPage;
       lastPage = result.lastPage;
       total = result.total;
-      errorMessage = null;
+      _clearError();
     } catch (e) {
       // Keep the visible list if only the next page failed.
-      errorMessage = e.toString();
+      _captureError(e);
     } finally {
       isLoadingMore = false;
       notifyListeners();
@@ -130,5 +136,24 @@ class PilotJobController extends ChangeNotifier {
     currentPage = result.currentPage;
     lastPage = result.lastPage;
     total = result.total;
+  }
+
+  void _clearError() {
+    errorMessage = null;
+    errorCode = null;
+    errorStatusCode = null;
+  }
+
+  void _captureError(Object error) {
+    if (error is PilotJobException) {
+      errorMessage = error.message;
+      errorCode = error.code;
+      errorStatusCode = error.statusCode;
+      return;
+    }
+
+    errorMessage = error.toString();
+    errorCode = null;
+    errorStatusCode = null;
   }
 }

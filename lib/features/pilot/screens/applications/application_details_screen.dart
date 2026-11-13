@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -34,12 +33,10 @@ class ApplicationDetailsScreen extends StatefulWidget {
   /// authoritatively resolve has completed its first hydration attempt.
   final Future<PilotApplicationDetailsResult>? detailsFuture;
 
-  /// Retained only so older call sites still compile. It is NEVER painted as
-  /// detail data. This prevents list/default values from flashing before the
-  /// authoritative detail response arrives.
-  @Deprecated(
-    'Use detailsFuture. initialApplication is not rendered on first load.',
-  )
+  /// Real application already loaded by Applications.
+  ///
+  /// It is used as an immediate fallback/first paint while the authoritative
+  /// application-details request refreshes silently in the background.
   final PilotApplicationModel? initialApplication;
 
   @override
@@ -78,7 +75,13 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     _jobService = PilotJobService(apiClient);
     _droneService = DroneService(apiClient);
 
-    // Deliberately leave _application null. First paint is shimmer only.
+    final initialApplication = widget.initialApplication;
+    if (initialApplication != null &&
+        initialApplication.id == widget.applicationId) {
+      _application = initialApplication;
+      _loading = false;
+    }
+
     unawaited(
       _loadAuthoritative(initialFuture: widget.detailsFuture),
     );
@@ -107,10 +110,29 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     }
 
     try {
-      final result = await (initialFuture ??
-          _applicationService.getApplicationDetailsResult(
+      PilotApplicationDetailsResult result;
+
+      if (initialFuture != null) {
+        try {
+          result = await initialFuture;
+        } catch (_) {
+          // A request started before navigation can fail transiently while the
+          // route already owns useful application data. Retry once from inside
+          // the screen before considering the load unsuccessful.
+          await Future<void>.delayed(
+            const Duration(milliseconds: 350),
+          );
+          result =
+              await _applicationService.getApplicationDetailsResult(
             widget.applicationId,
-          ));
+          );
+        }
+      } else {
+        result =
+            await _applicationService.getApplicationDetailsResult(
+          widget.applicationId,
+        );
+      }
 
       // Do not publish the bare application yet. /applications/{id} is the
       // authoritative application record, but the job/drone relations are not
@@ -149,9 +171,18 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     } catch (e) {
       if (!mounted || serial != _loadSerial) return;
 
+      debugPrint(
+        'PILOT APPLICATION DETAILS REFRESH FAILED -> '
+        'applicationId=${widget.applicationId}, '
+        'keepingVisibleData=$hadRealData, error=$e',
+      );
+
       setState(() {
         _loading = false;
         _refreshing = false;
+
+        // Never replace an already-known application with a full-page error
+        // because one detail refresh failed.
         if (!hadRealData) {
           _error = e.toString();
         }

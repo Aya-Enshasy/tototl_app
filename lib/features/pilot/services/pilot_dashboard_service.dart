@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_endpoints.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
+import '../../../core/storage/token_storage.dart';
 import '../models/pilot_dashboard_model.dart';
 
 class PilotDashboardService {
@@ -46,6 +46,7 @@ class PilotDashboardService {
             body,
             fallback: 'Unable to load dashboard.',
           ),
+          statusCode: response.statusCode,
         );
       }
 
@@ -63,6 +64,8 @@ class PilotDashboardService {
     } on DioException catch (e) {
       throw PilotDashboardException(
         _dioErrorMessage(e),
+        statusCode: e.response?.statusCode,
+        retryAfterSeconds: _retryAfterSeconds(e),
       );
     }
   }
@@ -74,14 +77,21 @@ class PilotDashboardService {
     final errors = body['errors'];
 
     if (errors is Map) {
-      for (final value in errors.values) {
+      for (final entry in errors.entries) {
+        final key = entry.key.toString().trim().toLowerCase();
+        if (key == 'error_code' || key == 'code') continue;
+
+        final value = entry.value;
+
         if (value is List && value.isNotEmpty) {
           final text = value.first.toString().trim();
           if (text.isNotEmpty) return text;
         }
 
         final text = value?.toString().trim() ?? '';
-        if (text.isNotEmpty) return text;
+        if (text.isNotEmpty && text.toLowerCase() != 'null') {
+          return text;
+        }
       }
     }
 
@@ -90,6 +100,13 @@ class PilotDashboardService {
   }
 
   String _dioErrorMessage(DioException error) {
+    if (error.response?.statusCode == 429) {
+      final retryAfter = _retryAfterSeconds(error);
+      return retryAfter == null
+          ? 'Too many requests. Please try again shortly.'
+          : 'Too many requests. Please try again in $retryAfter seconds.';
+    }
+
     final raw = error.response?.data;
 
     if (raw is Map) {
@@ -107,18 +124,36 @@ class PilotDashboardService {
       return 'Server response timed out. Please try again.';
     }
 
+    if (error.type == DioExceptionType.sendTimeout) {
+      return 'Request timed out while sending. Please try again.';
+    }
+
     if (error.type == DioExceptionType.connectionError) {
       return 'No internet connection.';
     }
 
     return 'Unable to load dashboard. Please try again.';
   }
+
+  int? _retryAfterSeconds(DioException error) {
+    final value = error.response?.headers.value('retry-after');
+    if (value == null || value.trim().isEmpty) return null;
+    return int.tryParse(value.trim());
+  }
 }
 
 class PilotDashboardException implements Exception {
-  const PilotDashboardException(this.message);
+  const PilotDashboardException(
+    this.message, {
+    this.statusCode,
+    this.retryAfterSeconds,
+  });
 
   final String message;
+  final int? statusCode;
+  final int? retryAfterSeconds;
+
+  bool get isRateLimited => statusCode == 429;
 
   @override
   String toString() => message;

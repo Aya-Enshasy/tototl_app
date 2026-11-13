@@ -339,6 +339,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         builder: (_) => ApplicationDetailsScreen(
           applicationId: application.id,
           detailsFuture: detailsFuture,
+          initialApplication: application,
         ),
       ),
     );

@@ -177,6 +177,7 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
           _showSnack('Selected file could not be found.', error: true);
           return;
         }
+        if (!mounted) return;
 
         await Navigator.of(context).push(
           MaterialPageRoute(

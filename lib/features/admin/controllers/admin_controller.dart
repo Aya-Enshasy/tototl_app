@@ -104,10 +104,8 @@ class AdminController {
       )
           .length;
 
-  /// We now have a complete company directory, but the supplied backend still
-  /// exposes only /admin/pilots/pending for pilots. Therefore the combined
-  /// Pilot + Company directory is still incomplete.
-  bool get hasCompleteDirectoryApi => false;
+  bool _completeDirectoryLoaded = false;
+  bool get hasCompleteDirectoryApi => _completeDirectoryLoaded;
 
   Future<bool> loadDashboard() async {
     if (loading) {
@@ -118,67 +116,97 @@ class AdminController {
     errorMessage = null;
 
     try {
-      final pilots = await service.getPendingPilots();
+      // Every request is isolated so a failing directory/history endpoint
+      // cannot hide successfully loaded pending approvals.
+      final warnings = <String>[];
+      final results = await Future.wait<Object?>([
+        _tryLoad('Pending pilots', service.getPendingPilots, warnings),
+        _tryLoad('Pending companies', service.getPendingCompanies, warnings),
+        _tryLoad('Company directory', service.getCompanies, warnings),
+        _tryLoad('Pilot directory', () => service.getUsersByRole('pilot'), warnings),
+        _tryLoad('User company directory', () => service.getUsersByRole('company'), warnings),
+      ]);
 
-      final pendingCompanyItems = await service.getPendingCompanies();
+      final pilots = results[0] as List<AdminPendingPilotModel>?;
+      final companies = results[1] as List<AdminPendingCompanyModel>?;
+      final companyDirectory = results[2] as List<AdminPendingCompanyModel>?;
+      final pilotUsers = results[3] as List<AdminUserModel>?;
+      final companyUsers = results[4] as List<AdminUserModel>?;
 
-      final companyDirectory = await service.getCompanies();
+      if (pilots != null) pendingPilots = pilots;
+      if (companies != null) pendingCompanies = companies;
+      if (companyDirectory != null) allCompanies = companyDirectory;
+      _completeDirectoryLoaded = pilotUsers != null && companyUsers != null;
 
-      pendingPilots = pilots;
-      pendingCompanies = pendingCompanyItems;
-      allCompanies = companyDirectory;
+      final oldAccounts = Map<int, AdminDirectoryEntry>.from(_knownAccounts);
+      if (warnings.isEmpty) _knownAccounts.clear();
 
-      // 1) Merge the full company directory first.
-      // These records may contain only account-level fields.
-      for (final company in companyDirectory) {
-        final existing = _knownAccounts[company.user.id];
+      List<AdminVerificationHistoryModel> knownHistory(int userId) =>
+          _knownAccounts[userId]?.verificationHistory ??
+          oldAccounts[userId]?.verificationHistory ?? const [];
 
-        _knownAccounts[company.user.id] =
-            AdminDirectoryEntry.company(
-              company,
-              verificationHistory:
-              existing?.verificationHistory ?? const [],
-            );
+      // Build the complete directory from the role-filtered user endpoint.
+      // Detailed records then override these minimal profiles.
+      for (final user in pilotUsers ?? const <AdminUserModel>[]) {
+        _knownAccounts[user.id] = AdminDirectoryEntry.pilot(
+          AdminPendingPilotModel(user: user),
+          verificationHistory: knownHistory(user.id),
+        );
       }
 
-      // 2) Merge pending pilots.
-      // There is no full /admin/pilots directory endpoint yet.
-      for (final pilot in pilots) {
-        final existing = _knownAccounts[pilot.user.id];
-
-        _knownAccounts[pilot.user.id] =
-            AdminDirectoryEntry.pilot(
-              pilot,
-              verificationHistory:
-              existing?.verificationHistory ?? const [],
-            );
+      for (final user in companyUsers ?? const <AdminUserModel>[]) {
+        _knownAccounts[user.id] = AdminDirectoryEntry.company(
+          AdminPendingCompanyModel(user: user),
+          verificationHistory: knownHistory(user.id),
+        );
       }
 
-      // 3) Merge pending companies last so their richer company_profile data
-      // replaces the account-only directory record for the same company.
-      for (final company in pendingCompanyItems) {
-        final existing = _knownAccounts[company.user.id];
-
-        _knownAccounts[company.user.id] =
-            AdminDirectoryEntry.company(
-              company,
-              verificationHistory:
-              existing?.verificationHistory ?? const [],
-            );
+      for (final company in companyDirectory ?? const <AdminPendingCompanyModel>[]) {
+        _knownAccounts[company.user.id] = AdminDirectoryEntry.company(
+          company,
+          verificationHistory: knownHistory(company.user.id),
+        );
       }
 
-      // Avoid one verification-history request for every company in the full
-      // directory. Only pending accounts are enriched automatically. Other
-      // accounts get history when the admin opens/acts on them.
-      await _refreshPendingHistories();
+      for (final pilot in pilots ?? const <AdminPendingPilotModel>[]) {
+        _knownAccounts[pilot.user.id] = AdminDirectoryEntry.pilot(
+          pilot,
+          verificationHistory: knownHistory(pilot.user.id),
+        );
+      }
 
-      return true;
+      for (final company in companies ?? const <AdminPendingCompanyModel>[]) {
+        _knownAccounts[company.user.id] = AdminDirectoryEntry.company(
+          company,
+          verificationHistory: knownHistory(company.user.id),
+        );
+      }
+
+      // Verification history is loaded when a user opens that tab or an
+      // approval action completes. Fetching it once for *every* pending user
+      // here made the Admin dashboard appear stuck on slow connections.
+
+      errorMessage = warnings.isEmpty ? null : warnings.join(' · ');
+      return results.any((result) => result != null);
     } catch (e) {
       errorMessage = e.toString();
 
       return false;
     } finally {
       loading = false;
+    }
+  }
+
+  Future<T?> _tryLoad<T>(
+    String label,
+    Future<T> Function() loader,
+    List<String> warnings,
+  ) async {
+    try {
+      return await loader();
+    } catch (error) {
+      warnings.add('$label: $error');
+      return null;
     }
   }
 
@@ -257,32 +285,6 @@ class AdminController {
       errorMessage = e.toString();
 
       return null;
-    }
-  }
-
-  Future<void> _refreshPendingHistories() async {
-    final ids = <int>{
-      ...pendingPilots.map((item) => item.user.id),
-      ...pendingCompanies.map((item) => item.user.id),
-    };
-
-    for (final userId in ids) {
-      try {
-        final history = await service.getVerificationHistory(
-          userId,
-        );
-
-        final existing = _knownAccounts[userId];
-
-        if (existing != null) {
-          _knownAccounts[userId] = existing.withHistory(
-            history,
-          );
-        }
-      } catch (_) {
-        // History should enrich the directory, not block the whole Admin
-        // dashboard when one pending user's history cannot be loaded.
-      }
     }
   }
 

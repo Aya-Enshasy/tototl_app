@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
@@ -9,6 +11,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../controllers/company_job_controller.dart';
 import '../../models/company_create_job_request.dart';
 import '../../services/company_job_service.dart';
+import '../../../subscriptions/controllers/subscription_entitlements_controller.dart';
+import '../../../subscriptions/screens/subscription_center_screen.dart';
+import '../../../subscriptions/services/subscription_entitlements_service.dart';
 
 class PostJobScreen extends StatefulWidget {
   const PostJobScreen({super.key});
@@ -19,6 +24,10 @@ class PostJobScreen extends StatefulWidget {
 
 class _PostJobScreenState extends State<PostJobScreen> {
   late final CompanyJobController _controller;
+  late final SubscriptionEntitlementsController _entitlementsController;
+
+  bool _entitlementsLoading = true;
+  int _activeJobCount = 0;
 
   final _title = TextEditingController();
   String? _serviceCategory;
@@ -28,9 +37,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _state = TextEditingController();
   final _city = TextEditingController();
   final _region = TextEditingController();
+  final _latitude = TextEditingController();
+  final _longitude = TextEditingController();
 
   DateTime? _startDate;
   DateTime? _endDate;
+  DateTime? _proposalDeadline;
+  final _estimatedDays = TextEditingController();
 
   String? _droneSize;
   final _customDroneLength = TextEditingController();
@@ -44,6 +57,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
   bool _safetyTrainingRequired = false;
   bool _ndaRequired = false;
   final _requirementsNotes = TextEditingController();
+  final _deliverables = TextEditingController();
+  final _clearanceNotes = TextEditingController();
 
   String _paymentType = 'fixed';
   final _paymentMin = TextEditingController();
@@ -86,9 +101,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
   void initState() {
     super.initState();
 
+    final apiClient = ApiClient();
+
     _controller = CompanyJobController(
-      CompanyJobService(ApiClient()),
+      CompanyJobService(apiClient),
     );
+
+    _entitlementsController = SubscriptionEntitlementsController(
+      SubscriptionEntitlementsService(apiClient),
+    );
+
+    unawaited(_loadEntitlementsAndUsage());
   }
 
   @override
@@ -100,18 +123,225 @@ class _PostJobScreenState extends State<PostJobScreen> {
       _state,
       _city,
       _region,
+      _latitude,
+      _longitude,
+      _estimatedDays,
       _customDroneLength,
       _customDroneWidth,
       _customDroneHeight,
       _customDroneWeight,
       _requirementsNotes,
+      _deliverables,
+      _clearanceNotes,
       _paymentMin,
       _paymentMax,
     ]) {
       controller.dispose();
     }
 
+    _entitlementsController.dispose();
+
     super.dispose();
+  }
+
+  // ==========================================================================
+  // SUBSCRIPTION ENTITLEMENTS
+  // ==========================================================================
+
+  Future<void> _loadEntitlementsAndUsage() async {
+    if (mounted) {
+      setState(() => _entitlementsLoading = true);
+    }
+
+    await Future.wait([
+      _entitlementsController.load(force: true),
+      _controller.loadMyJobs(),
+    ]);
+
+    if (!mounted) return;
+
+    final terminalStatuses = <String>{
+      'closed',
+      'cancelled',
+    };
+
+    final activeCount = _controller.jobs.where((job) {
+      final status = job.status.trim().toLowerCase();
+      return !terminalStatuses.contains(status);
+    }).length;
+
+    setState(() {
+      _activeJobCount = activeCount;
+      _entitlementsLoading = false;
+    });
+  }
+
+  Future<bool> _ensureJobSlotAvailable() async {
+    if (_entitlementsLoading) {
+      await _loadEntitlementsAndUsage();
+    }
+
+    if (!_entitlementsController.hasData) {
+      // Server remains authoritative if the entitlement preflight could not load.
+      return true;
+    }
+
+    final allowed = _entitlementsController.canCreateCompanyJob(
+      activeCount: _activeJobCount,
+    );
+
+    if (allowed) {
+      return true;
+    }
+
+    await _showUpgradeDialog(
+      title: 'Job posting limit reached',
+      message:
+      'Your current plan allows ${_entitlementsController.limits.companyJobPostingsLimitLabel}. '
+          'Close an active job or upgrade your plan to create another posting.',
+    );
+
+    return false;
+  }
+
+  Future<void> _showUpgradeDialog({
+    required String title,
+    required String message,
+  }) async {
+    if (!mounted) return;
+
+    final openPlans = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: AppColors.grey,
+            fontSize: 11.5,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+            ),
+            icon: const Icon(Icons.workspace_premium_rounded, size: 17),
+            label: const Text('View Plans'),
+          ),
+        ],
+      ),
+    );
+
+    if (openPlans != true || !mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SubscriptionCenterScreen(upgradeOnly: true),
+      ),
+    );
+
+    if (!mounted) return;
+    await _loadEntitlementsAndUsage();
+  }
+
+  Future<void> _showVerificationDialog() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        title: const Text(
+          'Account verification required',
+          style: TextStyle(
+            color: AppColors.navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'Your company account is still under review. You can continue preparing your information, but this action becomes available after verification.',
+          style: TextStyle(
+            color: AppColors.grey,
+            fontSize: 11.5,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+            ),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCompanyJobFailure() async {
+    if (_controller.isSubscriptionLimitReached ||
+        _controller.isSubscriptionFeatureUnavailable) {
+      await _showUpgradeDialog(
+        title: _controller.isSubscriptionLimitReached
+            ? 'Plan limit reached'
+            : 'Upgrade required',
+        message: _controller.errorMessage ??
+            'This action is not available on your current subscription plan.',
+      );
+      return;
+    }
+
+    if (_controller.isAccountNotVerified) {
+      await _showVerificationDialog();
+      return;
+    }
+
+    if (_controller.isInvalidStatusTransition) {
+      _showSnack(
+        'The job status changed on the server. Refreshing your jobs is recommended before trying again.',
+        isError: true,
+      );
+      return;
+    }
+
+    final retryAfter = _controller.retryAfterSeconds;
+    if (_controller.errorStatusCode == 429 && retryAfter != null) {
+      _showSnack(
+        'Too many requests. Try again in $retryAfter seconds.',
+        isError: true,
+      );
+      return;
+    }
+
+    _showSnack(
+      _controller.errorMessage ?? 'Unable to continue.',
+      isError: true,
+    );
   }
 
   // ==========================================================================
@@ -125,16 +355,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     }
 
     if (_step == 1) {
-      return _country.text.trim().isNotEmpty;
+      return _country.text.trim().isNotEmpty &&
+          _validCoordinates();
     }
 
     if (_step == 2) {
       if (_startDate == null || _endDate == null) return false;
-      return !_endDate!.isBefore(_startDate!);
+      if (_endDate!.isBefore(_startDate!)) return false;
+      return _validScheduleExtras();
     }
 
     if (_step == 3) {
-      return _validCustomDroneSize();
+      return _validCustomDroneSize() &&
+          _validDeliverables();
     }
 
     if (_step == 4 && _paymentType != 'negotiable') {
@@ -161,6 +394,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return false;
     }
 
+    if (!_validCoordinates()) {
+      return false;
+    }
+
     if (_startDate == null || _endDate == null) {
       return false;
     }
@@ -169,7 +406,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
       return false;
     }
 
+    if (!_validScheduleExtras()) {
+      return false;
+    }
+
     if (!_validCustomDroneSize()) {
+      return false;
+    }
+
+    if (!_validDeliverables()) {
       return false;
     }
 
@@ -190,11 +435,141 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return true;
   }
 
+  bool _validCoordinates() {
+    final latitudeText = _latitude.text.trim();
+    final longitudeText = _longitude.text.trim();
+
+    if (latitudeText.isEmpty && longitudeText.isEmpty) {
+      return true;
+    }
+
+    if (latitudeText.isEmpty || longitudeText.isEmpty) {
+      return false;
+    }
+
+    final latitude = double.tryParse(latitudeText);
+    final longitude = double.tryParse(longitudeText);
+
+    if (latitude == null || longitude == null) {
+      return false;
+    }
+
+    return latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+  }
+
+  bool _validScheduleExtras() {
+    final startDate = _startDate;
+
+    if (_proposalDeadline != null && startDate != null) {
+      final deadline = DateTime(
+        _proposalDeadline!.year,
+        _proposalDeadline!.month,
+        _proposalDeadline!.day,
+      );
+
+      final start = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      );
+
+      if (deadline.isAfter(start)) {
+        return false;
+      }
+    }
+
+    final estimatedText = _estimatedDays.text.trim();
+
+    if (estimatedText.isNotEmpty) {
+      final estimated = double.tryParse(estimatedText);
+
+      if (estimated == null || estimated <= 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  List<String> _deliverablesPayload() {
+    final result = <String>[];
+    final seen = <String>{};
+
+    for (final line in _deliverables.text.split(RegExp(r'[\r\n]+'))) {
+      final value = line.trim();
+      if (value.isEmpty) continue;
+
+      final key = value.toLowerCase();
+      if (seen.add(key)) {
+        result.add(value);
+      }
+    }
+
+    return result;
+  }
+
+  bool _validDeliverables() {
+    final items = _deliverablesPayload();
+
+    if (items.length > 20) {
+      return false;
+    }
+
+    for (final item in items) {
+      if (item.length > 255) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   void _next() {
     if (!_validStep()) {
+      if (_step == 1 && !_validCoordinates()) {
+        _showSnack(
+          'Enter both latitude and longitude with valid values, or leave both empty.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (_step == 2 && !_validScheduleExtras()) {
+        final estimatedText = _estimatedDays.text.trim();
+        final estimated = estimatedText.isEmpty
+            ? null
+            : double.tryParse(estimatedText);
+
+        if (estimatedText.isNotEmpty &&
+            (estimated == null || estimated <= 0)) {
+          _showSnack(
+            'Estimated days must be greater than zero.',
+            isError: true,
+          );
+          return;
+        }
+
+        _showSnack(
+          'Proposal deadline cannot be after the mission start date.',
+          isError: true,
+        );
+        return;
+      }
+
       if (_step == 3 && !_validCustomDroneSize()) {
         _showSnack(
           'For a custom drone size, enter at least length and width.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (_step == 3 && !_validDeliverables()) {
+        _showSnack(
+          'Add up to 20 deliverables, with a maximum of 255 characters each.',
           isError: true,
         );
         return;
@@ -232,6 +607,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
       if (_endDate != null && _endDate!.isBefore(picked)) {
         _endDate = null;
       }
+
+      if (_proposalDeadline != null &&
+          _proposalDeadline!.isAfter(picked)) {
+        _proposalDeadline = null;
+      }
     });
   }
 
@@ -250,6 +630,34 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (picked == null) return;
 
     setState(() => _endDate = picked);
+  }
+
+  Future<void> _pickProposalDeadline() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = _startDate;
+
+    final lastDate = start == null
+        ? DateTime(now.year + 5)
+        : DateTime(start.year, start.month, start.day);
+
+    final initial = _proposalDeadline != null &&
+        !_proposalDeadline!.isAfter(lastDate)
+        ? _proposalDeadline!
+        : lastDate.isBefore(today)
+        ? today
+        : lastDate;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: today,
+      lastDate: lastDate.isBefore(today) ? today : lastDate,
+    );
+
+    if (picked == null) return;
+
+    setState(() => _proposalDeadline = picked);
   }
 
   // ==========================================================================
@@ -402,6 +810,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
   // ==========================================================================
 
   CompanyCreateJobRequest _buildRequest() {
+    final latitudeText = _latitude.text.trim();
+    final longitudeText = _longitude.text.trim();
+    final estimatedText = _estimatedDays.text.trim();
+
     return CompanyCreateJobRequest(
       title: _title.text.trim(),
       description: _description.text.trim(),
@@ -412,6 +824,18 @@ class _PostJobScreenState extends State<PostJobScreen> {
       region: _nullIfEmpty(_region.text),
       startDate: _startDate!,
       endDate: _endDate!,
+      latitude: latitudeText.isEmpty
+          ? null
+          : double.tryParse(latitudeText),
+      longitude: longitudeText.isEmpty
+          ? null
+          : double.tryParse(longitudeText),
+      proposalDeadline: _proposalDeadline,
+      estimatedDays: estimatedText.isEmpty
+          ? null
+          : double.tryParse(estimatedText),
+      deliverables: _deliverablesPayload(),
+      clearanceNotes: _nullIfEmpty(_clearanceNotes.text),
       paymentType: _paymentType,
       paymentMin: _paymentType == 'negotiable'
           ? null
@@ -420,7 +844,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
           ? null
           : double.tryParse(_paymentMax.text.trim()),
       requiredCapabilities:
-          DroneCapabilities.canonicalizeAll(_requiredCapabilities),
+      DroneCapabilities.canonicalizeAll(_requiredCapabilities),
       requiredExperience: _requiredExperience,
       requiredCertifications: _requiredCertifications.toList(),
       droneSize: _droneSizePayload(),
@@ -442,9 +866,33 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (_submitting) return;
 
     if (!_validAll()) {
+      if (!_validCoordinates()) {
+        _showSnack(
+          'Enter both latitude and longitude with valid values, or leave both empty.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!_validScheduleExtras()) {
+        _showSnack(
+          'Check the proposal deadline and estimated mission duration.',
+          isError: true,
+        );
+        return;
+      }
+
       if (!_validCustomDroneSize()) {
         _showSnack(
           'For a custom drone size, enter at least length and width.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!_validDeliverables()) {
+        _showSnack(
+          'Add up to 20 deliverables, with a maximum of 255 characters each.',
           isError: true,
         );
         return;
@@ -454,6 +902,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
         'Please complete the required job details.',
         isError: true,
       );
+      return;
+    }
+
+    if (!await _ensureJobSlotAvailable()) {
       return;
     }
 
@@ -471,10 +923,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
     setState(() => _submitting = false);
 
     if (created == null) {
-      _showSnack(
-        _controller.errorMessage ?? 'Unable to create job.',
-        isError: true,
-      );
+      await _handleCompanyJobFailure();
       return;
     }
 
@@ -491,9 +940,33 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (_submitting) return;
 
     if (!_validAll()) {
+      if (!_validCoordinates()) {
+        _showSnack(
+          'Enter both latitude and longitude with valid values, or leave both empty.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!_validScheduleExtras()) {
+        _showSnack(
+          'Check the proposal deadline and estimated mission duration.',
+          isError: true,
+        );
+        return;
+      }
+
       if (!_validCustomDroneSize()) {
         _showSnack(
           'For a custom drone size, enter at least length and width.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!_validDeliverables()) {
+        _showSnack(
+          'Add up to 20 deliverables, with a maximum of 255 characters each.',
           isError: true,
         );
         return;
@@ -503,6 +976,10 @@ class _PostJobScreenState extends State<PostJobScreen> {
         'Please complete the required job details.',
         isError: true,
       );
+      return;
+    }
+
+    if (!await _ensureJobSlotAvailable()) {
       return;
     }
 
@@ -523,10 +1000,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         _publishingNow = false;
       });
 
-      _showSnack(
-        _controller.errorMessage ?? 'Unable to create job.',
-        isError: true,
-      );
+      await _handleCompanyJobFailure();
       return;
     }
 
@@ -540,11 +1014,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     });
 
     if (published == null) {
-      _showSnack(
-        'Job was saved as Draft, but publishing failed: '
-            '${_controller.errorMessage ?? 'Unknown error'}',
-        isError: true,
-      );
+      if (_controller.isSubscriptionLimitReached ||
+          _controller.isSubscriptionFeatureUnavailable ||
+          _controller.isAccountNotVerified ||
+          _controller.isInvalidStatusTransition ||
+          _controller.errorStatusCode == 429) {
+        await _handleCompanyJobFailure();
+      } else {
+        _showSnack(
+          'Job was saved as Draft, but publishing failed: '
+              '${_controller.errorMessage ?? 'Unknown error'}',
+          isError: true,
+        );
+      }
 
       await _goToMyJobs(delayMilliseconds: 1500);
       return;
@@ -945,6 +1427,41 @@ class _PostJobScreenState extends State<PostJobScreen> {
             'Downtown, industrial zone...',
             prefixIcon: Icons.map_outlined,
           ),
+          _label('Map coordinates'),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _field(
+                  _latitude,
+                  '29.5266483',
+                  type: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  prefixIcon: Icons.my_location_rounded,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _field(
+                  _longitude,
+                  '35.0075433',
+                  type: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  prefixIcon: Icons.location_searching_rounded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _infoStrip(
+            icon: Icons.pin_drop_outlined,
+            text:
+            'Coordinates are optional. Enter both values together. The server checks the pin against the country, state and city you entered.',
+          ),
         ],
       ),
     );
@@ -982,10 +1499,28 @@ class _PostJobScreenState extends State<PostJobScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          _label('Proposal deadline'),
+          _dateBox(
+            label: 'Last day to receive proposals',
+            date: _proposalDeadline,
+            onTap: _pickProposalDeadline,
+          ),
+          const SizedBox(height: 12),
+          _label('Estimated duration'),
+          _field(
+            _estimatedDays,
+            '2.0',
+            type: const TextInputType.numberWithOptions(
+              decimal: true,
+            ),
+            prefixIcon: Icons.timelapse_rounded,
+            suffixText: 'days',
+          ),
+          const SizedBox(height: 12),
           _infoStrip(
             icon: Icons.info_outline_rounded,
             text:
-            'Choose an end date that is the same as or later than the start date.',
+            'The proposal deadline must be on or before the mission start date. Decimal durations such as 2.5 days are allowed.',
           ),
         ],
       ),
@@ -1101,6 +1636,32 @@ class _PostJobScreenState extends State<PostJobScreen> {
             'Additional requirements or notes...',
             lines: 4,
             prefixIcon: Icons.fact_check_outlined,
+          ),
+          _label('Expected deliverables'),
+          _field(
+            _deliverables,
+            'One deliverable per line\nExample: Thermal anomaly report',
+            lines: 5,
+            prefixIcon: Icons.inventory_2_outlined,
+          ),
+          const SizedBox(height: 5),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Up to 20 deliverables. Each line is saved as one item.',
+              style: TextStyle(
+                color: AppColors.grey,
+                fontSize: 10.5,
+                height: 1.4,
+              ),
+            ),
+          ),
+          _label('Site access / clearance notes'),
+          _field(
+            _clearanceNotes,
+            'Gate access, escort, clearance or site-entry instructions...',
+            lines: 4,
+            prefixIcon: Icons.verified_user_outlined,
           ),
         ],
       ),
@@ -1671,6 +2232,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         TextInputType type = TextInputType.text,
         IconData? prefixIcon,
         String? prefixText,
+        String? suffixText,
       }) {
     return TextField(
       controller: controller,
@@ -1697,6 +2259,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
           size: 17,
         ),
         prefixText: prefixText,
+        suffixText: suffixText,
+        suffixStyle: const TextStyle(
+          color: AppColors.grey,
+          fontSize: 10.8,
+          fontWeight: FontWeight.w700,
+        ),
         prefixStyle: const TextStyle(
           color: AppColors.navy,
           fontSize: 12.4,
@@ -2293,3 +2861,4 @@ class _PostJobScreenState extends State<PostJobScreen> {
         : '\$$min - \$$max';
   }
 }
+

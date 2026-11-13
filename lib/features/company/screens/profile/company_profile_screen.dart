@@ -12,6 +12,9 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../shared/screens/profile/account_settings_screen.dart';
+import '../../../reviews/controllers/review_controller.dart';
+import '../../../reviews/screens/reviews_screen.dart';
+import '../../../reviews/services/review_service.dart';
 import '../../controllers/company_profile_controller.dart';
 import '../../models/company_document_model.dart';
 import '../../models/company_profile_model.dart';
@@ -35,6 +38,9 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
 
   late final CompanyProfileController _controller;
   late final CompanyDocumentService _documentService;
+  late final ReviewController _reviewController;
+
+  int? _loadedReviewsProfileId;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -64,9 +70,18 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
       CompanyProfileService(apiClient),
     );
     _documentService = CompanyDocumentService(apiClient);
+    _reviewController = ReviewController(
+      ReviewService(apiClient),
+    );
 
     unawaited(_loadProfile());
     unawaited(_loadDocumentCache());
+  }
+
+  @override
+  void dispose() {
+    _reviewController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -79,6 +94,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
         _loading = false;
         _errorMessage = null;
       });
+      unawaited(_loadRatingSummary());
       unawaited(_refreshInBackground());
       return;
     }
@@ -92,6 +108,10 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
       _errorMessage =
       fresh == null ? _controller.errorMessage : null;
     });
+
+    if (fresh != null) {
+      unawaited(_loadRatingSummary());
+    }
   }
 
   Future<void> _refreshInBackground() async {
@@ -108,6 +128,12 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
       _data = fresh;
       _errorMessage = null;
     });
+
+    unawaited(
+      _loadRatingSummary(
+        refresh: true,
+      ),
+    );
   }
 
   Future<void> _handleRefresh() async {
@@ -119,6 +145,70 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
         _errorMessage = null;
       });
     }
+
+    await _loadRatingSummary(
+      refresh: true,
+    );
+  }
+
+  Future<void> _loadRatingSummary({
+    bool refresh = false,
+  }) async {
+    final profileId = _data?.profile.id;
+
+    if (profileId == null || profileId <= 0) {
+      return;
+    }
+
+    if (!refresh &&
+        _loadedReviewsProfileId == profileId &&
+        _reviewController.data != null) {
+      return;
+    }
+
+    _loadedReviewsProfileId = profileId;
+
+    await _reviewController.loadCompanyReviews(
+      profileId,
+      refresh: refresh,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _openReviews() async {
+    final data = _data;
+    final profileId = data?.profile.id;
+
+    if (data == null ||
+        profileId == null ||
+        profileId <= 0) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReviewsScreen(
+          profileId: profileId,
+          targetType: ReviewTargetType.company,
+          targetName: data.profile.displayCompanyName,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadRatingSummary(
+      refresh: true,
+    );
   }
 
   Future<void> _openEditProfile() async {
@@ -726,6 +816,14 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
                 onEditTap: _openEditProfile,
               ),
               const SizedBox(height: 12),
+              _CompanyReviewsCard(
+                average: _reviewController.summary.averageValue,
+                count: _reviewController.summary.count,
+                loading: _reviewController.isLoading &&
+                    _reviewController.data == null,
+                onTap: _openReviews,
+              ),
+              const SizedBox(height: 12),
               _ProfileTabs(
                 selectedIndex: _selectedProfileTab,
                 onChanged: (index) {
@@ -916,6 +1014,221 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
     }
   }
 
+}
+
+class _CompanyReviewsCard extends StatelessWidget {
+  const _CompanyReviewsCard({
+    required this.average,
+    required this.count,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final double? average;
+  final int count;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratingLabel = average == null
+        ? '—'
+        : average!.toStringAsFixed(1);
+
+    final reviewsLabel = count == 0
+        ? 'No verified reviews yet'
+        : count == 1
+        ? '1 verified review'
+        : '$count verified reviews';
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: loading ? null : onTap,
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF071C2F),
+                Color(0xFF0A4358),
+                Color(0xFF0D8A95),
+              ],
+              stops: [0, .58, 1],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0D8A95).withOpacity(.14),
+                blurRadius: 22,
+                offset: const Offset(0, 9),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -26,
+                top: -38,
+                child: Container(
+                  width: 102,
+                  height: 102,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(.06),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 34,
+                bottom: -52,
+                child: Container(
+                  width: 98,
+                  height: 98,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFFFC94A).withOpacity(.04),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.10),
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(.11),
+                      ),
+                    ),
+                    child: loading
+                        ? const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFFFFC94A),
+                        ),
+                      ),
+                    )
+                        : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFFFC94A),
+                          size: 22,
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          ratingLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Text(
+                              'Rating & Reviews',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -.1,
+                              ),
+                            ),
+                            SizedBox(width: 5),
+                            Icon(
+                              Icons.verified_rounded,
+                              color: Color(0xFF76E4D5),
+                              size: 13.5,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: List.generate(
+                            5,
+                                (index) {
+                              final value = index + 1;
+                              final currentAverage = average ?? 0;
+                              final full = currentAverage >= value;
+                              final half = !full &&
+                                  currentAverage >= value - .5;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 2),
+                                child: Icon(
+                                  full
+                                      ? Icons.star_rounded
+                                      : half
+                                      ? Icons.star_half_rounded
+                                      : Icons.star_border_rounded,
+                                  size: 15,
+                                  color: const Color(0xFFFFC94A),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          loading ? 'Loading rating...' : reviewsLabel,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.66),
+                            fontSize: 9.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 31,
+                    height: 31,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.09),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(.10),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TopBar extends StatelessWidget {
@@ -1169,15 +1482,15 @@ class _CompanyPhoto extends StatelessWidget {
                       filterQuality: FilterQuality.medium,
                       gaplessPlayback: true,
                       loadingBuilder: (
-                        context,
-                        child,
-                        progress,
-                      ) {
+                          context,
+                          child,
+                          progress,
+                          ) {
                         if (progress == null) return child;
                         return const _PhotoFallback();
                       },
                       errorBuilder: (_, __, ___) =>
-                          const _PhotoFallback(),
+                      const _PhotoFallback(),
                     )
                   else
                     const _PhotoFallback(),

@@ -132,12 +132,45 @@ class _AdminShellScreenState
           SafeArea(
         bottom:
             false,
-        child:
-            IndexedStack(
-          index:
-              _index,
-          children:
-              pages,
+        child: Column(
+          children: [
+            if (_controller.errorMessage != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3F0),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFF3C6BC)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Color(0xFFB54729), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Some accounts could not be loaded: ${_controller.errorMessage}',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF85442C)),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _controller.loading ? null : _refresh,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: IndexedStack(
+                index: _index,
+                children: pages,
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar:

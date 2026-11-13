@@ -13,6 +13,14 @@ class CompanyJobPostingModel {
   final DateTime? startDate;
   final DateTime? endDate;
 
+  // Phase 4 Job fields.
+  final double? latitude;
+  final double? longitude;
+  final DateTime? proposalDeadline;
+  final double? estimatedDays;
+  final List<String> deliverables;
+  final String clearanceNotes;
+
   final String paymentType;
   final double? paymentMin;
   final double? paymentMax;
@@ -57,6 +65,12 @@ class CompanyJobPostingModel {
     this.region = '',
     this.startDate,
     this.endDate,
+    this.latitude,
+    this.longitude,
+    this.proposalDeadline,
+    this.estimatedDays,
+    this.deliverables = const [],
+    this.clearanceNotes = '',
     this.paymentType = '',
     this.paymentMin,
     this.paymentMax,
@@ -79,12 +93,16 @@ class CompanyJobPostingModel {
     this.companyProfile,
   });
 
-  factory CompanyJobPostingModel.fromJson(Map<String, dynamic> json) {
-    final companyRaw = json['company_profile'];
+  factory CompanyJobPostingModel.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    final companyRaw =
+        json['company_profile'] ?? json['company'];
 
     return CompanyJobPostingModel(
       id: _asInt(json['id']) ?? 0,
-      companyProfileId: _asInt(json['company_profile_id']),
+      companyProfileId:
+      _asInt(json['company_profile_id']),
       title: _asString(json['title']),
       description: _asString(json['description']),
       country: _asString(json['country']),
@@ -93,33 +111,139 @@ class CompanyJobPostingModel {
       region: _asString(json['region']),
       startDate: _asDate(json['start_date']),
       endDate: _asDate(json['end_date']),
-      paymentType: _asString(json['payment_type']),
-      paymentMin: _asDouble(json['payment_min']),
-      paymentMax: _asDouble(json['payment_max']),
-      requiredCapabilities: _asStringList(json['required_capabilities']),
-      requiredExperience: _asString(json['required_experience']),
+
+      latitude: _asDouble(json['latitude']),
+      longitude: _asDouble(json['longitude']),
+      proposalDeadline:
+      _asDate(json['proposal_deadline']),
+      estimatedDays:
+      _asDouble(json['estimated_days']),
+      deliverables:
+      _asStringList(json['deliverables']),
+      clearanceNotes:
+      _asString(json['clearance_notes']),
+
+      paymentType:
+      _asString(json['payment_type']),
+      paymentMin:
+      _asDouble(json['payment_min']),
+      paymentMax:
+      _asDouble(json['payment_max']),
+
+      requiredCapabilities:
+      _asStringList(
+        json['required_capabilities'],
+      ),
+
+      requiredExperience:
+      _asString(
+        json['required_experience'],
+      ),
+
       requiredCertifications:
-          _asStringList(json['required_certifications']),
-      droneSize: _asString(json['drone_size']),
+      _asStringList(
+        json['required_certifications'],
+      ),
+
+      droneSize:
+      _asString(json['drone_size']),
+
       trainingSafetyRequired:
-          _asBool(json['training_safety_required']),
-      ndaRequired: _asBool(json['nda_required']),
-      requirementsNotes: _asString(json['requirements_notes']),
-      serviceCategory: _asString(json['service_category']),
-      status: _asString(json['status']),
-      publishedAt: _asDate(json['published_at']),
-      closedAt: _asDate(json['closed_at']),
-      cancelledAt: _asDate(json['cancelled_at']),
-      createdAt: _asDate(json['created_at']),
-      updatedAt: _asDate(json['updated_at']),
-      cancellationReason: _asString(json['cancellation_reason']),
-      attachments: _asAttachments(json['attachments']),
-      companyProfile: companyRaw is Map
-          ? CompanyJobCompanyProfileModel.fromJson(
-              Map<String, dynamic>.from(companyRaw),
-            )
+      _asBool(
+        json['training_safety_required'],
+      ),
+
+      ndaRequired:
+      _asBool(
+        json['nda_required'],
+      ),
+
+      requirementsNotes:
+      _asString(
+        json['requirements_notes'],
+      ),
+
+      serviceCategory:
+      _asString(
+        json['service_category'],
+      ),
+
+      status:
+      _asString(json['status']),
+
+      publishedAt:
+      _asDate(json['published_at']),
+
+      closedAt:
+      _asDate(json['closed_at']),
+
+      cancelledAt:
+      _asDate(json['cancelled_at']),
+
+      createdAt:
+      _asDate(json['created_at']),
+
+      updatedAt:
+      _asDate(json['updated_at']),
+
+      cancellationReason:
+      _asString(
+        json['cancellation_reason'],
+      ),
+
+      attachments:
+      _asAttachments(
+        json['attachments'],
+      ),
+
+      companyProfile:
+      companyRaw is Map
+          ? CompanyJobCompanyProfileModel
+          .fromJson(
+        Map<String, dynamic>.from(
+          companyRaw,
+        ),
+      )
           : null,
     );
+  }
+
+  bool get hasCoordinates =>
+      latitude != null &&
+          longitude != null;
+
+  String get proposalDeadlineLabel {
+    if (proposalDeadline == null) {
+      return '';
+    }
+
+    return _formatDate(
+      proposalDeadline!,
+    );
+  }
+
+  String get estimatedDaysLabel {
+    final value = estimatedDays;
+
+    if (value == null) {
+      return '';
+    }
+
+    final text =
+    value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value
+        .toStringAsFixed(2)
+        .replaceFirst(
+      RegExp(r'0+$'),
+      '',
+    )
+        .replaceFirst(
+      RegExp(r'\.$'),
+      '',
+    );
+
+    return '$text ${value == 1 ? 'day' : 'days'}';
   }
 }
 
@@ -137,17 +261,35 @@ class CompanyJobAttachmentModel {
   });
 
   factory CompanyJobAttachmentModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+      Map<String, dynamic> json,
+      ) {
     return CompanyJobAttachmentModel(
-      type: _asString(json['type']),
-      name: _asString(json['name']),
-      size: _asInt(json['size']) ?? 0,
-      url: _asString(json['url']),
+      type:
+      _asString(
+        json['type'],
+      ),
+      name:
+      _asString(
+        json['name'],
+      ),
+      size:
+      _asInt(
+        json['size'],
+      ) ??
+          0,
+      url:
+      _asString(
+        json['url'],
+      ),
     );
   }
 
-  bool get isImage => type.toLowerCase().startsWith('image/');
+  bool get isImage =>
+      type
+          .toLowerCase()
+          .startsWith(
+        'image/',
+      );
 }
 
 class CompanyJobCompanyProfileModel {
@@ -176,68 +318,215 @@ class CompanyJobCompanyProfileModel {
   });
 
   factory CompanyJobCompanyProfileModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+      Map<String, dynamic> json,
+      ) {
+    final companyName =
+    _asString(
+      json['company_name'],
+    );
+
+    final fallbackName =
+    _asString(
+      json['name'],
+    );
+
     return CompanyJobCompanyProfileModel(
-      id: _asInt(json['id']) ?? 0,
-      userId: _asInt(json['user_id']),
-      companyName: _asString(json['company_name']),
-      industryType: _asString(json['industry_type']),
-      description: _asString(json['description']),
-      country: _asString(json['country']),
-      state: _asString(json['state']),
-      city: _asString(json['city']),
-      address: _asString(json['address']),
-      website: _asString(json['website']),
+      id:
+      _asInt(json['id']) ?? 0,
+
+      userId:
+      _asInt(json['user_id']),
+
+      companyName:
+      companyName.isNotEmpty
+          ? companyName
+          : fallbackName,
+
+      industryType:
+      _asString(
+        json['industry_type'],
+      ),
+
+      description:
+      _asString(
+        json['description'],
+      ),
+
+      country:
+      _asString(
+        json['country'],
+      ),
+
+      state:
+      _asString(
+        json['state'],
+      ),
+
+      city:
+      _asString(
+        json['city'],
+      ),
+
+      address:
+      _asString(
+        json['address'],
+      ),
+
+      website:
+      _asString(
+        json['website'],
+      ),
     );
   }
 }
 
-String _asString(dynamic value) =>
-    value == null ? '' : value.toString().trim();
+String _asString(
+    dynamic value,
+    ) =>
+    value == null
+        ? ''
+        : value
+        .toString()
+        .trim();
 
-int? _asInt(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  return int.tryParse(value.toString());
+int? _asInt(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return int.tryParse(
+    value.toString(),
+  );
 }
 
-double? _asDouble(dynamic value) {
-  if (value == null) return null;
-  if (value is num) return value.toDouble();
-  return double.tryParse(value.toString());
+double? _asDouble(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  return double.tryParse(
+    value.toString(),
+  );
 }
 
-DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  final text = value.toString().trim();
-  return text.isEmpty ? null : DateTime.tryParse(text);
+DateTime? _asDate(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  final text =
+  value
+      .toString()
+      .trim();
+
+  return text.isEmpty
+      ? null
+      : DateTime.tryParse(
+    text,
+  );
 }
 
-bool _asBool(dynamic value) {
-  if (value is bool) return value;
-  final text = value?.toString().trim().toLowerCase();
-  return text == '1' || text == 'true';
+bool _asBool(
+    dynamic value,
+    ) {
+  if (value is bool) {
+    return value;
+  }
+
+  final text =
+  value
+      ?.toString()
+      .trim()
+      .toLowerCase();
+
+  return text == '1' ||
+      text == 'true';
 }
 
-List<String> _asStringList(dynamic value) {
-  if (value is! List) return const [];
+List<String> _asStringList(
+    dynamic value,
+    ) {
+  if (value is! List) {
+    return const [];
+  }
 
   return value
-      .map((item) => item?.toString().trim() ?? '')
-      .where((item) => item.isNotEmpty)
-      .toList();
+      .map(
+        (item) =>
+    item
+        ?.toString()
+        .trim() ??
+        '',
+  )
+      .where(
+        (item) =>
+    item.isNotEmpty,
+  )
+      .toList(
+    growable: false,
+  );
 }
 
-List<CompanyJobAttachmentModel> _asAttachments(dynamic value) {
-  if (value is! List) return const [];
+List<CompanyJobAttachmentModel>
+_asAttachments(
+    dynamic value,
+    ) {
+  if (value is! List) {
+    return const [];
+  }
 
   return value
       .whereType<Map>()
       .map(
-        (item) => CompanyJobAttachmentModel.fromJson(
-          Map<String, dynamic>.from(item),
+        (item) =>
+        CompanyJobAttachmentModel
+            .fromJson(
+          Map<String, dynamic>.from(
+            item,
+          ),
         ),
-      )
-      .toList();
+  )
+      .toList(
+    growable: false,
+  );
+}
+
+String _formatDate(
+    DateTime date,
+    ) {
+  final month =
+  date.month
+      .toString()
+      .padLeft(
+    2,
+    '0',
+  );
+
+  final day =
+  date.day
+      .toString()
+      .padLeft(
+    2,
+    '0',
+  );
+
+  return '${date.year}-$month-$day';
 }

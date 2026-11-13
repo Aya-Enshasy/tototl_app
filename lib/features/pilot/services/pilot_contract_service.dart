@@ -41,78 +41,112 @@ class PilotContractService {
         );
 
         final body = _parseBody(response.data);
+
         _ensureSuccess(
           body,
           fallback: 'Unable to load your contracts.',
         );
 
-        final pageData = _extractPaginator(body['data']);
-
-        contracts.addAll(
-          pageData.items.map(PilotContractModel.fromJson),
+        final pageData = _extractPaginator(
+          body['data'],
         );
 
-        lastPage = pageData.lastPage < page ? page : pageData.lastPage;
+        contracts.addAll(
+          pageData.items.map(
+            PilotContractModel.fromJson,
+          ),
+        );
+
+        lastPage = pageData.lastPage < page
+            ? page
+            : pageData.lastPage;
+
         page++;
       } while (page <= lastPage);
 
-      contracts.sort((a, b) {
-        final aDate =
-            a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate =
-            b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bDate.compareTo(aDate);
-      });
+      contracts.sort(
+            (a, b) {
+          final aDate =
+              a.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(
+                    0,
+                  );
+
+          final bDate =
+              b.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(
+                    0,
+                  );
+
+          return bDate.compareTo(aDate);
+        },
+      );
 
       return contracts;
     } on DioException catch (e) {
       throw PilotContractException(
         _dioErrorMessage(
           e,
-          fallback: 'Unable to load your contracts.',
+          fallback:
+          'Unable to load your contracts.',
         ),
       );
     }
   }
 
-  Future<PilotContractModel> getContract(int contractId) async {
+  Future<PilotContractModel> getContract(
+      int contractId,
+      ) async {
     final token = await _getToken();
 
     try {
       final response = await apiClient.get(
-        ApiEndpoints.contract(contractId),
+        ApiEndpoints.contract(
+          contractId,
+        ),
         options: _authOptions(token),
       );
 
-      final body = _parseBody(response.data);
+      final body = _parseBody(
+        response.data,
+      );
+
       _ensureSuccess(
         body,
-        fallback: 'Unable to load this contract.',
+        fallback:
+        'Unable to load this contract.',
       );
 
       return _parseContract(
         body['data'],
-        fallback: 'Contract details are missing.',
+        fallback:
+        'Contract details are missing.',
       );
     } on DioException catch (e) {
       throw PilotContractException(
         _dioErrorMessage(
           e,
-          fallback: 'Unable to load this contract.',
+          fallback:
+          'Unable to load this contract.',
         ),
       );
     }
   }
 
-  Future<PilotContractModel?> getContractForApplication(
+  Future<PilotContractModel?>
+  getContractForApplication(
       int applicationId,
       ) async {
-    if (applicationId <= 0) return null;
+    if (applicationId <= 0) {
+      return null;
+    }
 
-    final contracts = await getContracts();
+    final contracts =
+    await getContracts();
 
     for (final contract in contracts) {
-      if (contract.jobApplicationId == applicationId) {
+      if (contract.jobApplicationId ==
+          applicationId) {
         return contract;
       }
     }
@@ -120,111 +154,221 @@ class PilotContractService {
     return null;
   }
 
-
-  Future<PilotContractLocationModel?> getContractLocation(int contractId) async {
+  Future<PilotContractLocationModel?>
+  getContractLocation(
+      int contractId,
+      ) async {
     final token = await _getToken();
+
     try {
       final response = await apiClient.get(
-        ApiEndpoints.contractLocation(contractId),
+        ApiEndpoints.contractLocation(
+          contractId,
+        ),
         options: _authOptions(token),
       );
-      final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to load the exact job location.');
+
+      final body = _parseBody(
+        response.data,
+      );
+
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to load the exact job location.',
+      );
+
       final raw = body['data'];
-      if (raw is! Map) return null;
-      return PilotContractLocationModel.fromJson(
-        Map<String, dynamic>.from(raw),
+
+      if (raw is! Map) {
+        return null;
+      }
+
+      return PilotContractLocationModel
+          .fromJson(
+        Map<String, dynamic>.from(
+          raw,
+        ),
       );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+
       throw PilotContractException(
-        _dioErrorMessage(e, fallback: 'Unable to load the exact job location.'),
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to load the exact job location.',
+        ),
       );
     }
   }
 
-  Future<PilotContractModel> startWork(int contractId) async {
+  Future<PilotContractModel> startWork(
+      int contractId,
+      ) async {
     final token = await _getToken();
+
     try {
       final response = await apiClient.post(
-        ApiEndpoints.startContractWork(contractId),
+        ApiEndpoints.startContractWork(
+          contractId,
+        ),
         options: _authOptions(token),
       );
-      final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to start work on this contract.');
 
-      final actionContract = _parseContract(
-        body['data'],
-        fallback: 'Started contract data is missing.',
+      final body = _parseBody(
+        response.data,
       );
 
-      // Always reconcile with the authoritative contract endpoint. Some action
-      // responses can be serialized before every relationship/state refresh.
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to start work on this contract.',
+      );
+
+      final actionContract =
+      _parseContract(
+        body['data'],
+        fallback:
+        'Started contract data is missing.',
+      );
+
       try {
-        final fresh = await getContract(contractId);
-        if (fresh.isInProgress || fresh.startedAt != null) return fresh;
+        final fresh =
+        await getContract(
+          contractId,
+        );
+
+        if (fresh.isInProgress ||
+            fresh.startedAt != null) {
+          return fresh;
+        }
       } catch (_) {
-        // The action itself already succeeded, so keep the successful state.
+        // Keep the successful action response.
       }
 
       return actionContract.copyWith(
         status: 'in_progress',
-        startedAt: actionContract.startedAt ?? DateTime.now().toUtc(),
-        updatedAt: DateTime.now().toUtc(),
+        startedAt:
+        actionContract.startedAt ??
+            DateTime.now().toUtc(),
+        updatedAt:
+        DateTime.now().toUtc(),
       );
     } on DioException catch (e) {
       throw PilotContractException(
-        _dioErrorMessage(e, fallback: 'Unable to start work on this contract.'),
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to start work on this contract.',
+        ),
       );
     }
   }
 
-  Future<List<ContractSubmissionModel>> getSubmissions(int contractId) async {
+  Future<List<ContractSubmissionModel>>
+  getSubmissions(
+      int contractId,
+      ) async {
     final token = await _getToken();
+
     try {
       final response = await apiClient.get(
-        ApiEndpoints.contractSubmissions(contractId),
+        ApiEndpoints.contractSubmissions(
+          contractId,
+        ),
         options: _authOptions(token),
       );
-      final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to load work submissions.');
+
+      final body = _parseBody(
+        response.data,
+      );
+
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to load work submissions.',
+      );
+
       final raw = body['data'];
-      if (raw is! List) return const [];
+
+      if (raw is! List) {
+        return const [];
+      }
+
       return raw
           .whereType<Map>()
-          .map((item) => ContractSubmissionModel.fromJson(
-        Map<String, dynamic>.from(item),
-      ))
-          .toList(growable: false);
+          .map(
+            (item) =>
+            ContractSubmissionModel
+                .fromJson(
+              Map<String, dynamic>.from(
+                item,
+              ),
+            ),
+      )
+          .toList(
+        growable: false,
+      );
     } on DioException catch (e) {
       throw PilotContractException(
-        _dioErrorMessage(e, fallback: 'Unable to load work submissions.'),
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to load work submissions.',
+        ),
       );
     }
   }
 
-  Future<ContractSubmissionModel> getSubmission(
+  Future<ContractSubmissionModel>
+  getSubmission(
       int contractId,
       int submissionId,
       ) async {
     final token = await _getToken();
+
     try {
       final response = await apiClient.get(
-        ApiEndpoints.contractSubmission(contractId, submissionId),
+        ApiEndpoints.contractSubmission(
+          contractId,
+          submissionId,
+        ),
         options: _authOptions(token),
       );
-      final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to load this work submission.');
+
+      final body = _parseBody(
+        response.data,
+      );
+
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to load this work submission.',
+      );
+
       final raw = body['data'];
+
       if (raw is! Map) {
-        throw const PilotContractException('Work submission data is missing.');
+        throw const PilotContractException(
+          'Work submission data is missing.',
+        );
       }
+
       return ContractSubmissionModel.fromJson(
-        Map<String, dynamic>.from(raw),
+        Map<String, dynamic>.from(
+          raw,
+        ),
       );
     } on DioException catch (e) {
       throw PilotContractException(
-        _dioErrorMessage(e, fallback: 'Unable to load this work submission.'),
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to load this work submission.',
+        ),
       );
     }
   }
@@ -235,93 +379,172 @@ class PilotContractService {
         List<String> filePaths = const [],
       }) async {
     if (filePaths.length > 10) {
-      throw const PilotContractException('You can upload up to 10 files per submission.');
+      throw const PilotContractException(
+        'You can upload up to 10 files per submission.',
+      );
     }
 
-    final cleanNotes = notes?.trim() ?? '';
+    final cleanNotes =
+        notes?.trim() ?? '';
+
     if (cleanNotes.length > 2000) {
-      throw const PilotContractException('Submission notes cannot exceed 2000 characters.');
+      throw const PilotContractException(
+        'Submission notes cannot exceed 2000 characters.',
+      );
     }
 
-    final multipartFiles = <MultipartFile>[];
+    final multipartFiles =
+    <MultipartFile>[];
+
     for (final rawPath in filePaths) {
-      final path = rawPath.trim();
-      if (path.isEmpty) continue;
-      final file = File(path);
+      final path =
+      rawPath.trim();
+
+      if (path.isEmpty) {
+        continue;
+      }
+
+      final file =
+      File(path);
+
       if (!await file.exists()) {
-        throw PilotContractException('Selected file was not found: ${file.uri.pathSegments.isEmpty ? path : file.uri.pathSegments.last}');
+        throw PilotContractException(
+          'Selected file was not found: '
+              '${file.uri.pathSegments.isEmpty ? path : file.uri.pathSegments.last}',
+        );
       }
-      final size = await file.length();
-      if (size > 20 * 1024 * 1024) {
-        throw const PilotContractException('Each submission file must be 20 MB or smaller.');
+
+      final size =
+      await file.length();
+
+      if (size >
+          20 * 1024 * 1024) {
+        throw const PilotContractException(
+          'Each submission file must be 20 MB or smaller.',
+        );
       }
-      final filename = file.uri.pathSegments.isEmpty
+
+      final filename =
+      file.uri.pathSegments.isEmpty
           ? 'deliverable'
           : file.uri.pathSegments.last;
+
       multipartFiles.add(
-        await MultipartFile.fromFile(path, filename: filename),
+        await MultipartFile.fromFile(
+          path,
+          filename: filename,
+        ),
       );
     }
 
-    // Laravel validates `files` as an array. With Dio, passing a List of
-    // MultipartFile objects through FormData.fromMap can be encoded as repeated
-    // `files` fields instead of the PHP/Laravel array notation expected by the
-    // backend. Build the multipart form explicitly and name each file `files[]`.
-    // Laravel will then receive: files => [UploadedFile, UploadedFile, ...].
-    final formData = FormData();
+    final formData =
+    FormData();
 
     if (cleanNotes.isNotEmpty) {
-      formData.fields.add(MapEntry('notes', cleanNotes));
-    }
-
-    // Use explicit indexed multipart keys. PHP/Laravel will parse these as:
-    // files => [UploadedFile, UploadedFile, ...]
-    // This is more deterministic than repeated `files` or `files[]` fields
-    // with some Dio / server combinations.
-    for (var i = 0; i < multipartFiles.length; i++) {
-      formData.files.add(
-        MapEntry('files[$i]', multipartFiles[i]),
+      formData.fields.add(
+        MapEntry(
+          'notes',
+          cleanNotes,
+        ),
       );
     }
 
-    print('================ SUBMIT WORK MULTIPART ================');
-    print('NOTES FIELD PRESENT: ${cleanNotes.isNotEmpty}');
-    print('FILES COUNT: ${formData.files.length}');
-    print('FILE KEYS: ${formData.files.map((e) => e.key).toList()}');
-    print('=======================================================');
+    for (var i = 0;
+    i < multipartFiles.length;
+    i++) {
+      formData.files.add(
+        MapEntry(
+          'files[$i]',
+          multipartFiles[i],
+        ),
+      );
+    }
 
-    final token = await _getToken();
+    print(
+      '================ SUBMIT WORK MULTIPART ================',
+    );
+    print(
+      'NOTES FIELD PRESENT: ${cleanNotes.isNotEmpty}',
+    );
+    print(
+      'FILES COUNT: ${formData.files.length}',
+    );
+    print(
+      'FILE KEYS: ${formData.files.map((e) => e.key).toList()}',
+    );
+    print(
+      '=======================================================',
+    );
+
+    final token =
+    await _getToken();
+
     try {
-      final response = await apiClient.post(
-        ApiEndpoints.contractSubmissions(contractId),
+      final response =
+      await apiClient.post(
+        ApiEndpoints.contractSubmissions(
+          contractId,
+        ),
         data: formData,
         options: Options(
-          contentType: Headers.multipartFormDataContentType,
+          contentType:
+          Headers
+              .multipartFormDataContentType,
           headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
+            'Accept':
+            'application/json',
+            'Authorization':
+            'Bearer $token',
           },
         ),
       );
-      final body = _parseBody(response.data);
-      _ensureSuccess(body, fallback: 'Unable to submit completed work.');
+
+      final body = _parseBody(
+        response.data,
+      );
+
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to submit completed work.',
+      );
+
       final raw = body['data'];
+
       if (raw is! Map) {
-        throw const PilotContractException('Submitted work data is missing.');
+        throw const PilotContractException(
+          'Submitted work data is missing.',
+        );
       }
-      final submission = ContractSubmissionModel.fromJson(
-        Map<String, dynamic>.from(raw),
+
+      final submission =
+      ContractSubmissionModel.fromJson(
+        Map<String, dynamic>.from(
+          raw,
+        ),
       );
 
       PilotContractModel contract;
+
       try {
-        final fresh = await getContract(contractId);
-        contract = fresh.isSubmitted
+        final fresh =
+        await getContract(
+          contractId,
+        );
+
+        contract =
+        fresh.isSubmitted
             ? fresh
             : fresh.copyWith(
-          status: 'submitted',
-          submittedAt: fresh.submittedAt ?? DateTime.now().toUtc(),
-          updatedAt: DateTime.now().toUtc(),
+          status:
+          'submitted',
+          submittedAt:
+          fresh.submittedAt ??
+              DateTime.now()
+                  .toUtc(),
+          updatedAt:
+          DateTime.now()
+              .toUtc(),
         );
       } catch (_) {
         throw const PilotContractException(
@@ -335,46 +558,69 @@ class PilotContractService {
       );
     } on DioException catch (e) {
       throw PilotContractException(
-        _dioErrorMessage(e, fallback: 'Unable to submit completed work.'),
-      );
-    }
-  }
-
-  Future<PilotContractModel> acceptContract(int contractId) async {
-    final token = await _getToken();
-
-    try {
-      final response = await apiClient.post(
-        ApiEndpoints.acceptContract(contractId),
-        options: _authOptions(token),
-      );
-
-      final body = _parseBody(response.data);
-      _ensureSuccess(
-        body,
-        fallback: 'Unable to accept this contract.',
-      );
-
-      return _parseContract(
-        body['data'],
-        fallback: 'Accepted contract data is missing.',
-      );
-    } on DioException catch (e) {
-      throw PilotContractException(
         _dioErrorMessage(
           e,
-          fallback: 'Unable to accept this contract.',
+          fallback:
+          'Unable to submit completed work.',
         ),
       );
     }
   }
 
-  Future<PilotContractModel> rejectContract(
+  Future<PilotContractModel>
+  acceptContract(
+      int contractId,
+      ) async {
+    final token =
+    await _getToken();
+
+    try {
+      final response =
+      await apiClient.post(
+        ApiEndpoints.acceptContract(
+          contractId,
+        ),
+        options:
+        _authOptions(token),
+      );
+
+      final body =
+      _parseBody(
+        response.data,
+      );
+
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to accept this contract.',
+      );
+
+      return _parseContract(
+        body['data'],
+        fallback:
+        'Accepted contract data is missing.',
+      );
+    } on DioException catch (e) {
+      throw PilotContractException(
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to accept this contract.',
+        ),
+      );
+    }
+  }
+
+  Future<PilotContractModel>
+  rejectContract(
       int contractId, {
         String? reason,
       }) async {
-    final token = await _getToken();
-    final cleanReason = reason?.trim() ?? '';
+    final token =
+    await _getToken();
+
+    final cleanReason =
+        reason?.trim() ?? '';
 
     if (cleanReason.length > 2000) {
       throw const PilotContractException(
@@ -383,67 +629,198 @@ class PilotContractService {
     }
 
     try {
-      final response = await apiClient.post(
-        ApiEndpoints.rejectContract(contractId),
-        data: cleanReason.isEmpty
+      final response =
+      await apiClient.post(
+        ApiEndpoints.rejectContract(
+          contractId,
+        ),
+        data:
+        cleanReason.isEmpty
             ? null
             : <String, dynamic>{
-          'reason': cleanReason,
+          'reason':
+          cleanReason,
         },
-        options: cleanReason.isEmpty
+        options:
+        cleanReason.isEmpty
             ? _authOptions(token)
-            : _jsonAuthOptions(token),
+            : _jsonAuthOptions(
+          token,
+        ),
       );
 
-      final body = _parseBody(response.data);
+      final body =
+      _parseBody(
+        response.data,
+      );
+
       _ensureSuccess(
         body,
-        fallback: 'Unable to reject this contract.',
+        fallback:
+        'Unable to reject this contract.',
       );
 
       return _parseContract(
         body['data'],
-        fallback: 'Rejected contract data is missing.',
+        fallback:
+        'Rejected contract data is missing.',
       );
     } on DioException catch (e) {
       throw PilotContractException(
         _dioErrorMessage(
           e,
-          fallback: 'Unable to reject this contract.',
+          fallback:
+          'Unable to reject this contract.',
         ),
       );
     }
   }
 
-  _ContractPage _extractPaginator(dynamic raw) {
+  // ===========================================================================
+  // PHASE 4 - REVIEW COMPANY
+  // ===========================================================================
+
+  Future<String> submitReview(
+      int contractId, {
+        required int rating,
+        String? comment,
+      }) async {
+    if (contractId <= 0) {
+      throw const PilotContractException(
+        'Invalid contract.',
+      );
+    }
+
+    if (rating < 1 || rating > 5) {
+      throw const PilotContractException(
+        'Rating must be between 1 and 5.',
+      );
+    }
+
+    final cleanComment =
+        comment?.trim() ?? '';
+
+    if (cleanComment.length > 2000) {
+      throw const PilotContractException(
+        'Review comment cannot exceed 2000 characters.',
+      );
+    }
+
+    final token =
+    await _getToken();
+
+    final data =
+    <String, dynamic>{
+      'rating': rating,
+      if (cleanComment.isNotEmpty)
+        'comment': cleanComment,
+    };
+
+    try {
+      final response =
+      await apiClient.post(
+        ApiEndpoints.contractReview(
+          contractId,
+        ),
+        data: data,
+        options:
+        _jsonAuthOptions(token),
+      );
+
+      final body =
+      _parseBody(
+        response.data,
+      );
+
+      _ensureSuccess(
+        body,
+        fallback:
+        'Unable to submit your review.',
+      );
+
+      final message =
+      body['message']
+          ?.toString()
+          .trim();
+
+      if (message != null &&
+          message.isNotEmpty) {
+        return message;
+      }
+
+      return 'Review submitted.';
+    } on DioException catch (e) {
+      throw PilotContractException(
+        _dioErrorMessage(
+          e,
+          fallback:
+          'Unable to submit your review.',
+        ),
+      );
+    }
+  }
+
+  _ContractPage _extractPaginator(
+      dynamic raw,
+      ) {
     if (raw is List) {
       return _ContractPage(
         items: raw
             .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
+            .map(
+              (item) =>
+          Map<String, dynamic>.from(
+            item,
+          ),
+        )
             .toList(),
         lastPage: 1,
       );
     }
 
     if (raw is Map) {
-      final map = Map<String, dynamic>.from(raw);
+      final map =
+      Map<String, dynamic>.from(
+        raw,
+      );
 
-      final nested = map['data'];
+      final nested =
+      map['data'];
+
       if (nested is List) {
         return _ContractPage(
           items: nested
               .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
+              .map(
+                (item) =>
+            Map<String, dynamic>.from(
+              item,
+            ),
+          )
               .toList(),
-          lastPage: _asInt(map['last_page']) ?? 1,
+          lastPage:
+          _asInt(
+            map['last_page'],
+          ) ??
+              1,
         );
       }
 
-      final items = map.values
+      final items =
+      map.values
           .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .where((item) => item.containsKey('id'))
+          .map(
+            (item) =>
+        Map<String, dynamic>.from(
+          item,
+        ),
+      )
+          .where(
+            (item) =>
+            item.containsKey(
+              'id',
+            ),
+      )
           .toList();
 
       if (items.isNotEmpty) {
@@ -472,28 +849,38 @@ class PilotContractService {
       }) {
     if (raw is Map) {
       return PilotContractModel.fromJson(
-        Map<String, dynamic>.from(raw),
+        Map<String, dynamic>.from(
+          raw,
+        ),
       );
     }
 
-    throw PilotContractException(fallback);
+    throw PilotContractException(
+      fallback,
+    );
   }
 
-  Map<String, dynamic> _parseBody(dynamic raw) {
+  Map<String, dynamic> _parseBody(
+      dynamic raw,
+      ) {
     if (raw is! Map) {
       throw const PilotContractException(
         'Invalid server response.',
       );
     }
 
-    return Map<String, dynamic>.from(raw);
+    return Map<String, dynamic>.from(
+      raw,
+    );
   }
 
   void _ensureSuccess(
       Map<String, dynamic> body, {
         required String fallback,
       }) {
-    if (body['success'] == true) return;
+    if (body['success'] == true) {
+      return;
+    }
 
     throw PilotContractException(
       _messageFromBody(
@@ -504,9 +891,12 @@ class PilotContractService {
   }
 
   Future<String> _getToken() async {
-    final token = await TokenStorage.getAccessToken();
+    final token =
+    await TokenStorage
+        .getAccessToken();
 
-    if (token == null || token.trim().isEmpty) {
+    if (token == null ||
+        token.trim().isEmpty) {
       throw const PilotContractException(
         'Authentication token not found.',
       );
@@ -515,21 +905,30 @@ class PilotContractService {
     return token.trim();
   }
 
-  Options _authOptions(String token) {
+  Options _authOptions(
+      String token,
+      ) {
     return Options(
       headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
+        'Accept':
+        'application/json',
+        'Authorization':
+        'Bearer $token',
       },
     );
   }
 
-  Options _jsonAuthOptions(String token) {
+  Options _jsonAuthOptions(
+      String token,
+      ) {
     return Options(
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
+        'Accept':
+        'application/json',
+        'Content-Type':
+        'application/json',
+        'Authorization':
+        'Bearer $token',
       },
     );
   }
@@ -538,24 +937,44 @@ class PilotContractService {
       Map<String, dynamic> body, {
         required String fallback,
       }) {
-    final errors = body['errors'];
+    final errors =
+    body['errors'];
 
     if (errors is Map) {
-      for (final value in errors.values) {
-        if (value is List && value.isNotEmpty) {
-          final first = value.first.toString().trim();
-          if (first.isNotEmpty) return first;
+      for (final value
+      in errors.values) {
+        if (value is List &&
+            value.isNotEmpty) {
+          final first =
+          value.first
+              .toString()
+              .trim();
+
+          if (first.isNotEmpty) {
+            return first;
+          }
         }
 
         if (value != null) {
-          final text = value.toString().trim();
-          if (text.isNotEmpty) return text;
+          final text =
+          value
+              .toString()
+              .trim();
+
+          if (text.isNotEmpty) {
+            return text;
+          }
         }
       }
     }
 
-    final message = body['message']?.toString().trim();
-    if (message != null && message.isNotEmpty) {
+    final message =
+    body['message']
+        ?.toString()
+        .trim();
+
+    if (message != null &&
+        message.isNotEmpty) {
       return message;
     }
 
@@ -566,35 +985,57 @@ class PilotContractService {
       DioException error, {
         required String fallback,
       }) {
-    final raw = error.response?.data;
+    final raw =
+        error.response?.data;
 
     if (raw is Map) {
       return _messageFromBody(
-        Map<String, dynamic>.from(raw),
+        Map<String, dynamic>.from(
+          raw,
+        ),
         fallback: fallback,
       );
     }
 
-    if (error.type == DioExceptionType.connectionTimeout) {
+    if (error.type ==
+        DioExceptionType
+            .connectionTimeout) {
       return 'Connection timed out. Please try again.';
     }
 
-    if (error.type == DioExceptionType.receiveTimeout) {
+    if (error.type ==
+        DioExceptionType
+            .receiveTimeout) {
       return 'Server response timed out. Please try again.';
     }
 
-    if (error.type == DioExceptionType.connectionError) {
+    if (error.type ==
+        DioExceptionType
+            .connectionError) {
       return 'No internet connection.';
     }
 
     return fallback;
   }
 
-  int? _asInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value.toString());
+  int? _asInt(
+      dynamic value,
+      ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value.toString(),
+    );
   }
 }
 
@@ -608,13 +1049,17 @@ class _ContractPage {
   });
 }
 
-class PilotContractException implements Exception {
+class PilotContractException
+    implements Exception {
   final String message;
 
-  const PilotContractException(this.message);
+  const PilotContractException(
+      this.message,
+      );
 
   @override
-  String toString() => message;
+  String toString() =>
+      message;
 }
 
 class PilotSubmitWorkResult {

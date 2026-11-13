@@ -108,6 +108,9 @@ class AuthController {
       );
     } on DioException catch (e) {
       return _handleRegisterDioError(e, label: 'PILOT');
+    } on AuthMediaException catch (e) {
+      errorMessage = e.message;
+      return null;
     } catch (e, stackTrace) {
       errorMessage = 'Something went wrong. Please try again.';
       print('================================================');
@@ -154,6 +157,9 @@ class AuthController {
       );
     } on DioException catch (e) {
       return _handleRegisterDioError(e, label: 'COMPANY');
+    } on AuthMediaException catch (e) {
+      errorMessage = e.message;
+      return null;
     } catch (e, stackTrace) {
       errorMessage = 'Something went wrong. Please try again.';
       print('================================================');
@@ -174,7 +180,7 @@ class AuthController {
     final responseData = response.data;
 
     print('$label REGISTER STATUS CODE: ${response.statusCode}');
-    print('$label REGISTER RESPONSE: $responseData');
+    // Never log the full registration payload: it contains an access token.
 
     if (responseData is Map<String, dynamic>) {
       final success = responseData['success'];
@@ -257,10 +263,17 @@ class AuthController {
     final statusCode = e.response?.statusCode;
     final data = e.response?.data;
 
-    errorMessage = _extractErrorMessage(
-      data,
-      fallback: 'Registration failed. Please try again.',
-    );
+    if (statusCode == 413) {
+      errorMessage = 'An uploaded image or document is too large (10 MB maximum).';
+    } else if (e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      errorMessage = 'Uploading took too long. Check your connection and account status before retrying.';
+    } else {
+      errorMessage = _extractErrorMessage(
+        data,
+        fallback: 'Registration failed. Please try again.',
+      );
+    }
 
     print('================================================');
     print('$label REGISTER DIO ERROR');

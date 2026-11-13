@@ -5,22 +5,34 @@ class ApiEndpoints {
   static const String baseUrl =
       'https://tototl.abdullahdheir.dev/api/v1';
 
-  // Auth
+  // ==========================================================================
+  // AUTH
+  // ==========================================================================
+
   static const String login = '/auth/login';
   static const String pilotRegister = '/auth/register/pilot';
   static const String companyRegister = '/auth/register/company';
   static const String logout = '/auth/logout';
   static const String me = '/me';
+
   static const String pilotProfile = '/pilot/profile';
   static const String editPilotProfile = '/pilot/profile';
   static const String profileDocuments = '/profile/documents';
   static const String companyProfile = '/company/profile';
+
   static const String fcmTokenRefresh = '/fcm-token/refresh';
 
-  // Password
-  static const String forgotPassword = '/auth/password/forgot';
+  // ==========================================================================
+  // PASSWORD
+  // ==========================================================================
 
-  // Drones
+  static const String forgotPassword =
+      '/auth/password/forgot';
+
+  // ==========================================================================
+  // DRONES
+  // ==========================================================================
+
   static const String drones = '/drones';
 
   /// GET    /drones/{id}
@@ -36,7 +48,8 @@ class ApiEndpoints {
 
   /// GET  /company/job-postings
   /// POST /company/job-postings
-  static const String companyJobPostings = '/company/job-postings';
+  static const String companyJobPostings =
+      '/company/job-postings';
 
   /// POST /company/job-postings/{id}/publish
   static String publishCompanyJob(int jobId) {
@@ -44,7 +57,7 @@ class ApiEndpoints {
   }
 
   // ==========================================================================
-  // CONTRACTS
+  // CONTRACTS - PILOT
   // ==========================================================================
 
   /// GET /contracts
@@ -75,7 +88,7 @@ class ApiEndpoints {
     return '/contracts/$contractId/location';
   }
 
-  /// GET /contracts/{contract}/submissions
+  /// GET  /contracts/{contract}/submissions
   /// POST /contracts/{contract}/submissions
   static String contractSubmissions(int contractId) {
     return '/contracts/$contractId/submissions';
@@ -83,64 +96,100 @@ class ApiEndpoints {
 
   /// GET /contracts/{contract}/submissions/{submission}
   static String contractSubmission(
-    int contractId,
-    int submissionId,
-  ) {
+      int contractId,
+      int submissionId,
+      ) {
     return '/contracts/$contractId/submissions/$submissionId';
+  }
+
+  /// POST /contracts/{contract}/reviews
+  static String contractReview(int contractId) {
+    return '/contracts/$contractId/reviews';
   }
 
   // ==========================================================================
   // COMPANY CONTRACTS
   // ==========================================================================
 
-  static const String companyContracts = '/company/contracts';
+  /// GET /company/contracts
+  static const String companyContracts =
+      '/company/contracts';
 
+  /// GET /company/contracts/{contract}
   static String companyContract(int contractId) {
     return '/company/contracts/$contractId';
   }
 
+  /// POST /company/contracts/{contract}/fund
   static String fundCompanyContract(int contractId) {
     return '/company/contracts/$contractId/fund';
   }
 
+  /// POST /company/contracts/{contract}/cancel
   static String cancelCompanyContract(int contractId) {
     return '/company/contracts/$contractId/cancel';
   }
 
+  /// POST /company/contracts/{contract}/terminate
   static String terminateCompanyContract(int contractId) {
     return '/company/contracts/$contractId/terminate';
   }
 
+  /// GET /company/contracts/{contract}/location
+  /// PUT /company/contracts/{contract}/location
   static String companyContractLocation(int contractId) {
     return '/company/contracts/$contractId/location';
   }
 
-  static String companyContractSubmissions(int contractId) {
+  /// GET /company/contracts/{contract}/submissions
+  static String companyContractSubmissions(
+      int contractId,
+      ) {
     return '/company/contracts/$contractId/submissions';
   }
 
+  /// GET /company/contracts/{contract}/submissions/{submission}
   static String companyContractSubmission(
-    int contractId,
-    int submissionId,
-  ) {
+      int contractId,
+      int submissionId,
+      ) {
     return '/company/contracts/$contractId/submissions/$submissionId';
   }
 
+  /// POST /company/contracts/{contract}/submissions/{submission}/approve
   static String approveCompanyContractSubmission(
-    int contractId,
-    int submissionId,
-  ) {
+      int contractId,
+      int submissionId,
+      ) {
     return '/company/contracts/$contractId/submissions/$submissionId/approve';
   }
 
+  /// POST /company/contracts/{contract}/submissions/{submission}/request-revision
   static String requestRevisionCompanyContractSubmission(
-    int contractId,
-    int submissionId,
-  ) {
+      int contractId,
+      int submissionId,
+      ) {
     return '/company/contracts/$contractId/submissions/$submissionId/request-revision';
   }
 
+  /// POST /company/contracts/{contract}/reviews
+  static String companyContractReview(int contractId) {
+    return '/company/contracts/$contractId/reviews';
+  }
 
+  // ==========================================================================
+  // REVIEWS - PHASE 4
+  // ==========================================================================
+
+  /// GET /pilots/{pilotProfile}/reviews
+  static String pilotReviews(int pilotProfileId) {
+    return '/pilots/$pilotProfileId/reviews';
+  }
+
+  /// GET /companies/{companyProfile}/reviews
+  static String companyReviews(int companyProfileId) {
+    return '/companies/$companyProfileId/reviews';
+  }
 
   // ==========================================================================
   // PAYMENTS
@@ -155,7 +204,8 @@ class ApiEndpoints {
   }
 
   /// GET /company/payments
-  static const String companyPayments = '/company/payments';
+  static const String companyPayments =
+      '/company/payments';
 
   /// GET /company/payments/{payment}
   static String companyPayment(int paymentId) {
@@ -167,40 +217,57 @@ class ApiEndpoints {
   // ==========================================================================
 
   /// GET /subscription-plans
-  static const String subscriptionPlans = '/subscription-plans';
+  static const String subscriptionPlans =
+      '/subscription-plans';
 
   /// GET /subscription
-  static const String currentSubscription = '/subscription';
+  static const String currentSubscription =
+      '/subscription';
 
   /// POST /subscriptions
-  static const String subscriptions = '/subscriptions';
+  static const String subscriptions =
+      '/subscriptions';
 
   /// POST /subscriptions/{subscription}/cancel
-  static String cancelSubscription(int subscriptionId) {
+  static String cancelSubscription(
+      int subscriptionId,
+      ) {
     return '/subscriptions/$subscriptionId/cancel';
   }
 
   /// POST /subscriptions/{subscription}/change-plan
-  static String changeSubscriptionPlan(int subscriptionId) {
+  static String changeSubscriptionPlan(
+      int subscriptionId,
+      ) {
     return '/subscriptions/$subscriptionId/change-plan';
   }
 
   /// GET /subscriptions/history
-  static const String subscriptionHistory = '/subscriptions/history';
+  static const String subscriptionHistory =
+      '/subscriptions/history';
 
   /// GET /subscription-payments
-  static const String subscriptionPayments = '/subscription-payments';
+  static const String subscriptionPayments =
+      '/subscription-payments';
 
   // ==========================================================================
   // ADMIN
   // ==========================================================================
 
-  static const String adminPendingPilots = '/admin/pilots/pending';
-  static const String adminPendingCompanies = '/admin/companies/pending';
+  static const String adminPendingPilots =
+      '/admin/pilots/pending';
+
+  static const String adminPendingCompanies =
+      '/admin/companies/pending';
 
   /// GET /admin/companies
   /// Supports: search, status, per_page, page
-  static const String adminCompanies = '/admin/companies';
+  static const String adminCompanies =
+      '/admin/companies';
+
+  /// GET /admin/users?role=pilot|company&per_page=&page=
+  /// Complete account directory (also includes non-pending users).
+  static const String adminUsers = '/admin/users';
 
   // ==========================================================================
   // ADMIN - VERIFICATION ACTIONS
@@ -222,16 +289,30 @@ class ApiEndpoints {
     return '/admin/users/$userId/reactivate';
   }
 
-  static String adminVerificationHistory(int userId) {
+  static String adminVerificationHistory(
+      int userId,
+      ) {
     return '/admin/users/$userId/verification-history';
   }
 
-  static const String pilotLicenses = '/pilot-licenses';
+  // ==========================================================================
+  // PILOT LICENSES
+  // ==========================================================================
+
+  static const String pilotLicenses =
+      '/pilot-licenses';
 
   static String pilotLicense(int licenseId) {
     return '/pilot-licenses/$licenseId';
   }
 
-  static const String pilotDashboard = '/dashboard';
-  static const String companyDashboard = '/company/dashboard';
+  // ==========================================================================
+  // DASHBOARDS
+  // ==========================================================================
+
+  static const String pilotDashboard =
+      '/dashboard';
+
+  static const String companyDashboard =
+      '/company/dashboard';
 }

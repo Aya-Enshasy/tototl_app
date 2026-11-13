@@ -1,3 +1,5 @@
+import 'package:tototl_app/core/models/rating_summary_model.dart';
+
 class PilotProfileViewData {
   final PilotAccountModel account;
   final PilotProfileModel profile;
@@ -17,7 +19,8 @@ class PilotProfileViewData {
     return PilotProfileViewData(
       account: account ?? this.account,
       profile: profile ?? this.profile,
-      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      profilePhotoUrl:
+      profilePhotoUrl ?? this.profilePhotoUrl,
     );
   }
 }
@@ -39,7 +42,9 @@ class PilotAccountModel {
     this.phone = '',
   });
 
-  factory PilotAccountModel.fromJson(Map<String, dynamic> json) {
+  factory PilotAccountModel.fromJson(
+      Map<String, dynamic> json,
+      ) {
     return PilotAccountModel(
       id: _asInt(json['id']),
       name: _asString(json['name']),
@@ -52,13 +57,22 @@ class PilotAccountModel {
 
   String get displayName {
     final value = name.trim();
-    return value.isEmpty ? 'Pilot' : value;
+
+    return value.isEmpty
+        ? 'Pilot'
+        : value;
   }
 
   String get displayUsername {
     final value = username.trim();
-    if (value.isEmpty) return '';
-    return value.startsWith('@') ? value : '@$value';
+
+    if (value.isEmpty) {
+      return '';
+    }
+
+    return value.startsWith('@')
+        ? value
+        : '@$value';
   }
 }
 
@@ -79,6 +93,12 @@ class PilotProfileModel {
   final String currentCity;
   final List<PilotWorkRegionModel> workRegions;
 
+  /// Phase 4
+  ///
+  /// The API now embeds the pilot rating summary
+  /// in pilot_profile responses.
+  final RatingSummaryModel? rating;
+
   const PilotProfileModel({
     this.id,
     this.userId,
@@ -95,35 +115,52 @@ class PilotProfileModel {
     this.currentState = '',
     this.currentCity = '',
     this.workRegions = const [],
+    this.rating,
   });
 
-  factory PilotProfileModel.fromJson(Map<String, dynamic> json) {
+  factory PilotProfileModel.fromJson(
+      Map<String, dynamic> json,
+      ) {
     final languages = <String>[];
     final rawLanguages = json['languages'];
 
     if (rawLanguages is List) {
       for (final item in rawLanguages) {
-        final value = item?.toString().trim() ?? '';
-        if (value.isNotEmpty) languages.add(value);
+        final value =
+            item?.toString().trim() ?? '';
+
+        if (value.isNotEmpty) {
+          languages.add(value);
+        }
       }
-    } else if (rawLanguages is String && rawLanguages.trim().isNotEmpty) {
+    } else if (rawLanguages is String &&
+        rawLanguages.trim().isNotEmpty) {
       languages.addAll(
         rawLanguages
             .split(',')
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty),
+            .map(
+              (item) => item.trim(),
+        )
+            .where(
+              (item) => item.isNotEmpty,
+        ),
       );
     }
 
-    final workRegions = <PilotWorkRegionModel>[];
-    final rawWorkRegions = json['work_regions'];
+    final workRegions =
+    <PilotWorkRegionModel>[];
+
+    final rawWorkRegions =
+    json['work_regions'];
 
     if (rawWorkRegions is List) {
       for (final item in rawWorkRegions) {
         if (item is Map) {
           workRegions.add(
             PilotWorkRegionModel.fromJson(
-              Map<String, dynamic>.from(item),
+              Map<String, dynamic>.from(
+                item,
+              ),
             ),
           );
         }
@@ -134,18 +171,58 @@ class PilotProfileModel {
       id: _asInt(json['id']),
       userId: _asInt(json['user_id']),
       bio: _asString(json['bio']),
-      experienceYears: _asInt(json['experience_years']) ?? 0,
-      nationality: _asString(json['nationality']),
-      dateOfBirth: _asDate(json['date_of_birth']),
-      linkedinUrl: _asString(json['linkedin_url']),
-      previousCompany: _asString(json['previous_company']),
+      experienceYears:
+      _asInt(
+        json['experience_years'],
+      ) ??
+          0,
+      nationality:
+      _asString(
+        json['nationality'],
+      ),
+      dateOfBirth:
+      _asDate(
+        json['date_of_birth'],
+      ),
+      linkedinUrl:
+      _asString(
+        json['linkedin_url'],
+      ),
+      previousCompany:
+      _asString(
+        json['previous_company'],
+      ),
       languages: languages,
-      createdAt: _asDate(json['created_at']),
-      updatedAt: _asDate(json['updated_at']),
-      currentCountry: _asString(json['current_country']),
-      currentState: _asString(json['current_state']),
-      currentCity: _asString(json['current_city']),
+      createdAt:
+      _asDate(
+        json['created_at'],
+      ),
+      updatedAt:
+      _asDate(
+        json['updated_at'],
+      ),
+      currentCountry:
+      _asString(
+        json['current_country'],
+      ),
+      currentState:
+      _asString(
+        json['current_state'],
+      ),
+      currentCity:
+      _asString(
+        json['current_city'],
+      ),
       workRegions: workRegions,
+
+      // Phase 4:
+      // {
+      //   "average": "4.50",
+      //   "count": 2
+      // }
+      rating: RatingSummaryModel.tryParse(
+        json['rating'],
+      ),
     );
   }
 
@@ -154,18 +231,30 @@ class PilotProfileModel {
       'id': id,
       'user_id': userId,
       'bio': bio,
-      'experience_years': experienceYears,
+      'experience_years':
+      experienceYears,
       'nationality': nationality,
-      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'date_of_birth':
+      dateOfBirth?.toIso8601String(),
       'linkedin_url': linkedinUrl,
-      'previous_company': previousCompany,
+      'previous_company':
+      previousCompany,
       'languages': languages,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
-      'current_country': currentCountry,
-      'current_state': currentState,
-      'current_city': currentCity,
-      'work_regions': workRegions.map((item) => item.toJson()).toList(),
+      'created_at':
+      createdAt?.toIso8601String(),
+      'updated_at':
+      updatedAt?.toIso8601String(),
+      'current_country':
+      currentCountry,
+      'current_state':
+      currentState,
+      'current_city':
+      currentCity,
+      'work_regions': workRegions
+          .map(
+            (item) => item.toJson(),
+      )
+          .toList(),
     };
   }
 
@@ -174,10 +263,39 @@ class PilotProfileModel {
       currentCity,
       currentState,
       currentCountry,
-    ].where((item) => item.trim().isNotEmpty).toList();
+    ]
+        .where(
+          (item) =>
+      item.trim().isNotEmpty,
+    )
+        .toList();
 
-    return parts.isEmpty ? 'Not specified' : parts.join(', ');
+    return parts.isEmpty
+        ? 'Not specified'
+        : parts.join(', ');
   }
+
+  // -----------------------------
+  // Phase 4 rating helpers
+  // -----------------------------
+
+  bool get hasRating =>
+      rating?.hasRating ?? false;
+
+  double? get ratingValue =>
+      rating?.averageValue;
+
+  String get ratingLabel =>
+      rating?.averageLabel ??
+          'No ratings yet';
+
+  String get ratingCountLabel =>
+      rating?.reviewsCountLabel ??
+          'No reviews';
+
+  String get fullRatingLabel =>
+      rating?.fullLabel ??
+          'No ratings yet';
 }
 
 class PilotWorkRegionModel {
@@ -199,53 +317,129 @@ class PilotWorkRegionModel {
     this.updatedAt,
   });
 
-  factory PilotWorkRegionModel.fromJson(Map<String, dynamic> json) {
+  factory PilotWorkRegionModel.fromJson(
+      Map<String, dynamic> json,
+      ) {
     return PilotWorkRegionModel(
       id: _asInt(json['id']),
-      pilotProfileId: _asInt(json['pilot_profile_id']),
-      country: _asString(json['country']),
-      state: _asString(json['state']),
-      city: _asString(json['city']),
-      createdAt: _asDate(json['created_at']),
-      updatedAt: _asDate(json['updated_at']),
+      pilotProfileId:
+      _asInt(
+        json['pilot_profile_id'],
+      ),
+      country:
+      _asString(
+        json['country'],
+      ),
+      state:
+      _asString(
+        json['state'],
+      ),
+      city:
+      _asString(
+        json['city'],
+      ),
+      createdAt:
+      _asDate(
+        json['created_at'],
+      ),
+      updatedAt:
+      _asDate(
+        json['updated_at'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'pilot_profile_id': pilotProfileId,
+      'pilot_profile_id':
+      pilotProfileId,
       'country': country,
-      'state': state.isEmpty ? null : state,
-      'city': city.isEmpty ? null : city,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+      'state':
+      state.isEmpty
+          ? null
+          : state,
+      'city':
+      city.isEmpty
+          ? null
+          : city,
+      'created_at':
+      createdAt?.toIso8601String(),
+      'updated_at':
+      updatedAt?.toIso8601String(),
     };
   }
 
   String get displayLabel {
-    final parts = <String>[city, state, country]
-        .where((item) => item.trim().isNotEmpty)
+    final parts =
+    <String>[
+      city,
+      state,
+      country,
+    ]
+        .where(
+          (item) =>
+      item
+          .trim()
+          .isNotEmpty,
+    )
         .toList();
 
-    return parts.isEmpty ? 'Region' : parts.join(', ');
+    return parts.isEmpty
+        ? 'Region'
+        : parts.join(', ');
   }
 }
 
-String _asString(dynamic value) {
-  if (value == null) return '';
-  return value.toString().trim();
+String _asString(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return '';
+  }
+
+  return value
+      .toString()
+      .trim();
 }
 
-int? _asInt(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  return int.tryParse(value.toString());
+int? _asInt(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return int.tryParse(
+    value.toString(),
+  );
 }
 
-DateTime? _asDate(dynamic value) {
-  if (value == null) return null;
-  final text = value.toString().trim();
-  if (text.isEmpty) return null;
-  return DateTime.tryParse(text);
+DateTime? _asDate(
+    dynamic value,
+    ) {
+  if (value == null) {
+    return null;
+  }
+
+  final text =
+  value
+      .toString()
+      .trim();
+
+  if (text.isEmpty) {
+    return null;
+  }
+
+  return DateTime.tryParse(
+    text,
+  );
 }

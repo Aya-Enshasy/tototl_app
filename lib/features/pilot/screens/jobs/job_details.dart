@@ -17,14 +17,20 @@ class JobDetailsScreen extends StatefulWidget {
     super.key,
     required this.jobId,
     this.detailsFuture,
+    this.initialJob,
   });
 
   final int jobId;
 
   /// Optional request started by the previous screen before navigation.
-  /// This makes the route transition useful loading time without ever showing
-  /// list/demo data as if it were authoritative detail data.
+  /// It remains the authoritative background refresh.
   final Future<PilotJobModel>? detailsFuture;
+
+  /// Real job model already loaded by Find Jobs.
+  ///
+  /// This is rendered immediately so a transient second GET can never replace
+  /// useful list data with a full-page error.
+  final PilotJobModel? initialJob;
 
   @override
   State<JobDetailsScreen> createState() => _JobDetailsScreenState();
@@ -54,6 +60,13 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 720),
     );
+
+    final initialJob = widget.initialJob;
+    if (initialJob != null && initialJob.id == widget.jobId) {
+      _job = initialJob;
+      _loading = false;
+      _pageAnimationController.forward();
+    }
 
     unawaited(
       _load(
@@ -91,7 +104,22 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
     }
 
     try {
-      final job = await (initialFuture ?? _service.getJobDetails(widget.jobId));
+      PilotJobModel job;
+
+      if (initialFuture != null) {
+        try {
+          job = await initialFuture;
+        } catch (_) {
+          // The pre-navigation request may fail because of a temporary server
+          // hiccup. Make one fresh screen-owned request before giving up.
+          await Future<void>.delayed(
+            const Duration(milliseconds: 350),
+          );
+          job = await _service.getJobDetails(widget.jobId);
+        }
+      } else {
+        job = await _service.getJobDetails(widget.jobId);
+      }
 
       if (!mounted || serial != _requestSerial) return;
 
@@ -202,6 +230,163 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
         ],
       ),
       bottomNavigationBar: _buildBottomAction(),
+    );
+  }
+
+
+  bool _isAcceptingApplications(PilotJobModel job) {
+    if (job.status.trim().toLowerCase() != 'published') {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cutoff = job.proposalDeadline ?? job.endDate;
+
+    if (cutoff == null) {
+      return true;
+    }
+
+    final cutoffDate = DateTime(
+      cutoff.year,
+      cutoff.month,
+      cutoff.day,
+    );
+
+    // Backend auto-close is strict: today itself is still valid.
+    return !cutoffDate.isBefore(today);
+  }
+
+  String _notAcceptingMessage(PilotJobModel job) {
+    final status = job.status.trim().toLowerCase();
+
+    if (status == 'cancelled') {
+      return 'This mission was cancelled and is no longer accepting applications.';
+    }
+
+    if (status == 'closed') {
+      return 'This mission is closed and is no longer accepting applications.';
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final deadline = job.proposalDeadline;
+    if (deadline != null) {
+      final value = DateTime(deadline.year, deadline.month, deadline.day);
+      if (value.isBefore(today)) {
+        return 'The proposal deadline has passed. This mission is no longer accepting applications.';
+      }
+    } else {
+      final end = job.endDate;
+      if (end != null) {
+        final value = DateTime(end.year, end.month, end.day);
+        if (value.isBefore(today)) {
+          return 'The mission window has ended. This mission is no longer accepting applications.';
+        }
+      }
+    }
+
+    return 'This mission is not accepting applications right now.';
+  }
+
+  Future<void> _openApply(PilotJobModel currentJob) async {
+    HapticFeedback.mediumImpact();
+
+    PilotJobModel job = currentJob;
+
+    // A published job can be auto-closed while this screen is still open.
+    // Refresh once immediately before opening the Apply flow.
+    try {
+      final fresh = await _service.getJobDetails(currentJob.id);
+
+      if (!mounted) return;
+
+      job = fresh;
+      setState(() => _job = fresh);
+    } catch (_) {
+      // Keep the last loaded job if the preflight refresh itself fails.
+      // The Apply endpoint remains authoritative.
+    }
+
+    if (!mounted) return;
+
+    if (!_isAcceptingApplications(job)) {
+      _showSnack(_notAcceptingMessage(job));
+      unawaited(_load());
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ApplyForJobScreen(job: job),
+      ),
+    );
+
+    if (mounted) {
+      unawaited(_load());
+    }
+  }
+
+  Widget _closedBottomAction(PilotJobModel job) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 11),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.98),
+          border: const Border(
+            top: BorderSide(color: Color(0xFFE2E9EC), width: .8),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0A2D46).withOpacity(.055),
+              blurRadius: 18,
+              offset: const Offset(0, -6),
+            ),
+          ],
+        ),
+        child: Container(
+          height: 49,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF5EC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFFE59A54).withOpacity(.20),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.82),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.event_busy_outlined,
+                  color: Color(0xFFB96B25),
+                  size: 15,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  _notAcceptingMessage(job),
+                  style: const TextStyle(
+                    color: Color(0xFF8B5424),
+                    fontSize: 10.2,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -350,6 +535,10 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
       );
     }
 
+    if (!_isAcceptingApplications(job)) {
+      return _closedBottomAction(job);
+    }
+
     return SafeArea(
       top: false,
       child: Container(
@@ -391,19 +580,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
-                onTap: () async {
-                  HapticFeedback.mediumImpact();
-
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ApplyForJobScreen(job: job),
-                    ),
-                  );
-
-                  if (mounted) {
-                    unawaited(_load());
-                  }
-                },
+                onTap: () => _openApply(job),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -454,6 +631,16 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
             index: 1,
             child: _MissionSnapshot(job: job),
           ),
+          if (!_isAcceptingApplications(job) &&
+              job.application?.hasApplied != true) ...[
+            const SizedBox(height: 10),
+            _animatedEntry(
+              index: 2,
+              child: _MissionClosedBanner(
+                message: _notAcceptingMessage(job),
+              ),
+            ),
+          ],
           if (job.application?.hasApplied == true) ...[
             const SizedBox(height: 10),
             _animatedEntry(
@@ -1330,12 +1517,38 @@ class _MissionLogisticsCard extends StatelessWidget {
             label: AppLanguage.text('Location'),
             value: _location(job),
           ),
+          if (job.hasCoordinates) ...[
+            const _SoftDivider(),
+            _LogisticsTile(
+              icon: Icons.my_location_rounded,
+              label: AppLanguage.text('Exact pin'),
+              value:
+              '${job.latitude!.toStringAsFixed(7)}, ${job.longitude!.toStringAsFixed(7)}',
+            ),
+          ],
           const _SoftDivider(),
           _LogisticsTile(
             icon: Icons.calendar_month_outlined,
             label: AppLanguage.text('Schedule'),
             value: _schedule(job),
           ),
+          if (job.proposalDeadline != null) ...[
+            const _SoftDivider(),
+            _LogisticsTile(
+              icon: Icons.hourglass_bottom_rounded,
+              label: AppLanguage.text('Proposal deadline'),
+              value: _formatDate(job.proposalDeadline),
+              valueColor: const Color(0xFFB96B25),
+            ),
+          ],
+          if (job.estimatedDays != null) ...[
+            const _SoftDivider(),
+            _LogisticsTile(
+              icon: Icons.timelapse_rounded,
+              label: AppLanguage.text('Estimated duration'),
+              value: job.estimatedDaysLabel,
+            ),
+          ],
           const _SoftDivider(),
           _LogisticsTile(
             icon: Icons.payments_outlined,
@@ -1448,6 +1661,74 @@ class _SoftDivider extends StatelessWidget {
     );
   }
 }
+
+class _MissionClosedBanner extends StatelessWidget {
+  const _MissionClosedBanner({
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF5EC),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: const Color(0xFFE59A54).withOpacity(.18),
+          width: .75,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 33,
+            height: 33,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.82),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.event_busy_outlined,
+              color: Color(0xFFB96B25),
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Applications closed',
+                  style: TextStyle(
+                    color: Color(0xFF9B5B24),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: Color(0xFF8B6A4A),
+                    fontSize: 9.2,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 // ============================================================================
 // REQUIREMENTS

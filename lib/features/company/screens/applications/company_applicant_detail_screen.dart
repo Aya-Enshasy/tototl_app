@@ -39,7 +39,7 @@ class CompanyApplicantDetailScreen extends StatefulWidget {
 class _CompanyApplicantDetailScreenState
     extends State<CompanyApplicantDetailScreen> {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
-  static const String _cachePrefix = 'company_applicant_detail_v7_';
+  static const String _cachePrefix = 'company_applicant_detail_v8_';
 
   late final CompanyJobService _jobService;
   late final CompanyJobController _controller;
@@ -62,8 +62,23 @@ class _CompanyApplicantDetailScreenState
   bool _cacheReadFinished = false;
   bool _supportLoadedOnce = false;
   bool _openingContractScreen = false;
-  bool _contractLookupLoading = true;
+
+  // Contract discovery must never block the Create Contract action after the
+  // company has just accepted the pilot. Create Contract has its own strong
+  // server pre-flight guard before it opens.
+  bool _contractLookupLoading = false;
   String? _contractLookupError;
+
+  // Automatic self-healing for partial Applicant Details responses.
+  Timer? _recoveryTimer;
+  int _recoveryAttempt = 0;
+  bool _jobRefreshFailed = false;
+
+  // After a successful Accept/Reject POST, the applicants list endpoint can
+  // briefly return an older Pending snapshot. Never let that stale response
+  // visually roll the decision backwards.
+  String? _localDecisionStatus;
+
   int _referenceTab = 0;
 
   bool get _acting =>
@@ -90,7 +105,17 @@ class _CompanyApplicantDetailScreenState
     _committedDrone = widget.application.drone;
     _credentials = widget.application.pilotProfile?.licenses ?? const [];
 
+    if (!_application.isPending) {
+      _localDecisionStatus = _application.status.trim().toLowerCase();
+    }
+
     unawaited(_bootstrap());
+  }
+
+  @override
+  void dispose() {
+    _recoveryTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
@@ -131,6 +156,7 @@ class _CompanyApplicantDetailScreenState
         final cachedCredentials = map['credentials'];
         final cachedContract = map['created_contract'];
 
+        CompanyJobApplicationModel? cachedApplicationModel;
         CompanyApplicantPilotModel? cachedPilot;
         CompanyApplicantDroneModel? cachedDrone;
         List<CompanyPilotCredentialModel> cachedCredentialModels = const [];
@@ -140,6 +166,7 @@ class _CompanyApplicantDetailScreenState
           final cached = CompanyJobApplicationModel.fromJson(
             Map<String, dynamic>.from(cachedApplication),
           );
+          cachedApplicationModel = cached;
           cachedPilot = cached.pilotProfile;
           cachedDrone = cached.drone;
         }
@@ -163,6 +190,20 @@ class _CompanyApplicantDetailScreenState
 
         if (!mounted) return;
         setState(() {
+          // Accepted/Rejected is a forward lifecycle decision. If My
+          // Applications is momentarily stale and passes Pending again, keep
+          // the locally cached decision instead of flashing the action buttons.
+          if (cachedApplicationModel != null &&
+              _application.isPending &&
+              !cachedApplicationModel!.isPending) {
+            _application = cachedApplicationModel!.copyWith(
+              pilotProfile: _pilot ?? cachedPilot,
+              drone: _committedDrone ?? cachedDrone,
+            );
+            _localDecisionStatus =
+                _application.status.trim().toLowerCase();
+          }
+
           if (cachedPilot != null) {
             _pilot = _pilot == null
                 ? cachedPilot
@@ -212,7 +253,7 @@ class _CompanyApplicantDetailScreenState
       await _storage.write(
         key: key,
         value: jsonEncode({
-          'version': 7,
+          'version': 9,
           'saved_at': DateTime.now().toIso8601String(),
           'application': enrichedApplication.toJson(),
           'credentials': _credentials.map((item) => item.toJson()).toList(),
@@ -227,11 +268,155 @@ class _CompanyApplicantDetailScreenState
   // ==========================================================================
 
   Future<CompanyJobPostingModel?> _loadJobSafely() async {
+    final alreadyLoaded = _job;
+    if (alreadyLoaded != null) {
+      _jobRefreshFailed = false;
+      return alreadyLoaded;
+    }
+
     try {
-      return await _jobService.getJobDetails(widget.jobId);
-    } catch (_) {
+      final job = await _jobService.getJobDetails(widget.jobId);
+      _jobRefreshFailed = false;
+      return job;
+    } catch (error) {
+      _jobRefreshFailed = true;
+      debugPrint(
+        'APPLICANT DETAIL JOB REFRESH FAILED -> '
+            'jobId=${widget.jobId}, error=$error',
+      );
       return null;
     }
+  }
+
+  CompanyJobApplicationModel _mergeApplicationWithoutStatusRegression(
+      CompanyJobApplicationModel? incoming,
+      ) {
+    if (incoming == null) return _application;
+
+    final current = _application;
+    final incomingStatus = incoming.status.trim().toLowerCase();
+    final currentStatus = current.status.trim().toLowerCase();
+    final lockedStatus = _localDecisionStatus?.trim().toLowerCase();
+
+    // Once the backend catches up with our successful local decision, the lock
+    // is no longer needed.
+    if (lockedStatus != null &&
+        incomingStatus.isNotEmpty &&
+        incomingStatus == lockedStatus) {
+      _localDecisionStatus = null;
+      return incoming;
+    }
+
+    // Never regress Accepted/Rejected/Withdrawn back to Pending because an
+    // eventually-consistent endpoint returned an older snapshot.
+    final shouldPreserveDecision =
+        incoming.isPending &&
+            !current.isPending &&
+            currentStatus.isNotEmpty;
+
+    if (shouldPreserveDecision) {
+      debugPrint(
+        'APPLICANT DETAIL: ignored stale status regression '
+            '$currentStatus -> $incomingStatus for application=${current.id}',
+      );
+
+      return incoming.copyWith(
+        status: current.status,
+        decidedAt: current.decidedAt,
+        rejectionReason: current.rejectionReason,
+      );
+    }
+
+    return incoming;
+  }
+
+  void _clearRecoveryRetry() {
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
+    _recoveryAttempt = 0;
+  }
+
+  void _scheduleRecoveryRetry() {
+    if (!mounted || _recoveryTimer != null || _recoveryAttempt >= 3) {
+      return;
+    }
+
+    const delays = <Duration>[
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+      Duration(seconds: 10),
+    ];
+
+    final delay = delays[_recoveryAttempt];
+    _recoveryAttempt += 1;
+
+    _recoveryTimer = Timer(delay, () {
+      _recoveryTimer = null;
+      if (!mounted) return;
+      unawaited(_refreshInBackground());
+    });
+  }
+
+  Future<void> _retryMissingDetailsNow() async {
+    _clearRecoveryRetry();
+    await _refreshInBackground();
+  }
+
+  String _mediaIdentity(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty) return '';
+
+    final uri = Uri.tryParse(clean);
+    if (uri == null ||
+        !(uri.scheme == 'http' || uri.scheme == 'https')) {
+      return clean;
+    }
+
+    return '${uri.scheme.toLowerCase()}://'
+        '${uri.host.toLowerCase()}'
+        '${uri.path}';
+  }
+
+  bool _sameMediaUrl(
+      String first,
+      String second,
+      ) {
+    final a = _mediaIdentity(first);
+    final b = _mediaIdentity(second);
+
+    return a.isNotEmpty &&
+        b.isNotEmpty &&
+        a == b;
+  }
+
+  bool _droneImageIsPilotPhoto({
+    required CompanyApplicantDroneModel? drone,
+    required CompanyApplicantPilotModel? pilot,
+  }) {
+    if (drone == null || pilot == null) {
+      return false;
+    }
+
+    return _sameMediaUrl(
+      drone.imageUrl,
+      pilot.profilePhoto,
+    );
+  }
+
+  String _safeDroneImageUrl(
+      CompanyApplicantDroneModel? drone,
+      ) {
+    if (drone == null) return '';
+
+    final url = drone.imageUrl.trim();
+    final pilotPhoto =
+        _pilot?.profilePhoto.trim() ?? '';
+
+    if (_sameMediaUrl(url, pilotPhoto)) {
+      return '';
+    }
+
+    return url;
   }
 
   Future<void> _precacheCoreImages({
@@ -244,7 +429,11 @@ class _CompanyApplicantDetailScreenState
     final urls = <String>{
       if (pilot?.profilePhoto.trim().isNotEmpty == true)
         pilot!.profilePhoto.trim(),
-      if (drone?.imageUrl.trim().isNotEmpty == true)
+      if (drone?.imageUrl.trim().isNotEmpty == true &&
+          !_droneImageIsPilotPhoto(
+            drone: drone,
+            pilot: pilot,
+          ))
         drone!.imageUrl.trim(),
       if (_referenceJobImage(job).trim().isNotEmpty)
         _referenceJobImage(job).trim(),
@@ -261,6 +450,8 @@ class _CompanyApplicantDetailScreenState
 
   Future<void> _refreshInBackground() async {
     if (_backgroundRefreshing) return;
+
+    var needsRecoveryRetry = false;
 
     _backgroundRefreshing = true;
     if (mounted) {
@@ -300,7 +491,10 @@ class _CompanyApplicantDetailScreenState
 
       final freshJob = await jobFuture;
 
-      final nestedPilot = freshApplication?.pilotProfile;
+      final effectiveApplication =
+      _mergeApplicationWithoutStatusRegression(freshApplication);
+
+      final nestedPilot = effectiveApplication.pilotProfile;
       CompanyApplicantPilotModel? resolvedPilot = _pilot;
 
       if (nestedPilot != null) {
@@ -322,10 +516,14 @@ class _CompanyApplicantDetailScreenState
 
       var resolvedDrone = _preferRicherDrone(
         current: _committedDrone,
-        incoming: freshApplication?.drone,
+        incoming: effectiveApplication.drone,
       );
 
       final errorParts = <String>[];
+
+      if (_jobRefreshFailed && _job == null && freshJob == null) {
+        errorParts.add('Job details are still syncing.');
+      }
 
       if (!applicationSuccess) {
         final value = _controller.applicantsErrorMessage?.trim() ?? '';
@@ -340,7 +538,11 @@ class _CompanyApplicantDetailScreenState
 
       final droneNeedsEnrichment = resolvedDrone == null ||
           resolvedDrone.displayName.trim().isEmpty ||
-          resolvedDrone.imageUrl.trim().isEmpty;
+          resolvedDrone.imageUrl.trim().isEmpty ||
+          _droneImageIsPilotPhoto(
+            drone: resolvedDrone,
+            pilot: resolvedPilot,
+          );
 
       bool? pilotSuccess;
       bool? credentialsSuccess;
@@ -368,9 +570,9 @@ class _CompanyApplicantDetailScreenState
         supportRequests.add(
           _controller
               .loadApplicantDrones(
-                pilotProfileId: _application.pilotProfileId,
-                committedDroneId: _application.droneId,
-              )
+            pilotProfileId: _application.pilotProfileId,
+            committedDroneId: _application.droneId,
+          )
               .then((value) => dronesSuccess = value),
         );
       }
@@ -407,19 +609,71 @@ class _CompanyApplicantDetailScreenState
       }
 
       if (dronesSuccess == true) {
-        resolvedDrone = _preferRicherDrone(
-          current: resolvedDrone,
-          incoming: _controller.committedApplicantDrone,
-        );
+        final endpointDrone =
+            _controller.committedApplicantDrone;
+
+        // When the applicant payload accidentally carries the pilot's photo
+        // inside the committed-drone relation, prefer the authoritative drone
+        // record from /company/pilots/{pilotProfile}/drones.
+        if (endpointDrone != null) {
+          resolvedDrone = endpointDrone;
+        } else {
+          resolvedDrone = _preferRicherDrone(
+            current: resolvedDrone,
+            incoming: endpointDrone,
+          );
+        }
       } else if (dronesSuccess == false) {
         final value =
             _controller.applicantDronesErrorMessage?.trim() ?? '';
         if (value.isNotEmpty) errorParts.add(value);
       }
 
+      if (_droneImageIsPilotPhoto(
+        drone: resolvedDrone,
+        pilot: resolvedPilot,
+      )) {
+        debugPrint(
+          'APPLICANT DETAIL: rejected pilot profile photo '
+              'as drone image for droneId=${_application.droneId}',
+        );
+
+        if (resolvedDrone != null) {
+          final drone = resolvedDrone;
+
+          resolvedDrone = CompanyApplicantDroneModel(
+            id: drone.id,
+            pilotProfileId: drone.pilotProfileId,
+            make: drone.make,
+            model: drone.model,
+            manufactureYear: drone.manufactureYear,
+            serialNumber: drone.serialNumber,
+            weightKg: drone.weightKg,
+            capabilities: drone.capabilities,
+            flightTimePerBatteryMinutes:
+            drone.flightTimePerBatteryMinutes,
+            chargingTimeMinutes:
+            drone.chargingTimeMinutes,
+            totalBatteries:
+            drone.totalBatteries,
+            batteryType:
+            drone.batteryType,
+            batteryUsageFee:
+            drone.batteryUsageFee,
+            hourlyRate:
+            drone.hourlyRate,
+            dailyRate:
+            drone.dailyRate,
+            emergencyCalloutFee:
+            drone.emergencyCalloutFee,
+            imageUrl: '',
+          );
+        }
+      }
+
       CompanyContractModel? serverContract = _createdContract;
       String? contractLookupError;
-      final applicationForContractCheck = freshApplication ?? _application;
+      final applicationForContractCheck = effectiveApplication;
 
       if (applicationForContractCheck.isAccepted) {
         final contractJobId = applicationForContractCheck.jobPostingId > 0
@@ -459,28 +713,48 @@ class _CompanyApplicantDetailScreenState
           _job = freshJob;
         }
 
-        final baseApplication = freshApplication ?? _application;
-        _application = baseApplication.copyWith(
+        _application = effectiveApplication.copyWith(
           pilotProfile: resolvedPilot,
           drone: resolvedDrone,
         );
 
         _pilot = resolvedPilot;
         _committedDrone = resolvedDrone;
+
+        debugPrint(
+          'APPLICANT DETAIL DRONE PHOTO -> '
+              'droneId=${resolvedDrone?.id}, '
+              'droneUrl=${_safeDroneImageUrl(resolvedDrone).isEmpty ? 'EMPTY' : _safeDroneImageUrl(resolvedDrone)}, '
+              'pilotUrl=${resolvedPilot?.profilePhoto.trim().isEmpty == false ? resolvedPilot!.profilePhoto.trim() : 'EMPTY'}',
+        );
+
         _credentials = resolvedCredentials;
         _createdContract = serverContract;
         _contractLookupLoading = false;
         _contractLookupError = contractLookupError;
 
-        _backgroundError = errorParts.isEmpty
-            ? null
-            : 'Some applicant details could not be refreshed.';
+        final visibleJob = freshJob ?? _job;
+        needsRecoveryRetry =
+            errorParts.isNotEmpty ||
+                visibleJob == null ||
+                resolvedPilot == null ||
+                resolvedDrone == null;
+
+        _backgroundError = needsRecoveryRetry
+            ? 'Some details are still syncing. Retrying automatically…'
+            : null;
       });
 
       unawaited(_saveCache());
     } finally {
       _backgroundRefreshing = false;
       _supportLoadedOnce = true;
+
+      if (needsRecoveryRetry) {
+        _scheduleRecoveryRetry();
+      } else {
+        _clearRecoveryRetry();
+      }
 
       if (_contractLookupLoading && !_application.isAccepted) {
         _contractLookupLoading = false;
@@ -553,18 +827,17 @@ class _CompanyApplicantDetailScreenState
       return;
     }
 
+    _localDecisionStatus = 'accepted';
+
     setState(() {
       _application = updated.copyWith(
+        status: 'accepted',
         pilotProfile: _pilot,
         drone: _committedDrone,
       );
 
-      // IMPORTANT:
-      // Accept is authoritative. Do not keep the old pre-accept contract lookup
-      // state on-screen. The accepted UI must immediately expose Create Contract.
-      //
-      // _openCreateContract() still performs its own server pre-flight before
-      // opening the form, so duplicate-contract protection remains intact.
+      // The button must switch immediately from Accept Pilot -> Create Contract.
+      // Do not wait for another contract-status request to complete.
       _createdContract = null;
       _contractController.clearApplicationContract();
       _contractLookupLoading = false;
@@ -574,7 +847,12 @@ class _CompanyApplicantDetailScreenState
     });
 
     unawaited(_saveCache());
-    _showSnack('Applicant accepted successfully. Create the contract to continue.');
+    _showSnack('Applicant accepted successfully.');
+
+    // Re-hydrate job/pilot/drone/contract silently. If the applicants endpoint
+    // is briefly stale and still says Pending, the merge guard above preserves
+    // Accepted until the backend catches up.
+    unawaited(_refreshInBackground());
   }
 
   Future<void> _reject() async {
@@ -607,8 +885,11 @@ class _CompanyApplicantDetailScreenState
       return;
     }
 
+    _localDecisionStatus = 'rejected';
+
     setState(() {
       _application = updated.copyWith(
+        status: 'rejected',
         pilotProfile: _pilot,
         drone: _committedDrone,
       );
@@ -1004,7 +1285,7 @@ class _CompanyApplicantDetailScreenState
   Widget build(BuildContext context) {
     final initialReady =
         _cacheReadFinished &&
-        _supportLoadedOnce;
+            _supportLoadedOnce;
 
     return Directionality(
       textDirection: TextDirection.ltr,
@@ -1032,7 +1313,7 @@ class _CompanyApplicantDetailScreenState
                         const SizedBox(height: 8),
                         _OfflineNotice(
                           message: _backgroundError!,
-                          onRetry: _refreshInBackground,
+                          onRetry: _retryMissingDetailsNow,
                         ),
                       ],
                       const SizedBox(height: 10),
@@ -1586,13 +1867,13 @@ class _CompanyApplicantDetailScreenState
             child: ClipOval(
               child: pilot.profilePhoto.trim().isNotEmpty
                   ? Image.network(
-                      pilot.profilePhoto.trim(),
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (_, __, ___) =>
-                          _referencePilotFallback(name),
-                    )
+                pilot.profilePhoto.trim(),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) =>
+                    _referencePilotFallback(name),
+              )
                   : _referencePilotFallback(name),
             ),
           ),
@@ -1818,53 +2099,53 @@ class _CompanyApplicantDetailScreenState
       child: drone == null
           ? const _ReferenceEquipmentUnavailable()
           : Row(
+        children: [
+          _ReferenceDronePhoto(
+            imageUrl: _safeDroneImageUrl(drone),
+            width: 82,
+            height: 54,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ReferenceDronePhoto(
-                  imageUrl: drone.imageUrl,
-                  width: 82,
-                  height: 54,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        drone.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF0A2D46),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        drone.capabilities.isEmpty
-                            ? 'Equipment details loaded'
-                            : drone.capabilities
-                                .take(3)
-                                .map(_pretty)
-                                .join(' · '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF687E8E),
-                          fontSize: 10.1,
-                          height: 1.25,
-                        ),
-                      ),
-                    ],
+                Text(
+                  drone.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0A2D46),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Color(0xFF718595),
-                  size: 18,
+                const SizedBox(height: 3),
+                Text(
+                  drone.capabilities.isEmpty
+                      ? 'Equipment details loaded'
+                      : drone.capabilities
+                      .take(3)
+                      .map(_pretty)
+                      .join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF687E8E),
+                    fontSize: 10.1,
+                    height: 1.25,
+                  ),
                 ),
               ],
             ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Color(0xFF718595),
+            size: 18,
+          ),
+        ],
+      ),
     );
   }
 
@@ -2135,35 +2416,6 @@ class _CompanyApplicantDetailScreenState
   Widget _referenceAcceptedContractCard() {
     final contract = _createdContract;
 
-    if (_contractLookupLoading && contract == null) {
-      return const _ReferenceApplicantCard(
-        title: 'Contract',
-        icon: Icons.description_outlined,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Color(0xFF0B9EAF),
-              ),
-            ),
-            SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                'Checking the latest contract status...',
-                style: TextStyle(
-                  color: Color(0xFF607789),
-                  fontSize: 10.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     if (contract == null) {
       return _ReferenceApplicantCard(
         title: 'Accepted Application',
@@ -2179,6 +2431,43 @@ class _CompanyApplicantDetailScreenState
                 height: 1.4,
               ),
             ),
+            if (_contractLookupLoading) ...[
+              const SizedBox(height: 8),
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.7,
+                      color: Color(0xFF0B9EAF),
+                    ),
+                  ),
+                  SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'Checking existing contracts in the background…',
+                      style: TextStyle(
+                        color: Color(0xFF6C8191),
+                        fontSize: 9.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_contractLookupError != null &&
+                _contractLookupError!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Contract status could not be refreshed yet. You can still continue; Create Contract verifies again before opening.',
+                style: TextStyle(
+                  color: Color(0xFFC97818),
+                  fontSize: 9.5,
+                  height: 1.35,
+                ),
+              ),
+            ],
             const SizedBox(height: 9),
             SizedBox(
               width: double.infinity,
@@ -3082,7 +3371,7 @@ class _CompanyApplicantDetailScreenState
             child: Row(
               children: [
                 _ReferenceDronePhoto(
-                  imageUrl: drone.imageUrl,
+                  imageUrl: _safeDroneImageUrl(drone),
                   width: 62,
                   height: 54,
                 ),
@@ -3835,18 +4124,18 @@ class _ReferenceDronePhoto extends StatelessWidget {
       child: url.isEmpty
           ? const _ReferenceDroneFallback()
           : Image.network(
-              url,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              gaplessPlayback: true,
-              filterQuality: FilterQuality.high,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return const _ReferenceDroneImageShimmer();
-              },
-              errorBuilder: (_, __, ___) =>
-                  const _ReferenceDroneFallback(),
-            ),
+        url,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.high,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const _ReferenceDroneImageShimmer();
+        },
+        errorBuilder: (_, __, ___) =>
+        const _ReferenceDroneFallback(),
+      ),
     );
   }
 }

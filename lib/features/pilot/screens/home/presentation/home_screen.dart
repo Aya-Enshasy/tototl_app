@@ -15,6 +15,7 @@ import 'package:tototl_app/features/pilot/screens/home/widgets/recent_applicatio
 import 'package:tototl_app/features/pilot/screens/jobs/jobs_screen.dart';
 import 'package:tototl_app/features/pilot/services/pilot_application_service.dart';
 
+import '../../../../subscriptions/screens/subscription_center_screen.dart';
 import '../../../services/drone_service.dart';
 import '../../drones/my_drones_screen.dart';
 import '../../notification/NotificationsScreen.dart';
@@ -343,6 +344,20 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _openSubscriptionCenter() async {
+    HapticFeedback.selectionClick();
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SubscriptionCenterScreen(),
+      ),
+    );
+
+    if (mounted) {
+      unawaited(_refreshHome());
+    }
+  }
+
   Future<void> _openApplication(
       PilotHomeApplicationItem application,
       ) async {
@@ -466,6 +481,23 @@ class _HomeScreenState extends State<HomeScreen>
                           height: 10),
                       _entry(
                         index: 4,
+                        child:
+                        _PilotPhase4SummaryCard(
+                          dashboard:
+                          _dashboard,
+                          onApplicationsTap:
+                          _openApplications,
+                          onFleetTap:
+                          _openFleet,
+                          onSubscriptionTap:
+                          _openSubscriptionCenter,
+                        ),
+                      ),
+
+                      const SizedBox(
+                          height: 10),
+                      _entry(
+                        index: 5,
                         child: MyDroneCard(
                           drones:
                           snapshot.drones,
@@ -486,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(
                           height: 10),
                       _entry(
-                        index: 5,
+                        index: 6,
                         child:
                         RecentApplicationsSection(
                           applications:
@@ -537,6 +569,209 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
+
+
+class _PilotPhase4SummaryCard extends StatelessWidget {
+  const _PilotPhase4SummaryCard({
+    required this.dashboard,
+    required this.onApplicationsTap,
+    required this.onFleetTap,
+    required this.onSubscriptionTap,
+  });
+
+  final _PilotDashboardSnapshot dashboard;
+  final VoidCallback onApplicationsTap;
+  final VoidCallback onFleetTap;
+  final VoidCallback onSubscriptionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final planLabel = dashboard.subscriptionPlanId > 0
+        ? 'Plan #${dashboard.subscriptionPlanId}'
+        : 'Free tier';
+
+    final statusLabel = dashboard.subscriptionStatus.trim().isEmpty
+        ? 'Default access'
+        : _pilotTitleCase(dashboard.subscriptionStatus);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: const Color(0xFFDDE8EC),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0A2D46).withOpacity(.025),
+            blurRadius: 13,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _PilotPhase4Metric(
+                  icon: Icons.flight_takeoff_rounded,
+                  value: '${dashboard.dronesCount}',
+                  label: 'Registered drones',
+                  onTap: onFleetTap,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _PilotPhase4Metric(
+                  icon: Icons.hourglass_top_rounded,
+                  value: '${dashboard.applicationPending}',
+                  label: 'Pending apps',
+                  onTap: onApplicationsTap,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _PilotPhase4Metric(
+                  icon: Icons.check_circle_outline_rounded,
+                  value: '${dashboard.applicationAccepted}',
+                  label: 'Accepted apps',
+                  onTap: onApplicationsTap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Material(
+            color: const Color(0xFFF5FAFB),
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: onSubscriptionTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.workspace_premium_outlined,
+                      color: Color(0xFF078FA5),
+                      size: 15,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        '$planLabel  ·  $statusLabel',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF0A2D46),
+                          fontSize: 9.2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      dashboard.releasedTotal > 0
+                          ? '${_compactNumber(dashboard.releasedTotal)} released'
+                          : 'Manage',
+                      style: const TextStyle(
+                        color: Color(0xFF078FA5),
+                        fontSize: 8.4,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PilotPhase4Metric extends StatelessWidget {
+  const _PilotPhase4Metric({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8FBFC),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 9,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                color: const Color(0xFF078FA5),
+                size: 14,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0A2D46),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF7F91A0),
+                  fontSize: 7.7,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _pilotTitleCase(String value) {
+  final clean = value.trim().replaceAll('_', ' ');
+  if (clean.isEmpty) return '';
+  return clean
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .map(
+        (part) =>
+            '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
+      .join(' ');
+}
 
 class _PilotNextStepSummaryCard
     extends StatelessWidget {
@@ -904,6 +1139,12 @@ class _PilotMissionActivityCard
         dashboard.completed == 1
             ? '1 completed mission'
             : '${dashboard.completed} completed missions',
+      );
+    }
+
+    if (dashboard.releasedTotal > 0) {
+      parts.add(
+        '${_compactNumber(dashboard.releasedTotal)} released',
       );
     }
 
@@ -1893,6 +2134,11 @@ class _PilotHomeBackground extends StatelessWidget {
 
 class _PilotDashboardSnapshot {
   const _PilotDashboardSnapshot({
+    this.applicationPending = 0,
+    this.applicationAccepted = 0,
+    this.applicationRejected = 0,
+    this.applicationWithdrawn = 0,
+    this.dronesCount = 0,
     this.pending = 0,
     this.accepted = 0,
     this.active = 0,
@@ -1900,8 +2146,17 @@ class _PilotDashboardSnapshot {
     this.submitted = 0,
     this.completed = 0,
     this.awaitingMyAction = 0,
+    this.releasedTotal = 0,
     this.pendingReleaseTotal = 0,
+    this.subscriptionPlanId = 0,
+    this.subscriptionStatus = '',
   });
+
+  final int applicationPending;
+  final int applicationAccepted;
+  final int applicationRejected;
+  final int applicationWithdrawn;
+  final int dronesCount;
 
   final int pending;
   final int accepted;
@@ -1910,71 +2165,97 @@ class _PilotDashboardSnapshot {
   final int submitted;
   final int completed;
   final int awaitingMyAction;
+
+  final double releasedTotal;
   final double pendingReleaseTotal;
+
+  final int subscriptionPlanId;
+  final String subscriptionStatus;
 
   int get activeMissionCount =>
       active + inProgress + submitted;
 
   factory _PilotDashboardSnapshot.fromJson(
-      Map<String, dynamic> json,
-      ) {
-    final rawContracts =
-    json['contracts_by_status'];
+    Map<String, dynamic> json,
+  ) {
+    final applications = _dashboardStatusMap(
+      json['applications_by_status'],
+    );
 
-    final contracts =
-    rawContracts is Map
-        ? Map<String, dynamic>.from(
-      rawContracts,
-    )
+    final contracts = _dashboardStatusMap(
+      json['contracts_by_status'],
+    );
+
+    final rawPayments = json['payment_summary'];
+    final payments = rawPayments is Map
+        ? Map<String, dynamic>.from(rawPayments)
         : const <String, dynamic>{};
 
-    final rawPayments =
-    json['payment_summary'];
-
-    final payments =
-    rawPayments is Map
-        ? Map<String, dynamic>.from(
-      rawPayments,
-    )
+    final rawSubscription = json['current_subscription'];
+    final subscription = rawSubscription is Map
+        ? Map<String, dynamic>.from(rawSubscription)
         : const <String, dynamic>{};
 
     return _PilotDashboardSnapshot(
+      applicationPending:
+          _dashboardInt(applications['pending']),
+      applicationAccepted:
+          _dashboardInt(applications['accepted']),
+      applicationRejected:
+          _dashboardInt(applications['rejected']),
+      applicationWithdrawn:
+          _dashboardInt(applications['withdrawn']),
+      dronesCount:
+          _dashboardInt(json['drones_count']),
       pending:
-      _dashboardInt(
-        contracts['pending'],
-      ),
+          _dashboardInt(contracts['pending']),
       accepted:
-      _dashboardInt(
-        contracts['accepted'],
-      ),
+          _dashboardInt(contracts['accepted']),
       active:
-      _dashboardInt(
-        contracts['active'],
-      ),
+          _dashboardInt(contracts['active']),
       inProgress:
-      _dashboardInt(
-        contracts['in_progress'],
-      ),
+          _dashboardInt(contracts['in_progress']),
       submitted:
-      _dashboardInt(
-        contracts['submitted'],
-      ),
+          _dashboardInt(contracts['submitted']),
       completed:
-      _dashboardInt(
-        contracts['completed'],
-      ),
+          _dashboardInt(contracts['completed']),
       awaitingMyAction:
-      _dashboardInt(
-        json[
-        'contracts_awaiting_my_action_count'],
+          _dashboardInt(
+        json['contracts_awaiting_my_action_count'],
       ),
+      releasedTotal:
+          _dashboardDouble(payments['released_total']),
       pendingReleaseTotal:
-      _dashboardDouble(
-        payments[
-        'pending_release_total'],
-      ),
+          _dashboardDouble(payments['pending_release_total']),
+      subscriptionPlanId:
+          _dashboardInt(subscription['subscription_plan_id']),
+      subscriptionStatus:
+          subscription['status']?.toString().trim() ?? '',
     );
   }
+}
+
+Map<String, dynamic> _dashboardStatusMap(dynamic raw) {
+  if (raw is Map) {
+    return Map<String, dynamic>.from(raw);
+  }
+
+  if (raw is List) {
+    final result = <String, dynamic>{};
+
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final status =
+          map['status']?.toString().trim().toLowerCase() ?? '';
+      if (status.isEmpty) continue;
+      result[status] = map['count'];
+    }
+
+    return result;
+  }
+
+  return const <String, dynamic>{};
 }
 
 int _dashboardInt(dynamic value) {
@@ -2175,3 +2456,4 @@ class _PilotHomePalette {
   static const tealSoft =
   Color(0xFFE8F8F8);
 }
+

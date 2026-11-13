@@ -17,11 +17,17 @@ class PilotContractController {
   bool isLoadingSubmissions = false;
   bool isSubmittingWork = false;
 
+  // Phase 4 - Reviews
+  bool isSubmittingReview = false;
+
   String? listErrorMessage;
   String? detailErrorMessage;
   String? actionErrorMessage;
   String? locationErrorMessage;
   String? submissionErrorMessage;
+
+  // Phase 4 - Reviews
+  String? reviewErrorMessage;
 
   List<PilotContractModel> contracts = const [];
   PilotContractModel? selectedContract;
@@ -37,7 +43,10 @@ class PilotContractController {
     listErrorMessage = null;
 
     try {
-      contracts = await service.getContracts(status: status);
+      contracts = await service.getContracts(
+        status: status,
+      );
+
       return true;
     } catch (e) {
       listErrorMessage = e.toString();
@@ -48,67 +57,120 @@ class PilotContractController {
   }
 
   Future<PilotContractModel?> loadContract(
-    int contractId,
-  ) async {
+      int contractId,
+      ) async {
     if (isLoadingDetail) return null;
 
     isLoadingDetail = true;
     detailErrorMessage = null;
 
     try {
-      selectedContract = await service.getContract(contractId);
-      _replaceContract(selectedContract!);
+      selectedContract =
+      await service.getContract(
+        contractId,
+      );
+
+      _replaceContract(
+        selectedContract!,
+      );
+
       return selectedContract;
     } catch (e) {
-      detailErrorMessage = e.toString();
+      detailErrorMessage =
+          e.toString();
+
       return null;
     } finally {
       isLoadingDetail = false;
     }
   }
 
+  Future<PilotContractLocationModel?> loadLocation(
+      int contractId,
+      ) async {
+    if (isLoadingLocation) {
+      return location;
+    }
 
-  Future<PilotContractLocationModel?> loadLocation(int contractId) async {
-    if (isLoadingLocation) return location;
     isLoadingLocation = true;
     locationErrorMessage = null;
+
     try {
-      location = await service.getContractLocation(contractId);
+      location =
+      await service.getContractLocation(
+        contractId,
+      );
+
       return location;
     } catch (e) {
-      locationErrorMessage = e.toString();
+      locationErrorMessage =
+          e.toString();
+
       return null;
     } finally {
       isLoadingLocation = false;
     }
   }
 
-  Future<PilotContractModel?> startWork(int contractId) async {
-    if (isStartingWork || isAccepting || isRejecting) return null;
+  Future<PilotContractModel?> startWork(
+      int contractId,
+      ) async {
+    if (isStartingWork ||
+        isAccepting ||
+        isRejecting ||
+        isSubmittingReview) {
+      return null;
+    }
+
     isStartingWork = true;
     actionErrorMessage = null;
+
     try {
-      final updated = await service.startWork(contractId);
-      selectedContract = updated;
-      _replaceContract(updated);
+      final updated =
+      await service.startWork(
+        contractId,
+      );
+
+      selectedContract =
+          updated;
+
+      _replaceContract(
+        updated,
+      );
+
       return updated;
     } catch (e) {
-      actionErrorMessage = e.toString();
+      actionErrorMessage =
+          e.toString();
+
       return null;
     } finally {
       isStartingWork = false;
     }
   }
 
-  Future<List<ContractSubmissionModel>> loadSubmissions(int contractId) async {
-    if (isLoadingSubmissions) return submissions;
+  Future<List<ContractSubmissionModel>>
+  loadSubmissions(
+      int contractId,
+      ) async {
+    if (isLoadingSubmissions) {
+      return submissions;
+    }
+
     isLoadingSubmissions = true;
     submissionErrorMessage = null;
+
     try {
-      submissions = await service.getSubmissions(contractId);
+      submissions =
+      await service.getSubmissions(
+        contractId,
+      );
+
       return submissions;
     } catch (e) {
-      submissionErrorMessage = e.toString();
+      submissionErrorMessage =
+          e.toString();
+
       return submissions;
     } finally {
       isLoadingSubmissions = false;
@@ -116,34 +178,67 @@ class PilotContractController {
   }
 
   Future<PilotSubmitWorkResult?> submitWork(
-    int contractId, {
-    String? notes,
-    List<String> filePaths = const [],
-  }) async {
-    if (isSubmittingWork || isStartingWork || isAccepting || isRejecting) {
+      int contractId, {
+        String? notes,
+        List<String> filePaths = const [],
+      }) async {
+    if (isSubmittingWork ||
+        isStartingWork ||
+        isAccepting ||
+        isRejecting ||
+        isSubmittingReview) {
       return null;
     }
+
     isSubmittingWork = true;
     actionErrorMessage = null;
+
     try {
-      final result = await service.submitWork(
+      final result =
+      await service.submitWork(
         contractId,
         notes: notes,
         filePaths: filePaths,
       );
-      selectedContract = result.contract;
-      _replaceContract(result.contract);
-      final list = List<ContractSubmissionModel>.from(submissions);
-      final index = list.indexWhere((item) => item.id == result.submission.id);
+
+      selectedContract =
+          result.contract;
+
+      _replaceContract(
+        result.contract,
+      );
+
+      final list =
+      List<ContractSubmissionModel>.from(
+        submissions,
+      );
+
+      final index =
+      list.indexWhere(
+            (item) =>
+        item.id ==
+            result.submission.id,
+      );
+
       if (index == -1) {
-        list.add(result.submission);
+        list.add(
+          result.submission,
+        );
       } else {
-        list[index] = result.submission;
+        list[index] =
+            result.submission;
       }
-      submissions = List.unmodifiable(list);
+
+      submissions =
+          List.unmodifiable(
+            list,
+          );
+
       return result;
     } catch (e) {
-      actionErrorMessage = e.toString();
+      actionErrorMessage =
+          e.toString();
+
       return null;
     } finally {
       isSubmittingWork = false;
@@ -151,20 +246,35 @@ class PilotContractController {
   }
 
   Future<PilotContractModel?> acceptContract(
-    int contractId,
-  ) async {
-    if (isAccepting || isRejecting) return null;
+      int contractId,
+      ) async {
+    if (isAccepting ||
+        isRejecting ||
+        isSubmittingReview) {
+      return null;
+    }
 
     isAccepting = true;
     actionErrorMessage = null;
 
     try {
-      final updated = await service.acceptContract(contractId);
-      selectedContract = updated;
-      _replaceContract(updated);
+      final updated =
+      await service.acceptContract(
+        contractId,
+      );
+
+      selectedContract =
+          updated;
+
+      _replaceContract(
+        updated,
+      );
+
       return updated;
     } catch (e) {
-      actionErrorMessage = e.toString();
+      actionErrorMessage =
+          e.toString();
+
       return null;
     } finally {
       isAccepting = false;
@@ -172,40 +282,113 @@ class PilotContractController {
   }
 
   Future<PilotContractModel?> rejectContract(
-    int contractId, {
-    String? reason,
-  }) async {
-    if (isAccepting || isRejecting) return null;
+      int contractId, {
+        String? reason,
+      }) async {
+    if (isAccepting ||
+        isRejecting ||
+        isSubmittingReview) {
+      return null;
+    }
 
     isRejecting = true;
     actionErrorMessage = null;
 
     try {
-      final updated = await service.rejectContract(
+      final updated =
+      await service.rejectContract(
         contractId,
         reason: reason,
       );
-      selectedContract = updated;
-      _replaceContract(updated);
+
+      selectedContract =
+          updated;
+
+      _replaceContract(
+        updated,
+      );
+
       return updated;
     } catch (e) {
-      actionErrorMessage = e.toString();
+      actionErrorMessage =
+          e.toString();
+
       return null;
     } finally {
       isRejecting = false;
     }
   }
 
-  void _replaceContract(PilotContractModel updated) {
-    final mutable = List<PilotContractModel>.from(contracts);
-    final index = mutable.indexWhere((item) => item.id == updated.id);
+  // ===========================================================================
+  // PHASE 4 - REVIEW COMPANY
+  // ===========================================================================
 
-    if (index == -1) {
-      mutable.insert(0, updated);
-    } else {
-      mutable[index] = updated;
+  Future<String?> submitReview(
+      int contractId, {
+        required int rating,
+        String? comment,
+      }) async {
+    if (isSubmittingReview ||
+        isAccepting ||
+        isRejecting ||
+        isStartingWork ||
+        isSubmittingWork) {
+      return null;
     }
 
-    contracts = mutable;
+    isSubmittingReview = true;
+    reviewErrorMessage = null;
+
+    try {
+      final message =
+      await service.submitReview(
+        contractId,
+        rating: rating,
+        comment: comment,
+      );
+
+      return message;
+    } catch (e) {
+      reviewErrorMessage =
+          e.toString();
+
+      return null;
+    } finally {
+      isSubmittingReview = false;
+    }
+  }
+
+  void clearReviewError() {
+    reviewErrorMessage = null;
+  }
+
+  void _replaceContract(
+      PilotContractModel updated,
+      ) {
+    final mutable =
+    List<PilotContractModel>.from(
+      contracts,
+    );
+
+    final index =
+    mutable.indexWhere(
+          (item) =>
+      item.id == updated.id,
+    );
+
+    if (index == -1) {
+      mutable.insert(
+        0,
+        updated,
+      );
+    } else {
+      mutable[index] =
+          updated;
+    }
+
+    contracts =
+        List.unmodifiable(
+          mutable,
+        );
   }
 }

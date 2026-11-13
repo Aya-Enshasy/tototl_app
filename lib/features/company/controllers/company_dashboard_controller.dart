@@ -13,6 +13,8 @@ class CompanyDashboardController extends ChangeNotifier {
   bool isRefreshing = false;
   String? errorMessage;
 
+  bool get hasDashboard => dashboard != null;
+
   Future<void> load() async {
     if (isLoading) return;
 
@@ -45,5 +47,11 @@ class CompanyDashboardController extends ChangeNotifier {
       isRefreshing = false;
       notifyListeners();
     }
+  }
+
+  void clearError() {
+    if (errorMessage == null) return;
+    errorMessage = null;
+    notifyListeners();
   }
 }

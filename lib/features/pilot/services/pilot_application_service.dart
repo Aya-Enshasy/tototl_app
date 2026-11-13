@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/storage/token_storage.dart';
@@ -105,6 +106,7 @@ class PilotApplicationService {
   Future<PilotApplicationModel> applyToJob({
     required int jobId,
     required int droneId,
+    required double proposedAmount,
     String? coverMessage,
   }) async {
     final token = await _getToken();
@@ -113,8 +115,18 @@ class PilotApplicationService {
 
     final payload = <String, dynamic>{
       'drone_id': droneId,
+      'proposed_amount': proposedAmount,
       if (cleanCover.isNotEmpty) 'cover_message': cleanCover,
     };
+    final timer = Stopwatch()..start();
+
+    if (kDebugMode) {
+      // Deliberately log metadata only: no token or cover-message contents.
+      debugPrint(
+        '[apply][request] POST $endpoint jobId=$jobId droneId=$droneId '
+        'proposedAmount=$proposedAmount hasCoverMessage=${cleanCover.isNotEmpty}',
+      );
+    }
 
     try {
       final response = await apiClient.post(
@@ -124,6 +136,12 @@ class PilotApplicationService {
       );
 
       final body = _parseBody(response.data);
+      if (kDebugMode) {
+        debugPrint(
+          '[apply][response] POST $endpoint http=${response.statusCode} '
+          'success=${body['success']} elapsedMs=${timer.elapsedMilliseconds}',
+        );
+      }
       _ensureSuccess(
         body,
         fallback: 'Unable to submit your application.',
@@ -143,13 +161,43 @@ class PilotApplicationService {
       );
 
       return application;
-    } on DioException catch (e) {
-      throw PilotApplicationException(
-        _dioErrorMessage(
-          e,
-          fallback: 'Unable to submit your application.',
-        ),
+    } on DioException catch (error) {
+      final failure = _exceptionFromDio(
+        error,
+        fallback: 'Unable to submit your application.',
       );
+      if (kDebugMode) {
+        final rawResponse = error.response?.data;
+        final responseFields = rawResponse is Map
+            ? rawResponse.keys.map((key) => key.toString()).toList()
+            : <String>[];
+        final rawErrors = rawResponse is Map ? rawResponse['errors'] : null;
+        final validationFields = rawErrors is Map
+            ? rawErrors.keys.map((key) => key.toString()).toList()
+            : <String>[];
+        final requestId = error.response?.headers.value('x-request-id') ??
+            error.response?.headers.value('x-correlation-id') ??
+            'not-provided';
+
+        debugPrint(
+          '[apply][error] POST $endpoint http=${error.response?.statusCode} '
+          'type=${error.type.name} code=${failure.code} '
+          'elapsedMs=${timer.elapsedMilliseconds} '
+          'requestId=$requestId responseType=${rawResponse.runtimeType} '
+          'responseFields=$responseFields validationFields=$validationFields '
+          'message=${failure.message}',
+        );
+      }
+      throw failure;
+    } on PilotApplicationException catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          '[apply][error] POST $endpoint http=received '
+          'code=${error.code} elapsedMs=${timer.elapsedMilliseconds} '
+          'message=${error.message}',
+        );
+      }
+      rethrow;
     }
   }
 
@@ -886,9 +934,34 @@ class PilotApplicationService {
         required String fallback,
       }) {
     if (body['success'] == true) return;
+
     throw PilotApplicationException(
-      _messageFromBody(body, fallback: fallback),
+      _messageFromBody(
+        body,
+        fallback: fallback,
+      ),
+      code: _errorCodeFromBody(body),
     );
+  }
+
+  String? _errorCodeFromBody(Map<String, dynamic> body) {
+    final direct = body['error_code']?.toString().trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+
+    final errors = body['errors'];
+    if (errors is! Map) return null;
+
+    final value = errors['error_code'] ?? errors['code'];
+
+    if (value is List && value.isNotEmpty) {
+      final text = value.first.toString().trim();
+      return text.isEmpty ? null : text;
+    }
+
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 
   Future<String> _getToken() async {
@@ -927,7 +1000,14 @@ class PilotApplicationService {
     final errors = body['errors'];
 
     if (errors is Map) {
-      for (final value in errors.values) {
+      for (final entry in errors.entries) {
+        final key = entry.key.toString().trim().toLowerCase();
+        if (key == 'error_code' || key == 'code') {
+          continue;
+        }
+
+        final value = entry.value;
+
         if (value is List && value.isNotEmpty) {
           final first = value.first.toString().trim();
           if (first.isNotEmpty) return first;
@@ -944,6 +1024,21 @@ class PilotApplicationService {
     if (message != null && message.isNotEmpty) return message;
 
     return fallback;
+  }
+
+  PilotApplicationException _exceptionFromDio(
+      DioException error, {
+        required String fallback,
+      }) {
+    return PilotApplicationException(
+      _dioErrorMessage(
+        error,
+        fallback: fallback,
+      ),
+      code: ApiClient.errorCodeFromDio(error),
+      statusCode: error.response?.statusCode,
+      retryAfterSeconds: ApiClient.retryAfterSecondsFromDio(error),
+    );
   }
 
   String _dioErrorMessage(
@@ -974,9 +1069,33 @@ class PilotApplicationService {
 
 class PilotApplicationException implements Exception {
   final String message;
+  final String? code;
+  final int? statusCode;
+  final int? retryAfterSeconds;
 
-  const PilotApplicationException(this.message);
+  const PilotApplicationException(
+      this.message, {
+        this.code,
+        this.statusCode,
+        this.retryAfterSeconds,
+      });
+
+  bool get isSubscriptionLimitReached =>
+      code == 'SUBSCRIPTION_LIMIT_REACHED';
+
+  bool get isSubscriptionFeatureUnavailable =>
+      code == 'SUBSCRIPTION_FEATURE_UNAVAILABLE';
+
+  bool get isAccountNotVerified =>
+      code == 'ACCOUNT_NOT_VERIFIED';
+
+  bool get isInvalidStatusTransition =>
+      code == 'INVALID_STATUS_TRANSITION';
+
+  bool get isRateLimited =>
+      statusCode == 429;
 
   @override
   String toString() => message;
 }
+

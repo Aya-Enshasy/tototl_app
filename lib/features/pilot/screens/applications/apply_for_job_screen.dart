@@ -11,6 +11,10 @@ import '../../models/drone_model.dart';
 import '../../models/pilot_job_model.dart';
 import '../../services/drone_service.dart';
 import '../../services/pilot_application_service.dart';
+import '../../services/pilot_job_service.dart';
+import '../../../subscriptions/controllers/subscription_entitlements_controller.dart';
+import '../../../subscriptions/screens/subscription_center_screen.dart';
+import '../../../subscriptions/services/subscription_entitlements_service.dart';
 import 'application_details_screen.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
@@ -28,11 +32,18 @@ class ApplyForJobScreen extends StatefulWidget {
 
 class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
   final TextEditingController _coverController = TextEditingController();
+  final TextEditingController _proposedAmountController = TextEditingController();
+  String? _proposedAmountError;
 
   late final DroneService _droneService;
   late final PilotApplicationService _applicationService;
+  late final PilotJobService _jobService;
+  late final SubscriptionEntitlementsController _entitlementsController;
 
   final List<DroneModel> _drones = <DroneModel>[];
+
+  bool _entitlementsLoading = true;
+  int _activeApplicationCount = 0;
 
   int? _selectedDroneId;
   bool _loading = true;
@@ -55,16 +66,254 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
   void initState() {
     super.initState();
 
-    _droneService = DroneService(ApiClient());
-    _applicationService = PilotApplicationService(ApiClient());
+    final apiClient = ApiClient();
+
+    _droneService = DroneService(apiClient);
+    _applicationService = PilotApplicationService(apiClient);
+    _jobService = PilotJobService(apiClient);
+    _entitlementsController = SubscriptionEntitlementsController(
+      SubscriptionEntitlementsService(apiClient),
+    );
 
     _bootstrapDrones();
+    unawaited(_loadEntitlementsAndUsage());
   }
 
   @override
   void dispose() {
     _coverController.dispose();
+    _proposedAmountController.dispose();
+    _entitlementsController.dispose();
     super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // SUBSCRIPTION ENTITLEMENTS
+  // ---------------------------------------------------------------------------
+
+  Future<void> _loadEntitlementsAndUsage() async {
+    if (mounted) {
+      setState(() => _entitlementsLoading = true);
+    }
+
+    List<dynamic>? applications;
+
+    try {
+      final results = await Future.wait<dynamic>([
+        _entitlementsController.load(force: true),
+        _applicationService.getMyApplications(),
+      ]);
+
+      applications = results[1] as List<dynamic>?;
+    } catch (_) {
+      // The server remains authoritative if the usage preflight fails.
+    }
+
+    if (!mounted) return;
+
+    final terminalStatuses = <String>{
+      'withdrawn',
+      'rejected',
+      'cancelled',
+    };
+
+    final activeCount = applications == null
+        ? _activeApplicationCount
+        : applications.where((item) {
+      try {
+        final status = (item as dynamic).status
+            ?.toString()
+            .trim()
+            .toLowerCase();
+        return status != null &&
+            status.isNotEmpty &&
+            !terminalStatuses.contains(status);
+      } catch (_) {
+        return false;
+      }
+    }).length;
+
+    setState(() {
+      _activeApplicationCount = activeCount;
+      _entitlementsLoading = false;
+    });
+  }
+
+  Future<bool> _ensureApplicationSlotAvailable() async {
+    if (_entitlementsLoading) {
+      await _loadEntitlementsAndUsage();
+    }
+
+    if (!_entitlementsController.hasData) {
+      return true;
+    }
+
+    final allowed = _entitlementsController.canCreatePilotApplication(
+      activeCount: _activeApplicationCount,
+    );
+
+    if (allowed) {
+      return true;
+    }
+
+    await _showUpgradeDialog(
+      title: 'Application limit reached',
+      message:
+      'Your current plan allows ${_entitlementsController.limits.pilotApplicationsLimitLabel}. '
+          'Withdraw an active application or upgrade your plan to apply again.',
+    );
+
+    return false;
+  }
+
+  Future<void> _showUpgradeDialog({
+    required String title,
+    required String message,
+  }) async {
+    if (!mounted) return;
+
+    final openPlans = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: AppColors.grey,
+            fontSize: 11.5,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+            ),
+            icon: const Icon(
+              Icons.workspace_premium_rounded,
+              size: 17,
+            ),
+            label: const Text('View Plans'),
+          ),
+        ],
+      ),
+    );
+
+    if (openPlans != true || !mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SubscriptionCenterScreen(upgradeOnly: true),
+      ),
+    );
+
+    if (!mounted) return;
+    await _loadEntitlementsAndUsage();
+  }
+
+  Future<void> _showVerificationDialog() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        title: const Text(
+          'Account verification required',
+          style: TextStyle(
+            color: AppColors.navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'Your pilot account is still under review. Applying becomes available after verification is completed.',
+          style: TextStyle(
+            color: AppColors.grey,
+            fontSize: 11.5,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+            ),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleStructuredApplyError(
+      PilotApplicationException error,
+      ) async {
+    if (error.isSubscriptionLimitReached ||
+        error.isSubscriptionFeatureUnavailable) {
+      await _showUpgradeDialog(
+        title: error.isSubscriptionLimitReached
+            ? 'Plan limit reached'
+            : 'Upgrade required',
+        message: error.message,
+      );
+      return;
+    }
+
+    if (error.isAccountNotVerified) {
+      await _showVerificationDialog();
+      return;
+    }
+
+    if (error.isInvalidStatusTransition) {
+      _snack(
+        'This job is no longer in the state shown on screen. Job Details will refresh now.',
+      );
+
+      await Future<void>.delayed(
+        const Duration(milliseconds: 250),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+      return;
+    }
+
+    if (error.isRateLimited) {
+      final seconds = error.retryAfterSeconds;
+
+      _snack(
+        seconds == null
+            ? 'Too many requests. Please try again shortly.'
+            : 'Too many requests. Try again in $seconds seconds.',
+      );
+      return;
+    }
+
+    _snack(error.message);
   }
 
   // ---------------------------------------------------------------------------
@@ -171,6 +420,54 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
     }
   }
 
+  Future<bool> _recoverSuccessfulApplyAfterError() async {
+    try {
+      // The POST may have reached Laravel even when the client received an
+      // HTML Cloudflare challenge, a dropped response, or another transport
+      // error. Before allowing another POST, verify the authoritative job state.
+      final refreshedJob = await _jobService.getJobDetails(widget.job.id);
+      final application = refreshedJob.application;
+
+      if (application?.hasApplied != true) {
+        return false;
+      }
+
+      final applicationId = application?.id;
+
+      debugPrint(
+        'APPLY RECOVERY CONFIRMED -> '
+            'jobId=${widget.job.id}, '
+            'applicationId=$applicationId, '
+            'status=${application?.status}',
+      );
+
+      if (!mounted) return true;
+
+      _snack(
+        'Application submitted successfully. Mission status has been verified.',
+      );
+
+      // Return to Job Details. That screen already refreshes itself after the
+      // Apply route closes and will now show the real applied state.
+      await Future<void>.delayed(
+        const Duration(milliseconds: 250),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+
+      return true;
+    } catch (verifyError) {
+      debugPrint(
+        'APPLY RECOVERY CHECK FAILED -> '
+            'jobId=${widget.job.id}, error=$verifyError',
+      );
+
+      return false;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // SUBMIT
   // ---------------------------------------------------------------------------
@@ -209,12 +506,35 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
       return;
     }
 
+    final amountText = _proposedAmountController.text.trim();
+    final amount = double.tryParse(amountText);
+    if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(amountText) ||
+        amount == null ||
+        !amount.isFinite ||
+        amount <= 0) {
+      setState(() {
+        _proposedAmountError =
+            'Enter an amount greater than 0, with up to 2 decimals.';
+      });
+      _snack('Please enter your proposed amount.');
+      return;
+    }
+
+    if (_proposedAmountError != null) {
+      setState(() => _proposedAmountError = null);
+    }
+
     final cover = _coverController.text.trim();
 
     if (cover.length > 2000) {
       _snack('Cover message cannot exceed 2000 characters.');
       return;
     }
+
+    if (!await _ensureApplicationSlotAvailable()) {
+      return;
+    }
+    if (!mounted) return;
 
     HapticFeedback.mediumImpact();
     FocusScope.of(context).unfocus();
@@ -225,6 +545,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
       final result = await _applicationService.applyToJob(
         jobId: widget.job.id,
         droneId: drone.id,
+        proposedAmount: amount,
         coverMessage: cover.isEmpty ? null : cover,
       );
 
@@ -241,11 +562,40 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
           builder: (_) => ApplicationDetailsScreen(
             applicationId: result.id,
             detailsFuture: detailsFuture,
+            initialApplication: result,
           ),
         ),
       );
+    } on PilotApplicationException catch (e) {
+      if (!mounted) return;
+
+      debugPrint(
+        'APPLY REQUEST REPORTED ERROR -> '
+            'jobId=${widget.job.id}, status=${e.statusCode}, '
+            'code=${e.code}, error=$e',
+      );
+
+      if (e.code != null || e.isRateLimited) {
+        setState(() => _submitting = false);
+        await _handleStructuredApplyError(e);
+        return;
+      }
+
+      // IMPORTANT:
+      // A transport error may happen after Laravel committed the POST.
+      // Verify authoritative state before allowing another submission.
+      final recovered = await _recoverSuccessfulApplyAfterError();
+
+      if (!mounted || recovered) return;
+
+      setState(() => _submitting = false);
+      _snack(e.toString());
     } catch (e) {
       if (!mounted) return;
+
+      final recovered = await _recoverSuccessfulApplyAfterError();
+
+      if (!mounted || recovered) return;
 
       setState(() => _submitting = false);
       _snack(e.toString());
@@ -368,6 +718,25 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         const SizedBox(height: 10),
         _StepHeader(
           number: '02',
+          title: AppLanguage.text('Your proposed amount'),
+          subtitle: AppLanguage.text('Enter your price for completing this mission.'),
+          icon: Icons.attach_money_rounded,
+        ),
+        const SizedBox(height: 12),
+        _ProposedAmountCard(
+          controller: _proposedAmountController,
+          budgetLabel: widget.job.payLabel,
+          error: _proposedAmountError,
+          enabled: !_submitting,
+          onChanged: () {
+            if (_proposedAmountError != null) {
+              setState(() => _proposedAmountError = null);
+            }
+          },
+        ),
+        const SizedBox(height: 18),
+        _StepHeader(
+          number: '03',
           title: AppLanguage.text('Add a cover message'),
           subtitle:
           AppLanguage.text('Optional — briefly explain why you are a strong fit for the mission.'),
@@ -1117,6 +1486,129 @@ class _DroneFallback extends StatelessWidget {
 }
 
 // =============================================================================
+// PROPOSED AMOUNT
+// =============================================================================
+
+class _ProposedAmountCard extends StatelessWidget {
+  const _ProposedAmountCard({
+    required this.controller,
+    required this.budgetLabel,
+    required this.error,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String budgetLabel;
+  final String? error;
+  final bool enabled;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = error != null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: hasError ? AppColors.kDanger : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withOpacity(0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 17,
+                color: AppColors.logoTurquoiseDark,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Company budget: $budgetLabel',
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            enabled: enabled,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => onChanged(),
+            style: const TextStyle(
+              color: AppColors.navy,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+            decoration: InputDecoration(
+              labelText: 'Your offer (USD)',
+              hintText: 'e.g. 50.00',
+              prefixText: '\$ ',
+              prefixStyle: const TextStyle(
+                color: AppColors.logoTurquoiseDark,
+                fontWeight: FontWeight.w800,
+              ),
+              helperText: 'Required · Maximum 2 decimal places',
+              labelStyle: const TextStyle(
+                color: AppColors.grey,
+                fontSize: 12,
+              ),
+              filled: true,
+              fillColor: AppColors.bg,
+              border: _inputBorder(AppColors.cardBorder),
+              enabledBorder: _inputBorder(AppColors.cardBorder),
+              focusedBorder: _inputBorder(
+                AppColors.logoTurquoiseDark,
+                width: 1.3,
+              ),
+              errorBorder: _inputBorder(AppColors.kDanger),
+            ),
+          ),
+          if (hasError) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: const TextStyle(
+                color: AppColors.kDanger,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static OutlineInputBorder _inputBorder(Color color, {double width = 0.8}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(15),
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+}
+
+// =============================================================================
 // COVER MESSAGE
 // =============================================================================
 
@@ -1534,3 +2026,4 @@ class _PageShimmerState extends State<_PageShimmer>
     );
   }
 }
+

@@ -3,14 +3,12 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
-import 'package:tototl_app/core/constants/drone_capabilities.dart';
-
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
 
 import '../screens/applications/company_applicant_list_item.dart';
- import '../models/company_contract_model.dart';
+import '../models/company_contract_model.dart';
 import '../models/company_create_contract_request.dart';
 import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
@@ -106,7 +104,7 @@ class CompanyJobService {
   }) async {
     final token = await _getToken();
     final cleanStatus = status?.trim().toLowerCase() ?? '';
-    final safePerPage = perPage.clamp(1, 100).toInt();
+    final safePerPage = perPage.clamp(1, 50).toInt();
 
     final allApplicants = <CompanyApplicantListItem>[];
     var page = 1;
@@ -743,7 +741,7 @@ class CompanyJobService {
 
       print(
         'CREATE CONTRACT PARSED: '
-        'contract=${contract.id}, status=${contract.status}',
+            'contract=${contract.id}, status=${contract.status}',
       );
       print('================ CREATE CONTRACT SUCCESS ================');
 
@@ -802,6 +800,114 @@ class CompanyJobService {
         _apiDateTimeForDateOnly(request.endDate),
       );
 
+      // ----------------------------------------------------------------------
+      // PHASE 4 / LATER JOB FIELDS
+      // ----------------------------------------------------------------------
+
+      if (request.hasPartialCoordinates) {
+        throw const CompanyJobException(
+          'Latitude and longitude must be provided together.',
+        );
+      }
+
+      if (request.hasCoordinates) {
+        final latitude = request.latitude!;
+        final longitude = request.longitude!;
+
+        if (latitude < -90 || latitude > 90) {
+          throw const CompanyJobException(
+            'Latitude must be between -90 and 90.',
+          );
+        }
+
+        if (longitude < -180 || longitude > 180) {
+          throw const CompanyJobException(
+            'Longitude must be between -180 and 180.',
+          );
+        }
+
+        addField(
+          'latitude',
+          latitude.toStringAsFixed(7),
+        );
+        addField(
+          'longitude',
+          longitude.toStringAsFixed(7),
+        );
+      }
+
+      final proposalDeadline = request.proposalDeadline;
+
+      if (proposalDeadline != null) {
+        final proposalDate = DateTime(
+          proposalDeadline.year,
+          proposalDeadline.month,
+          proposalDeadline.day,
+        );
+
+        final startDate = DateTime(
+          request.startDate.year,
+          request.startDate.month,
+          request.startDate.day,
+        );
+
+        if (proposalDate.isAfter(startDate)) {
+          throw const CompanyJobException(
+            'Proposal deadline cannot be after the job start date.',
+          );
+        }
+
+        addField(
+          'proposal_deadline',
+          _apiDateOnly(proposalDeadline),
+        );
+      }
+
+      final estimatedDays = request.estimatedDays;
+
+      if (estimatedDays != null) {
+        if (estimatedDays < 0.5 || estimatedDays > 365) {
+          throw const CompanyJobException(
+            'Estimated days must be between 0.5 and 365.',
+          );
+        }
+
+        addField(
+          'estimated_days',
+          _decimalText(estimatedDays),
+        );
+      }
+
+      if (request.deliverables.length > 20) {
+        throw const CompanyJobException(
+          'You can add up to 20 deliverables.',
+        );
+      }
+
+      for (var i = 0; i < request.deliverables.length; i++) {
+        final deliverable = request.deliverables[i].trim();
+
+        if (deliverable.isEmpty) {
+          continue;
+        }
+
+        if (deliverable.length > 255) {
+          throw const CompanyJobException(
+            'Each deliverable must be 255 characters or fewer.',
+          );
+        }
+
+        addField(
+          'deliverables[$i]',
+          deliverable,
+        );
+      }
+
+      addField(
+        'clearance_notes',
+        request.clearanceNotes,
+      );
+
       addField('payment_type', request.paymentType);
 
       if (request.paymentType != 'negotiable') {
@@ -819,7 +925,7 @@ class CompanyJobService {
       for (var i = 0; i < request.requiredCapabilities.length; i++) {
         addField(
           'required_capabilities[$i]',
-          DroneCapabilities.canonicalize(request.requiredCapabilities[i]),
+          request.requiredCapabilities[i],
         );
       }
 
@@ -926,11 +1032,9 @@ class CompanyJobService {
         Map<String, dynamic>.from(rawData),
       );
     } on DioException catch (e) {
-      throw CompanyJobException(
-        _dioErrorMessage(
-          e,
-          fallback: 'Unable to create job posting.',
-        ),
+      throw _exceptionFromDio(
+        e,
+        fallback: 'Unable to create job posting.',
       );
     }
   }
@@ -981,6 +1085,132 @@ class CompanyJobService {
         _apiDateTimeForDateOnly(request.endDate),
       );
 
+      // ----------------------------------------------------------------------
+      // PHASE 4 / LATER JOB FIELDS
+      // ----------------------------------------------------------------------
+
+      if (request.hasPartialCoordinates) {
+        throw const CompanyJobException(
+          'Latitude and longitude must be provided together.',
+        );
+      }
+
+      if (request.hasCoordinates) {
+        final latitude = request.latitude!;
+        final longitude = request.longitude!;
+
+        if (latitude < -90 || latitude > 90) {
+          throw const CompanyJobException(
+            'Latitude must be between -90 and 90.',
+          );
+        }
+
+        if (longitude < -180 || longitude > 180) {
+          throw const CompanyJobException(
+            'Longitude must be between -180 and 180.',
+          );
+        }
+
+        addRequired(
+          'latitude',
+          latitude.toStringAsFixed(7),
+        );
+        addRequired(
+          'longitude',
+          longitude.toStringAsFixed(7),
+        );
+      }
+
+      final proposalDeadline = request.proposalDeadline;
+
+      if (proposalDeadline == null) {
+        addNullable(
+          'proposal_deadline',
+          null,
+        );
+      } else {
+        final proposalDate = DateTime(
+          proposalDeadline.year,
+          proposalDeadline.month,
+          proposalDeadline.day,
+        );
+
+        final startDate = DateTime(
+          request.startDate.year,
+          request.startDate.month,
+          request.startDate.day,
+        );
+
+        if (proposalDate.isAfter(startDate)) {
+          throw const CompanyJobException(
+            'Proposal deadline cannot be after the job start date.',
+          );
+        }
+
+        addRequired(
+          'proposal_deadline',
+          _apiDateOnly(proposalDeadline),
+        );
+      }
+
+      final estimatedDays = request.estimatedDays;
+
+      if (estimatedDays == null) {
+        addNullable(
+          'estimated_days',
+          null,
+        );
+      } else {
+        if (estimatedDays < 0.5 || estimatedDays > 365) {
+          throw const CompanyJobException(
+            'Estimated days must be between 0.5 and 365.',
+          );
+        }
+
+        addRequired(
+          'estimated_days',
+          _decimalText(estimatedDays),
+        );
+      }
+
+      if (request.deliverables.length > 20) {
+        throw const CompanyJobException(
+          'You can add up to 20 deliverables.',
+        );
+      }
+
+      final cleanDeliverables = request.deliverables
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+
+      if (cleanDeliverables.isEmpty) {
+        addNullable(
+          'deliverables',
+          null,
+        );
+      } else {
+        for (var i = 0; i < cleanDeliverables.length; i++) {
+          final deliverable = cleanDeliverables[i];
+
+          if (deliverable.length > 255) {
+            throw const CompanyJobException(
+              'Each deliverable must be 255 characters or fewer.',
+            );
+          }
+
+          addRequired(
+            'deliverables[$i]',
+            deliverable,
+          );
+        }
+      }
+
+      addNullable(
+        'clearance_notes',
+        request.clearanceNotes,
+      );
+
       addRequired('payment_type', request.paymentType);
 
       if (request.paymentType == 'negotiable') {
@@ -999,7 +1229,7 @@ class CompanyJobService {
       for (var i = 0; i < request.requiredCapabilities.length; i++) {
         addRequired(
           'required_capabilities[$i]',
-          DroneCapabilities.canonicalize(request.requiredCapabilities[i]),
+          request.requiredCapabilities[i],
         );
       }
 
@@ -1137,11 +1367,9 @@ class CompanyJobService {
         Map<String, dynamic>.from(rawData),
       );
     } on DioException catch (e) {
-      throw CompanyJobException(
-        _dioErrorMessage(
-          e,
-          fallback: 'Unable to publish job posting.',
-        ),
+      throw _exceptionFromDio(
+        e,
+        fallback: 'Unable to publish job posting.',
       );
     }
   }
@@ -1353,6 +1581,25 @@ class CompanyJobService {
     ).toIso8601String();
   }
 
+  String _apiDateOnly(DateTime value) {
+    final year = value.year.toString().padLeft(4, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+
+    return '$year-$month-$day';
+  }
+
+  String _decimalText(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(1);
+    }
+
+    return value
+        .toStringAsFixed(2)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+
   int? _asInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -1380,7 +1627,28 @@ class CompanyJobService {
         body,
         fallback: fallback,
       ),
+      code: _errorCodeFromBody(body),
     );
+  }
+
+  String? _errorCodeFromBody(Map<String, dynamic> body) {
+    final direct = body['error_code']?.toString().trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+
+    final errors = body['errors'];
+    if (errors is! Map) return null;
+
+    final value = errors['error_code'] ?? errors['code'];
+
+    if (value is List && value.isNotEmpty) {
+      final text = value.first.toString().trim();
+      return text.isEmpty ? null : text;
+    }
+
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 
   String _messageFromBody(
@@ -1390,7 +1658,14 @@ class CompanyJobService {
     final errors = body['errors'];
 
     if (errors is Map) {
-      for (final value in errors.values) {
+      for (final entry in errors.entries) {
+        final key = entry.key.toString().trim().toLowerCase();
+        if (key == 'error_code' || key == 'code') {
+          continue;
+        }
+
+        final value = entry.value;
+
         if (value is List && value.isNotEmpty) {
           final first = value.first.toString().trim();
 
@@ -1416,6 +1691,21 @@ class CompanyJobService {
     }
 
     return fallback;
+  }
+
+  CompanyJobException _exceptionFromDio(
+      DioException error, {
+        required String fallback,
+      }) {
+    return CompanyJobException(
+      _dioErrorMessage(
+        error,
+        fallback: fallback,
+      ),
+      code: ApiClient.errorCodeFromDio(error),
+      statusCode: error.response?.statusCode,
+      retryAfterSeconds: ApiClient.retryAfterSecondsFromDio(error),
+    );
   }
 
   String _dioErrorMessage(
@@ -1449,9 +1739,33 @@ class CompanyJobService {
 
 class CompanyJobException implements Exception {
   final String message;
+  final String? code;
+  final int? statusCode;
+  final int? retryAfterSeconds;
 
-  const CompanyJobException(this.message);
+  const CompanyJobException(
+      this.message, {
+        this.code,
+        this.statusCode,
+        this.retryAfterSeconds,
+      });
+
+  bool get isSubscriptionLimitReached =>
+      code == 'SUBSCRIPTION_LIMIT_REACHED';
+
+  bool get isSubscriptionFeatureUnavailable =>
+      code == 'SUBSCRIPTION_FEATURE_UNAVAILABLE';
+
+  bool get isAccountNotVerified =>
+      code == 'ACCOUNT_NOT_VERIFIED';
+
+  bool get isInvalidStatusTransition =>
+      code == 'INVALID_STATUS_TRANSITION';
+
+  bool get isRateLimited =>
+      statusCode == 429;
 
   @override
   String toString() => message;
 }
+

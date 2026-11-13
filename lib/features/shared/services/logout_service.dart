@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -15,10 +16,22 @@ class LogoutService {
 
   LogoutService(this.apiClient);
 
+  void _debugLog(String event) {
+    if (kDebugMode) debugPrint('[logout][service] $event');
+  }
+
   Future<LogoutResponseModel> logout() async {
-    final token = await TokenStorage.getAccessToken();
+    final timer = Stopwatch()..start();
+    String? token;
+    try {
+      token = await TokenStorage.getAccessToken();
+    } catch (error) {
+      _debugLog('token-read-failed type=${error.runtimeType}');
+      rethrow;
+    }
 
     if (token == null || token.trim().isEmpty) {
+      _debugLog('skipped reason=no-local-access-token');
       return const LogoutResponseModel(
         success: true,
         message: 'Already signed out.',
@@ -26,6 +39,7 @@ class LogoutService {
     }
 
     try {
+      _debugLog('request method=POST path=${ApiEndpoints.logout}');
       final response = await apiClient.post(
         ApiEndpoints.logout,
         options: Options(
@@ -38,16 +52,29 @@ class LogoutService {
 
       final raw = response.data;
 
+      _debugLog(
+        'response http=${response.statusCode} bodyType=${raw.runtimeType} '
+        'elapsedMs=${timer.elapsedMilliseconds}',
+      );
+
       if (raw is! Map) {
         throw const LogoutException(
           'Invalid server response.',
         );
       }
 
-      return LogoutResponseModel.fromJson(
+      final result = LogoutResponseModel.fromJson(
         Map<String, dynamic>.from(raw),
       );
+      _debugLog('parsed success=${result.success}');
+      return result;
     } on DioException catch (e) {
+      _debugLog(
+        'dio-error type=${e.type.name} http=${e.response?.statusCode} '
+        'bodyType=${e.response?.data.runtimeType} '
+        'errorCode=${ApiClient.errorCodeFromDio(e) ?? 'none'} '
+        'elapsedMs=${timer.elapsedMilliseconds}',
+      );
       if (e.response?.statusCode == 401) {
         return const LogoutResponseModel(
           success: true,

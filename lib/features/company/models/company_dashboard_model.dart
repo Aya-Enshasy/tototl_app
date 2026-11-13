@@ -3,35 +3,105 @@ class CompanyDashboardModel {
   final int incomingApplicationsCount;
   final List<CompanyDashboardApplicant> recentApplicants;
 
+  final int applicationsCount;
+  final Map<String, int> contractsByStatus;
+  final int contractsAwaitingPilotActionCount;
+  final int submissionsAwaitingReviewCount;
+  final List<Map<String, dynamic>> submissionsAwaitingReview;
+  final CompanyDashboardPaymentSummary paymentSummary;
+  final Map<String, int> paymentsByStatus;
+  final CompanyDashboardSubscription? currentSubscription;
+
+  final List<CompanyDashboardJobPosting> jobPostings;
+  final List<Map<String, dynamic>> payments;
+  final List<CompanyDashboardComplianceRecord> complianceRecords;
+  final List<Map<String, dynamic>> contractsAwaitingFunding;
+
   const CompanyDashboardModel({
     this.jobsByStatus = const CompanyDashboardJobsByStatus(),
     this.incomingApplicationsCount = 0,
     this.recentApplicants = const [],
+    this.applicationsCount = 0,
+    this.contractsByStatus = const {},
+    this.contractsAwaitingPilotActionCount = 0,
+    this.submissionsAwaitingReviewCount = 0,
+    this.submissionsAwaitingReview = const [],
+    this.paymentSummary = const CompanyDashboardPaymentSummary(),
+    this.paymentsByStatus = const {},
+    this.currentSubscription,
+    this.jobPostings = const [],
+    this.payments = const [],
+    this.complianceRecords = const [],
+    this.contractsAwaitingFunding = const [],
   });
 
   factory CompanyDashboardModel.fromJson(Map<String, dynamic> json) {
     final rawStatus = json['jobs_by_status'];
     final rawApplicants = json['recent_applicants'];
+    final rawSubscription = json['current_subscription'];
 
     return CompanyDashboardModel(
       jobsByStatus: rawStatus is Map
           ? CompanyDashboardJobsByStatus.fromJson(
-        Map<String, dynamic>.from(rawStatus),
-      )
+              Map<String, dynamic>.from(rawStatus),
+            )
           : const CompanyDashboardJobsByStatus(),
       incomingApplicationsCount:
-      _asInt(json['incoming_applications_count']) ?? 0,
+          _asInt(json['incoming_applications_count']) ?? 0,
       recentApplicants: rawApplicants is List
           ? rawApplicants
-          .whereType<Map>()
-          .map(
-            (item) => CompanyDashboardApplicant.fromJson(
-          Map<String, dynamic>.from(item),
-        ),
-      )
-          .toList(growable: false)
+              .whereType<Map>()
+              .map(
+                (item) => CompanyDashboardApplicant.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false)
           : const [],
+      applicationsCount: _asInt(json['applications_count']) ?? 0,
+      contractsByStatus: _asIntMap(json['contracts_by_status']),
+      contractsAwaitingPilotActionCount:
+          _asInt(json['contracts_awaiting_pilot_action_count']) ?? 0,
+      submissionsAwaitingReviewCount:
+          _asInt(json['submissions_awaiting_review_count']) ?? 0,
+      submissionsAwaitingReview:
+          _asMapList(json['submissions_awaiting_review']),
+      paymentSummary: CompanyDashboardPaymentSummary.fromRaw(
+        json['payment_summary'],
+      ),
+      paymentsByStatus: _asIntMap(json['payments_by_status']),
+      currentSubscription: rawSubscription is Map
+          ? CompanyDashboardSubscription.fromJson(
+              Map<String, dynamic>.from(rawSubscription),
+            )
+          : null,
+      jobPostings: _asDashboardJobs(json['job_postings']),
+      payments: _asMapList(json['payments']),
+      complianceRecords:
+          _asComplianceRecords(json['compliance_records']),
+      contractsAwaitingFunding:
+          _asMapList(json['contracts_awaiting_funding']),
     );
+  }
+
+  int get totalContracts =>
+      contractsByStatus.values.fold<int>(0, (sum, value) => sum + value);
+
+  int get activeContracts {
+    const activeKeys = {
+      'accepted',
+      'active',
+      'in_progress',
+      'submitted',
+    };
+
+    var total = 0;
+    for (final entry in contractsByStatus.entries) {
+      if (activeKeys.contains(entry.key.trim().toLowerCase())) {
+        total += entry.value;
+      }
+    }
+    return total;
   }
 }
 
@@ -56,6 +126,71 @@ class CompanyDashboardJobsByStatus {
       cancelled: _asInt(json['cancelled']) ?? 0,
     );
   }
+}
+
+class CompanyDashboardPaymentSummary {
+  final double fundedTotal;
+  final double releasedTotal;
+  final double pendingReleaseTotal;
+
+  const CompanyDashboardPaymentSummary({
+    this.fundedTotal = 0,
+    this.releasedTotal = 0,
+    this.pendingReleaseTotal = 0,
+  });
+
+  factory CompanyDashboardPaymentSummary.fromRaw(dynamic raw) {
+    if (raw is! Map) {
+      return const CompanyDashboardPaymentSummary();
+    }
+
+    final map = Map<String, dynamic>.from(raw);
+    return CompanyDashboardPaymentSummary(
+      fundedTotal: _asDouble(map['funded_total']) ?? 0,
+      releasedTotal: _asDouble(map['released_total']) ?? 0,
+      pendingReleaseTotal: _asDouble(map['pending_release_total']) ?? 0,
+    );
+  }
+}
+
+class CompanyDashboardSubscription {
+  final int id;
+  final int userId;
+  final int subscriptionPlanId;
+  final String status;
+  final DateTime? startDate;
+  final DateTime? expirationDate;
+  final DateTime? renewalDate;
+  final DateTime? cancelledAt;
+
+  const CompanyDashboardSubscription({
+    required this.id,
+    this.userId = 0,
+    this.subscriptionPlanId = 0,
+    this.status = '',
+    this.startDate,
+    this.expirationDate,
+    this.renewalDate,
+    this.cancelledAt,
+  });
+
+  factory CompanyDashboardSubscription.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return CompanyDashboardSubscription(
+      id: _asInt(json['id']) ?? 0,
+      userId: _asInt(json['user_id']) ?? 0,
+      subscriptionPlanId:
+          _asInt(json['subscription_plan_id']) ?? 0,
+      status: _asString(json['status']).toLowerCase(),
+      startDate: _asDate(json['start_date']),
+      expirationDate: _asDate(json['expiration_date']),
+      renewalDate: _asDate(json['renewal_date']),
+      cancelledAt: _asDate(json['cancelled_at']),
+    );
+  }
+
+  bool get isActive => status == 'active';
 }
 
 class CompanyDashboardApplicant {
@@ -110,18 +245,18 @@ class CompanyDashboardApplicant {
       rejectionReason: _asString(json['rejection_reason']),
       pilotProfile: rawPilot is Map
           ? CompanyDashboardPilotProfile.fromJson(
-        Map<String, dynamic>.from(rawPilot),
-      )
+              Map<String, dynamic>.from(rawPilot),
+            )
           : null,
       jobPosting: rawJob is Map
           ? CompanyDashboardJobPosting.fromJson(
-        Map<String, dynamic>.from(rawJob),
-      )
+              Map<String, dynamic>.from(rawJob),
+            )
           : null,
       drone: rawDrone is Map
           ? CompanyDashboardDrone.fromJson(
-        Map<String, dynamic>.from(rawDrone),
-      )
+              Map<String, dynamic>.from(rawDrone),
+            )
           : null,
     );
   }
@@ -297,7 +432,53 @@ class CompanyDashboardDrone {
   }
 }
 
-String _asString(dynamic value) => value == null ? '' : value.toString().trim();
+class CompanyDashboardComplianceRecord {
+  final int id;
+  final String licenseType;
+  final String licenseNumber;
+  final String issuingAuthority;
+  final DateTime? expiresAt;
+  final int pilotId;
+  final String pilotName;
+  final bool pilotVerified;
+  final String documentUrl;
+
+  const CompanyDashboardComplianceRecord({
+    required this.id,
+    this.licenseType = '',
+    this.licenseNumber = '',
+    this.issuingAuthority = '',
+    this.expiresAt,
+    this.pilotId = 0,
+    this.pilotName = '',
+    this.pilotVerified = false,
+    this.documentUrl = '',
+  });
+
+  factory CompanyDashboardComplianceRecord.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawPilot = json['pilot'];
+    final pilot = rawPilot is Map
+        ? Map<String, dynamic>.from(rawPilot)
+        : const <String, dynamic>{};
+
+    return CompanyDashboardComplianceRecord(
+      id: _asInt(json['id']) ?? 0,
+      licenseType: _asString(json['license_type']),
+      licenseNumber: _asString(json['license_number']),
+      issuingAuthority: _asString(json['issuing_authority']),
+      expiresAt: _asDate(json['expires_at']),
+      pilotId: _asInt(pilot['id']) ?? 0,
+      pilotName: _asString(pilot['name']),
+      pilotVerified: _asBool(pilot['verified']),
+      documentUrl: _asString(json['document_url']),
+    );
+  }
+}
+
+String _asString(dynamic value) =>
+    value == null ? '' : value.toString().trim();
 
 int? _asInt(dynamic value) {
   if (value == null) return null;
@@ -317,10 +498,74 @@ DateTime? _asDate(dynamic value) {
   return text.isEmpty ? null : DateTime.tryParse(text);
 }
 
+bool _asBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final text = _asString(value).toLowerCase();
+  return text == '1' || text == 'true' || text == 'yes';
+}
+
 List<String> _asStringList(dynamic value) {
   if (value is! List) return const [];
   return value
       .map(_asString)
       .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+Map<String, int> _asIntMap(dynamic value) {
+  final result = <String, int>{};
+
+  if (value is Map) {
+    for (final entry in value.entries) {
+      final key = entry.key.toString().trim();
+      if (key.isEmpty) continue;
+      result[key] = _asInt(entry.value) ?? 0;
+    }
+  } else if (value is List) {
+    for (final item in value) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final key = _asString(map['status']).toLowerCase();
+      if (key.isEmpty) continue;
+      result[key] = _asInt(map['count']) ?? 0;
+    }
+  }
+
+  return Map<String, int>.unmodifiable(result);
+}
+
+List<Map<String, dynamic>> _asMapList(dynamic value) {
+  if (value is! List) return const [];
+
+  return value
+      .whereType<Map>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList(growable: false);
+}
+
+List<CompanyDashboardJobPosting> _asDashboardJobs(dynamic value) {
+  if (value is! List) return const [];
+
+  return value
+      .whereType<Map>()
+      .map(
+        (item) => CompanyDashboardJobPosting.fromJson(
+          Map<String, dynamic>.from(item),
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<CompanyDashboardComplianceRecord> _asComplianceRecords(dynamic value) {
+  if (value is! List) return const [];
+
+  return value
+      .whereType<Map>()
+      .map(
+        (item) => CompanyDashboardComplianceRecord.fromJson(
+          Map<String, dynamic>.from(item),
+        ),
+      )
       .toList(growable: false);
 }

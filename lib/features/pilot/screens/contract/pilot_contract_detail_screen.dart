@@ -5,12 +5,15 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/localization/app_language.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../company/models/contract_submission_model.dart';
+import '../../../reviews/screens/submit_review_screen.dart';
+import '../../../reviews/services/review_service.dart';
 import '../../controllers/pilot_contract_controller.dart';
- import '../../models/pilot_contract_model.dart';
+import '../../models/pilot_contract_model.dart';
 import '../../models/pilot_contract_location_model.dart';
- import '../../services/pilot_contract_service.dart';
+import '../../services/pilot_contract_service.dart';
 import 'pilot_submit_work_screen.dart';
 
 class PilotContractDetailScreen extends StatefulWidget {
@@ -33,6 +36,8 @@ class _PilotContractDetailScreenState
     with WidgetsBindingObserver {
   late final PilotContractController _controller;
   late final PilotContractController _locationWatcherController;
+  late final PilotContractController _actionRecoveryController;
+  late final ReviewService _reviewService;
 
   PilotContractModel? _contract;
   PilotContractLocationModel? _location;
@@ -47,13 +52,18 @@ class _PilotContractDetailScreenState
   bool _liveSyncInFlight = false;
   bool _locationWatchInFlight = false;
 
+  bool _reviewStateLoading = false;
+  bool _reviewSubmitted = false;
+  int? _reviewStateCheckedContractId;
+
   String? _error;
 
   bool get _acting =>
       _controller.isAccepting ||
-      _controller.isRejecting ||
-      _controller.isStartingWork ||
-      _controller.isSubmittingWork;
+          _controller.isRejecting ||
+          _controller.isStartingWork ||
+          _controller.isSubmittingWork ||
+          _controller.isSubmittingReview;
 
   @override
   void initState() {
@@ -69,6 +79,15 @@ class _PilotContractDetailScreenState
     _locationWatcherController = PilotContractController(
       PilotContractService(ApiClient()),
     );
+
+    // Independent controller used only to reconcile Accept/Reject when the
+    // action response is lost or blocked. It must not compete with the normal
+    // live workflow or the exact-location watcher.
+    _actionRecoveryController = PilotContractController(
+      PilotContractService(ApiClient()),
+    );
+
+    _reviewService = ReviewService(ApiClient());
 
     _contract = widget.initialContract;
     _loading = _contract == null;
@@ -92,7 +111,7 @@ class _PilotContractDetailScreenState
 
     _liveRefreshTimer = Timer.periodic(
       const Duration(seconds: 5),
-      (_) => unawaited(_syncLiveWorkflow()),
+          (_) => unawaited(_syncLiveWorkflow()),
     );
   }
 
@@ -104,7 +123,7 @@ class _PilotContractDetailScreenState
     // the rest of the workflow.
     _locationWatchTimer = Timer.periodic(
       const Duration(seconds: 2),
-      (_) => unawaited(_syncExactLocation()),
+          (_) => unawaited(_syncExactLocation()),
     );
   }
 
@@ -134,7 +153,7 @@ class _PilotContractDetailScreenState
 
     try {
       final freshLocation =
-          await _locationWatcherController.loadLocation(contract.id);
+      await _locationWatcherController.loadLocation(contract.id);
 
       if (!mounted || freshLocation == null) return;
 
@@ -177,10 +196,10 @@ class _PilotContractDetailScreenState
 
     try {
       final previousStatus =
-          _contract?.normalizedStatus.trim().toLowerCase();
+      _contract?.normalizedStatus.trim().toLowerCase();
 
       final freshContract =
-          await _controller.loadContract(widget.contractId);
+      await _controller.loadContract(widget.contractId);
 
       if (!mounted || freshContract == null) return;
 
@@ -215,7 +234,7 @@ class _PilotContractDetailScreenState
       if (!mounted) return;
 
       final nextStatus =
-          freshContract.normalizedStatus.trim().toLowerCase();
+      freshContract.normalizedStatus.trim().toLowerCase();
 
       setState(() {
         _contract = freshContract;
@@ -228,6 +247,11 @@ class _PilotContractDetailScreenState
           _changed = true;
         }
       });
+
+      if (freshContract.isCompleted &&
+          _reviewStateCheckedContractId != freshContract.id) {
+        unawaited(_loadReviewState(contract: freshContract));
+      }
 
       if (freshContract.canViewExactLocation &&
           _location == null &&
@@ -272,7 +296,7 @@ class _PilotContractDetailScreenState
     if (resolvedContract != null &&
         resolvedContract.canViewExactLocation) {
       final loadedLocation =
-          await _controller.loadLocation(resolvedContract.id);
+      await _controller.loadLocation(resolvedContract.id);
 
       if (loadedLocation != null) {
         resolvedLocation = loadedLocation;
@@ -304,6 +328,10 @@ class _PilotContractDetailScreenState
       _loading = false;
       _refreshing = false;
     });
+
+    if (resolvedContract?.isCompleted == true) {
+      unawaited(_loadReviewState(contract: resolvedContract));
+    }
 
     if (resolvedContract != null &&
         resolvedContract.canViewExactLocation &&
@@ -381,9 +409,45 @@ class _PilotContractDetailScreenState
     if (!mounted) return;
 
     if (updated == null) {
+      // The Start Work POST may already have been committed while the response
+      // was lost/blocked (for example Cloudflare, gateway delay, or a transient
+      // network failure). Never retry the POST blindly. Re-read the
+      // authoritative contract instead.
+      final authoritative =
+      await _recoverContractAfterActionError(
+        contract.id,
+        resolved: (value) =>
+        value.isInProgress ||
+            value.isSubmitted ||
+            value.isCompleted,
+      );
+
+      if (!mounted) return;
+
+      if (authoritative != null &&
+          (authoritative.isInProgress ||
+              authoritative.isSubmitted ||
+              authoritative.isCompleted)) {
+        setState(() {
+          _contract = authoritative;
+          _changed = true;
+        });
+
+        _snack(
+          authoritative.isInProgress
+              ? 'Work started. Contract is now In Progress.'
+              : 'Contract workflow updated successfully.',
+          success: true,
+        );
+
+        unawaited(_syncLiveWorkflow(force: true));
+        return;
+      }
+
       setState(() {});
       _snack(
-        _controller.actionErrorMessage ?? 'Unable to start work.',
+        _controller.actionErrorMessage ??
+            'Unable to start work on this contract.',
       );
       return;
     }
@@ -391,10 +455,10 @@ class _PilotContractDetailScreenState
     final optimistic = updated.isInProgress
         ? updated
         : updated.copyWith(
-            status: 'in_progress',
-            startedAt: updated.startedAt ?? DateTime.now().toUtc(),
-            updatedAt: DateTime.now().toUtc(),
-          );
+      status: 'in_progress',
+      startedAt: updated.startedAt ?? DateTime.now().toUtc(),
+      updatedAt: DateTime.now().toUtc(),
+    );
 
     // Update the UI immediately so Start Work can never remain visible after a
     // successful action. Then reconcile from GET /contracts/{id}.
@@ -429,7 +493,7 @@ class _PilotContractDetailScreenState
         builder: (_) => PilotSubmitWorkScreen(
           contractId: contract.id,
           previousSubmission:
-              latest?.isRevisionRequested == true ? latest : null,
+          latest?.isRevisionRequested == true ? latest : null,
         ),
       ),
     );
@@ -439,10 +503,10 @@ class _PilotContractDetailScreenState
     final optimistic = result.contract.isSubmitted
         ? result.contract
         : result.contract.copyWith(
-            status: 'submitted',
-            submittedAt: result.contract.submittedAt ?? DateTime.now().toUtc(),
-            updatedAt: DateTime.now().toUtc(),
-          );
+      status: 'submitted',
+      submittedAt: result.contract.submittedAt ?? DateTime.now().toUtc(),
+      updatedAt: DateTime.now().toUtc(),
+    );
 
     final list = List<ContractSubmissionModel>.from(_submissions);
     final index = list.indexWhere((item) => item.id == result.submission.id);
@@ -465,6 +529,370 @@ class _PilotContractDetailScreenState
 
     _snack('Work submitted. Waiting for company review.', success: true);
     unawaited(_syncLiveWorkflow(force: true));
+  }
+
+  Future<void> _loadReviewState({
+    PilotContractModel? contract,
+    bool force = false,
+  }) async {
+    final resolved = contract ?? _contract;
+
+    if (resolved == null || !resolved.isCompleted) {
+      if (mounted && (_reviewSubmitted || _reviewStateLoading)) {
+        setState(() {
+          _reviewSubmitted = false;
+          _reviewStateLoading = false;
+          _reviewStateCheckedContractId = null;
+        });
+      }
+      return;
+    }
+
+    if (!force && _reviewStateCheckedContractId == resolved.id) {
+      return;
+    }
+
+    _reviewStateCheckedContractId = resolved.id;
+
+    if (mounted) {
+      setState(() => _reviewStateLoading = true);
+    }
+
+    try {
+      final currentUserId = await UserSessionStorage.getUserId();
+      if (currentUserId == null || currentUserId <= 0) {
+        if (mounted) {
+          setState(() {
+            _reviewStateLoading = false;
+            _reviewStateCheckedContractId = null;
+          });
+        }
+        return;
+      }
+
+      var page = 1;
+      var found = false;
+      var lastPage = 1;
+
+      do {
+        final result = await _reviewService.getCompanyReviews(
+          resolved.companyProfileId,
+          page: page,
+          perPage: 50,
+        );
+
+        found = result.reviews.any(
+              (review) =>
+          review.contractId == resolved.id &&
+              review.reviewer?.userId == currentUserId,
+        );
+
+        lastPage = result.pagination.lastPage;
+        page++;
+      } while (!found && page <= lastPage);
+
+      if (!mounted) return;
+
+      setState(() {
+        _reviewSubmitted = found;
+        _reviewStateLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _reviewStateLoading = false;
+        _reviewStateCheckedContractId = null;
+      });
+    }
+  }
+
+  Future<void> _openReview() async {
+    final contract = _contract;
+    if (contract == null ||
+        !contract.isCompleted ||
+        _reviewSubmitted ||
+        _reviewStateLoading ||
+        _acting) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SubmitReviewScreen(
+          contractId: contract.id,
+          authorType: ReviewAuthorType.pilot,
+          targetName: 'Company',
+        ),
+      ),
+    );
+
+    if (!mounted || submitted != true) return;
+
+    setState(() {
+      _reviewSubmitted = true;
+      _reviewStateCheckedContractId = contract.id;
+      _changed = true;
+    });
+
+    _snack(
+      'Review submitted successfully.',
+      success: true,
+    );
+
+    unawaited(_loadReviewState(contract: contract, force: true));
+  }
+
+  Widget _reviewSection(PilotContractModel contract) {
+    final submitted = _reviewSubmitted;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: submitted
+              ? const [Color(0xFFBDEDE3), Color(0xFFDDF7F2)]
+              : const [Color(0xFFFFD76A), Color(0xFF55D8CE)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: (submitted ? AppColors.green : const Color(0xFF0A8B90))
+                .withOpacity(.08),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(21),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: submitted
+                          ? const [Color(0xFF17A989), Color(0xFF0B817B)]
+                          : const [Color(0xFFFFC94D), Color(0xFFF5A623)],
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (submitted
+                            ? const Color(0xFF17A989)
+                            : const Color(0xFFF5A623))
+                            .withOpacity(.20),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    submitted
+                        ? Icons.verified_rounded
+                        : Icons.star_rounded,
+                    color: Colors.white,
+                    size: 25,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        submitted
+                            ? 'Review Submitted'
+                            : 'Rate Your Experience',
+                        style: const TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        submitted
+                            ? 'Thanks for sharing your experience. Your review is now part of the company rating.'
+                            : 'Mission complete. Share a quick rating for the company based on this contract.',
+                        style: const TextStyle(
+                          color: AppColors.grey,
+                          fontSize: 10.5,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_reviewStateLoading)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.blue,
+                      ),
+                    ),
+                    SizedBox(width: 9),
+                    Text(
+                      'Checking review status...',
+                      style: TextStyle(
+                        color: AppColors.grey,
+                        fontSize: 10.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (submitted)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.greenBg.withOpacity(.72),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.green.withOpacity(.10),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.green,
+                      size: 17,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Completed · Thank you for your feedback',
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontSize: 10.2,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Row(
+                children: [
+                  ...List.generate(
+                    5,
+                        (index) => Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: Icon(
+                        Icons.star_rounded,
+                        color: const Color(0xFFFFB800).withOpacity(
+                          1 - (index * .07),
+                        ),
+                        size: 19,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: _acting ? null : _openReview,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.blue,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 16,
+                    ),
+                    label: const Text(
+                      'Leave Review',
+                      style: TextStyle(
+                        fontSize: 10.2,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<PilotContractModel?> _recoverContractAfterActionError(
+      int contractId, {
+        required bool Function(PilotContractModel contract) resolved,
+      }) async {
+    // Do not retry the mutation itself. The POST may already have committed.
+    // Re-read the authoritative contract state for up to ~12 seconds instead.
+    for (var attempt = 0; attempt < 6; attempt++) {
+      if (!mounted) return null;
+
+      if (attempt > 0) {
+        await Future<void>.delayed(
+          const Duration(seconds: 2),
+        );
+      }
+
+      final fresh =
+      await _actionRecoveryController.loadContract(contractId);
+
+      if (!mounted) return null;
+
+      if (fresh != null) {
+        if (resolved(fresh)) {
+          return fresh;
+        }
+
+        // If the server moved to any non-decision state, return it too so the
+        // UI never remains falsely stuck on Pending.
+        if (!fresh.canPilotDecide) {
+          return fresh;
+        }
+      }
+    }
+
+    return null;
   }
 
   Future<void> _accept() async {
@@ -525,6 +953,42 @@ class _PilotContractDetailScreenState
     if (!mounted) return;
 
     if (updated == null) {
+      final authoritative =
+      await _recoverContractAfterActionError(
+        contract.id,
+        resolved: (value) =>
+        value.isAccepted ||
+            value.isActive ||
+            value.isInProgress ||
+            value.isSubmitted ||
+            value.isCompleted,
+      );
+
+      if (!mounted) return;
+
+      if (authoritative != null &&
+          !authoritative.canPilotDecide) {
+        setState(() {
+          _contract = authoritative;
+          _changed = true;
+        });
+
+        if (authoritative.isAccepted) {
+          _snack(
+            'Contract accepted. Waiting for company funding.',
+            success: true,
+          );
+        } else {
+          _snack(
+            'Contract status updated successfully.',
+            success: true,
+          );
+        }
+
+        unawaited(_syncLiveWorkflow(force: true));
+        return;
+      }
+
       setState(() {});
       _snack(
         _controller.actionErrorMessage ??
@@ -642,6 +1106,32 @@ class _PilotContractDetailScreenState
     if (!mounted) return;
 
     if (updated == null) {
+      final authoritative =
+      await _recoverContractAfterActionError(
+        contract.id,
+        resolved: (value) => value.isRejected,
+      );
+
+      if (!mounted) return;
+
+      if (authoritative != null &&
+          !authoritative.canPilotDecide) {
+        setState(() {
+          _contract = authoritative;
+          _changed = true;
+        });
+
+        _snack(
+          authoritative.isRejected
+              ? 'Contract rejected.'
+              : 'Contract status updated.',
+          success: true,
+        );
+
+        unawaited(_syncLiveWorkflow(force: true));
+        return;
+      }
+
       setState(() {});
       _snack(
         _controller.actionErrorMessage ??
@@ -680,11 +1170,11 @@ class _PilotContractDetailScreenState
                     child: _loading && _contract == null
                         ? const _DetailShimmer()
                         : _error != null && _contract == null
-                            ? _ErrorState(
-                                message: _error!,
-                                onRetry: _load,
-                              )
-                            : _content(),
+                        ? _ErrorState(
+                      message: _error!,
+                      onRetry: _load,
+                    )
+                        : _content(),
                   ),
                 ],
               ),
@@ -797,6 +1287,10 @@ class _PilotContractDetailScreenState
             const SizedBox(height: 12),
             _workSubmissionSection(contract),
           ],
+          if (contract.isCompleted) ...[
+            const SizedBox(height: 12),
+            _reviewSection(contract),
+          ],
           const SizedBox(height: 12),
           _terms(contract),
           const SizedBox(height: 12),
@@ -812,9 +1306,9 @@ class _PilotContractDetailScreenState
   }
 
   Widget _hero(
-    PilotContractModel contract,
-    _ContractVisual visual,
-  ) {
+      PilotContractModel contract,
+      _ContractVisual visual,
+      ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 17, 18, 17),
@@ -971,7 +1465,7 @@ class _PilotContractDetailScreenState
       case 'pending':
         title = 'Your decision is required';
         message =
-            'Review the amount, schedule and terms below. Accepting moves the contract to Accepted and the company must fund it before work can start.';
+        'Review the amount, schedule and terms below. Accepting moves the contract to Accepted and the company must fund it before work can start.';
         icon = Icons.pending_actions_rounded;
         accent = AppColors.orange;
         background = AppColors.orangeBg;
@@ -979,7 +1473,7 @@ class _PilotContractDetailScreenState
       case 'accepted':
         title = 'Waiting for company funding';
         message =
-            'You accepted this contract. Work cannot start until the company funds it and the contract becomes Active.';
+        'You accepted this contract. Work cannot start until the company funds it and the contract becomes Active.';
         icon = Icons.hourglass_top_rounded;
         accent = AppColors.blue;
         background = AppColors.blueBg;
@@ -1003,11 +1497,11 @@ class _PilotContractDetailScreenState
         title = revisionRequested ? 'Revision requested' : 'Work in progress';
         message = revisionRequested
             ? (latest!.reviewNotes.trim().isEmpty
-                ? 'The company requested another submission. Review the latest round below and submit the corrected work.'
-                : 'Company feedback: ${latest.reviewNotes}')
+            ? 'The company requested another submission. Review the latest round below and submit the corrected work.'
+            : 'Company feedback: ${latest.reviewNotes}')
             : contract.startedAt == null
-                ? 'This mission has started. Submit the completed work when it is ready.'
-                : 'Work started at ${_formatDateTime(contract.startedAt)}. Submit the completed work when it is ready.';
+            ? 'This mission has started. Submit the completed work when it is ready.'
+            : 'Work started at ${_formatDateTime(contract.startedAt)}. Submit the completed work when it is ready.';
         icon = revisionRequested ? Icons.replay_rounded : Icons.flight_rounded;
         accent = revisionRequested ? AppColors.orange : AppColors.blue;
         background = revisionRequested ? AppColors.orangeBg : AppColors.blueBg;
@@ -1019,10 +1513,23 @@ class _PilotContractDetailScreenState
         accent = AppColors.green;
         background = AppColors.greenBg;
         break;
+      case 'completed':
+        title = _reviewSubmitted
+            ? 'Mission completed · Review submitted'
+            : 'Mission completed';
+        message = _reviewSubmitted
+            ? 'This contract is complete and your feedback has been submitted successfully.'
+            : 'The company approved your work. You can now leave one review for this completed contract.';
+        icon = _reviewSubmitted
+            ? Icons.verified_rounded
+            : Icons.workspace_premium_rounded;
+        accent = AppColors.green;
+        background = AppColors.greenBg;
+        break;
       case 'rejected':
         title = 'Contract rejected';
         message =
-            'This contract is closed because it was rejected by the pilot.';
+        'This contract is closed because it was rejected by the pilot.';
         icon = Icons.cancel_outlined;
         accent = AppColors.red;
         background = AppColors.redBg;
@@ -1030,7 +1537,7 @@ class _PilotContractDetailScreenState
       default:
         title = contract.statusLabel;
         message =
-            'This contract has moved to the next workflow stage.';
+        'This contract has moved to the next workflow stage.';
         icon = Icons.info_outline_rounded;
         accent = AppColors.blue;
         background = AppColors.blueBg;
@@ -1173,78 +1680,78 @@ class _PilotContractDetailScreenState
               ),
             )
           else ...[
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: latest.isRevisionRequested
-                        ? AppColors.orangeBg
-                        : latest.isApproved
-                            ? AppColors.greenBg
-                            : AppColors.blueBg,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    latest.statusLabel,
-                    style: TextStyle(
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
                       color: latest.isRevisionRequested
-                          ? AppColors.orange
+                          ? AppColors.orangeBg
                           : latest.isApproved
-                              ? AppColors.green
-                              : AppColors.blue,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w900,
+                          ? AppColors.greenBg
+                          : AppColors.blueBg,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      latest.statusLabel,
+                      style: TextStyle(
+                        color: latest.isRevisionRequested
+                            ? AppColors.orange
+                            : latest.isApproved
+                            ? AppColors.green
+                            : AppColors.blue,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  'Round ${_submissions.length}',
-                  style: const TextStyle(
-                    color: AppColors.grey,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
+                  const Spacer(),
+                  Text(
+                    'Round ${_submissions.length}',
+                    style: const TextStyle(
+                      color: AppColors.grey,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _infoLine('Submitted', latest.submittedLabel),
-            _infoLine('Attachments', '${latest.files.length}'),
-            if (latest.notes.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                latest.notes,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 10.8,
-                  height: 1.45,
-                ),
+                ],
               ),
-            ],
-            if (latest.reviewNotes.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: latest.isRevisionRequested
-                      ? AppColors.orangeBg.withOpacity(0.7)
-                      : AppColors.greenBg.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  latest.reviewNotes,
+              _infoLine('Submitted', latest.submittedLabel),
+              _infoLine('Attachments', '${latest.files.length}'),
+              if (latest.notes.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  latest.notes,
                   style: const TextStyle(
                     color: AppColors.text,
-                    fontSize: 10.5,
+                    fontSize: 10.8,
                     height: 1.45,
                   ),
                 ),
-              ),
+              ],
+              if (latest.reviewNotes.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: latest.isRevisionRequested
+                        ? AppColors.orangeBg.withOpacity(0.7)
+                        : AppColors.greenBg.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    latest.reviewNotes,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 10.5,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
           if (_controller.submissionErrorMessage != null) ...[
             const SizedBox(height: 8),
             Text(
@@ -1315,219 +1822,219 @@ class _PilotContractDetailScreenState
       title: 'Exact Job Location',
       child: _controller.isLoadingLocation && location == null
           ? const Row(
-              children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.blue,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.blue,
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Loading protected location...',
+              style: TextStyle(
+                color: AppColors.grey,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      )
+          : location == null
+          ? Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFFF8EC),
+              Color(0xFFFFFCF6),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.orange.withOpacity(.12),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.orange.withOpacity(.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.location_searching_rounded,
+                color: AppColors.orange,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Waiting for Exact Location',
+                    style: TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 11.8,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'No action is needed from you. This screen checks the protected location automatically and unlocks Start Work the moment it becomes available.',
+                    style: TextStyle(
+                      color: AppColors.text,
+                      fontSize: 10.4,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.7,
+                          color: AppColors.orange.withOpacity(.82),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      const Text(
+                        'Live checking every 2 seconds',
+                        style: TextStyle(
+                          color: AppColors.orange,
+                          fontSize: 9.2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      )
+          : Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFEAFBF7), Color(0xFFF2F8FC)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.green.withOpacity(0.12),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.place_rounded,
+                  color: AppColors.green,
+                  size: 20,
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    'Loading protected location...',
-                    style: TextStyle(
-                      color: AppColors.grey,
-                      fontSize: 11,
+                    location.address,
+                    style: const TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 12.2,
+                      height: 1.4,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
               ],
-            )
-          : location == null
-              ? Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFFFF8EC),
-                        Color(0xFFFFFCF6),
-                      ],
+            ),
+            const SizedBox(height: 11),
+            Row(
+              children: [
+                const Icon(
+                  Icons.my_location_rounded,
+                  color: AppColors.grey,
+                  size: 14,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: SelectableText(
+                    location.coordinatesLabel,
+                    style: const TextStyle(
+                      color: AppColors.grey,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.orange.withOpacity(.12),
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.orange.withOpacity(.10),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.location_searching_rounded,
-                          color: AppColors.orange,
-                          size: 19,
-                        ),
-                      ),
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Waiting for Exact Location',
-                              style: TextStyle(
-                                color: AppColors.navy,
-                                fontSize: 11.8,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'No action is needed from you. This screen checks the protected location automatically and unlocks Start Work the moment it becomes available.',
-                              style: TextStyle(
-                                color: AppColors.text,
-                                fontSize: 10.4,
-                                height: 1.45,
-                              ),
-                            ),
-                            const SizedBox(height: 9),
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.7,
-                                    color: AppColors.orange.withOpacity(.82),
-                                  ),
-                                ),
-                                const SizedBox(width: 7),
-                                const Text(
-                                  'Live checking every 2 seconds',
-                                  style: TextStyle(
-                                    color: AppColors.orange,
-                                    fontSize: 9.2,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFEAFBF7), Color(0xFFF2F8FC)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.green.withOpacity(0.12),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.place_rounded,
-                            color: AppColors.green,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: Text(
-                              location.address,
-                              style: const TextStyle(
-                                color: AppColors.navy,
-                                fontSize: 12.2,
-                                height: 1.4,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 11),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.my_location_rounded,
-                            color: AppColors.grey,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: SelectableText(
-                              location.coordinatesLabel,
-                              style: const TextStyle(
-                                color: AppColors.grey,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Copy coordinates',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () {
-                              Clipboard.setData(
-                                ClipboardData(text: location.coordinatesLabel),
-                              );
-                              _snack('Coordinates copied.', success: true);
-                            },
-                            icon: const Icon(
-                              Icons.copy_rounded,
-                              size: 16,
-                              color: AppColors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (location.notes.trim().isNotEmpty) ...[
-                        const Divider(height: 20, color: AppColors.cardBorder),
-                        Text(
-                          location.notes.trim(),
-                          style: const TextStyle(
-                            color: AppColors.text,
-                            fontSize: 10.8,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                      if (contract.isActive) ...[
-                        const SizedBox(height: 10),
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.lock_open_rounded,
-                              color: AppColors.green,
-                              size: 14,
-                            ),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Location access unlocked by the Active contract.',
-                                style: TextStyle(
-                                  color: AppColors.green,
-                                  fontSize: 9.8,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
                   ),
                 ),
+                IconButton(
+                  tooltip: 'Copy coordinates',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    Clipboard.setData(
+                      ClipboardData(text: location.coordinatesLabel),
+                    );
+                    _snack('Coordinates copied.', success: true);
+                  },
+                  icon: const Icon(
+                    Icons.copy_rounded,
+                    size: 16,
+                    color: AppColors.blue,
+                  ),
+                ),
+              ],
+            ),
+            if (location.notes.trim().isNotEmpty) ...[
+              const Divider(height: 20, color: AppColors.cardBorder),
+              Text(
+                location.notes.trim(),
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 10.8,
+                  height: 1.5,
+                ),
+              ),
+            ],
+            if (contract.isActive) ...[
+              const SizedBox(height: 10),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.lock_open_rounded,
+                    color: AppColors.green,
+                    size: 14,
+                  ),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Location access unlocked by the Active contract.',
+                      style: TextStyle(
+                        color: AppColors.green,
+                        fontSize: 9.8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -1648,10 +2155,10 @@ class _PilotContractDetailScreenState
   }
 
   Widget _infoRow(
-    String label,
-    String value,
-    IconData icon,
-  ) {
+      String label,
+      String value,
+      IconData icon,
+      ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1747,13 +2254,13 @@ class _PilotContractDetailScreenState
                   ),
                   icon: _controller.isAccepting
                       ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                       : const Icon(Icons.check_rounded, size: 18),
                   label: Text(
                     _controller.isAccepting
@@ -1801,25 +2308,25 @@ class _PilotContractDetailScreenState
             ),
             icon: _controller.isStartingWork
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
                 : Icon(
-                    locationReady
-                        ? Icons.flight_takeoff_rounded
-                        : Icons.location_off_outlined,
-                    size: 19,
-                  ),
+              locationReady
+                  ? Icons.flight_takeoff_rounded
+                  : Icons.location_off_outlined,
+              size: 19,
+            ),
             label: Text(
               _controller.isStartingWork
                   ? 'Starting Work...'
                   : locationReady
-                      ? 'Start Work'
-                      : 'Waiting for Exact Location',
+                  ? 'Start Work'
+                  : 'Waiting for Exact Location',
               style: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
@@ -1865,20 +2372,149 @@ class _PilotContractDetailScreenState
       );
     }
 
+    if (contract.isCompleted) {
+      return SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 13),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.985),
+            border: const Border(
+              top: BorderSide(color: AppColors.cardBorder),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.navy.withOpacity(.06),
+                blurRadius: 24,
+                offset: const Offset(0, -8),
+              ),
+            ],
+          ),
+          child: _reviewSubmitted
+              ? Container(
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFE8F8F4), Color(0xFFF2FBF9)],
+              ),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: AppColors.green.withOpacity(.14),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.verified_rounded,
+                  color: AppColors.green,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Review Submitted',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          )
+              : FilledButton(
+            onPressed: _reviewStateLoading || _acting
+                ? null
+                : _openReview,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 56),
+              padding: EdgeInsets.zero,
+              backgroundColor: Colors.transparent,
+              disabledBackgroundColor: const Color(0xFFD7E0E5),
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(17),
+              ),
+            ),
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xFF08273B),
+                    Color(0xFF075A68),
+                    Color(0xFF0A9B96),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(17),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF087E91).withOpacity(.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Container(
+                height: 56,
+                alignment: Alignment.center,
+                child: _reviewStateLoading
+                    ? const SizedBox(
+                  width: 19,
+                  height: 19,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFFFD76A),
+                      size: 22,
+                    ),
+                    SizedBox(width: 9),
+                    Text(
+                      'Leave a Review',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.1,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return null;
   }
 
   void _snack(
-    String message, {
-    bool success = false,
-  }) {
+      String message, {
+        bool success = false,
+      }) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor:
-              success ? AppColors.green : AppColors.navy,
+          success ? AppColors.green : AppColors.navy,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -2150,7 +2786,7 @@ class _PremiumWorkflowTracker extends StatelessWidget {
           Row(
             children: List.generate(
               labels.length * 2 - 1,
-              (index) {
+                  (index) {
                 if (index.isOdd) {
                   final segment = index ~/ 2;
                   final filled = segment < completeThrough;
@@ -2179,8 +2815,8 @@ class _PremiumWorkflowTracker extends StatelessWidget {
                     color: complete
                         ? const Color(0xFF0CA49B)
                         : active
-                            ? const Color(0xFFE8F8F6)
-                            : Colors.white,
+                        ? const Color(0xFFE8F8F6)
+                        : Colors.white,
                     border: Border.all(
                       color: complete || active
                           ? const Color(0xFF0CA49B)
@@ -2190,24 +2826,24 @@ class _PremiumWorkflowTracker extends StatelessWidget {
                   ),
                   child: complete
                       ? const Icon(
-                          Icons.check_rounded,
-                          size: 12,
-                          color: Colors.white,
-                        )
+                    Icons.check_rounded,
+                    size: 12,
+                    color: Colors.white,
+                  )
                       : active
-                          ? const Center(
-                              child: SizedBox(
-                                width: 6,
-                                height: 6,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF0CA49B),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : null,
+                      ? const Center(
+                    child: SizedBox(
+                      width: 6,
+                      height: 6,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFF0CA49B),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  )
+                      : null,
                 );
               },
             ),
@@ -2229,7 +2865,7 @@ class _PremiumWorkflowTracker extends StatelessWidget {
                         : AppColors.lightGrey,
                     fontSize: 7.7,
                     fontWeight:
-                        emphasized ? FontWeight.w800 : FontWeight.w500,
+                    emphasized ? FontWeight.w800 : FontWeight.w500,
                   ),
                 ),
               );
@@ -2542,7 +3178,7 @@ class _ContractVisual {
   final Color background;
 
   const _ContractVisual(
-    this.foreground,
-    this.background,
-  );
+      this.foreground,
+      this.background,
+      );
 }

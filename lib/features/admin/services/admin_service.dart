@@ -124,6 +124,60 @@ class AdminService {
     return companies;
   }
 
+  /// GET /admin/users?role=pilot|company&page=...
+  /// Each query is filtered by the backend, since the documented User model
+  /// does not itself include a role field.
+  Future<List<AdminUserModel>> getUsersByRole(
+    String role, {
+    int perPage = 50,
+  }) async {
+    if (role != 'pilot' && role != 'company') {
+      throw const AdminException('Invalid account role filter.');
+    }
+
+    final users = <int, AdminUserModel>{};
+    var page = 1;
+    var lastPage = 1;
+
+    do {
+      final endpoint = Uri(
+        path: ApiEndpoints.adminUsers,
+        queryParameters: {
+          'role': role,
+          'page': '$page',
+          'per_page': '${perPage.clamp(1, 50)}',
+        },
+      ).toString();
+
+      final response = await _authorizedGet(endpoint);
+      final body = _body(response.data);
+      final raw = body['data'];
+      final List<dynamic> rows;
+
+      if (raw is Map && raw['data'] is List) {
+        rows = raw['data'] as List;
+        lastPage = _positiveInt(raw['last_page']) ?? page;
+      } else if (raw is List) {
+        rows = raw;
+        lastPage = page;
+      } else {
+        throw AdminException(
+          _messageFromBody(body, fallback: 'Unable to load $role accounts.'),
+        );
+      }
+
+      for (final item in rows.whereType<Map>()) {
+        final user = AdminUserModel.fromJson(Map<String, dynamic>.from(item));
+        if (user.id > 0) users[user.id] = user;
+      }
+
+      if (rows.isEmpty) break;
+      page++;
+    } while (page <= lastPage && page <= 200);
+
+    return List.unmodifiable(users.values);
+  }
+
   Future<AdminUserModel> approveUser(int userId) async {
     final response = await _authorizedPost(
       ApiEndpoints.adminApproveUser(userId),

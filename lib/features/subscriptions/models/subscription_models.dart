@@ -38,7 +38,9 @@ class SubscriptionPlanModel {
     );
   }
 
-  bool get isFree => billingPeriod == 'free' || (double.tryParse(price) ?? 0) == 0;
+  // A zero/invalid price does not prove that checkout may be bypassed.
+  // Only the backend's explicit free billing period can skip Stripe.
+  bool get isFree => billingPeriod == 'free';
 
   String get displayName => name.trim().isEmpty ? 'Plan #$id' : name.trim();
 
@@ -55,6 +57,8 @@ class SubscriptionPlanModel {
         return 'Monthly';
       case 'annual':
         return 'Annual';
+      case 'yearly':
+        return 'Yearly';
       case 'custom':
         return 'Custom';
       default:

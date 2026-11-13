@@ -46,6 +46,10 @@ class _PilotRegisterStepOneScreenState
   final TextEditingController _passwordController =
   TextEditingController();
 
+  final FocusNode _passwordFocusNode = FocusNode();
+
+  bool _passwordHasBeenBlurred = false;
+
   final TextEditingController _confirmPasswordController =
   TextEditingController();
 
@@ -99,6 +103,8 @@ class _PilotRegisterStepOneScreenState
   void initState() {
     super.initState();
 
+    _passwordFocusNode.addListener(_onPasswordFocusChanged);
+
     _pageAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -130,6 +136,8 @@ class _PilotRegisterStepOneScreenState
 
   @override
   void dispose() {
+    _passwordFocusNode.removeListener(_onPasswordFocusChanged);
+    _passwordFocusNode.dispose();
     _fullNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
@@ -143,6 +151,36 @@ class _PilotRegisterStepOneScreenState
     _avatarAnimationController.dispose();
 
     super.dispose();
+  }
+
+  void _onPasswordFocusChanged() {
+    if (!_passwordFocusNode.hasFocus &&
+        !_passwordHasBeenBlurred &&
+        mounted) {
+      setState(() => _passwordHasBeenBlurred = true);
+    }
+  }
+
+  String? _passwordValidationError(String? input) {
+    final password = input ?? '';
+    if (password.isEmpty) return 'Password is required';
+
+    final missing = <String>[];
+    if (password.length < 8) missing.add('8+ characters');
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      missing.add('an uppercase letter');
+    }
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      missing.add('a lowercase letter');
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      missing.add('a number');
+    }
+    if (!RegExp(r'[^A-Za-z0-9\s]').hasMatch(password)) {
+      missing.add('a special character');
+    }
+
+    return missing.isEmpty ? null : 'Add ${missing.join(', ')}.';
   }
 
   // ===========================================================================
@@ -2058,6 +2096,10 @@ class _PilotRegisterStepOneScreenState
                                   _buildTextField(
                                     controller:
                                     _passwordController,
+                                    focusNode: _passwordFocusNode,
+                                    autovalidateMode: _passwordHasBeenBlurred
+                                        ? AutovalidateMode.always
+                                        : AutovalidateMode.disabled,
                                     hintText:
                                     'Password',
                                     prefixIcon:
@@ -2107,30 +2149,7 @@ class _PilotRegisterStepOneScreenState
                                         ),
                                       ),
                                     ),
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.isEmpty) {
-                                        return 'Password is required';
-                                      }
-
-                                      if (value.length < 8) {
-                                        return 'Password must be at least 8 characters';
-                                      }
-
-                                      if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                                        return 'Password must contain an uppercase letter';
-                                      }
-
-                                      if (!RegExp(r'[a-z]').hasMatch(value)) {
-                                        return 'Password must contain a lowercase letter';
-                                      }
-
-                                      if (!RegExp(r'[0-9]').hasMatch(value)) {
-                                        return 'Password must contain a number';
-                                      }
-
-                                      return null;
-                                    },
+                                    validator: _passwordValidationError,
                                   ),
 
                                   const SizedBox(
@@ -2616,6 +2635,8 @@ class _PilotRegisterStepOneScreenState
     required TextEditingController
     controller,
     required String hintText,
+    FocusNode? focusNode,
+    AutovalidateMode autovalidateMode = AutovalidateMode.onUserInteraction,
     IconData? prefixIcon,
     Widget? suffixIcon,
     bool readOnly = false,
@@ -2629,6 +2650,7 @@ class _PilotRegisterStepOneScreenState
   }) {
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
       enabled:
       !_isSubmitting || readOnly,
       readOnly: readOnly,
@@ -2638,9 +2660,7 @@ class _PilotRegisterStepOneScreenState
       textInputAction,
       onTap: onTap,
       validator: validator,
-      autovalidateMode:
-      AutovalidateMode
-          .onUserInteraction,
+      autovalidateMode: autovalidateMode,
       style: const TextStyle(
         fontSize: 13.5,
         color: AppColors.kTextDark,
@@ -3296,3 +3316,4 @@ class _PilotRegisterStepOneScreenState
 
 
 }
+

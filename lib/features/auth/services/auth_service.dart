@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/network/api_endpoints.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -156,33 +157,7 @@ class AuthService {
         String key,
         String? path,
         ) async {
-      if (path == null ||
-          path.trim().isEmpty) {
-        return;
-      }
-
-      final cleanPath =
-      path.trim();
-
-      final fileName =
-          cleanPath
-              .split(
-            RegExp(
-              r'[\\/]',
-            ),
-          )
-              .last;
-
-      formData.files.add(
-        MapEntry(
-          key,
-          await MultipartFile.fromFile(
-            cleanPath,
-            filename:
-            fileName,
-          ),
-        ),
-      );
+      await _addValidatedFile(formData, key, path);
     }
 
     // ------------------------------------------------------------------------
@@ -469,32 +444,15 @@ class AuthService {
       // ----------------------------------------------------------------------
       // CAPABILITIES
       //
-      // API example:
-      // capabilities = laser,thermal
-      //
-      // App example:
-      // thermal,rtk,spotlight
+      // Laravel expects an array, not a comma-delimited string.
+      // Canonicalize here as well as in the UI so both signup and
+      // company job requirements use the same API vocabulary.
       // ----------------------------------------------------------------------
 
-      if (drone.capabilities.isNotEmpty) {
-        final capabilities =
-        drone.capabilities
-            .map(
-              (item) =>
-              item.trim(),
-        )
-            .where(
-              (item) =>
-          item.isNotEmpty,
-        )
-            .join(
-          ',',
-        );
-
-        addField(
-          'drone[capabilities]',
-          capabilities,
-        );
+      final capabilities =
+      DroneCapabilities.canonicalizeAll(drone.capabilities);
+      for (var index = 0; index < capabilities.length; index++) {
+        addField('drone[capabilities][$index]', capabilities[index]);
       }
 
       // ----------------------------------------------------------------------
@@ -600,6 +558,11 @@ class AuthService {
       ApiEndpoints.pilotRegister,
       data:
       formData,
+      options: Options(
+        contentType: Headers.multipartFormDataContentType,
+        sendTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
+      ),
     );
   }
 
@@ -650,33 +613,7 @@ class AuthService {
         String key,
         String? path,
         ) async {
-      if (path == null ||
-          path.trim().isEmpty) {
-        return;
-      }
-
-      final cleanPath =
-      path.trim();
-
-      final fileName =
-          cleanPath
-              .split(
-            RegExp(
-              r'[\\/]',
-            ),
-          )
-              .last;
-
-      formData.files.add(
-        MapEntry(
-          key,
-          await MultipartFile.fromFile(
-            cleanPath,
-            filename:
-            fileName,
-          ),
-        ),
-      );
+      await _addValidatedFile(formData, key, path);
     }
 
     // ========================================================================
@@ -830,7 +767,42 @@ class AuthService {
       ApiEndpoints.companyRegister,
       data:
       formData,
+      options: Options(
+        contentType: Headers.multipartFormDataContentType,
+        sendTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
+      ),
     );
+  }
+
+  Future<void> _addValidatedFile(
+    FormData formData,
+    String key,
+    String? path,
+  ) async {
+    if (path == null || path.trim().isEmpty) return;
+    final selectedFile = File(path.trim());
+    if (!await selectedFile.exists()) {
+      throw const AuthMediaException(
+        'The selected image or document is missing. Please select it again.',
+      );
+    }
+
+    // OpenAPI defines 10240 KiB for each registration media field.
+    const maxBytes = 10 * 1024 * 1024;
+    if (await selectedFile.length() > maxBytes) {
+      throw const AuthMediaException(
+        'Each image or document must be 10 MB or less.',
+      );
+    }
+
+    final fileName = selectedFile.uri.pathSegments.isEmpty
+        ? 'upload'
+        : selectedFile.uri.pathSegments.last;
+    formData.files.add(MapEntry(
+      key,
+      await MultipartFile.fromFile(selectedFile.path, filename: fileName),
+    ));
   }
 
   // ==========================================================================
@@ -897,3 +869,12 @@ class AuthService {
     );
   }
 }
+
+class AuthMediaException implements Exception {
+  const AuthMediaException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+

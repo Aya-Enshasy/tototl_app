@@ -6,6 +6,7 @@ import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/auth/controllers/auth_controller.dart';
 import 'package:tototl_app/features/auth/screens/register/pilot/pilot_register_step_four_screen.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 
 import '../../../models/PilotRegisterRequestModel.dart';
 
@@ -90,16 +91,7 @@ class _PilotRegisterStepThreeScreenState
   // ACCESSORIES
   // ==========================================================================
 
-  final List<String> _availableAccessories = const [
-    'Thermal Camera',
-    'RTK Module',
-    'Spotlight',
-    'Parachute Safety System',
-    'Zoom Camera',
-    'Multispectral Sensor',
-    'Speaker / Loudspeaker',
-    'Winch / Release Mechanism',
-  ];
+  final List<String> _availableAccessories = DroneCapabilities.labels;
 
   Set<String> _selectedAccessories = {};
 
@@ -702,30 +694,6 @@ class _PilotRegisterStepThreeScreenState
   // VALIDATION + NEXT
   // ==========================================================================
 
-  String _capabilityToApiValue(
-      String label,
-      ) {
-    // `thermal` is confirmed by the existing API examples.
-    // The remaining slugs follow the UI labels and should be checked
-    // against the backend enum if the backend restricts capabilities.
-    const values = {
-      'Thermal Camera': 'thermal',
-      'RTK Module': 'rtk',
-      'Spotlight': 'spotlight',
-      'Parachute Safety System':
-      'parachute',
-      'Zoom Camera': 'zoom',
-      'Multispectral Sensor':
-      'multispectral',
-      'Speaker / Loudspeaker':
-      'speaker',
-      'Winch / Release Mechanism':
-      'winch',
-    };
-
-    return values[label] ?? label;
-  }
-
   Future<void> _handleNext() async {
     if (_isSubmitting) return;
 
@@ -824,11 +792,7 @@ class _PilotRegisterStepThreeScreenState
       weightKg:
       weight,
       capabilities:
-      _selectedAccessories
-          .map(
-        _capabilityToApiValue,
-      )
-          .toList(),
+      DroneCapabilities.canonicalizeAll(_selectedAccessories),
       flightTime:
       flightTime,
       totalBatteries:
@@ -4459,3 +4423,4 @@ class _PilotRegisterStepThreeScreenState
     );
   }
 }
+

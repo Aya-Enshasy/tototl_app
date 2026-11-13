@@ -194,17 +194,24 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
     unawaited(_refreshFromNetwork());
   }
 
+  CompanyJobPostingModel? _liveJobModelFor(int jobId) {
+    for (final model in _controller.jobs) {
+      if (model.id == jobId) return model;
+    }
+    return null;
+  }
+
   Future<void> _openJob(
-      _JobListSnapshot job,
-      ) async {
+    _JobListSnapshot job,
+  ) async {
     HapticFeedback.selectionClick();
 
     // This is the real job-posting id returned by My Jobs.
     // Do not pass an application id, company id, or list index here.
     debugPrint(
       'OPEN COMPANY JOB DETAILS -> '
-          'jobId=${job.id}, title=${job.title}, '
-          'applicants=${job.applicantsCount}',
+      'jobId=${job.id}, title=${job.title}, '
+      'applicants=${job.applicantsCount}',
     );
 
     await Navigator.of(context).push<bool>(

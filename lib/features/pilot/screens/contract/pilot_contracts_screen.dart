@@ -54,7 +54,7 @@ class _PilotContractsScreenState extends State<PilotContractsScreen>
 
     _liveRefreshTimer = Timer.periodic(
       const Duration(seconds: 8),
-      (_) => unawaited(_silentRefresh()),
+          (_) => unawaited(_silentRefresh()),
     );
   }
 
@@ -170,9 +170,9 @@ class _PilotContractsScreenState extends State<PilotContractsScreen>
         .length;
     final activeCount = _controller.contracts
         .where((item) =>
-            item.isActive ||
-            item.isInProgress ||
-            item.isSubmitted)
+    item.isActive ||
+        item.isInProgress ||
+        item.isSubmitted)
         .length;
 
     return Scaffold(
@@ -198,11 +198,11 @@ class _PilotContractsScreenState extends State<PilotContractsScreen>
                   child: _loading
                       ? const _ContractsShimmer()
                       : _error != null
-                          ? _ErrorState(
-                              message: _error!,
-                              onRetry: _load,
-                            )
-                          : _content(),
+                      ? _ErrorState(
+                    message: _error!,
+                    onRetry: _load,
+                  )
+                      : _content(),
                 ),
               ],
             ),
@@ -246,13 +246,13 @@ class _PilotContractsScreenState extends State<PilotContractsScreen>
                   ),
                   boxShadow: selected
                       ? [
-                          BoxShadow(
-                            color:
-                                const Color(0xFF09283F).withOpacity(.12),
-                            blurRadius: 12,
-                            offset: const Offset(0, 5),
-                          ),
-                        ]
+                    BoxShadow(
+                      color:
+                      const Color(0xFF09283F).withOpacity(.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
                       : null,
                 ),
                 child: Text(
@@ -261,7 +261,7 @@ class _PilotContractsScreenState extends State<PilotContractsScreen>
                     color: selected ? Colors.white : AppColors.grey,
                     fontSize: 9.7,
                     fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w600,
+                    selected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
               ),
@@ -1250,7 +1250,9 @@ class _ContractsShimmer extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 11),
       itemBuilder: (_, __) {
         return Container(
-          height: 178,
+          constraints: const BoxConstraints(
+            minHeight: 178,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(21),
@@ -1258,6 +1260,7 @@ class _ContractsShimmer extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(15),
           child: const Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ShimmerLine(width: 190, height: 15),
@@ -1346,7 +1349,7 @@ class _ContractVisual {
   final Color background;
 
   const _ContractVisual(
-    this.foreground,
-    this.background,
-  );
+      this.foreground,
+      this.background,
+      );
 }

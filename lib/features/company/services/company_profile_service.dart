@@ -141,6 +141,9 @@ class CompanyProfileService {
         ApiEndpoints.profileDocuments,
         data: formData,
         options: Options(
+          contentType: Headers.multipartFormDataContentType,
+          sendTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 2),
           headers: {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',

@@ -1,3 +1,5 @@
+import 'package:tototl_app/core/models/rating_summary_model.dart';
+
 // ============================================================================
 // COMPANY PROFILE VIEW DATA
 // ============================================================================
@@ -52,30 +54,17 @@ class CompanyAccountModel {
       Map<String, dynamic> json,
       ) {
     return CompanyAccountModel(
-      id: _asInt(
-        json['id'],
-      ),
-      name: _asString(
-        json['name'],
-      ),
-      email: _asString(
-        json['email'],
-      ),
-      username: _asString(
-        json['username'],
-      ),
-      status: _asString(
-        json['status'],
-      ),
-      phone: _asString(
-        json['phone'],
-      ),
+      id: _asInt(json['id']),
+      name: _asString(json['name']),
+      email: _asString(json['email']),
+      username: _asString(json['username']),
+      status: _asString(json['status']),
+      phone: _asString(json['phone']),
     );
   }
 
   String get displayName {
-    final value =
-    name.trim();
+    final value = name.trim();
 
     if (value.isEmpty) {
       return 'Company';
@@ -85,8 +74,7 @@ class CompanyAccountModel {
   }
 
   String get displayUsername {
-    final value =
-    username.trim();
+    final value = username.trim();
 
     if (value.isEmpty) {
       return '';
@@ -152,14 +140,14 @@ class CompanyProfileModel {
   final String address;
 
   final String website;
-
   final String profilePhoto;
 
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  final List<CompanyWorkRegionModel>
-  workRegions;
+  final List<CompanyWorkRegionModel> workRegions;
+
+  final RatingSummaryModel? rating;
 
   const CompanyProfileModel({
     this.id,
@@ -176,6 +164,7 @@ class CompanyProfileModel {
     this.createdAt,
     this.updatedAt,
     this.workRegions = const [],
+    this.rating,
   });
 
   factory CompanyProfileModel.fromJson(
@@ -205,107 +194,70 @@ class CompanyProfileModel {
       id: _asInt(
         json['id'],
       ),
-
       userId: _asInt(
         json['user_id'],
       ),
-
       companyName: _asString(
-        json['company_name'],
+        json['company_name'] ?? json['name'],
       ),
-
       industryType: _asString(
         json['industry_type'],
       ),
-
       description: _asString(
         json['description'],
       ),
-
       country: _asString(
         json['country'],
       ),
-
       state: _asString(
         json['state'],
       ),
-
       city: _asString(
         json['city'],
       ),
-
       address: _asString(
         json['address'],
       ),
-
       website: _asString(
         json['website'],
       ),
-
       profilePhoto: _asString(
         json['profile_photo'],
       ),
-
       createdAt: _asDate(
         json['created_at'],
       ),
-
       updatedAt: _asDate(
         json['updated_at'],
       ),
-
-      workRegions:
-      workRegions,
+      workRegions: workRegions,
+      rating: RatingSummaryModel.tryParse(
+        json['rating'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id':
-      id,
-
-      'user_id':
-      userId,
-
-      'company_name':
-      companyName,
-
-      'industry_type':
-      industryType,
-
-      'description':
-      description,
-
-      'country':
-      country,
-
-      'state':
-      state,
-
-      'city':
-      city,
-
-      'address':
-      address,
-
-      'website':
-      website,
-
+      'id': id,
+      'user_id': userId,
+      'company_name': companyName,
+      'industry_type': industryType,
+      'description': description,
+      'country': country,
+      'state': state,
+      'city': city,
+      'address': address,
+      'website': website,
       if (profilePhoto.isNotEmpty)
-        'profile_photo':
-        profilePhoto,
-
+        'profile_photo': profilePhoto,
       'created_at':
       createdAt?.toIso8601String(),
-
       'updated_at':
       updatedAt?.toIso8601String(),
-
-      'work_regions':
-      workRegions
+      'work_regions': workRegions
           .map(
-            (item) =>
-            item.toJson(),
+            (item) => item.toJson(),
       )
           .toList(),
     };
@@ -323,46 +275,62 @@ class CompanyProfileModel {
   }
 
   String get locationLabel {
-    final values =
-    <String>[
+    final values = <String>[
       city,
       state,
       country,
-    ].where(
+    ]
+        .where(
           (value) =>
       value.trim().isNotEmpty,
-    ).toList();
+    )
+        .toList();
 
     if (values.isEmpty) {
       return 'Location not specified';
     }
 
-    return values.join(
-      ', ',
-    );
+    return values.join(', ');
   }
 
   String get industryAndLocationLabel {
-    final values =
-    <String>[
+    final values = <String>[
       industryType,
       locationLabel ==
           'Location not specified'
           ? ''
           : locationLabel,
-    ].where(
+    ]
+        .where(
           (value) =>
       value.trim().isNotEmpty,
-    ).toList();
+    )
+        .toList();
 
     if (values.isEmpty) {
       return 'Company profile';
     }
 
-    return values.join(
-      ' · ',
-    );
+    return values.join(' · ');
   }
+
+  bool get hasRating =>
+      rating?.hasRating ?? false;
+
+  double? get ratingValue =>
+      rating?.averageValue;
+
+  String get ratingLabel =>
+      rating?.averageLabel ??
+          'No ratings yet';
+
+  String get ratingCountLabel =>
+      rating?.reviewsCountLabel ??
+          'No reviews';
+
+  String get fullRatingLabel =>
+      rating?.fullLabel ??
+          'No ratings yet';
 }
 
 // ============================================================================
@@ -397,27 +365,21 @@ class CompanyWorkRegionModel {
       id: _asInt(
         json['id'],
       ),
-
       companyProfileId: _asInt(
         json['company_profile_id'],
       ),
-
       country: _asString(
         json['country'],
       ),
-
       state: _asString(
         json['state'],
       ),
-
       city: _asString(
         json['city'],
       ),
-
       createdAt: _asDate(
         json['created_at'],
       ),
-
       updatedAt: _asDate(
         json['updated_at'],
       ),
@@ -426,51 +388,42 @@ class CompanyWorkRegionModel {
 
   Map<String, dynamic> toJson() {
     return {
-      'id':
-      id,
-
+      'id': id,
       'company_profile_id':
       companyProfileId,
-
-      'country':
-      country,
-
+      'country': country,
       'state':
       state.isEmpty
           ? null
           : state,
-
       'city':
       city.isEmpty
           ? null
           : city,
-
       'created_at':
       createdAt?.toIso8601String(),
-
       'updated_at':
       updatedAt?.toIso8601String(),
     };
   }
 
   String get displayLabel {
-    final values =
-    <String>[
+    final values = <String>[
       city,
       state,
       country,
-    ].where(
+    ]
+        .where(
           (value) =>
       value.trim().isNotEmpty,
-    ).toList();
+    )
+        .toList();
 
     if (values.isEmpty) {
       return 'Region';
     }
 
-    return values.join(
-      ', ',
-    );
+    return values.join(', ');
   }
 }
 
@@ -499,6 +452,10 @@ int? _asInt(
 
   if (value is int) {
     return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
   }
 
   return int.tryParse(

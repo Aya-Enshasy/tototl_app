@@ -1,4 +1,4 @@
- import '../models/company_contract_model.dart';
+import '../models/company_contract_model.dart';
 import '../models/company_create_contract_request.dart';
 import '../models/company_create_job_request.dart';
 import '../models/company_job_application_model.dart';
@@ -32,6 +32,9 @@ class CompanyJobController {
   int? actingApplicationId;
 
   String? errorMessage;
+  String? errorCode;
+  int? errorStatusCode;
+  int? retryAfterSeconds;
   String? applicantsErrorMessage;
   String? companyApplicantsErrorMessage;
   String? applicantPilotProfileErrorMessage;
@@ -342,18 +345,52 @@ class CompanyJobController {
     }
   }
 
+
+  void _clearPrimaryError() {
+    errorMessage = null;
+    errorCode = null;
+    errorStatusCode = null;
+    retryAfterSeconds = null;
+  }
+
+  void _capturePrimaryError(Object error) {
+    errorMessage = error.toString();
+
+    if (error is CompanyJobException) {
+      errorCode = error.code;
+      errorStatusCode = error.statusCode;
+      retryAfterSeconds = error.retryAfterSeconds;
+    } else {
+      errorCode = null;
+      errorStatusCode = null;
+      retryAfterSeconds = null;
+    }
+  }
+
+  bool get isSubscriptionLimitReached =>
+      errorCode == 'SUBSCRIPTION_LIMIT_REACHED';
+
+  bool get isSubscriptionFeatureUnavailable =>
+      errorCode == 'SUBSCRIPTION_FEATURE_UNAVAILABLE';
+
+  bool get isAccountNotVerified =>
+      errorCode == 'ACCOUNT_NOT_VERIFIED';
+
+  bool get isInvalidStatusTransition =>
+      errorCode == 'INVALID_STATUS_TRANSITION';
+
   Future<CompanyJobPostingModel?> createJob(
       CompanyCreateJobRequest request,
       ) async {
     if (isCreating) return null;
 
     isCreating = true;
-    errorMessage = null;
+    _clearPrimaryError();
 
     try {
       return await service.createJob(request);
     } catch (e) {
-      errorMessage = e.toString();
+      _capturePrimaryError(e);
       return null;
     } finally {
       isCreating = false;
@@ -402,14 +439,14 @@ class CompanyJobController {
     if (isPublishing) return null;
 
     isPublishing = true;
-    errorMessage = null;
+    _clearPrimaryError();
 
     try {
       final published = await service.publishJob(jobId);
       selectedJob = published;
       return published;
     } catch (e) {
-      errorMessage = e.toString();
+      _capturePrimaryError(e);
       return null;
     } finally {
       isPublishing = false;
@@ -459,3 +496,4 @@ class CompanyJobController {
     }
   }
 }
+

@@ -4,7 +4,16 @@ class PilotJobFilters {
   final String state;
   final String city;
   final String region;
+
+  /// Legacy single-category value kept for compatibility with older callers.
   final String category;
+
+  /// Phase 4: GET /jobs accepts more than one category.
+  final List<String> categories;
+
+  /// API values: fixed | daily | hourly | negotiable.
+  final String paymentType;
+
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final double? paymentMin;
@@ -21,6 +30,8 @@ class PilotJobFilters {
     this.city = '',
     this.region = '',
     this.category = '',
+    this.categories = const [],
+    this.paymentType = '',
     this.dateFrom,
     this.dateTo,
     this.paymentMin,
@@ -29,6 +40,29 @@ class PilotJobFilters {
     this.sort = 'newest',
   });
 
+  List<String> get effectiveCategories {
+    final source = categories.isNotEmpty
+        ? categories
+        : category.split(',');
+
+    final seen = <String>{};
+    final values = <String>[];
+
+    for (final raw in source) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+
+      final key = value.toLowerCase();
+      if (seen.add(key)) {
+        values.add(value);
+      }
+    }
+
+    return List.unmodifiable(values);
+  }
+
+  bool get hasCategoryFilter => effectiveCategories.isNotEmpty;
+
   PilotJobFilters copyWith({
     String? search,
     String? country,
@@ -36,6 +70,8 @@ class PilotJobFilters {
     String? city,
     String? region,
     String? category,
+    List<String>? categories,
+    String? paymentType,
     DateTime? dateFrom,
     DateTime? dateTo,
     double? paymentMin,
@@ -46,20 +82,37 @@ class PilotJobFilters {
     bool clearDateTo = false,
     bool clearPaymentMin = false,
     bool clearPaymentMax = false,
+    bool clearPaymentType = false,
   }) {
+    final nextCategories = categories != null
+        ? List<String>.from(categories)
+        : category != null
+        ? const <String>[]
+        : this.categories;
+
+    final nextLegacyCategory = category != null
+        ? category
+        : categories != null
+        ? ''
+        : this.category;
+
     return PilotJobFilters(
       search: search ?? this.search,
       country: country ?? this.country,
       state: state ?? this.state,
       city: city ?? this.city,
       region: region ?? this.region,
-      category: category ?? this.category,
+      category: nextLegacyCategory,
+      categories: nextCategories,
+      paymentType: clearPaymentType
+          ? ''
+          : (paymentType ?? this.paymentType),
       dateFrom: clearDateFrom ? null : (dateFrom ?? this.dateFrom),
       dateTo: clearDateTo ? null : (dateTo ?? this.dateTo),
       paymentMin:
-          clearPaymentMin ? null : (paymentMin ?? this.paymentMin),
+      clearPaymentMin ? null : (paymentMin ?? this.paymentMin),
       paymentMax:
-          clearPaymentMax ? null : (paymentMax ?? this.paymentMax),
+      clearPaymentMax ? null : (paymentMax ?? this.paymentMax),
       capabilities: capabilities ?? this.capabilities,
       sort: sort ?? this.sort,
     );
@@ -72,7 +125,8 @@ class PilotJobFilters {
     if (state.isNotEmpty) count++;
     if (city.isNotEmpty) count++;
     if (region.isNotEmpty) count++;
-    if (category.isNotEmpty) count++;
+    if (hasCategoryFilter) count++;
+    if (paymentType.isNotEmpty) count++;
     if (dateFrom != null || dateTo != null) count++;
     if (paymentMin != null || paymentMax != null) count++;
     if (capabilities.isNotEmpty) count++;
