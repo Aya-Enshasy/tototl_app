@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,9 @@ import '../../controllers/pilot_contract_controller.dart';
 import '../../models/pilot_contract_model.dart';
 import '../../models/pilot_contract_location_model.dart';
 import '../../services/pilot_contract_service.dart';
+import '../../services/pilot_submission_state.dart';
 import 'pilot_submit_work_screen.dart';
+import '../../../shared/screens/profile/legal_identity_screen.dart';
 
 class PilotContractDetailScreen extends StatefulWidget {
   const PilotContractDetailScreen({
@@ -45,6 +48,7 @@ class _PilotContractDetailScreenState
   bool _loading = true;
   bool _refreshing = false;
   bool _changed = false;
+  int _contractLoadSerial = 0;
 
   Timer? _liveRefreshTimer;
   Timer? _locationWatchTimer;
@@ -94,13 +98,7 @@ class _PilotContractDetailScreenState
 
     WidgetsBinding.instance.addObserver(this);
 
-    unawaited(
-      _load(initial: true).whenComplete(() {
-        if (mounted) {
-          unawaited(_syncExactLocation(force: true));
-        }
-      }),
-    );
+    unawaited(_load(initial: true));
 
     _startLiveRefresh();
     _startLocationWatcher();
@@ -110,7 +108,7 @@ class _PilotContractDetailScreenState
     _liveRefreshTimer?.cancel();
 
     _liveRefreshTimer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(seconds: 30),
           (_) => unawaited(_syncLiveWorkflow()),
     );
   }
@@ -122,7 +120,7 @@ class _PilotContractDetailScreenState
     // blocked until it exists. Poll it independently and more frequently than
     // the rest of the workflow.
     _locationWatchTimer = Timer.periodic(
-      const Duration(seconds: 2),
+      const Duration(seconds: 40),
           (_) => unawaited(_syncExactLocation()),
     );
   }
@@ -148,6 +146,8 @@ class _PilotContractDetailScreenState
 
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (!force && lifecycle != AppLifecycleState.resumed) return;
+    if (!force && !TickerMode.of(context)) return;
+    if (!force && ModalRoute.of(context)?.isCurrent == false) return;
 
     _locationWatchInFlight = true;
 
@@ -189,6 +189,8 @@ class _PilotContractDetailScreenState
 
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (!force && lifecycle != AppLifecycleState.resumed) return;
+    if (!force && !TickerMode.of(context)) return;
+    if (!force && ModalRoute.of(context)?.isCurrent == false) return;
 
     if (_acting || _refreshing || _loading) return;
 
@@ -224,9 +226,12 @@ class _PilotContractDetailScreenState
       if (freshContract.isInProgress ||
           freshContract.isSubmitted ||
           freshContract.isCompleted) {
-        freshSubmissions = await _controller.loadSubmissions(
-          freshContract.id,
-        );
+        final loaded = await _controller.loadSubmissions(freshContract.id);
+        // A transient 503 or stale empty list must not erase an upload
+        // acknowledged by the server earlier in this session.
+        if (_controller.submissionErrorMessage == null && loaded.isNotEmpty) {
+          freshSubmissions = loaded;
+        }
       } else {
         freshSubmissions = const <ContractSubmissionModel>[];
       }
@@ -237,7 +242,7 @@ class _PilotContractDetailScreenState
       freshContract.normalizedStatus.trim().toLowerCase();
 
       setState(() {
-        _contract = freshContract;
+        _contract = _contractForSubmission(freshContract, freshSubmissions);
         _location = freshLocation;
         _submissions = List<ContractSubmissionModel>.unmodifiable(
           freshSubmissions,
@@ -275,71 +280,87 @@ class _PilotContractDetailScreenState
   Future<void> _load({
     bool initial = false,
   }) async {
+    final serial = ++_contractLoadSerial;
     final hasData = _contract != null;
-
     if (mounted) {
       setState(() {
-        if (!hasData) {
-          _loading = true;
-        } else if (!initial) {
-          _refreshing = true;
-        }
+        if (!hasData) _loading = true;
+        else if (!initial) _refreshing = true;
         _error = null;
       });
     }
 
     final loadedContract = await _controller.loadContract(widget.contractId);
+    if (!mounted || serial != _contractLoadSerial) return;
     final resolvedContract = loadedContract ?? _contract;
 
-    PilotContractLocationModel? resolvedLocation = _location;
-
-    if (resolvedContract != null &&
-        resolvedContract.canViewExactLocation) {
-      final loadedLocation =
-      await _controller.loadLocation(resolvedContract.id);
-
-      if (loadedLocation != null) {
-        resolvedLocation = loadedLocation;
-      }
-    } else {
-      resolvedLocation = null;
-    }
-
-    var resolvedSubmissions = _submissions;
-    if (resolvedContract != null &&
-        (resolvedContract.isInProgress ||
-            resolvedContract.isSubmitted ||
-            resolvedContract.isCompleted)) {
-      resolvedSubmissions = await _controller.loadSubmissions(resolvedContract.id);
-    } else if (resolvedContract != null && resolvedContract.isActive) {
-      resolvedSubmissions = const [];
-    }
-
-    if (!mounted) return;
-
+    // Render the mission immediately; never wait on exact location or files.
     setState(() {
       if (loadedContract != null) {
-        _contract = loadedContract;
+        _contract = _contractForSubmission(loadedContract, _submissions);
       } else if (!hasData) {
         _error = _controller.detailErrorMessage;
       }
-      _location = resolvedLocation;
-      _submissions = List.unmodifiable(resolvedSubmissions);
       _loading = false;
       _refreshing = false;
+      if (resolvedContract != null && !resolvedContract.canViewExactLocation) {
+        _location = null;
+      }
+      if (resolvedContract != null &&
+          !(resolvedContract.isInProgress || resolvedContract.isSubmitted ||
+              resolvedContract.isCompleted)) {
+        _submissions = const <ContractSubmissionModel>[];
+      }
     });
+    if (resolvedContract == null) return;
 
-    if (resolvedContract?.isCompleted == true) {
+    if (resolvedContract.canViewExactLocation) {
+      unawaited(_loadContractLocation(resolvedContract, serial));
+    }
+    if (resolvedContract.isInProgress || resolvedContract.isSubmitted ||
+        resolvedContract.isCompleted) {
+      unawaited(_loadContractSubmissions(resolvedContract, serial));
+    }
+    if (resolvedContract.isCompleted) {
       unawaited(_loadReviewState(contract: resolvedContract));
     }
+  }
 
-    if (resolvedContract != null &&
-        resolvedContract.canViewExactLocation &&
-        _location == null) {
-      if (_locationWatchTimer == null) {
-        _startLocationWatcher();
+  Future<void> _loadContractLocation(
+      PilotContractModel contract, int serial) async {
+    try {
+      final location = await _locationWatcherController.loadLocation(contract.id);
+      if (!mounted || serial != _contractLoadSerial ||
+          _contract?.id != contract.id || location == null) return;
+      setState(() => _location = location);
+    } catch (e) {
+      debugPrint('[TOTOTL][PILOT_CONTRACT][LOCATION] '
+          'id=${contract.id} error=${e.runtimeType}');
+    }
+  }
+
+  Future<void> _loadContractSubmissions(
+      PilotContractModel contract, int serial) async {
+    try {
+      final submissions = await _controller.loadSubmissions(contract.id);
+      if (!mounted || serial != _contractLoadSerial ||
+          _contract?.id != contract.id) return;
+      if (_controller.submissionErrorMessage == null) {
+        // An out-of-date empty response cannot erase an already confirmed
+        // successful upload in the current screen session.
+        final hasAcknowledgedSubmission = _submissions.isNotEmpty &&
+            _submissions.last.isSubmitted;
+        if (submissions.isEmpty && hasAcknowledgedSubmission) return;
+        setState(() {
+          _submissions = List<ContractSubmissionModel>.unmodifiable(submissions);
+          if (_contract != null) {
+            _contract = _contractForSubmission(_contract!, submissions);
+          }
+        });
       }
-      unawaited(_syncExactLocation(force: true));
+    } catch (e) {
+      debugPrint('[TOTOTL][PILOT_CONTRACT][SUBMISSIONS] '
+          'id=${contract.id} error=${e.runtimeType}');
     }
   }
 
@@ -361,13 +382,13 @@ class _PilotContractDetailScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          title: const Row(
+          title:  Row(
             children: [
               Icon(Icons.flight_takeoff_rounded, color: AppColors.blue),
               SizedBox(width: 9),
               Expanded(
-                child: Text(
-                  'Start Work?',
+                child: Text(AppLanguage.text(
+                  'Start Work?'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -377,7 +398,7 @@ class _PilotContractDetailScreenState
               ),
             ],
           ),
-          content: const Text(
+          content: const LocalizedText(
             'Confirm that you are ready to begin this mission at the exact contract location. The contract will move from Active to In Progress and the start time will be recorded.',
             style: TextStyle(
               color: AppColors.grey,
@@ -388,12 +409,12 @@ class _PilotContractDetailScreenState
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: const LocalizedText('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: FilledButton.styleFrom(backgroundColor: AppColors.blue),
-              child: const Text('Start Work'),
+              child: const LocalizedText('Start Work'),
             ),
           ],
         );
@@ -480,6 +501,11 @@ class _PilotContractDetailScreenState
     unawaited(_syncLiveWorkflow(force: true));
   }
 
+  PilotContractModel _contractForSubmission(
+    PilotContractModel contract,
+    List<ContractSubmissionModel> rounds,
+  ) => PilotSubmissionState.forDisplay(contract, rounds);
+
   Future<void> _openSubmitWork() async {
     final contract = _contract;
     if (contract == null || !contract.canSubmitWork || _acting) return;
@@ -500,11 +526,15 @@ class _PilotContractDetailScreenState
 
     if (!mounted || result == null) return;
 
-    final optimistic = result.contract.isSubmitted
-        ? result.contract
-        : result.contract.copyWith(
+    // The submission POST succeeded. Show the correct next step immediately
+    // even when GET contract is stale or temporarily unavailable.
+    final returnedContract = result.contract ?? contract;
+    final optimistic = returnedContract.isSubmitted
+        ? returnedContract
+        : returnedContract.copyWith(
       status: 'submitted',
-      submittedAt: result.contract.submittedAt ?? DateTime.now().toUtc(),
+      submittedAt: returnedContract.submittedAt ??
+          result.submission.createdAt ?? DateTime.now().toUtc(),
       updatedAt: DateTime.now().toUtc(),
     );
 
@@ -522,12 +552,9 @@ class _PilotContractDetailScreenState
       _changed = true;
     });
 
-    final fresh = await _controller.loadContract(contract.id);
-    if (mounted && fresh != null && fresh.isSubmitted) {
-      setState(() => _contract = fresh);
-    }
-
     _snack('Work submitted. Waiting for company review.', success: true);
+    // Status and submission history refresh in the background. Never block
+    // the success transition on another network round-trip.
     unawaited(_syncLiveWorkflow(force: true));
   }
 
@@ -756,7 +783,7 @@ class _PilotContractDetailScreenState
                   color: AppColors.bg,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Row(
+                child:  Row(
                   children: [
                     SizedBox(
                       width: 16,
@@ -767,8 +794,8 @@ class _PilotContractDetailScreenState
                       ),
                     ),
                     SizedBox(width: 9),
-                    Text(
-                      'Checking review status...',
+                    Text(AppLanguage.text(
+                      'Checking review status...'),
                       style: TextStyle(
                         color: AppColors.grey,
                         fontSize: 10.2,
@@ -792,7 +819,7 @@ class _PilotContractDetailScreenState
                     color: AppColors.green.withOpacity(.10),
                   ),
                 ),
-                child: const Row(
+                child:  Row(
                   children: [
                     Icon(
                       Icons.check_circle_rounded,
@@ -801,8 +828,8 @@ class _PilotContractDetailScreenState
                     ),
                     SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        'Completed · Thank you for your feedback',
+                      child: Text(AppLanguage.text(
+                        'Completed · Thank you for your feedback'),
                         style: TextStyle(
                           color: AppColors.green,
                           fontSize: 10.2,
@@ -843,7 +870,7 @@ class _PilotContractDetailScreenState
                       Icons.arrow_forward_rounded,
                       size: 16,
                     ),
-                    label: const Text(
+                    label: const LocalizedText(
                       'Leave Review',
                       style: TextStyle(
                         fontSize: 10.2,
@@ -953,6 +980,46 @@ class _PilotContractDetailScreenState
     if (!mounted) return;
 
     if (updated == null) {
+      // A definitive validation rejection is NOT a lost response.
+      // Do not poll repeatedly; show the actionable backend reason.
+      final actionError = _controller.actionErrorMessage ?? '';
+      if (actionError.contains('LEGAL_IDENTITY_NOT_VERIFIED')) {
+        debugPrint('[TOTOTL][CONTRACT][ACCEPT_BLOCKED] '
+            'id=${contract.id} reason=LEGAL_IDENTITY_NOT_VERIFIED');
+        setState(() {});
+        final openIdentity = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(switch (AppLanguage.locale.value.languageCode) {
+              'ar' => 'الهوية القانونية غير معتمدة',
+              'de' => 'Rechtliche Identität nicht verifiziert',
+              _ => 'Legal identity verification required',
+            }),
+            content: Text(switch (AppLanguage.locale.value.languageCode) {
+              'ar' => 'لا يمكن قبول العقد قبل اعتماد الهوية القانونية من الأدمن. افتحي نموذج الهوية وأرسلي المستندات المطلوبة.',
+              'de' => 'Reichen Sie Ihre rechtliche Identität ein und warten Sie auf die Freigabe.',
+              _ => 'Your legal identity must be approved by Admin before accepting this contract. Open the identity form to submit the required documents.',
+            }),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false),
+                child: Text(AppLanguage.text('Cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true),
+                child: Text(switch (AppLanguage.locale.value.languageCode) {
+                  'ar' => 'التحقق من الهوية',
+                  'de' => 'Identität prüfen',
+                  _ => 'Verify identity',
+                })),
+            ],
+          ),
+        );
+        if (openIdentity == true && mounted) {
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const LegalIdentityScreen(),
+          ));
+        }
+        return;
+      }
+
       final authoritative =
       await _recoverContractAfterActionError(
         contract.id,
@@ -1645,7 +1712,7 @@ class _PilotContractDetailScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_controller.isLoadingSubmissions && latest == null)
-            const Row(
+             Row(
               children: [
                 SizedBox(
                   width: 17,
@@ -1656,8 +1723,8 @@ class _PilotContractDetailScreenState
                   ),
                 ),
                 SizedBox(width: 9),
-                Text(
-                  'Loading submission history...',
+                Text(AppLanguage.text(
+                  'Loading submission history...'),
                   style: TextStyle(color: AppColors.grey, fontSize: 10.5),
                 ),
               ],
@@ -1670,7 +1737,7 @@ class _PilotContractDetailScreenState
                 color: AppColors.blueBg.withOpacity(0.65),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Text(
+              child: const LocalizedText(
                 'No work has been submitted yet. When the mission is ready, use Submit Work below.',
                 style: TextStyle(
                   color: AppColors.text,
@@ -1771,8 +1838,8 @@ class _PilotContractDetailScreenState
         children: [
           SizedBox(
             width: 88,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 9.8,
@@ -1781,8 +1848,8 @@ class _PilotContractDetailScreenState
             ),
           ),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               style: const TextStyle(
                 color: AppColors.navy,
                 fontSize: 10.2,
@@ -1821,7 +1888,7 @@ class _PilotContractDetailScreenState
       icon: Icons.location_on_outlined,
       title: 'Exact Job Location',
       child: _controller.isLoadingLocation && location == null
-          ? const Row(
+          ?  Row(
         children: [
           SizedBox(
             width: 18,
@@ -1833,8 +1900,8 @@ class _PilotContractDetailScreenState
           ),
           SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Loading protected location...',
+            child: Text(AppLanguage.text(
+              'Loading protected location...'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 11,
@@ -1880,7 +1947,7 @@ class _PilotContractDetailScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  const LocalizedText(
                     'Waiting for Exact Location',
                     style: TextStyle(
                       color: AppColors.navy,
@@ -1889,7 +1956,7 @@ class _PilotContractDetailScreenState
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  const LocalizedText(
                     'No action is needed from you. This screen checks the protected location automatically and unlocks Start Work the moment it becomes available.',
                     style: TextStyle(
                       color: AppColors.text,
@@ -1909,7 +1976,7 @@ class _PilotContractDetailScreenState
                         ),
                       ),
                       const SizedBox(width: 7),
-                      const Text(
+                      const LocalizedText(
                         'Live checking every 2 seconds',
                         style: TextStyle(
                           color: AppColors.orange,
@@ -1982,7 +2049,7 @@ class _PilotContractDetailScreenState
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Copy coordinates',
+                  tooltip: AppLanguage.text('Copy coordinates'),
                   visualDensity: VisualDensity.compact,
                   onPressed: () {
                     Clipboard.setData(
@@ -2011,7 +2078,7 @@ class _PilotContractDetailScreenState
             ],
             if (contract.isActive) ...[
               const SizedBox(height: 10),
-              const Row(
+               Row(
                 children: [
                   Icon(
                     Icons.lock_open_rounded,
@@ -2020,8 +2087,8 @@ class _PilotContractDetailScreenState
                   ),
                   SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      'Location access unlocked by the Active contract.',
+                    child: Text(AppLanguage.text(
+                      'Location access unlocked by the Active contract.'),
                       style: TextStyle(
                         color: AppColors.green,
                         fontSize: 9.8,
@@ -2177,8 +2244,8 @@ class _PilotContractDetailScreenState
           ),
           const SizedBox(width: 10),
           Flexible(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign: TextAlign.end,
               style: const TextStyle(
                 color: AppColors.navy,
@@ -2402,7 +2469,7 @@ class _PilotContractDetailScreenState
                 color: AppColors.green.withOpacity(.14),
               ),
             ),
-            child: const Row(
+            child:  Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
@@ -2411,8 +2478,8 @@ class _PilotContractDetailScreenState
                   size: 20,
                 ),
                 SizedBox(width: 8),
-                Text(
-                  'Review Submitted',
+                Text(AppLanguage.text(
+                  'Review Submitted'),
                   style: TextStyle(
                     color: AppColors.green,
                     fontSize: 12.5,
@@ -2468,7 +2535,7 @@ class _PilotContractDetailScreenState
                     color: Colors.white,
                   ),
                 )
-                    : const Row(
+                    :  Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
@@ -2477,8 +2544,8 @@ class _PilotContractDetailScreenState
                       size: 22,
                     ),
                     SizedBox(width: 9),
-                    Text(
-                      'Leave a Review',
+                    Text(AppLanguage.text(
+                      'Leave a Review'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12.8,
@@ -2519,7 +2586,7 @@ class _PilotContractDetailScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -2588,8 +2655,8 @@ class _HeroInfoChip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: TextStyle(
                     color: Colors.white.withOpacity(.45),
                     fontSize: 7.7,
@@ -2597,8 +2664,8 @@ class _HeroInfoChip extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -2913,8 +2980,8 @@ class _Metric extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -2951,8 +3018,8 @@ class _StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 9.5,
@@ -3021,8 +3088,8 @@ class _ErrorState extends StatelessWidget {
               size: 34,
             ),
             const SizedBox(height: 12),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

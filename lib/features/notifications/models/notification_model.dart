@@ -65,6 +65,9 @@ class AppNotificationModel {
 
   final String relatedType;
   final int? relatedId;
+  /// Optional additive metadata, if a sender includes a parent contract ID.
+  /// Phase 4 only guarantees related_id (submission/payment/review ID).
+  final int? relatedContractId;
 
   final bool read;
   final DateTime? readAt;
@@ -81,6 +84,7 @@ class AppNotificationModel {
     this.body = '',
     this.relatedType = '',
     this.relatedId,
+    this.relatedContractId,
     this.read = false,
     this.readAt,
     this.createdAt,
@@ -143,6 +147,7 @@ class AppNotificationModel {
       body: body,
       relatedType: relatedType,
       relatedId: relatedId,
+      relatedContractId: _asInt(json['contract_id'] ?? payload['contract_id']),
       read: rawRead is bool
           ? rawRead
           : readAt != null,
@@ -297,6 +302,7 @@ class AppNotificationModel {
     String? body,
     String? relatedType,
     int? relatedId,
+    int? relatedContractId,
     bool? read,
     DateTime? readAt,
     DateTime? createdAt,
@@ -315,6 +321,7 @@ class AppNotificationModel {
       relatedId:
       relatedId ??
           this.relatedId,
+      relatedContractId: relatedContractId ?? this.relatedContractId,
       read: read ?? this.read,
       readAt:
       readAt ??

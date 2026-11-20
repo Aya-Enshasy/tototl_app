@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 import '../models/chat_conversation.dart';
@@ -35,6 +36,9 @@ class FirebaseChatService {
   Stream<List<ChatConversation>> conversationsFor(
       String userId,
       ) {
+    if (kDebugMode) {
+      debugPrint('[TOTOTL][CHAT][INBOX] listen userId=$userId');
+    }
     return _database
         .ref(
       'userChats/$userId',
@@ -80,6 +84,9 @@ class FirebaseChatService {
   Stream<List<ChatMessage>> messagesFor(
       String conversationId,
       ) {
+    if (kDebugMode) {
+      debugPrint('[TOTOTL][CHAT][MESSAGES] listen conversation=$conversationId');
+    }
     return _database
         .ref(
       'chats/$conversationId/messages',

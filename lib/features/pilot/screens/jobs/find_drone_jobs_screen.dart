@@ -1,3 +1,5 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -579,8 +581,8 @@ class _FindDroneJobsScreenState extends State<FindDroneJobsScreen>
                   borderRadius:
                   BorderRadius.circular(20),
                 ),
-                child: Text(
-                  label,
+                child: Text(AppLanguage.text(
+                  label),
                   style:
                   const TextStyle(
                     color:
@@ -1126,13 +1128,13 @@ class _JobListCardState
                                 10),
                           ),
                         ),
-                        child: const Row(
+                        child:  Row(
                           mainAxisAlignment:
                           MainAxisAlignment
                               .center,
                           children: [
-                            Text(
-                              'View job',
+                            Text(AppLanguage.text(
+                              'View job'),
                               style:
                               TextStyle(
                                 fontSize:
@@ -1528,8 +1530,8 @@ class _JobsError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,
@@ -1595,18 +1597,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     'negotiable',
   ];
 
-  // Quick suggestions only. The backend now accepts free-text capabilities,
-  // so pilots are not limited to this list.
-  static const List<String> suggestedCapabilities = [
-    'Thermal Camera',
-    'RTK',
-    'Zoom',
-    'LiDAR',
-    'Multispectral',
-    'Night Vision',
-    'Spotlight',
-    'Winch',
-  ];
+  static const List<String> suggestedCapabilities = DroneCapabilities.labels;
 
   @override
   void initState() {
@@ -1625,10 +1616,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
     _categories = f.effectiveCategories.toSet();
     _paymentType = f.paymentType;
     _sort = f.sort;
-    _capabilities = f.capabilities
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet();
+    _capabilities = DroneCapabilities.canonicalizeAll(f.capabilities).toSet();
 
     _dateFrom = f.dateFrom;
     _dateTo = f.dateTo;
@@ -1682,55 +1670,31 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
   }
 
   void _addCapability(String raw) {
-    final value = raw.trim();
-
+    final value = DroneCapabilities.canonicalize(raw);
     if (value.isEmpty) return;
-
-    if (value.length > 60) {
-      _snack('Capability must be 60 characters or fewer.');
-      return;
-    }
-
-    final exists = _capabilities.any(
-          (item) => item.toLowerCase() == value.toLowerCase(),
-    );
-
-    if (exists) {
-      _customCapability.clear();
-      return;
-    }
-
     setState(() {
       _capabilities.add(value);
       _customCapability.clear();
     });
-
     HapticFeedback.selectionClick();
   }
 
-  void _toggleSuggestedCapability(String value, bool selected) {
-    if (selected) {
-      _addCapability(value);
-      return;
-    }
-
+  void _toggleSuggestedCapability(String label, bool selected) {
+    final value = DroneCapabilities.canonicalize(label);
     setState(() {
-      _capabilities.removeWhere(
-            (item) => item.toLowerCase() == value.toLowerCase(),
-      );
+      if (selected) {
+        _capabilities.add(value);
+      } else {
+        _capabilities.remove(value);
+      }
     });
   }
 
-  bool _containsCapability(String value) {
-    return _capabilities.any(
-          (item) => item.toLowerCase() == value.toLowerCase(),
-    );
-  }
+  bool _containsCapability(String label) =>
+      _capabilities.contains(DroneCapabilities.canonicalize(label));
 
   void _removeCapability(String value) {
-    setState(() {
-      _capabilities.remove(value);
-    });
+    setState(() => _capabilities.remove(value));
   }
 
   void _apply() {
@@ -1769,10 +1733,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
       return;
     }
 
-    final cleanCapabilities = _capabilities
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty && item.length <= 60)
-        .toList();
+    final cleanCapabilities = DroneCapabilities.canonicalizeAll(_capabilities);
 
     Navigator.of(context).pop(
       PilotJobFilters(
@@ -2115,7 +2076,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                   runSpacing: 7,
                   children: [
                     ChoiceChip(
-                      label: const Text('Any type'),
+                      label: const LocalizedText('Any type'),
                       selected: _paymentType.isEmpty,
                       showCheckmark: false,
                       onSelected: (_) {
@@ -2174,66 +2135,14 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                 ),
                 _sectionLabel(
                   'Drone Capabilities',
-                  'Pick suggestions or add any capability required by the mission',
+                  'Select the drone capabilities for this mission',
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _customCapability,
-                        maxLength: 60,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: _addCapability,
-                        style: const TextStyle(
-                          color: AppColors.navy,
-                          fontSize: 12.2,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: AppLanguage.text('Add capability...'),
-                          counterText: '',
-                          hintStyle: const TextStyle(
-                            color: AppColors.grey,
-                            fontSize: 11.5,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.memory_rounded,
-                            color: AppColors.blue,
-                            size: 17,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: _border(AppColors.cardBorder),
-                          enabledBorder: _border(AppColors.cardBorder),
-                          focusedBorder: _border(
-                            AppColors.blue,
-                            width: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: FilledButton(
-                        onPressed: () =>
-                            _addCapability(_customCapability.text),
-                        style: FilledButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          backgroundColor: AppColors.navy,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.add_rounded,
-                          size: 19,
-                        ),
-                      ),
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    AppLanguage.text('Select capabilities from the available options.'),
+                    style: const TextStyle(fontSize: 10.5, color: AppColors.grey),
+                  ),
                 ),
                 if (_capabilities.isNotEmpty) ...[
                   const SizedBox(height: 11),
@@ -2243,7 +2152,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                     children: _capabilities
                         .map(
                           (item) => InputChip(
-                        label: Text(item),
+                        label: Text(AppLanguage.text(DroneCapabilities.labelFor(item))),
                         onDeleted: () => _removeCapability(item),
                         deleteIcon: const Icon(
                           Icons.close_rounded,
@@ -2284,7 +2193,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                       final selected = _containsCapability(item);
 
                       return FilterChip(
-                        label: Text(item),
+                        label: Text(AppLanguage.text(DroneCapabilities.labelFor(item))),
                         selected: selected,
                         showCheckmark: false,
                         onSelected: (value) =>
@@ -2389,8 +2298,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
+          Text(AppLanguage.text(
+            title),
             style: const TextStyle(
               color: AppColors.navy,
               fontSize: 12.6,
@@ -2398,8 +2307,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
             ),
           ),
           const SizedBox(height: 3),
-          Text(
-            subtitle,
+          Text(AppLanguage.text(
+            subtitle),
             style: const TextStyle(
               color: AppColors.grey,
               fontSize: 9.3,
@@ -2503,8 +2412,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: TextStyle(
                         color: selected
                             ? AppColors.navy
@@ -2514,8 +2423,8 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style: const TextStyle(
                         color: AppColors.grey,
                         fontSize: 8.9,
@@ -2605,7 +2514,7 @@ class _JobFilterSheetState extends State<_JobFilterSheet> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }

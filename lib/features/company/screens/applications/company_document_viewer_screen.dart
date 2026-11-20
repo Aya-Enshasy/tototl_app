@@ -264,8 +264,8 @@ class _ViewerMessage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Text(
-              title,
+            Text(AppLanguage.text(
+              title),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.navy,
@@ -274,8 +274,8 @@ class _ViewerMessage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 5),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

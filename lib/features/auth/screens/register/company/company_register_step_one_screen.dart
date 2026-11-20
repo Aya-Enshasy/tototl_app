@@ -1487,7 +1487,7 @@ class _CompanyRegisterStepOneScreenState
                                     controller:
                                     _accountNameController,
                                     hintText:
-                                    'Representative / Account Name',
+                                    AppLanguage.text('Representative / Account Name'),
                                     prefixIcon:
                                     Icons.person_outline_rounded,
                                     textInputAction:
@@ -1517,7 +1517,7 @@ class _CompanyRegisterStepOneScreenState
                                     controller:
                                     _companyNameController,
                                     hintText:
-                                    'Company Name',
+                                    AppLanguage.text('Company Name'),
                                     prefixIcon:
                                     Icons.business_outlined,
                                     textInputAction:
@@ -1547,7 +1547,7 @@ class _CompanyRegisterStepOneScreenState
                                     controller:
                                     _userIdController,
                                     hintText:
-                                    'User ID / Username',
+                                    AppLanguage.text('User ID / Username'),
                                     prefixIcon:
                                     Icons.alternate_email_rounded,
                                     textInputAction:
@@ -1577,7 +1577,7 @@ class _CompanyRegisterStepOneScreenState
                                     controller:
                                     _emailController,
                                     hintText:
-                                    'Email Address',
+                                    AppLanguage.text('Email Address'),
                                     prefixIcon:
                                     Icons.email_outlined,
                                     keyboardType:
@@ -1632,7 +1632,7 @@ class _CompanyRegisterStepOneScreenState
                                     controller:
                                     _passwordController,
                                     hintText:
-                                    'Password',
+                                    AppLanguage.text('Password'),
                                     prefixIcon:
                                     Icons.lock_outline_rounded,
                                     obscureText:
@@ -1700,7 +1700,7 @@ class _CompanyRegisterStepOneScreenState
                                     controller:
                                     _confirmPasswordController,
                                     hintText:
-                                    'Confirm Password',
+                                    AppLanguage.text('Confirm Password'),
                                     prefixIcon:
                                     Icons.lock_reset_rounded,
                                     obscureText:
@@ -2384,7 +2384,7 @@ class _CompanyRegisterStepOneScreenState
       decoration:
       InputDecoration(
         hintText:
-        'Phone Number',
+        AppLanguage.text('Phone Number'),
 
         hintStyle:
         const TextStyle(
@@ -2761,7 +2761,7 @@ class _CompanyRegisterStepOneScreenState
                           decoration:
                           InputDecoration(
                             hintText:
-                            'Search country or code',
+                            AppLanguage.text('Search country or code'),
                             hintStyle:
                             const TextStyle(
                               color:

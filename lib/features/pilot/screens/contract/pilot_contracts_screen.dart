@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -53,7 +54,7 @@ class _PilotContractsScreenState extends State<PilotContractsScreen>
     unawaited(_load());
 
     _liveRefreshTimer = Timer.periodic(
-      const Duration(seconds: 8),
+      const Duration(seconds: 45),
           (_) => unawaited(_silentRefresh()),
     );
   }
@@ -385,7 +386,7 @@ class _PremiumContractsHeader extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      const LocalizedText(
                         'MISSION CONTRACTS',
                         style: TextStyle(
                           color: Color(0xFF78DDD6),
@@ -416,7 +417,7 @@ class _PremiumContractsHeader extends StatelessWidget {
                       color: Colors.white.withOpacity(.09),
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: const Row(
+                    child:  Row(
                       children: [
                         SizedBox(
                           width: 11,
@@ -427,8 +428,8 @@ class _PremiumContractsHeader extends StatelessWidget {
                           ),
                         ),
                         SizedBox(width: 6),
-                        Text(
-                          'Live',
+                        Text(AppLanguage.text(
+                          'Live'),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 8.4,
@@ -526,8 +527,8 @@ class _HeaderMetric extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -822,7 +823,7 @@ class _ContractCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                const LocalizedText(
                                   'NEXT STEP',
                                   style: TextStyle(
                                     color: AppColors.lightGrey,
@@ -939,8 +940,8 @@ class _PremiumListMetric extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: AppColors.lightGrey,
                     fontSize: 7.4,
@@ -948,8 +949,8 @@ class _PremiumListMetric extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1006,8 +1007,8 @@ class _Metric extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1047,8 +1048,8 @@ class _StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 9,
@@ -1129,8 +1130,8 @@ class _ErrorState extends StatelessWidget {
               color: AppColors.orange,
             ),
             const SizedBox(height: 12),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

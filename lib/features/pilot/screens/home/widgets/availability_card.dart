@@ -656,8 +656,8 @@ class _FieldTitle extends StatelessWidget {
       children: [
         Icon(icon, color: AppColors.blue, size: 16),
         const SizedBox(width: 7),
-        Text(
-          title,
+        Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: AppColors.navy,
             fontSize: 12.3,
@@ -712,8 +712,8 @@ class _ActionField extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 11.8,
@@ -721,8 +721,8 @@ class _ActionField extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style: const TextStyle(
                         color: AppColors.grey,
                         fontSize: 9.6,
@@ -831,8 +831,8 @@ class _TimeField extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
+            Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 9.3,
@@ -840,8 +840,8 @@ class _TimeField extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              value,
+            Text(AppLanguage.text(
+              value),
               style: const TextStyle(
                 color: AppColors.navy,
                 fontSize: 12,

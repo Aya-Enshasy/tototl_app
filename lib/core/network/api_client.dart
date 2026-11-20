@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import 'api_endpoints.dart';
 
@@ -15,14 +16,21 @@ class ApiClient {
   factory ApiClient() => _instance;
 
   late final Dio _dio;
+  int _traceSerial = 0;
+
+  // One request per resource/account while a GET is in flight. This is not
+  // an HTTP cache: once completed, subsequent fetches can get fresh data.
+  final Map<String, Future<Response<dynamic>>> _pendingGets = {};
+  DateTime? _rateLimitedUntil;
+
 
   ApiClient._internal() {
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
-        connectTimeout: const Duration(seconds: 25),
-        receiveTimeout: const Duration(seconds: 40),
-        sendTimeout: const Duration(seconds: 40),
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 18),
+        sendTimeout: const Duration(seconds: 18),
         headers: const {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -49,14 +57,62 @@ class ApiClient {
             );
           }
 
+          if (kDebugMode) {
+            final id = ++_traceSerial;
+            options.extra['tototl_trace_id'] = id;
+            options.extra['tototl_trace_started'] =
+                DateTime.now().millisecondsSinceEpoch;
+            debugPrint('[TOTOTL][API][#$id][START] '
+                '${options.method.toUpperCase()} ${options.uri.path}');
+          }
           handler.next(options);
+        },
+        onResponse: (response, handler) {
+          if (kDebugMode) {
+            final request = response.requestOptions;
+            final id = request.extra['tototl_trace_id'] ?? '-';
+            final started = request.extra['tototl_trace_started'];
+            final ms = started is int
+                ? DateTime.now().millisecondsSinceEpoch - started
+                : -1;
+            debugPrint('[TOTOTL][API][#$id][OK] '
+                '${request.method} ${request.uri.path} '
+                'http=${response.statusCode} elapsedMs=$ms');
+          }
+          handler.next(response);
         },
         onError: (
             DioException error,
             ErrorInterceptorHandler handler,
             ) {
-          // Keep the original DioException intact.
-          // Feature services inspect status/error_code/Retry-After when needed.
+          if (kDebugMode) {
+            final request = error.requestOptions;
+            final id = request.extra['tototl_trace_id'] ?? '-';
+            final started = request.extra['tototl_trace_started'];
+            final ms = started is int
+                ? DateTime.now().millisecondsSinceEpoch - started
+                : -1;
+            final requestId = error.response?.headers.value('x-request-id') ??
+                error.response?.headers.value('cf-ray') ?? '-';
+            debugPrint('[TOTOTL][API][#$id][FAIL] '
+                '${request.method} ${request.uri.path} '
+                'http=${error.response?.statusCode ?? '-'} '
+                'type=${error.type.name} elapsedMs=$ms '
+                'serverRequestId=$requestId');
+            if (error.response?.statusCode == 422) {
+              final raw = error.response?.data;
+              if (raw is Map) {
+                final validation = raw['errors'];
+                final fields = validation is Map
+                    ? validation.keys.map((e) => e.toString()).toList()
+                    : const <String>[];
+                debugPrint('[TOTOTL][API][#$id][VALIDATION] '
+                    'fields=${fields.join(',')} '
+                    'code=${ApiClient.errorCodeFromDio(error) ?? '-'}');
+              }
+            }
+          }
+          // Services receive the original structured DioException.
           handler.next(error);
         },
       ),
@@ -66,57 +122,81 @@ class ApiClient {
   // ===========================================================================
   // GET
   //
-  // Safe to retry. 429 respects the server Retry-After header.
+  // Retry transient transport errors once only. Never sleep on a 429 challenge.
   // ===========================================================================
 
   Future<Response<dynamic>> get(
-      String path, {
-        Map<String, dynamic>? queryParameters,
-        Options? options,
-      }) async {
-    const maxAttempts = 3;
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) {
+    final params = (queryParameters ?? const <String, dynamic>{}).entries
+        .map((e) => '${e.key}=${e.value}').toList()..sort();
+    // Authentication is part of the in-flight key. Never log the token.
+    final auth = options?.headers?['Authorization']?.toString() ??
+        options?.headers?['authorization']?.toString() ?? '';
+    final key = '$path|${params.join('&')}|${auth.hashCode}';
+    final existing = _pendingGets[key];
+    if (existing != null) {
+      if (kDebugMode) {
+        debugPrint('[TOTOTL][API][COALESCED] GET ${Uri.parse(path).path}');
+      }
+      return existing;
+    }
 
+    final future = _getWithRetry(
+      path, queryParameters: queryParameters, options: options,
+    );
+    _pendingGets[key] = future;
+    void clear() {
+      if (identical(_pendingGets[key], future)) _pendingGets.remove(key);
+    }
+    // Register both completion paths without creating an unobserved error.
+    future.then((_) => clear(), onError: (Object _, StackTrace __) => clear());
+    return future;
+  }
+
+  Future<Response<dynamic>> _getWithRetry(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) async {
+    final until = _rateLimitedUntil;
+    if (until != null && DateTime.now().isBefore(until)) {
+      if (kDebugMode) {
+        debugPrint('[TOTOTL][API][RATE_LIMIT] GET ${Uri.parse(path).path} '
+            'suppressed while server rate limit cools down');
+      }
+      final request = RequestOptions(path: path);
+      throw DioException(
+        requestOptions: request,
+        response: Response<dynamic>(requestOptions: request, statusCode: 429,
+            data: {'message': 'Too many requests. Please try again shortly.'}),
+        type: DioExceptionType.badResponse,
+      );
+    }
+
+    const maxAttempts = 2;
     DioException? lastError;
-
-    for (
-    var attempt = 1;
-    attempt <= maxAttempts;
-    attempt++
-    ) {
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         return await _dio.get<dynamic>(
-          path,
-          queryParameters: queryParameters,
-          options: options,
+          path, queryParameters: queryParameters, options: options,
         );
       } on DioException catch (error) {
         lastError = error;
-
-        final shouldRetry =
-        _shouldRetryGet(error);
-
-        if (!shouldRetry ||
-            attempt >= maxAttempts) {
-          rethrow;
+        if (error.response?.statusCode == 429) {
+          _rateLimitedUntil = DateTime.now().add(const Duration(seconds: 8));
         }
-
-        await Future<void>.delayed(
-          _retryDelayFor(
-            error,
-            failedAttempt: attempt,
-          ),
-        );
+        if (!_shouldRetryGet(error) || attempt >= maxAttempts) rethrow;
+        await Future<void>.delayed(_retryDelayFor(error, failedAttempt: attempt));
       }
     }
-
-    throw lastError ??
-        DioException(
-          requestOptions: RequestOptions(
-            path: path,
-          ),
-          type: DioExceptionType.unknown,
-          error: 'Unknown network error.',
-        );
+    throw lastError ?? DioException(
+      requestOptions: RequestOptions(path: path),
+      type: DioExceptionType.unknown,
+      error: 'Unknown network error.',
+    );
   }
 
   // ===========================================================================
@@ -305,11 +385,10 @@ class ApiClient {
           DioExceptionType.unknown;
     }
 
+    // HTTP 503 may indicate maintenance / Cloudflare. Repeating it on
+    // every paginated GET delayed screens by nearly a minute.
     return statusCode == 408 ||
-        statusCode == 429 ||
-        statusCode == 500 ||
         statusCode == 502 ||
-        statusCode == 503 ||
         statusCode == 504;
   }
 
@@ -317,20 +396,6 @@ class ApiClient {
       DioException error, {
         required int failedAttempt,
       }) {
-    if (error.response?.statusCode ==
-        429) {
-      final retryAfter =
-      retryAfterSecondsFromDio(
-        error,
-      );
-
-      if (retryAfter != null) {
-        return Duration(
-          seconds: retryAfter,
-        );
-      }
-    }
-
     return _retryDelay(
       failedAttempt,
     );
@@ -342,12 +407,12 @@ class ApiClient {
     switch (failedAttempt) {
       case 1:
         return const Duration(
-          milliseconds: 600,
+          milliseconds: 450,
         );
 
       case 2:
         return const Duration(
-          milliseconds: 1400,
+          milliseconds: 800,
         );
 
       default:

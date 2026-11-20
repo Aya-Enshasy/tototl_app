@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -667,8 +668,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     fontSize: 16,
                     color: AppColors.navy,
@@ -678,8 +679,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               ),
             ],
           ),
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(
               fontSize: 12.5,
               height: 1.45,
@@ -887,7 +888,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               child: showMenu
                   ? PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
-                tooltip: 'Job actions',
+                tooltip: AppLanguage.text('Job actions'),
                 icon: const Icon(
                   Icons.more_horiz_rounded,
                   color: _ReferenceJobPalette.navy,
@@ -1178,7 +1179,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             onActionTap: _isDraft(job) ? () => _referenceEdit(job) : null,
           ),
           const SizedBox(height: 10),
-          const Text(
+          const LocalizedText(
             'Required capabilities',
             style: TextStyle(
               color: _ReferenceJobPalette.muted,
@@ -1188,7 +1189,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           ),
           const SizedBox(height: 8),
           if (capabilities.isEmpty)
-            const Text(
+            const LocalizedText(
               'No specific capabilities required',
               style: TextStyle(
                 color: _ReferenceJobPalette.muted,
@@ -1206,8 +1207,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                     color: _ReferenceJobPalette.mintSoft,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Text(
-                    item,
+                  child: Text(AppLanguage.text(
+                    item),
                     style: const TextStyle(
                       color: _ReferenceJobPalette.greenDark,
                       fontSize: 10.8,
@@ -1316,7 +1317,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           ],
           if (job.deliverables.isNotEmpty) ...[
             const SizedBox(height: 13),
-            const Text(
+            const LocalizedText(
               'Deliverables',
               style: TextStyle(
                 color: _ReferenceJobPalette.muted,
@@ -1348,8 +1349,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          item,
+                        child: Text(AppLanguage.text(
+                          item),
                           style: const TextStyle(
                             color: _ReferenceJobPalette.text,
                             fontSize: 10.7,
@@ -1366,7 +1367,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           ],
           if (job.clearanceNotes.trim().isNotEmpty) ...[
             const SizedBox(height: 7),
-            const Text(
+            const LocalizedText(
               'Clearance / access notes',
               style: TextStyle(
                 color: _ReferenceJobPalette.muted,
@@ -1411,7 +1412,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          const Row(
+           Row(
             children: [
               Icon(
                 Icons.attach_file_rounded,
@@ -1419,8 +1420,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 color: _ReferenceJobPalette.teal,
               ),
               SizedBox(width: 7),
-              Text(
-                'Attachments',
+              Text(AppLanguage.text(
+                'Attachments'),
                 style: TextStyle(
                   color: _ReferenceJobPalette.navy,
                   fontSize: 11.5,
@@ -1438,7 +1439,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 border: Border.all(color: _ReferenceJobPalette.border),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: const Text(
+              child: const LocalizedText(
                 'No attachments',
                 style: TextStyle(
                   color: _ReferenceJobPalette.muted,
@@ -1489,7 +1490,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
+            const LocalizedText(
               'Applications',
               style: TextStyle(
                 color: _ReferenceJobPalette.navy,
@@ -1517,10 +1518,10 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             InkWell(
               onTap: _applicants.isEmpty ? null : _showAllApplicants,
               borderRadius: BorderRadius.circular(8),
-              child: const Padding(
+              child:  Padding(
                 padding: EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-                child: Text(
-                  'View all',
+                child: Text(AppLanguage.text(
+                  'View all'),
                   style: TextStyle(
                     color: _ReferenceJobPalette.teal,
                     fontSize: 10.5,
@@ -1543,10 +1544,10 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           _applicationsError(_applicantsError!),
         ] else if (visible.isEmpty) ...[
           const SizedBox(height: 8),
-          const Padding(
+           Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
-            child: Text(
-              'No applications yet',
+            child: Text(AppLanguage.text(
+              'No applications yet'),
               style: TextStyle(
                 color: _ReferenceJobPalette.muted,
                 fontSize: 11,
@@ -1673,7 +1674,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                     : const Divider(height: 1, color: _ReferenceJobPalette.line),
                 itemBuilder: (_, index) {
                   if (index == 0) {
-                    return const Text(
+                    return const LocalizedText(
                       'Applications',
                       style: TextStyle(
                         color: _ReferenceJobPalette.navy,
@@ -1734,8 +1735,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: _ReferenceJobPalette.navy,
                     fontSize: 16,
@@ -1744,8 +1745,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 ),
                 if (subtitle != null && subtitle.trim().isNotEmpty) ...[
                   const SizedBox(height: 5),
-                  Text(
-                    subtitle,
+                  Text(AppLanguage.text(
+                    subtitle),
                     style: const TextStyle(
                       color: _ReferenceJobPalette.muted,
                       fontSize: 12,
@@ -1826,10 +1827,10 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                       child: Image.network(
                         url,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Padding(
+                        errorBuilder: (_, __, ___) =>  Padding(
                           padding: EdgeInsets.all(24),
-                          child: Text(
-                            'Unable to preview this image.',
+                          child: Text(AppLanguage.text(
+                            'Unable to preview this image.'),
                             style: TextStyle(color: Colors.white),
                           ),
                         ),
@@ -1979,7 +1980,7 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             height: 44,
             child: showMenu
                 ? PopupMenuButton<String>(
-              tooltip: 'Job actions',
+              tooltip: AppLanguage.text('Job actions'),
               icon: const Icon(
                 Icons.more_horiz_rounded,
                 color: AppColors.navy,
@@ -2293,8 +2294,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 15,
@@ -2302,8 +2303,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style: const TextStyle(
                         color: AppColors.grey,
                         fontSize: 11.5,
@@ -2718,8 +2719,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           const Icon(Icons.cloud_off_rounded, color: AppColors.grey, size: 20),
           const SizedBox(width: 9),
           Expanded(
-            child: Text(
-              message,
+            child: Text(AppLanguage.text(
+              message),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: AppColors.grey, fontSize: 11.5),
@@ -2770,8 +2771,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
               ),
               const SizedBox(width: 9),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 15,
@@ -2798,14 +2799,14 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
           const SizedBox(width: 7),
           SizedBox(
             width: 74,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(color: AppColors.grey, fontSize: 11.3),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: AppColors.navy,
@@ -2861,8 +2862,8 @@ class _CompanyJobDetailScreenState extends State<CompanyJobDetailScreen> {
             color: background,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(
-            item,
+          child: Text(AppLanguage.text(
+            item),
             style: TextStyle(
               color: foreground,
               fontSize: 10.8,
@@ -2980,7 +2981,7 @@ String _fileSize(int bytes) {
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: isError ? Colors.red.shade700 : AppColors.navy,
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -3455,8 +3456,8 @@ class _ReferenceSectionHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            title,
+          child: Text(AppLanguage.text(
+            title),
             style: const TextStyle(
               color: _ReferenceJobPalette.navy,
               fontSize: 14,
@@ -3574,8 +3575,8 @@ class _ReferenceImportantInfoRow extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         Expanded(
-          child: Text(
-            value,
+          child: Text(AppLanguage.text(
+            value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -3625,8 +3626,8 @@ class _ReferenceRequirementStat extends StatelessWidget {
               Icon(icon, size: 16, color: _ReferenceJobPalette.teal),
               const SizedBox(width: 5),
               Flexible(
-                child: Text(
-                  label,
+                child: Text(AppLanguage.text(
+                  label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -3639,8 +3640,8 @@ class _ReferenceRequirementStat extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             textAlign: TextAlign.center,
             maxLines: valueMaxLines,
             overflow: TextOverflow.ellipsis,
@@ -3712,8 +3713,8 @@ class _ReferenceStatusPill extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 10,
@@ -3788,8 +3789,8 @@ class _ReferenceAttachmentTile extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -4182,8 +4183,8 @@ class _ReferenceBottomAction extends StatelessWidget {
           ),
         ),
         icon: Icon(icon, size: 18),
-        label: Text(
-          label,
+        label: Text(AppLanguage.text(
+          label),
           style: const TextStyle(
             fontSize: 11.8,
             fontWeight: FontWeight.w800,
@@ -4542,13 +4543,13 @@ class _OverviewTile extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: AppColors.blue),
           const SizedBox(height: 8),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(color: AppColors.grey, fontSize: 10.5),
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -4594,8 +4595,8 @@ class _ActionButton extends StatelessWidget {
           ),
         ),
         icon: Icon(icon, size: 17),
-        label: Text(
-          label,
+        label: Text(AppLanguage.text(
+          label),
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
         ),
       );
@@ -4613,8 +4614,8 @@ class _ActionButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
       ),
       icon: Icon(icon, size: 17),
-      label: Text(
-        label,
+      label: Text(AppLanguage.text(
+        label),
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
@@ -4639,8 +4640,8 @@ class _MenuRow extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 9),
-        Text(
-          label,
+        Text(AppLanguage.text(
+          label),
           style: TextStyle(
             fontSize: 12.5,
             color: color,
@@ -4671,8 +4672,8 @@ class _StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 10.2,
@@ -4771,8 +4772,8 @@ class _SyncPill extends StatelessWidget {
         children: [
           const _TinyPulse(),
           const SizedBox(width: 5),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: AppColors.blue,
               fontSize: 9.8,
@@ -4902,8 +4903,8 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 13),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

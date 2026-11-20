@@ -27,6 +27,7 @@ class PilotProfileService {
 
   Future<PilotProfileModel> getMyProfile() async {
     final token = await _getToken();
+    final sessionOwner = await UserSessionStorage.getUserId();
 
     try {
       final response = await apiClient.get(
@@ -59,6 +60,9 @@ class PilotProfileService {
       }
 
       final meData = Map<String, dynamic>.from(data);
+      if (sessionOwner != await UserSessionStorage.getUserId()) {
+        throw const PilotProfileException('The signed-in account changed.');
+      }
 
       // ----------------------------------------------------------------------
       // USER

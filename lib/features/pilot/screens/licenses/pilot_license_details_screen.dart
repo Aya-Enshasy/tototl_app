@@ -220,7 +220,7 @@ class _PilotLicenseDetailsScreenState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(13),
         ),
-        content: Text(message),
+        content: Text(AppLanguage.text(message)),
       ),
     );
   }
@@ -745,8 +745,8 @@ class _MetricCard extends StatelessWidget {
             child: Icon(icon, color: _tealDark, size: 16),
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -756,8 +756,8 @@ class _MetricCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -803,8 +803,8 @@ class _SectionTitle extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: _ink,
                   fontSize: 14,
@@ -813,8 +813,8 @@ class _SectionTitle extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
+              Text(AppLanguage.text(
+                subtitle),
                 style: const TextStyle(
                   color: _muted,
                   fontSize: 10.5,
@@ -884,8 +884,8 @@ class _InfoRow extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           Expanded(
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: _muted,
                 fontSize: 10.8,
@@ -896,8 +896,8 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             flex: 2,
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
@@ -997,8 +997,8 @@ class _DocumentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: _ink,
                         fontSize: 12.0,

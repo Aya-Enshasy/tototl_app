@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
@@ -121,7 +122,7 @@ class _PaymentHistoryScreenState
         ),
         actions: [
           IconButton(
-            tooltip: 'Refresh',
+            tooltip: AppLanguage.text('Refresh'),
             onPressed:
             _loading ? null : _load,
             icon: _loading
@@ -273,8 +274,8 @@ class _PaymentHistoryScreenState
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color:
                     _PaymentPalette.navy,
@@ -284,8 +285,8 @@ class _PaymentHistoryScreenState
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style: const TextStyle(
                     color:
                     _PaymentPalette.muted,
@@ -313,7 +314,7 @@ class _PaymentHistoryScreenState
                           .border,
                     ),
                   ),
-                  child: const Row(
+                  child:  Row(
                     crossAxisAlignment:
                     CrossAxisAlignment.start,
                     children: [
@@ -327,8 +328,8 @@ class _PaymentHistoryScreenState
                       ),
                       SizedBox(width: 6),
                       Expanded(
-                        child: Text(
-                          'Release timing is backend-managed after approved completion. There is no manual release action here.',
+                        child: Text(AppLanguage.text(
+                          'Release timing is backend-managed after approved completion. There is no manual release action here.'),
                           style: TextStyle(
                             color:
                             _PaymentPalette
@@ -754,8 +755,8 @@ class _PaymentHistoryScreenState
         children: [
           SizedBox(
             width: 94,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style:
               const TextStyle(
                 color:
@@ -769,8 +770,8 @@ class _PaymentHistoryScreenState
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign:
               TextAlign.end,
               style:
@@ -858,8 +859,8 @@ class _PaymentHistoryScreenState
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            title,
+          Text(AppLanguage.text(
+            title),
             textAlign:
             TextAlign.center,
             style:
@@ -872,8 +873,8 @@ class _PaymentHistoryScreenState
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            message,
+          Text(AppLanguage.text(
+            message),
             textAlign:
             TextAlign.center,
             style:
@@ -963,8 +964,8 @@ class _PaymentSectionHeader
             crossAxisAlignment:
             CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style:
                 const TextStyle(
                   color:
@@ -975,8 +976,8 @@ class _PaymentSectionHeader
                 ),
               ),
               const SizedBox(height: 1),
-              Text(
-                subtitle,
+              Text(AppLanguage.text(
+                subtitle),
                 style:
                 const TextStyle(
                   color:

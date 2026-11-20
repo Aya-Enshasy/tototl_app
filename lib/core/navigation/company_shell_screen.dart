@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/notifications/push_notification_coordinator.dart';
+import 'package:tototl_app/core/notifications/notification_inbox_state.dart';
 import 'package:tototl_app/features/company/screens/home/company_home_screen.dart';
 import 'package:tototl_app/features/company/screens/jobs/company_jobs_screen.dart';
 import 'package:tototl_app/features/company/screens/messages/company_messages_screen.dart';
@@ -19,6 +21,7 @@ class CompanyShellScreen extends StatefulWidget {
 
 class _CompanyShellScreenState extends State<CompanyShellScreen> {
   late int _currentIndex;
+  final Set<int> _visitedTabs = <int>{};
 
   final _pages = const [
     CompanyHomeScreen(),
@@ -66,17 +69,36 @@ class _CompanyShellScreenState extends State<CompanyShellScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex.clamp(0, _pages.length - 1);
+    _visitedTabs.add(_currentIndex);
+    PushNotificationCoordinator.instance.onAuthenticatedScreenReady();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      // Mount each tab only after it is visited. A non-lazy IndexedStack
+      // starts every screen's API calls simultaneously and can trigger 429s.
+      // Keep visited tabs mounted to preserve scroll/forms, while disabling
+      // offscreen animations and their TickerMode-aware polling.
+      body: IndexedStack(
+        index: _currentIndex,
+        children: List.generate(_pages.length, (index) {
+          return TickerMode(
+            enabled: index == _currentIndex,
+            child: _visitedTabs.contains(index)
+                ? _pages[index]
+                : const SizedBox.shrink(),
+          );
+        }),
+      ),
       bottomNavigationBar: AppBottomNavBar(
         items: _navItems,
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) => setState(() {
+          _currentIndex = index;
+          _visitedTabs.add(index);
+        }),
       ),
     );
   }

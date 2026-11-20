@@ -114,8 +114,16 @@ class CompanyContractController {
         jobId: jobId,
       );
 
-      applicationContract =
-          contract;
+      // A failed/stale list read is not proof that an existing contract
+      // disappeared. Keep an already-confirmed contract in the UI.
+      if (contract != null) {
+        applicationContract = contract;
+      } else if (applicationContract != null &&
+          applicationContract!.jobApplicationId != applicationId) {
+        // An applicant detail controller must never surface the previous
+        // applicant's cached contract when navigating to a different one.
+        applicationContract = null;
+      }
 
       if (contract != null) {
         selectedContract =
@@ -432,40 +440,9 @@ class CompanyContractController {
     }
   }
 
-  Future<CompanyContractModel?> fundContract(
-      int id,
-      ) async {
-    if (isFunding ||
-        isSubmittingReview) {
-      return null;
-    }
-
-    isFunding = true;
-    actionErrorMessage = null;
-
-    try {
-      final updated =
-      await service.fundContract(
-        id,
-      );
-
-      selectedContract =
-          updated;
-
-      _upsert(
-        updated,
-      );
-
-      return updated;
-    } catch (e) {
-      actionErrorMessage =
-          e.toString();
-
-      return null;
-    } finally {
-      isFunding = false;
-    }
-  }
+  // Stripe escrow funding is orchestrated by CompanyFundingCheckoutScreen.
+  // The old controller POST /fund without a quote was removed to avoid
+  // accidental duplicate or unquoted payment requests.
 
   // ===========================================================================
   // PHASE 4 - REVIEW PILOT

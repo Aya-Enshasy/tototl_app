@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -79,6 +80,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     if (initialApplication != null &&
         initialApplication.id == widget.applicationId) {
       _application = initialApplication;
+      _companyChatTarget = _chatTargetFromJob(initialApplication.job);
       _loading = false;
     }
 
@@ -159,7 +161,8 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
       // One atomic swap: shimmer -> correct data. No fake/default intermediate.
       setState(() {
         _application = hydrated;
-        _companyChatTarget = result.companyChatTarget;
+        _companyChatTarget = result.companyChatTarget ??
+            _chatTargetFromJob(hydrated.job) ?? _companyChatTarget;
         _pilotIdentity = result.pilotIdentity;
         _contract = hydrated.isAccepted ? resolvedContract : null;
         _contractError =
@@ -245,6 +248,18 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
     await _loadAuthoritative(manual: true);
   }
 
+  // Only use the company's auth USER ID, never a company profile ID.
+  ApplicationCompanyChatTarget? _chatTargetFromJob(PilotJobModel? job) {
+    final company = job?.company;
+    final userId = company?.userId;
+    if (company == null || userId == null || userId <= 0) return null;
+    return ApplicationCompanyChatTarget(
+      userId: userId,
+      name: company.name,
+      photoUrl: company.profilePhoto,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // CHAT
   // ---------------------------------------------------------------------------
@@ -258,15 +273,16 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
 
     try {
       final target = _companyChatTarget ??
+          _chatTargetFromJob(application.job) ??
           await _applicationService.resolveCompanyChatTargetFromJob(
             application.jobPostingId,
-          );
+          ).timeout(const Duration(seconds: 7), onTimeout: () => null);
 
       if (!mounted) return;
 
       // Firebase chat must use the COMPANY USER ID, not company_profile_id.
       if (target == null || target.userId <= 0) {
-        _snack('Company chat is not available for this application yet.');
+        _snack('Company chat account ID is missing in the API response. Please refresh this application.');
         return;
       }
 
@@ -683,7 +699,7 @@ class _ApplicationDetailsScreenState extends State<ApplicationDetailsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -802,8 +818,8 @@ class _AcceptedContractCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 12.4,
@@ -811,8 +827,8 @@ class _AcceptedContractCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1251,7 +1267,7 @@ class _PilotIdentityCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'YOUR PROFILE',
                   style: TextStyle(
                     color: AppColors.logoTurquoiseDark,
@@ -1490,8 +1506,8 @@ class _HeroCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
+                      Text(AppLanguage.text(
+                        title),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1639,8 +1655,8 @@ class _HeroStatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 5),
           Flexible(
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -1690,8 +1706,8 @@ class _HeroFact extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: AppColors.lightGrey,
                     fontSize: 7.1,
@@ -1699,8 +1715,8 @@ class _HeroFact extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1896,8 +1912,8 @@ class _JourneyNode extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -2053,8 +2069,8 @@ class _SnapshotTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: AppColors.lightGrey,
                     fontSize: 7.2,
@@ -2062,8 +2078,8 @@ class _SnapshotTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2148,8 +2164,8 @@ class _PremiumSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 12.8,
@@ -2530,8 +2546,8 @@ class _MissionMetric extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: AppColors.lightGrey,
                     fontSize: 7.8,
@@ -2539,8 +2555,8 @@ class _MissionMetric extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2759,8 +2775,8 @@ class _MicroChip extends StatelessWidget {
         children: [
           Icon(icon, size: 9, color: AppColors.grey),
           const SizedBox(width: 4),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: AppColors.grey,
               fontSize: 8.2,
@@ -2893,8 +2909,8 @@ class _MessageSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: AppColors.cardBorder.withOpacity(0.75)),
         ),
-        child: Text(
-          message,
+        child: Text(AppLanguage.text(
+          message),
           style: const TextStyle(
             color: AppColors.grey,
             fontSize: 11.5,
@@ -3031,8 +3047,8 @@ class _UnavailableRelation extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 12.2,
@@ -3040,8 +3056,8 @@ class _UnavailableRelation extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   style: const TextStyle(
                     color: AppColors.grey,
                     fontSize: 9.8,
@@ -3202,8 +3218,8 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 7),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

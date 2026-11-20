@@ -1,7 +1,10 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'company_contract_service.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -700,9 +703,10 @@ class CompanyJobService {
     final endpoint =
         '$_jobsBase/$jobId/applicants/$applicationId/contract';
 
-    print('================ CREATE CONTRACT REQUEST ================');
-    print('CREATE CONTRACT URL: $endpoint');
-    print('CREATE CONTRACT BODY: ${request.toJson()}');
+    if (kDebugMode) {
+      debugPrint('[TOTOTL][CONTRACT][CREATE_START] '
+          'job=$jobId application=$applicationId');
+    }
 
     try {
       final response = await apiClient.post(
@@ -717,8 +721,6 @@ class CompanyJobService {
         ),
       );
 
-      print('CREATE CONTRACT STATUS: ${response.statusCode}');
-      print('CREATE CONTRACT RESPONSE: ${response.data}');
 
       final body = _parseBody(response.data);
 
@@ -739,23 +741,49 @@ class CompanyJobService {
         Map<String, dynamic>.from(rawData),
       );
 
-      print(
-        'CREATE CONTRACT PARSED: '
-            'contract=${contract.id}, status=${contract.status}',
-      );
-      print('================ CREATE CONTRACT SUCCESS ================');
+      if (kDebugMode) {
+        debugPrint('[TOTOTL][CONTRACT][CREATE_OK] '
+            'application=$applicationId contract=${contract.id} status=${contract.status}');
+      }
 
       return contract;
     } on DioException catch (e) {
-      print('================ CREATE CONTRACT ERROR ================');
-      print('STATUS: ${e.response?.statusCode}');
-      print('RESPONSE: ${e.response?.data}');
-
+      final status = e.response?.statusCode;
+      if (kDebugMode) {
+        debugPrint('[TOTOTL][CONTRACT][CREATE_FAILED] '
+            'job=$jobId application=$applicationId http=${status ?? '-'}');
+      }
+      // The POST may have committed even when its response was lost. On
+      // conflict or transient gateway failure, perform ONE authoritative GET.
+      // Never replay a non-idempotent create POST automatically.
+      if (status == 409 || status == 422 || status == 429 ||
+          status == 502 || status == 503 || status == 504 ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        try {
+          final existing = await CompanyContractService(apiClient)
+              .findContractForApplication(applicationId);
+          if (existing != null) {
+            if (kDebugMode) {
+              debugPrint('[TOTOTL][CONTRACT][CREATE_RECOVERED] '
+                  'application=$applicationId contract=${existing.id}');
+            }
+            return existing;
+          }
+        } catch (_) {
+          // The existence check may also be unavailable due to rate limits.
+          // Do not report "not created" as a confirmed fact.
+          if (status == 502 || status == 503 || status == 504 || status == 429 ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout) {
+            throw const CompanyJobException(
+              'Contract creation outcome is uncertain. Check My Contracts before trying again.',
+            );
+          }
+        }
+      }
       throw CompanyJobException(
-        _dioErrorMessage(
-          e,
-          fallback: 'Unable to create contract.',
-        ),
+        _dioErrorMessage(e, fallback: 'Unable to create contract.'),
       );
     }
   }
@@ -922,11 +950,9 @@ class CompanyJobService {
         addField('payment_max', request.paymentMax);
       }
 
-      for (var i = 0; i < request.requiredCapabilities.length; i++) {
-        addField(
-          'required_capabilities[$i]',
-          request.requiredCapabilities[i],
-        );
+      final cleanCapabilities = DroneCapabilities.canonicalizeAll(request.requiredCapabilities);
+      for (var i = 0; i < cleanCapabilities.length; i++) {
+        addField('required_capabilities[$i]', cleanCapabilities[i]);
       }
 
       addField('required_experience', request.requiredExperience);
@@ -1226,11 +1252,9 @@ class CompanyJobService {
         }
       }
 
-      for (var i = 0; i < request.requiredCapabilities.length; i++) {
-        addRequired(
-          'required_capabilities[$i]',
-          request.requiredCapabilities[i],
-        );
+      final cleanCapabilities = DroneCapabilities.canonicalizeAll(request.requiredCapabilities);
+      for (var i = 0; i < cleanCapabilities.length; i++) {
+        addRequired('required_capabilities[$i]', cleanCapabilities[i]);
       }
 
       addNullable(

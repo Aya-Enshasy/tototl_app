@@ -319,7 +319,7 @@ class _PilotLicenseFormScreenState extends State<PilotLicenseFormScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        content: Text(message),
+        content: Text(AppLanguage.text(message)),
       ),
     );
   }
@@ -675,8 +675,8 @@ class _SectionTitle extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: _ink,
                   fontSize: 14,
@@ -684,8 +684,8 @@ class _SectionTitle extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
+              Text(AppLanguage.text(
+                subtitle),
                 style: const TextStyle(
                   color: _muted,
                   fontSize: 9.8,
@@ -932,8 +932,8 @@ class _DocumentPickerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style: const TextStyle(
                         color: _muted,
                         fontSize: 9.5,

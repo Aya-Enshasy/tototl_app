@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Required in release builds for API, Firebase and Stripe Checkout. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="tototl_app"
@@ -28,6 +32,11 @@
 
         </activity>
 
+        <!-- Compatibility workaround for Genymotion/Android OpenGL shader crashes. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
@@ -35,6 +44,10 @@
     </application>
 
     <queries>
+        <!-- Enables accurate Android Custom Tabs capability detection. -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

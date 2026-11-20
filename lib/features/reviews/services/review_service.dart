@@ -247,6 +247,11 @@ class ReviewService {
       DioException error, {
         required String fallback,
       }) {
+    final status = error.response?.statusCode;
+    if (status == 503 || status == 502 || status == 504 || status == 500) {
+      return 'The review service is temporarily unavailable. Please try again.';
+    }
+    if (status == 429) return 'Too many requests. Please try again shortly.';
     final raw =
         error.response?.data;
 

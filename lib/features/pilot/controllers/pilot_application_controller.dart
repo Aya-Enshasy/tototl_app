@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../../core/network/request_error_message.dart';
 
 import '../models/drone_model.dart';
 import '../models/pilot_application_model.dart';
@@ -75,15 +76,17 @@ class PilotApplicationController extends ChangeNotifier {
 
     try {
       final network = await service.getMyApplications();
-      final hydrated = await _hydrateRelations(network);
-
       if (!_isCurrent(serial)) return;
-
-      _replaceAll(hydrated);
+      _replaceAll(network);
       errorMessage = null;
+      isLoading = false;
+      _notify();
+      // Additional job/drone lookups must not hold the application list hostage.
+      unawaited(_enrichInBackground(network, serial));
     } catch (e) {
       if (!_isCurrent(serial)) return;
-      errorMessage = e.toString();
+      errorMessage = RequestErrorMessage.from(e,
+          fallback: 'Unable to load applications.');
     } finally {
       if (_isCurrent(serial)) {
         isLoading = false;
@@ -113,18 +116,18 @@ class PilotApplicationController extends ChangeNotifier {
 
     try {
       final network = await service.getMyApplications();
-      final hydrated = await _hydrateRelations(network);
-
       if (!_isCurrent(serial)) return false;
-
-      _replaceAll(hydrated);
+      _replaceAll(network);
       errorMessage = null;
       refreshErrorMessage = null;
+      _notify();
+      unawaited(_enrichInBackground(network, serial));
       return true;
     } catch (e) {
       if (!_isCurrent(serial)) return false;
 
-      final message = e.toString();
+      final message = RequestErrorMessage.from(e,
+          fallback: 'Unable to refresh applications.');
       refreshErrorMessage = message;
 
       if (_applications.isEmpty) {
@@ -137,6 +140,36 @@ class PilotApplicationController extends ChangeNotifier {
         isLoading = false;
         isRefreshing = false;
         _notify();
+      }
+    }
+  }
+
+  /// Best-effort enrichment; never overwrite a newer user refresh/selection.
+  Future<void> _enrichInBackground(
+    List<PilotApplicationModel> source,
+    int serial,
+  ) async {
+    try {
+      final enriched = await _hydrateRelations(source);
+      if (!_isCurrent(serial)) return;
+      // A detail screen may already have updated an application locally.
+      final latestById = <int, PilotApplicationModel>{
+        for (final item in _applications) item.id: item,
+      };
+      final merged = enriched.map((item) {
+        final latest = latestById[item.id];
+        if (latest == null) return item;
+        return latest.copyWith(
+          job: latest.job ?? item.job,
+          drone: latest.drone ?? item.drone,
+        );
+      }).toList();
+      _replaceAll(merged);
+      _notify();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[TOTOTL][APPLICATIONS][ENRICH] '
+            'nonblocking failure type=${e.runtimeType}');
       }
     }
   }

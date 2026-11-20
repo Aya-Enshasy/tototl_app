@@ -93,10 +93,21 @@ class PaymentService {
     required int paymentId,
     required PaymentAudience audience,
   }) async {
+    // The company backend owner requested list-based lookup. The direct
+    // /company/payments/{id} route returned 404 for existing payment records.
+    // getPayments follows all paginator pages and de-duplicates by ID.
+    if (audience == PaymentAudience.company) {
+      final payments = await getPayments(audience: PaymentAudience.company);
+      for (final payment in payments) {
+        if (payment.id == paymentId) return payment;
+      }
+      throw const PaymentException(
+        'Payment not found in this company account.',
+      );
+    }
+
     final token = await _getToken();
-    final endpoint = audience == PaymentAudience.company
-        ? ApiEndpoints.companyPayment(paymentId)
-        : ApiEndpoints.payment(paymentId);
+    final endpoint = ApiEndpoints.payment(paymentId);
 
     try {
       final response = await apiClient.get(endpoint, options: _authOptions(token));

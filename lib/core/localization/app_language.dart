@@ -30,9 +30,25 @@ class AppLanguage {
   /// language and a safe fallback for content received from the server.
   static String text(String source) {
     final code = locale.value.languageCode;
-    if (code == 'en' || source.trim().isEmpty) return source;
+    if (source.trim().isEmpty) return source;
 
-    final exact = generatedUiTranslations[code]?[source];
+    // Friendly labels for backend capability enum values. This is display-only;
+    // multipart form and query values are always handled by DroneCapabilities.
+    const capabilityNames = <String, String>{
+      'thermal': 'Thermal Camera',
+      'laser': 'Laser',
+      'night_vision': 'Night Vision',
+      'lidar': 'LiDAR',
+      'radar': 'Radar',
+      'imaging': 'Imaging',
+      'rtk': 'RTK',
+      'zoom': 'Zoom',
+      'other': 'Other',
+    };
+    final readable = capabilityNames[source] ?? source;
+    if (code == 'en') return readable;
+
+    final exact = generatedUiTranslations[code]?[readable];
     if (exact != null) return exact;
 
     // Small dynamic UI patterns used by registration pickers/progress labels.
@@ -64,7 +80,32 @@ class AppLanguage {
       if (code == 'de') return 'Wird hochgeladen $n%';
     }
 
-    return source;
+    final jobsFound = RegExp(r'^(\d+) jobs found$').firstMatch(source);
+    if (jobsFound != null) {
+      final n = jobsFound.group(1)!;
+      if (code == 'ar') return 'تم العثور على $n وظيفة';
+      if (code == 'de') return '$n Aufträge gefunden';
+    }
+
+    final jobPostingLimit = RegExp(r'^Job postings: (.+)$').firstMatch(source);
+    if (jobPostingLimit != null) {
+      if (code == 'ar') return 'الوظائف المنشورة: ${jobPostingLimit.group(1)}';
+      if (code == 'de') return 'Aufträge: ${jobPostingLimit.group(1)}';
+    }
+
+    final pilotApplications = RegExp(r'^Pilot applications: (.+)$').firstMatch(source);
+    if (pilotApplications != null) {
+      if (code == 'ar') return 'طلبات الطيار: ${pilotApplications.group(1)}';
+      if (code == 'de') return 'Pilotenbewerbungen: ${pilotApplications.group(1)}';
+    }
+
+    final currentStatus = RegExp(r'^Status: (.+)$').firstMatch(source);
+    if (currentStatus != null) {
+      if (code == 'ar') return 'الحالة: ${currentStatus.group(1)}';
+      if (code == 'de') return 'Status: ${currentStatus.group(1)}';
+    }
+
+    return readable;
   }
 
   static const _values = {

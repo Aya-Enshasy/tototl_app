@@ -65,6 +65,7 @@ class _ChatScreenState
   String _currentUserPhotoUrl = '';
 
   int _lastMessageCount = 0;
+  late final Stream<List<ChatMessage>> _messagesStream;
 
   String get _conversationId =>
       FirebaseChatService.instance
@@ -77,6 +78,9 @@ class _ChatScreenState
   void initState() {
     super.initState();
 
+    _messagesStream = FirebaseChatService.instance.messagesFor(
+      _conversationId,
+    );
     _currentUserPhotoUrl =
         widget.currentUserPhotoUrl.trim();
 
@@ -1085,8 +1089,8 @@ class _ChatScreenState
             ),
           ),
           content:
-          Text(
-            message,
+          Text(AppLanguage.text(
+            message),
           ),
         ),
       );
@@ -1117,17 +1121,20 @@ class _ChatScreenState
                   StreamBuilder<
                       List<
                           ChatMessage>>(
-                    stream:
-                    FirebaseChatService
-                        .instance
-                        .messagesFor(
-                      _conversationId,
-                    ),
+                    stream: _messagesStream,
                     builder:
                         (
                         context,
                         snapshot,
                         ) {
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData && !snapshot.hasError) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.logoTurquoiseDark,
+                          ),
+                        );
+                      }
                       if (snapshot
                           .hasError) {
                         return const _MessagesError();
@@ -1311,8 +1318,8 @@ class _ConversationDateDivider extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 13),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         textAlign: TextAlign.center,
         style: const TextStyle(
           color: AppColors.lightGrey,
@@ -2581,8 +2588,8 @@ class _ActionRow
             children: [
               Expanded(
                 child:
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style:
                   TextStyle(
                     color:
@@ -3029,8 +3036,8 @@ class _MediaSourceTile
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style:
                       TextStyle(
                         color:
@@ -3045,8 +3052,8 @@ class _MediaSourceTile
                       height:
                       3,
                     ),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style:
                       TextStyle(
                         color:

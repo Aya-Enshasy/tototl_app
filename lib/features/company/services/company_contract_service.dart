@@ -292,31 +292,10 @@ class CompanyContractService {
       return direct;
     }
 
-    const blockingStatuses =
-    <String>[
-      'pending',
-      'accepted',
-      'active',
-      'in_progress',
-      'submitted',
-    ];
-
-    for (final status
-    in blockingStatuses) {
-      final contracts =
-      await getContracts(
-        status: status,
-      );
-
-      final match =
-      matchFrom(
-        contracts,
-      );
-
-      if (match != null) {
-        return match;
-      }
-    }
+    // The unfiltered paginated collection already contains all statuses.
+    // A second pass across five filtered collections used to multiply every
+    // 503/timeout and delay contract creation by over a minute.
+    // Laravel's create endpoint is still authoritative about duplicates.
 
     return null;
   }
@@ -834,9 +813,9 @@ class CompanyContractService {
     final cleanReason =
         reason?.trim() ?? '';
 
-    if (cleanReason.length > 2000) {
+    if (cleanReason.isEmpty || cleanReason.length > 2000) {
       throw const CompanyContractException(
-        'Cancellation reason cannot exceed 2000 characters.',
+        'A cancellation reason is required (maximum 2000 characters).',
       );
     }
 
@@ -850,19 +829,8 @@ class CompanyContractService {
             .cancelCompanyContract(
           contractId,
         ),
-        data:
-        cleanReason.isEmpty
-            ? null
-            : <String, dynamic>{
-          'reason':
-          cleanReason,
-        },
-        options:
-        cleanReason.isEmpty
-            ? _authOptions(token)
-            : _jsonAuthOptions(
-          token,
-        ),
+        data: <String, dynamic>{'reason': cleanReason},
+        options: _jsonAuthOptions(token),
       );
 
       final body =
@@ -976,59 +944,9 @@ class CompanyContractService {
     }
   }
 
-  Future<CompanyContractModel>
-  fundContract(
-      int contractId,
-      ) async {
-    final token =
-    await _getToken();
-
-    try {
-      final response =
-      await apiClient.post(
-        ApiEndpoints
-            .fundCompanyContract(
-          contractId,
-        ),
-        options:
-        _authOptions(token),
-      );
-
-      final body =
-      _parseBody(
-        response.data,
-      );
-
-      _ensureSuccess(
-        body,
-        fallback:
-        'Unable to fund this contract.',
-      );
-
-      final raw =
-      body['data'];
-
-      if (raw is! Map) {
-        throw const CompanyContractException(
-          'Funded contract data is missing.',
-        );
-      }
-
-      return CompanyContractModel.fromJson(
-        Map<String, dynamic>.from(
-          raw,
-        ),
-      );
-    } on DioException catch (e) {
-      throw CompanyContractException(
-        _dioErrorMessage(
-          e,
-          fallback:
-          'Unable to fund this contract.',
-        ),
-      );
-    }
-  }
+  // Stripe funding is now handled by CompanyCollectionService:
+  // POST /quote -> POST /fund {quote_reference, method: redirect}.
+  // Do not issue an unquoted funding POST from this service.
 
   // ===========================================================================
   // PHASE 4 - REVIEW PILOT
@@ -1261,6 +1179,13 @@ class CompanyContractService {
       DioException error, {
         required String fallback,
       }) {
+    final status = error.response?.statusCode;
+    if (status == 503 || status == 502 || status == 504 || status == 500) {
+      return 'The server is temporarily unavailable. Please try again.';
+    }
+    if (status == 429) {
+      return 'Too many requests. Please try again shortly.';
+    }
     final raw =
         error.response?.data;
 

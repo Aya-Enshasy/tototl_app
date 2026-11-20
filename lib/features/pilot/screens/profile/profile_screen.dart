@@ -1,11 +1,19 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tototl_app/features/pilot/screens/profile/pilot_edit_profile_screen.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
+import 'package:tototl_app/features/pilot/screens/drones/profile_drones_section.dart';
+import 'package:tototl_app/features/pilot/screens/licenses/profile_licenses_section.dart';
+import 'package:tototl_app/features/pilot/screens/contract/pilot_contracts_screen.dart';
+import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/user_session_storage.dart';
 import '../../../../core/theme/app_colors.dart';
 
  import '../../../shared/screens/profile/account_settings_screen.dart';
@@ -69,6 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _readingLocal = true;
 
   bool _backgroundRefreshFinished = false;
+  bool _cacheReadScheduled = false;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -105,7 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     _entryController = AnimationController(
       vsync: this,
       duration: const Duration(
-        milliseconds: 1050,
+        milliseconds: 230,
       ),
     );
 
@@ -125,7 +134,28 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     );
 
+    UserSessionStorage.revision.addListener(_onLocalSessionChanged);
     _loadLocalFirst();
+  }
+
+  void _onLocalSessionChanged() {
+    if (_cacheReadScheduled) return;
+    _cacheReadScheduled = true;
+    scheduleMicrotask(() async {
+      try {
+        final cached = await _profileController.loadLocalProfile();
+        if (!mounted) return;
+        setState(() {
+          if (cached != null) _data = cached;
+          _readingLocal = false;
+        });
+        if (cached != null && _entryController.value == 0) {
+          _entryController.value = 1;
+        }
+      } finally {
+        _cacheReadScheduled = false;
+      }
+    });
   }
 
   // ==========================================================================
@@ -134,6 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   void dispose() {
+    UserSessionStorage.revision.removeListener(_onLocalSessionChanged);
     _entryController.dispose();
     _reviewController.dispose();
 
@@ -157,9 +188,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     });
 
     if (_data != null) {
-      _entryController.forward(
-        from: 0,
-      );
+      // A saved profile is shown instantly; no entrance animation gate.
+      _entryController.value = 1;
 
       unawaited(
         _loadRatingSummary(),
@@ -277,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     HapticFeedback.selectionClick();
 
     final fresh =
-    await _profileController.refreshSilently();
+    await _profileController.refreshSilently(force: true);
 
     if (!mounted) return;
 
@@ -353,22 +383,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Align(
+                 Align(
                   alignment: Alignment.centerLeft,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Change Profile Photo',
+                      Text(AppLanguage.text(
+                        'Change Profile Photo'),
                         style: TextStyle(
                           color: _textPrimary,
-                          fontSize: 17,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       SizedBox(height: 3),
-                      Text(
-                        'Choose a new professional photo',
+                      Text(AppLanguage.text(
+                        'Choose a new professional photo'),
                         style: TextStyle(
                           color: _textSecondary,
                           fontSize: 10.5,
@@ -481,7 +511,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           borderRadius: BorderRadius.circular(16),
         ),
         margin: const EdgeInsets.all(16),
-        content: const Row(
+        content:  Row(
           children: [
             Icon(
               Icons.check_circle_outline_rounded,
@@ -489,8 +519,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               size: 18,
             ),
             SizedBox(width: 8),
-            Text(
-              'Profile photo updated.',
+            Text(AppLanguage.text(
+              'Profile photo updated.'),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -538,6 +568,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       return _NoProfileData(
         onRetry: _manualRefresh,
+        onSettings: _openSettings,
       );
     }
 
@@ -675,21 +706,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                         child:
                         _PilotReviewsCard(
                           average:
-                          _reviewController
-                              .summary
-                              .averageValue,
+                          (_reviewController.data?.summary.averageValue ??
+                              data.profile.rating?.averageValue),
 
                           count:
-                          _reviewController
-                              .summary
-                              .count,
+                          (_reviewController.data?.summary.count ??
+                              data.profile.rating?.count ?? 0),
 
                           loading:
                           _reviewController
                               .isLoading &&
-                              _reviewController
-                                  .data ==
-                                  null,
+                              _reviewController.data == null &&
+                              data.profile.rating == null,
 
                           onTap:
                           _openReviews,
@@ -725,7 +753,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 .format_quote_rounded,
 
                             title:
-                            'Professional Summary',
+                            AppLanguage.text('Professional Summary'),
 
                             subtitle:
                             'A concise introduction to the pilot',
@@ -800,6 +828,25 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ],
 
                       // ======================================================
+                      // PILOT FLEET + CREDENTIALS (RESTORED)
+                      // ======================================================
+                      const SizedBox(height: 15),
+                      const ProfileDronesSection(),
+                      const SizedBox(height: 15),
+                      const ProfileLicensesSection(),
+                      const SizedBox(height: 15),
+                      _PilotQuickLinks(
+                        onContracts: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PilotContractsScreen()),
+                        ),
+                        onSubscription: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const SubscriptionCenterScreen()),
+                        ),
+                        onSettings: _openSettings,
+                      ),
+                      const SizedBox(height: 15),
+
+                      // ======================================================
                       // EMPTY OPTIONAL PROFILE
                       // ======================================================
 
@@ -862,14 +909,14 @@ class _ProfileTopBar extends StatelessWidget {
       CrossAxisAlignment.center,
 
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment:
             CrossAxisAlignment.start,
 
             children: [
               Text(
-                'Pilot Profile',
+                AppLanguage.text('Pilot Profile'),
 
                 style:
                 TextStyle(
@@ -877,7 +924,7 @@ class _ProfileTopBar extends StatelessWidget {
                   _textPrimary,
 
                   fontSize:
-                  23,
+                  16,
 
                   fontWeight:
                   FontWeight.w900,
@@ -891,8 +938,8 @@ class _ProfileTopBar extends StatelessWidget {
                 height: 3,
               ),
 
-              Text(
-                'Professional identity and availability',
+              Text(AppLanguage.text(
+                'Professional identity and availability'),
 
                 style:
                 TextStyle(
@@ -1023,178 +1070,166 @@ class _PremiumPilotHero extends StatelessWidget {
 
     return Column(
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            Container(
-              width: double.infinity,
-              height: 220,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                boxShadow: [
-                  BoxShadow(
-                    color: _deepNavy.withOpacity(0.24),
-                    blurRadius: 32,
-                    offset: const Offset(0, 16),
+        // Same compact horizontal identity hierarchy as Company Profile.
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _border),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 106,
+                        height: 108,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: _softTurquoise,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: _border),
+                        ),
+                        child: data.profilePhotoUrl.trim().isNotEmpty
+                            ? Image(
+                                image: CachedNetworkImageProvider(data.profilePhotoUrl.trim()),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Text(
+                                    name.trim().isEmpty
+                                        ? 'P'
+                                        : name.trim()[0].toUpperCase(),
+                                    style: const TextStyle(
+                                      color: _navy, fontSize: 36,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Text(
+                                  name.trim().isEmpty
+                                      ? 'P'
+                                      : name.trim()[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: _navy, fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      Positioned(
+                        right: -6,
+                        bottom: -6,
+                        child: Material(
+                          color: _turquoiseDark,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: uploadingPhoto ? null : onEditPhoto,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: uploadingPhoto
+                                  ? const SizedBox(
+                                      width: 14, height: 14,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.camera_alt_outlined,
+                                      size: 15, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(32),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      _coverAsset,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const _CoverImageFallback();
-                      },
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          stops: const [0.00, 0.50, 1.00],
-                          colors: [
-                            const Color(0xFF031525)
-                                .withOpacity(0.88),
-                            const Color(0xFF071C2F)
-                                .withOpacity(0.30),
-                            Colors.transparent,
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            if (verified) ...[
+                              const SizedBox(width: 5),
+                              const Icon(Icons.verified_rounded,
+                                  color: _success, size: 17),
+                            ],
                           ],
                         ),
-                      ),
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0.45, 1.00],
-                          colors: [
-                            Colors.transparent,
-                            const Color(0xFF03111D)
-                                .withOpacity(0.72),
-                          ],
+                        const SizedBox(height: 5),
+                        _HeroStatusBadge(status: account.status),
+                        const SizedBox(height: 8),
+                        Text(
+                          username,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _textSecondary, fontSize: 11,
+                          ),
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding:
-                      const EdgeInsets.fromLTRB(18, 17, 18, 22),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        if (hasLocation) ...[
+                          const SizedBox(height: 7),
                           Row(
                             children: [
-                              const _PilotCoverLabel(),
-                              const Spacer(),
-                              _HeroStatusBadge(
-                                status: account.status,
+                              const Icon(Icons.location_on_outlined,
+                                  size: 13, color: _textSecondary),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(location,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: _textSecondary, fontSize: 10)),
                               ),
                             ],
                           ),
-                          const Spacer(),
-                          const Text(
-                            'AERIAL OPERATIONS',
-                            style: TextStyle(
-                              color: Color(0xFF8EF2E2),
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.75,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const SizedBox(
-                            width: 220,
-                            child: Text(
-                              'Precision beyond every horizon.',
-                              maxLines: 2,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 21,
-                                height: 1.08,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.45,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 23),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 43,
+                child: OutlinedButton.icon(
+                  onPressed: onEditProfile,
+                  icon: const Icon(Icons.edit_outlined, size: 15),
+                  label: Text(AppLanguage.text('Edit Profile'),
+                      style: const TextStyle(
+                          fontSize: 11.2, fontWeight: FontWeight.w800)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _turquoiseDark,
+                    side: BorderSide(color: _turquoiseDark.withOpacity(.45)),
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13)),
+                  ),
                 ),
-              ),
-            ),
-            Positioned(
-              bottom: -50,
-              child: _PremiumAvatar(
-                name: name,
-                photoUrl: data.profilePhotoUrl,
-                uploading: uploadingPhoto,
-                onEdit: onEditPhoto,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 65),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _textPrimary,
-                  fontSize: 25,
-                  height: 1.05,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.75,
-                ),
-              ),
-            ),
-            if (verified) ...[
-              const SizedBox(width: 7),
-              const Icon(
-                Icons.verified_rounded,
-                size: 20,
-                color: _turquoiseDark,
               ),
             ],
-          ],
-        ),
-        if (username.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            username,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _textLight,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
           ),
-        ],
-        if (hasLocation) ...[
-          const SizedBox(height: 11),
-          _ProfileLocationPill(
-            location: location,
-          ),
-        ],
-        const SizedBox(height: 15),
-        _ProfileEditButton(
-          onTap: onEditProfile,
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 17),
         Container(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
@@ -1272,7 +1307,7 @@ class _PilotCoverLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(50),
         border: Border.all(color: Colors.white.withOpacity(0.17)),
       ),
-      child: const Row(
+      child:  Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -1281,8 +1316,8 @@ class _PilotCoverLabel extends StatelessWidget {
             color: Color(0xFF8EF2E2),
           ),
           SizedBox(width: 6),
-          Text(
-            'TOTOTL PILOT',
+          Text(AppLanguage.text(
+            'TOTOTL PILOT'),
             style: TextStyle(
               color: Colors.white,
               fontSize: 8.7,
@@ -1369,7 +1404,7 @@ class _ProfileEditButton extends StatelessWidget {
               ),
             ],
           ),
-          child: const Row(
+          child:  Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
@@ -1378,8 +1413,8 @@ class _ProfileEditButton extends StatelessWidget {
                 color: _turquoiseDark,
               ),
               SizedBox(width: 6),
-              Text(
-                'Edit Profile',
+              Text(AppLanguage.text(
+                'Edit Profile'),
                 style: TextStyle(
                   color: _textPrimary,
                   fontSize: 10.5,
@@ -1439,7 +1474,7 @@ class _ProfileStatTile extends StatelessWidget {
               maxLines: 1,
               style: const TextStyle(
                 color: _textPrimary,
-                fontSize: 17,
+                fontSize: 16,
                 height: 1,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.35,
@@ -1447,8 +1482,8 @@ class _ProfileStatTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -1524,8 +1559,8 @@ class _PremiumAvatar extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (hasPhoto)
-                  Image.network(
-                    photoUrl,
+                  Image(
+                    image: CachedNetworkImageProvider(photoUrl),
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return _AvatarInitials(
@@ -1618,7 +1653,7 @@ class _AvatarInitials extends StatelessWidget {
         _initials(name),
         style: const TextStyle(
           color: _deepNavy,
-          fontSize: 27,
+          fontSize: 16,
           fontWeight: FontWeight.w900,
           letterSpacing: -0.7,
         ),
@@ -1899,8 +1934,8 @@ class _HeroStatusBadge
             5,
           ),
 
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
 
             style:
             TextStyle(
@@ -1996,8 +2031,8 @@ class _HeroMetric extends StatelessWidget {
             CrossAxisAlignment.end,
 
             children: [
-              Text(
-                value,
+              Text(AppLanguage.text(
+                value),
 
                 style:
                 const TextStyle(
@@ -2005,7 +2040,7 @@ class _HeroMetric extends StatelessWidget {
                   _textPrimary,
 
                   fontSize:
-                  17,
+                  16,
 
                   height:
                   1,
@@ -2058,8 +2093,8 @@ class _HeroMetric extends StatelessWidget {
             4,
           ),
 
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
 
             textAlign:
             TextAlign.center,
@@ -2245,8 +2280,8 @@ class _PremiumSectionCard
                   CrossAxisAlignment.start,
 
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
 
                       style:
                       const TextStyle(
@@ -2269,8 +2304,8 @@ class _PremiumSectionCard
                       2,
                     ),
 
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
 
                       style:
                       const TextStyle(
@@ -2331,8 +2366,8 @@ class _AboutSection extends StatelessWidget {
           -14,
 
           child:
-          Text(
-            '“',
+          Text(AppLanguage.text(
+            '“'),
 
             style:
             TextStyle(
@@ -2343,7 +2378,7 @@ class _AboutSection extends StatelessWidget {
               ),
 
               fontSize:
-              72,
+              16,
 
               fontWeight:
               FontWeight.w900,
@@ -2602,8 +2637,8 @@ class _ProfessionalTile
               CrossAxisAlignment.start,
 
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
 
                   style:
                   const TextStyle(
@@ -2623,8 +2658,8 @@ class _ProfessionalTile
                   3,
                 ),
 
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
 
                   maxLines:
                   2,
@@ -2854,8 +2889,8 @@ class _RegionChip extends StatelessWidget {
 
           Flexible(
             child:
-            Text(
-              label,
+            Text(AppLanguage.text(
+              label),
 
               maxLines:
               1,
@@ -3001,7 +3036,7 @@ class _CompleteProfileCard
             14,
           ),
 
-          const Text(
+          const LocalizedText(
             'Complete your professional profile',
 
             textAlign:
@@ -3025,7 +3060,7 @@ class _CompleteProfileCard
             6,
           ),
 
-          const Text(
+          const LocalizedText(
             'Add a professional summary, background details and work regions to strengthen your pilot profile.',
 
             textAlign:
@@ -3072,7 +3107,7 @@ class _CompleteProfileCard
               ),
 
               child:
-              const Padding(
+               Padding(
                 padding:
                 EdgeInsets.symmetric(
                   horizontal:
@@ -3104,8 +3139,8 @@ class _CompleteProfileCard
                       7,
                     ),
 
-                    Text(
-                      'Complete Profile',
+                    Text(AppLanguage.text(
+                      'Complete Profile'),
 
                       style:
                       TextStyle(
@@ -3179,8 +3214,8 @@ class _PhotoSourceButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: _textPrimary,
                   fontSize: 11,
@@ -3614,9 +3649,11 @@ class _SkeletonLine extends StatelessWidget {
 class _NoProfileData extends StatelessWidget {
   const _NoProfileData({
     required this.onRetry,
+    required this.onSettings,
   });
 
   final Future<void> Function() onRetry;
+  final VoidCallback onSettings;
 
   @override
   Widget build(
@@ -3643,6 +3680,11 @@ class _NoProfileData extends StatelessWidget {
               MainAxisSize.min,
 
               children: [
+                TextButton.icon(
+                  onPressed: onSettings,
+                  icon: const Icon(Icons.settings_outlined, size: 17),
+                  label: Text(AppLanguage.t('settings'), style: const TextStyle(fontSize: 12)),
+                ),
                 Container(
                   width:
                   82,
@@ -3692,7 +3734,7 @@ class _NoProfileData extends StatelessWidget {
                   18,
                 ),
 
-                const Text(
+                const LocalizedText(
                   'Profile unavailable',
 
                   textAlign:
@@ -3704,7 +3746,7 @@ class _NoProfileData extends StatelessWidget {
                     _textPrimary,
 
                     fontSize:
-                    18,
+                    16,
 
                     fontWeight:
                     FontWeight.w800,
@@ -3716,7 +3758,7 @@ class _NoProfileData extends StatelessWidget {
                   7,
                 ),
 
-                const Text(
+                const LocalizedText(
                   'We could not load your pilot profile. Check your connection and try again.',
 
                   textAlign:
@@ -3764,7 +3806,7 @@ class _NoProfileData extends StatelessWidget {
                     ),
 
                     child:
-                    const Padding(
+                     Padding(
                       padding:
                       EdgeInsets.symmetric(
                         horizontal:
@@ -3796,8 +3838,8 @@ class _NoProfileData extends StatelessWidget {
                             7,
                           ),
 
-                          Text(
-                            'Try Again',
+                          Text(AppLanguage.text(
+                            'Try Again'),
 
                             style:
                             TextStyle(
@@ -4038,7 +4080,7 @@ class _PilotReviewsCard extends StatelessWidget {
                           ratingLabel,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 16.5,
+                            fontSize: 16,
                             height: 1,
                             fontWeight: FontWeight.w900,
                           ),
@@ -4051,10 +4093,10 @@ class _PilotReviewsCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                         Row(
                           children: [
-                            Text(
-                              'Rating & Reviews',
+                            Text(AppLanguage.text(
+                              'Rating & Reviews'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13.2,
@@ -4135,6 +4177,62 @@ class _PilotReviewsCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+// Shortcuts to existing functional routes. No new API requests on this card.
+class _PilotQuickLinks extends StatelessWidget {
+  const _PilotQuickLinks({
+    required this.onContracts,
+    required this.onSubscription,
+    required this.onSettings,
+  });
+
+  final VoidCallback onContracts;
+  final VoidCallback onSubscription;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget tile(IconData icon, String title, VoidCallback onTap) {
+      return Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 19, color: _turquoiseDark),
+                const SizedBox(height: 6),
+                Text(
+                  AppLanguage.text(title),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700,
+                    color: _textPrimary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Row(children: [
+        tile(Icons.assignment_turned_in_outlined, 'My Contracts', onContracts),
+        tile(Icons.workspace_premium_outlined, 'Subscription Plans', onSubscription),
+        tile(Icons.settings_outlined, 'Settings', onSettings),
+      ]),
     );
   }
 }

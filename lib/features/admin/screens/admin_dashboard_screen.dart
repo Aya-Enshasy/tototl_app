@@ -1,4 +1,6 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 import '../controllers/admin_controller.dart';
 import '../widgets/admin_design.dart';
@@ -215,15 +217,15 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return  Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              Text(
-                'Admin Overview',
+              Text(AppLanguage.text(
+                'Admin Overview'),
                 style: TextStyle(
                   color: AdminColors.ink,
                   fontSize: 22,
@@ -232,8 +234,8 @@ class _HomeHeader extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 4),
-              Text(
-                'Monitor verification and keep TOTOTL moving.',
+              Text(AppLanguage.text(
+                'Monitor verification and keep TOTOTL moving.'),
                 style: TextStyle(
                   color: AdminColors.muted,
                   fontSize: 10.5,
@@ -262,7 +264,7 @@ class _LiveChip extends StatelessWidget {
         color: AdminColors.successSoft,
         borderRadius: BorderRadius.circular(30),
       ),
-      child: const Row(
+      child:  Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -271,8 +273,8 @@ class _LiveChip extends StatelessWidget {
             size: 7,
           ),
           SizedBox(width: 6),
-          Text(
-            'LIVE',
+          Text(AppLanguage.text(
+            'LIVE'),
             style: TextStyle(
               color: AdminColors.success,
               fontSize: 8.5,
@@ -366,7 +368,7 @@ class _Hero extends StatelessWidget {
                   color: Colors.white.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(30),
                 ),
-                child: const Text(
+                child: const LocalizedText(
                   'TOTOTL  ·  ADMIN CONTROL',
                   style: TextStyle(
                     color: Color(0xFFB8F4F1),
@@ -526,8 +528,8 @@ class _MiniStat extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             style: const TextStyle(
               color: AdminColors.ink,
               fontSize: 20,
@@ -539,8 +541,8 @@ class _MiniStat extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AdminColors.muted,
                 fontSize: 8.7,
@@ -576,8 +578,8 @@ class _SectionHeading extends StatelessWidget {
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AdminColors.ink,
                   fontSize: 15.5,
@@ -585,8 +587,8 @@ class _SectionHeading extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
-                subtitle,
+              Text(AppLanguage.text(
+                subtitle),
                 style: const TextStyle(
                   color: AdminColors.muted,
                   fontSize: 9.5,
@@ -690,8 +692,8 @@ class _QueueCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AdminColors.ink,
                   fontSize: 11,
@@ -699,8 +701,8 @@ class _QueueCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
+              Text(AppLanguage.text(
+                subtitle),
                 style: const TextStyle(
                   color: AdminColors.muted,
                   fontSize: 8.7,
@@ -766,8 +768,8 @@ class _ToolCard extends StatelessWidget {
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AdminColors.ink,
                         fontSize: 12.5,
@@ -775,8 +777,8 @@ class _ToolCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

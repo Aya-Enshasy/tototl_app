@@ -1,3 +1,5 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -454,7 +456,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            const LocalizedText(
                               'APPLICATION',
                               style: TextStyle(
                                 color: Color(0xFF7E8F9B),
@@ -512,11 +514,11 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Row(
+                    child:  Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'View',
+                        Text(AppLanguage.text(
+                          'View'),
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -581,7 +583,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
                 onTap: () => _openApply(job),
-                child: const Row(
+                child:  Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
@@ -590,8 +592,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
                       size: 15.5,
                     ),
                     SizedBox(width: 7),
-                    Text(
-                      'Apply for this mission',
+                    Text(AppLanguage.text(
+                      'Apply for this mission'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 11.5,
@@ -719,7 +721,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -852,7 +854,7 @@ class _TopBar extends StatelessWidget {
                 color: const Color(0xFFEAF8F8),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Row(
+              child:  Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
@@ -864,8 +866,8 @@ class _TopBar extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 6),
-                  Text(
-                    'Updating',
+                  Text(AppLanguage.text(
+                    'Updating'),
                     style: TextStyle(
                       color: Color(0xFF079DAB),
                       fontSize: 8.8,
@@ -1159,8 +1161,8 @@ class _HeroBottomStat extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: Color(0xFF8B9AA5),
                     fontSize: 7.2,
@@ -1169,8 +1171,8 @@ class _HeroBottomStat extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1221,8 +1223,8 @@ class _HeroChip extends StatelessWidget {
           ),
           const SizedBox(width: 5),
           Flexible(
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -1254,7 +1256,7 @@ class _VerifiedHeroChip extends StatelessWidget {
           width: .7,
         ),
       ),
-      child: const Row(
+      child:  Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -1263,8 +1265,8 @@ class _VerifiedHeroChip extends StatelessWidget {
             size: 12.5,
           ),
           SizedBox(width: 4),
-          Text(
-            'Verified',
+          Text(AppLanguage.text(
+            'Verified'),
             style: TextStyle(
               color: Colors.white,
               fontSize: 8.4,
@@ -1407,8 +1409,8 @@ class _SnapshotMetric extends StatelessWidget {
             child: Icon(icon, color: accent, size: 14),
           ),
           const Spacer(),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1418,8 +1420,8 @@ class _SnapshotMetric extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 3),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1619,8 +1621,8 @@ class _LogisticsTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: Color(0xFF8A99A4),
                     fontSize: 8.5,
@@ -1628,8 +1630,8 @@ class _LogisticsTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   style: TextStyle(
                     color: valueColor,
                     fontSize: 10.8,
@@ -1702,7 +1704,7 @@ class _MissionClosedBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Applications closed',
                   style: TextStyle(
                     color: Color(0xFF9B5B24),
@@ -1711,8 +1713,8 @@ class _MissionClosedBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   style: const TextStyle(
                     color: Color(0xFF8B6A4A),
                     fontSize: 9.2,
@@ -1777,8 +1779,8 @@ class _RequirementsCard extends StatelessWidget {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        item,
+                      child: Text(AppLanguage.text(
+                        item),
                         style: const TextStyle(
                           color: Color(0xFF425665),
                           fontSize: 10.7,
@@ -1864,8 +1866,8 @@ class _CapabilityChip extends StatelessWidget {
             size: 11.5,
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: Color(0xFF14795F),
               fontSize: 8.9,
@@ -2057,7 +2059,7 @@ class _CompanyPreviewCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    const LocalizedText(
                       'HIRING COMPANY',
                       style: TextStyle(
                         color: Color(0xFF75DCD6),
@@ -2208,7 +2210,7 @@ class _ApplicationStatusBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Your application',
                   style: TextStyle(
                     color: Color(0xFF536875),
@@ -2305,8 +2307,8 @@ class _SectionHeading extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 3),
-        Text(
-          title,
+        Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: Color(0xFF0A2D46),
             fontSize: 12.7,
@@ -2356,8 +2358,8 @@ class _CardHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: Color(0xFF0A2D46),
                     fontSize: 11.8,
@@ -2366,8 +2368,8 @@ class _CardHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2880,8 +2882,8 @@ class _DetailError extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                message,
+              Text(AppLanguage.text(
+                message),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.grey,

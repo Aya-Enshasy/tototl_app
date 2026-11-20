@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
@@ -265,11 +266,11 @@ class _CompanyHero extends StatelessWidget {
                     size: 72,
                   ),
                 ),
-                const Positioned(
+                 Positioned(
                   left: 15,
                   top: 15,
-                  child: Text(
-                    'COMPANY PROFILE',
+                  child: Text(AppLanguage.text(
+                    'COMPANY PROFILE'),
                     style: TextStyle(
                       color: Color(0xFF77E0D8),
                       fontSize: 7.5,
@@ -451,8 +452,8 @@ class _CompanyQuickStat extends StatelessWidget {
         children: [
           Icon(icon, color: accent, size: 14),
           const Spacer(),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -463,8 +464,8 @@ class _CompanyQuickStat extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -573,8 +574,8 @@ class _HeroPill extends StatelessWidget {
         children: [
           Icon(icon, color: const Color(0xFF0A9AAA), size: 12),
           const SizedBox(width: 4),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: Color(0xFF0A2D46),
               fontSize: 8.7,
@@ -673,7 +674,7 @@ class _CompanyDetailsCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (rows.isEmpty)
-            const Text(
+            const LocalizedText(
               'No additional company information was provided.',
               style: TextStyle(
                 color: Color(0xFF8796A2),
@@ -784,7 +785,7 @@ class _ServiceRegionsCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (regions.isEmpty)
-            const Text(
+            const LocalizedText(
               'No work regions were listed by this company.',
               style: TextStyle(
                 color: Color(0xFF8796A2),
@@ -837,8 +838,8 @@ class _RegionChip extends StatelessWidget {
             size: 11.5,
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: Color(0xFF14795F),
               fontSize: 8.8,
@@ -928,8 +929,8 @@ class _SectionHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: Color(0xFF0A2D46),
                   fontSize: 11.8,

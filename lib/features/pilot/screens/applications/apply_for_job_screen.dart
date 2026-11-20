@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 
 import 'dart:async';
 
@@ -180,16 +181,16 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
         ),
-        title: Text(
-          title,
+        title: Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: AppColors.navy,
             fontSize: 16,
             fontWeight: FontWeight.w900,
           ),
         ),
-        content: Text(
-          message,
+        content: Text(AppLanguage.text(
+          message),
           style: const TextStyle(
             color: AppColors.grey,
             fontSize: 11.5,
@@ -199,7 +200,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Not now'),
+            child: const LocalizedText('Not now'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -210,7 +211,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
               Icons.workspace_premium_rounded,
               size: 17,
             ),
-            label: const Text('View Plans'),
+            label: const LocalizedText('View Plans'),
           ),
         ],
       ),
@@ -239,7 +240,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
         ),
-        title: const Text(
+        title: const LocalizedText(
           'Account verification required',
           style: TextStyle(
             color: AppColors.navy,
@@ -247,7 +248,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
             fontWeight: FontWeight.w900,
           ),
         ),
-        content: const Text(
+        content: const LocalizedText(
           'Your pilot account is still under review. Applying becomes available after verification is completed.',
           style: TextStyle(
             color: AppColors.grey,
@@ -261,7 +262,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.blue,
             ),
-            child: const Text('Got it'),
+            child: const LocalizedText('Got it'),
           ),
         ],
       ),
@@ -494,7 +495,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
 
     if (missingCapabilities.isNotEmpty) {
       final labels = missingCapabilities
-          .map(DroneCapabilities.labelFor)
+          .map(DroneCapabilities.localizedLabelFor)
           .where((item) => item.isNotEmpty)
           .join(', ');
 
@@ -824,7 +825,7 @@ class _ApplyForJobScreenState extends State<ApplyForJobScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -1181,8 +1182,8 @@ class _StepHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    title,
+                  Text(AppLanguage.text(
+                    title),
                     style: const TextStyle(
                       color: AppColors.navy,
                       fontSize: 15,
@@ -1203,8 +1204,8 @@ class _StepHeader extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                subtitle,
+              Text(AppLanguage.text(
+                subtitle),
                 style: const TextStyle(
                   color: AppColors.grey,
                   fontSize: 10.3,
@@ -1255,8 +1256,8 @@ class _DroneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final required = job.requiredCapabilities.map(_normalize).toSet();
-    final available = drone.capabilities.map(_normalize).toSet();
+    final required = DroneCapabilities.canonicalizeAll(job.requiredCapabilities).toSet();
+    final available = DroneCapabilities.canonicalizeAll(drone.capabilities).toSet();
     final matched = required.where(available.contains).length;
     final fullMatch = required.isEmpty || matched == required.length;
 
@@ -1561,14 +1562,14 @@ class _ProposedAmountCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
             decoration: InputDecoration(
-              labelText: 'Your offer (USD)',
-              hintText: 'e.g. 50.00',
+              labelText: AppLanguage.text('Your offer (USD)'),
+              hintText: AppLanguage.text('e.g. 50.00'),
               prefixText: '\$ ',
               prefixStyle: const TextStyle(
                 color: AppColors.logoTurquoiseDark,
                 fontWeight: FontWeight.w800,
               ),
-              helperText: 'Required · Maximum 2 decimal places',
+              helperText: AppLanguage.text('Required · Maximum 2 decimal places'),
               labelStyle: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 12,
@@ -1809,8 +1810,8 @@ class _LoadError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 7),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

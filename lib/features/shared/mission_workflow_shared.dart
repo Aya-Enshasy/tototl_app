@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 // mission_workflow_shared.dart
 //
 // Shared building blocks for the mission workflow screens
@@ -9,6 +10,7 @@
 
 import 'package:flutter/material.dart' hide StepState;
 import '../../core/theme/app_colors.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 
 /// What kind of interaction a step needs from the user.
 /// Driving the visuals (icon / color / body layout) off this
@@ -144,9 +146,9 @@ class WorkflowProgressHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Mission progress',
+               Expanded(
+                child: Text(AppLanguage.text(
+                  'Mission progress'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 14,
@@ -582,7 +584,7 @@ class PaymentMethodPicker extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text(
+      const LocalizedText(
         'Choose payment method',
         style: TextStyle(
           color: AppColors.navy,
@@ -645,8 +647,8 @@ class MissionHeroCard extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                title,
+              child: Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 20,
@@ -697,8 +699,8 @@ class MissionMetricChip extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: AppColors.blue),
         const SizedBox(width: 6),
-        Text(
-          label,
+        Text(AppLanguage.text(
+          label),
           style: const TextStyle(
             color: AppColors.blue,
             fontSize: 12,

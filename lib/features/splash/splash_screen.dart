@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/controllers/auth_controller.dart';
 import '../../core/storage/user_session_storage.dart';
+import '../pilot/services/pilot_profile_sync.dart';
 import '../auth/screens/login/login_screen.dart';
 import '../auth/services/auth_service.dart';
 
@@ -353,6 +355,9 @@ class _SplashScreenState
       },
     );
 
+    // Read saved pilot data and start /me during the splash animation.
+    // Network delays must never hold the splash screen open.
+    unawaited(_prewarmPilotProfile());
     _startSplash();
   }
 
@@ -380,6 +385,17 @@ class _SplashScreenState
   // ============================================================
   // SPLASH TIMER
   // ============================================================
+
+  Future<void> _prewarmPilotProfile() async {
+    try {
+      if (!await TokenStorage.hasToken()) return;
+      if ((await UserSessionStorage.getRole())?.toLowerCase().trim() == 'pilot') {
+        await PilotProfileSync.instance.refreshFromApi();
+      }
+    } catch (_) {
+      // An optional background preload must never disrupt splash navigation.
+    }
+  }
 
   void _startSplash() {
     _splashTimer = Timer(
@@ -787,7 +803,7 @@ class _SplashScreenState
                                 position:
                                 _titleSlide,
                                 child:
-                                const Text(
+                                const LocalizedText(
                                   'TOTOTL',
                                   style:
                                   TextStyle(
@@ -819,7 +835,7 @@ class _SplashScreenState
                                 position:
                                 _subTitleSlide,
                                 child:
-                                const Text(
+                                const LocalizedText(
                                   'I N T G R X',
                                   style:
                                   TextStyle(
@@ -896,7 +912,7 @@ class _SplashScreenState
                                           fit:
                                           BoxFit.scaleDown,
                                           child:
-                                          const Text(
+                                          const LocalizedText(
                                             'DRONE PILOT & COMPANY PLATFORM',
                                             maxLines:
                                             1,
@@ -1029,7 +1045,7 @@ class _SplashScreenState
                             ),
                           );
                         },
-                        child: const Text(
+                        child: const LocalizedText(
                           'READY TO FLY',
                           textAlign:
                           TextAlign.center,

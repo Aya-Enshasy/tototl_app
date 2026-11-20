@@ -1,7 +1,10 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/request_error_message.dart';
 import '../../../core/theme/app_colors.dart';
 import '../controllers/review_controller.dart';
 import '../models/review_model.dart';
@@ -268,8 +271,10 @@ class _ReviewsScreenState
     if (_controller.errorMessage != null &&
         _controller.data == null) {
       return _ErrorState(
-        message:
-        _controller.errorMessage!,
+        message: RequestErrorMessage.from(
+          StateError(_controller.errorMessage!),
+          fallback: 'Could not load reviews. Please retry.',
+        ),
         onRetry: () {
           _load();
         },
@@ -535,7 +540,7 @@ class _ReviewsScreenState
                   CrossAxisAlignment
                       .start,
                   children: [
-                    const Text(
+                    const LocalizedText(
                       'Community Rating',
                       style:
                       TextStyle(
@@ -624,7 +629,7 @@ class _ReviewsScreenState
             CrossAxisAlignment
                 .start,
             children: [
-              const Text(
+              const LocalizedText(
                 'Reviews',
                 style:
                 TextStyle(
@@ -803,7 +808,7 @@ class _ReviewsScreenState
                               FontWeight.w700
                              ),
                           ),
-                          const Padding(
+                           Padding(
                             padding:
                             EdgeInsets
                                 .symmetric(
@@ -811,8 +816,8 @@ class _ReviewsScreenState
                               5,
                             ),
                             child:
-                            Text(
-                              '•',
+                            Text(AppLanguage.text(
+                              '•'),
                               style:
                               TextStyle(
                                 color:
@@ -1271,7 +1276,7 @@ class _ReviewsScreenState
           const SizedBox(
             height: 14,
           ),
-          const Text(
+          const LocalizedText(
             'No reviews yet',
             style:
             TextStyle(
@@ -1333,7 +1338,7 @@ class _ReviewsScreenState
           size: 17,
         ),
         label:
-        const Text(
+        const LocalizedText(
           'Try again',
         ),
       ),
@@ -1538,7 +1543,7 @@ class _ErrorState
               const SizedBox(
                 height: 14,
               ),
-              const Text(
+              const LocalizedText(
                 'Unable to load reviews',
                 textAlign:
                 TextAlign.center,
@@ -1555,8 +1560,8 @@ class _ErrorState
               const SizedBox(
                 height: 7,
               ),
-              Text(
-                message,
+              Text(AppLanguage.text(
+                message),
                 textAlign:
                 TextAlign.center,
                 style:
@@ -1599,7 +1604,7 @@ class _ErrorState
                   size: 18,
                 ),
                 label:
-                const Text(
+                const LocalizedText(
                   'Try Again',
                   style:
                   TextStyle(

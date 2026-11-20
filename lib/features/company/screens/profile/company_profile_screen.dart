@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
@@ -53,6 +54,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
   bool _loading = true;
   bool _refreshing = false;
   bool _uploadingPhoto = false;
+  bool _cacheReadScheduled = false;
   bool _documentsCacheLoading = true;
   bool _uploadingDocument = false;
 
@@ -74,12 +76,31 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
       ReviewService(apiClient),
     );
 
+    UserSessionStorage.revision.addListener(_onLocalSessionChanged);
     unawaited(_loadProfile());
     unawaited(_loadDocumentCache());
   }
 
+  void _onLocalSessionChanged() {
+    if (_cacheReadScheduled) return;
+    _cacheReadScheduled = true;
+    scheduleMicrotask(() async {
+      try {
+        final cached = await _controller.loadLocalProfile();
+        if (!mounted) return;
+        setState(() {
+          _data = cached;
+          _loading = false;
+        });
+      } finally {
+        _cacheReadScheduled = false;
+      }
+    });
+  }
+
   @override
   void dispose() {
+    UserSessionStorage.revision.removeListener(_onLocalSessionChanged);
     _reviewController.dispose();
     super.dispose();
   }
@@ -137,7 +158,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
   }
 
   Future<void> _handleRefresh() async {
-    final fresh = await _controller.refreshSilently();
+    final fresh = await _controller.refreshSilently(force: true);
     if (!mounted) return;
     if (fresh != null) {
       setState(() {
@@ -345,7 +366,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
 
       final oldUrl = _data?.profilePhotoUrl.trim() ?? '';
       if (oldUrl.isNotEmpty) {
-        unawaited(NetworkImage(oldUrl).evict());
+        unawaited(CachedNetworkImage.evictFromCache(oldUrl));
       }
 
       setState(() => _uploadingPhoto = true);
@@ -371,7 +392,7 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
 
       final newUrl = updated.profilePhotoUrl.trim();
       if (newUrl.isNotEmpty) {
-        unawaited(NetworkImage(newUrl).evict());
+        unawaited(CachedNetworkImage.evictFromCache(newUrl));
       }
 
       HapticFeedback.mediumImpact();
@@ -767,8 +788,8 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
             borderRadius: BorderRadius.circular(14),
           ),
           margin: const EdgeInsets.all(16),
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(fontSize: 12.5),
           ),
         ),
@@ -817,10 +838,12 @@ class _CompanyProfileScreenState extends State<CompanyProfileScreen> {
               ),
               const SizedBox(height: 12),
               _CompanyReviewsCard(
-                average: _reviewController.summary.averageValue,
-                count: _reviewController.summary.count,
+                average: _reviewController.data?.summary.averageValue ??
+                    profile.rating?.averageValue,
+                count: _reviewController.data?.summary.count ??
+                    profile.rating?.count ?? 0,
                 loading: _reviewController.isLoading &&
-                    _reviewController.data == null,
+                    _reviewController.data == null && profile.rating == null,
                 onTap: _openReviews,
               ),
               const SizedBox(height: 12),
@@ -1147,10 +1170,10 @@ class _CompanyReviewsCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                         Row(
                           children: [
-                            Text(
-                              'Rating & Reviews',
+                            Text(AppLanguage.text(
+                              'Rating & Reviews'),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12.8,
@@ -1475,8 +1498,8 @@ class _CompanyPhoto extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (cleanUrl.isNotEmpty)
-                    Image.network(
-                      cleanUrl,
+                    Image(
+                      image: CachedNetworkImageProvider(cleanUrl),
                       key: ValueKey(cleanUrl),
                       fit: BoxFit.cover,
                       filterQuality: FilterQuality.medium,
@@ -1597,8 +1620,8 @@ class _StatusChip extends StatelessWidget {
             size: 11.5,
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: TextStyle(
               color: color,
               fontSize: 9.5,
@@ -2184,8 +2207,8 @@ class _DocumentActionButton extends StatelessWidget {
               ),
               const SizedBox(width: 5),
               Flexible(
-                child: Text(
-                  label,
+                child: Text(AppLanguage.text(
+                  label),
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: filled
@@ -2443,8 +2466,8 @@ class _Section extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 12.2,
@@ -2494,8 +2517,8 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 5),
           SizedBox(
             width: 88,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 9.8,
@@ -2577,8 +2600,8 @@ class _PhotoSourceButton extends StatelessWidget {
             children: [
               Icon(icon, color: AppColors.blue, size: 21),
               const SizedBox(height: 6),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 12,
@@ -2759,8 +2782,8 @@ class _ErrorView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 13),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.text,

@@ -15,6 +15,14 @@ class ApiEndpoints {
   static const String logout = '/auth/logout';
   static const String me = '/me';
 
+  // Phase 4+ legal identity (separate from account approval).
+  static const String legalIdentity = '/legal-identity';
+  static const String adminPendingLegalIdentities = '/admin/legal-identities/pending';
+  static String adminLegalIdentity(int id) => '/admin/legal-identities/$id';
+  static String verifyAdminLegalIdentity(int id) => '/admin/legal-identities/$id/verify';
+  static String rejectAdminLegalIdentity(int id) => '/admin/legal-identities/$id/reject';
+
+
   static const String pilotProfile = '/pilot/profile';
   static const String editPilotProfile = '/pilot/profile';
   static const String profileDocuments = '/profile/documents';
@@ -121,6 +129,11 @@ class ApiEndpoints {
   }
 
   /// POST /company/contracts/{contract}/fund
+  // Phase 4+: quote -> fund(method: redirect) -> Stripe -> authoritative status.
+  static String quoteCompanyContract(int id) => '/company/contracts/$id/quote';
+  static String collectCompanyContract(int id) => '/company/contracts/$id/collect';
+  static String collectionStatus(int id, int attempt) => '/company/contracts/$id/collect/$attempt';
+
   static String fundCompanyContract(int contractId) {
     return '/company/contracts/$contractId/fund';
   }

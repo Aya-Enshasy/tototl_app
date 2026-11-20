@@ -1,15 +1,19 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 import '../../../../core/navigation/company_shell_screen.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/request_error_message.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/storage/user_session_storage.dart';
-import '../../../pilot/screens/notification/NotificationsScreen.dart';
+import 'package:tototl_app/core/notifications/notification_inbox_state.dart';
+import '../../../notifications/screens/notifications_screen.dart';
 import '../../../pilot/services/company_dashboard_service.dart';
 import '../../controllers/company_dashboard_controller.dart';
 import '../../models/company_dashboard_model.dart';
@@ -96,7 +100,7 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
   void _startLiveRefresh() {
     _liveRefreshTimer?.cancel();
     _liveRefreshTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(seconds: 45),
       (_) {
         if (!_canAutoRefresh) return;
         unawaited(_refreshLiveData());
@@ -357,7 +361,8 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
         await _controller.refresh();
       }
 
-      final fresh = _controller.dashboard;
+      final updateError = _controller.errorMessage;
+      final fresh = updateError == null ? _controller.dashboard : null;
       if (fresh != null) {
         final snapshot = _CompanyDashboardUiSnapshot.fromDashboard(fresh);
 
@@ -371,14 +376,24 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
         unawaited(_saveDashboardCache(snapshot));
       } else if (mounted && _dashboardSnapshot == null) {
         setState(() {
-          _dashboardError = _controller.errorMessage ??
-              'Unable to load company dashboard.';
+          _dashboardError = RequestErrorMessage.from(
+            StateError(updateError ?? 'The dashboard could not be refreshed.'),
+            fallback: 'The dashboard could not be refreshed.',
+          );
         });
+      } else if (mounted) {
+        // A transient background update is NOT an error in the visible cached
+        // dashboard. Preserve the last good snapshot without an alarm banner.
+        if (kDebugMode) {
+          debugPrint('[TOTOTL][DASHBOARD][STALE] '
+              'last saved data kept; reason=$updateError');
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _dashboardError = _controller.errorMessage ?? e.toString();
+          _dashboardError = RequestErrorMessage.from(e,
+              fallback: 'Unable to refresh company dashboard.');
         });
       }
     } finally {
@@ -407,12 +422,13 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
     HapticFeedback.selectionClick();
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PilotNotificationsScreen(),
+        builder: (_) => const NotificationsScreen(),
       ),
     );
 
     if (mounted) {
       unawaited(_refreshLiveData());
+      unawaited(NotificationInboxState.instance.refresh(force: true));
     }
   }
 
@@ -570,12 +586,16 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
             children: [
               _entry(
                 index: 0,
-                child: _ReferenceCompanyHeader(
-                  companyName: _companyName,
-                  profilePhotoUrl: _profilePhotoUrl,
-                  verified: _verified,
-                  companyMeta: _companyMeta,
-                  onNotificationsTap: _openNotifications,
+                child: ValueListenableBuilder<int?>(
+                  valueListenable: NotificationInboxState.instance.unreadCount,
+                  builder: (context, unread, _) => _ReferenceCompanyHeader(
+                    companyName: _companyName,
+                    profilePhotoUrl: _profilePhotoUrl,
+                    verified: _verified,
+                    companyMeta: _companyMeta,
+                    unreadNotifications: unread ?? 0,
+                    onNotificationsTap: _openNotifications,
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -662,16 +682,9 @@ class _CompanyHomeScreenState extends State<CompanyHomeScreen>
                   onApplicantTap: _openApplicant,
                 ),
               ),
-              if (_dashboardError != null ||
-                  _controller.errorMessage != null) ...[
-                const SizedBox(height: 12),
-                _InlineRefreshWarning(
-                  message: _dashboardError ??
-                      _controller.errorMessage ??
-                      'Could not refresh the latest data.',
-                  onRetry: _refresh,
-                ),
-              ],
+              // Background refresh failure is logged, but do not interrupt
+              // a dashboard with valid cached data using an error banner.
+              // Pull-to-refresh and the header refresh remain available.
             ],
           ),
         ),
@@ -739,12 +752,12 @@ class _CompanyPhase4OperationsCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
-              const Expanded(
+               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Operations overview',
+                    Text(AppLanguage.text(
+                      'Operations overview'),
                       style: TextStyle(
                         color: _HomePalette.navy,
                         fontSize: 11.8,
@@ -752,8 +765,8 @@ class _CompanyPhase4OperationsCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 2),
-                    Text(
-                      'Live workflow, review and subscription status',
+                    Text(AppLanguage.text(
+                      'Live workflow, review and subscription status'),
                       style: TextStyle(
                         color: _HomePalette.muted,
                         fontSize: 8.9,
@@ -881,7 +894,7 @@ class _CompanyPhase4OperationsCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Text(
+                    const LocalizedText(
                       'Manage',
                       style: TextStyle(
                         color: _HomePalette.tealDark,
@@ -927,8 +940,8 @@ class _CompanyPhase4Metric extends StatelessWidget {
         children: [
           Icon(icon, color: _HomePalette.tealDark, size: 14),
           const SizedBox(height: 7),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -938,8 +951,8 @@ class _CompanyPhase4Metric extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1026,12 +1039,12 @@ class _CompanyPaymentsShortcut extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Payments',
+                    Text(AppLanguage.text(
+                      'Payments'),
                       style: TextStyle(
                         color: _HomePalette.navy,
                         fontSize: 11.8,
@@ -1039,8 +1052,8 @@ class _CompanyPaymentsShortcut extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 2),
-                    Text(
-                      'Funding, releases and payment history',
+                    Text(AppLanguage.text(
+                      'Funding, releases and payment history'),
                       style: TextStyle(
                         color: _HomePalette.muted,
                         fontSize: 9.4,
@@ -1096,6 +1109,7 @@ class _ReferenceCompanyHeader extends StatelessWidget {
     required this.profilePhotoUrl,
     required this.verified,
     required this.companyMeta,
+    required this.unreadNotifications,
     required this.onNotificationsTap,
   });
 
@@ -1103,6 +1117,7 @@ class _ReferenceCompanyHeader extends StatelessWidget {
   final String profilePhotoUrl;
   final bool verified;
   final String companyMeta;
+  final int unreadNotifications;
   final VoidCallback onNotificationsTap;
 
   @override
@@ -1233,19 +1248,28 @@ class _ReferenceCompanyHeader extends StatelessWidget {
                     color: _HomePalette.navy,
                     size: 24,
                   ),
-                  Positioned(
-                    right: 11,
-                    top: 10,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: _HomePalette.mint,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.2),
+                  if (unreadNotifications > 0)
+                    Positioned(
+                      right: 7,
+                      top: 6,
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE95656),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white, width: 1.1),
+                        ),
+                        child: Text(
+                          unreadNotifications > 99 ? '99+' : '$unreadNotifications',
+                          style: const TextStyle(
+                            color: Colors.white, fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -1312,7 +1336,7 @@ class _ReferenceGreeting extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 3),
-        const Text(
+        const LocalizedText(
           "Here's what's happening with your jobs today.",
           style: TextStyle(
             color: _HomePalette.muted,
@@ -1353,14 +1377,14 @@ class _PostJobBanner extends StatelessWidget {
             ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: const Row(
+          child:  Row(
             children: [
               Icon(Icons.add_circle_outline_rounded,
                   color: Colors.white, size: 24),
               SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Post a job',
+                child: Text(AppLanguage.text(
+                  'Post a job'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -1477,7 +1501,7 @@ class _AttentionCard extends StatelessWidget {
             ),
           ] else ...[
             const Divider(height: 1, thickness: .7, color: _HomePalette.line),
-            const Padding(
+             Padding(
               padding: EdgeInsets.fromLTRB(15, 11, 15, 13),
               child: Row(
                 children: [
@@ -1485,8 +1509,8 @@ class _AttentionCard extends StatelessWidget {
                       size: 20, color: _HomePalette.mint),
                   SizedBox(width: 9),
                   Expanded(
-                    child: Text(
-                      'No applications need a decision right now.',
+                    child: Text(AppLanguage.text(
+                      'No applications need a decision right now.'),
                       style: TextStyle(
                         color: _HomePalette.muted,
                         fontSize: 11.5,
@@ -1544,8 +1568,8 @@ class _AttentionRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
+                  Text(AppLanguage.text(
+                    title),
                     style: const TextStyle(
                       color: _HomePalette.navy,
                       fontSize: 12.5,
@@ -1553,8 +1577,8 @@ class _AttentionRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle,
+                  Text(AppLanguage.text(
+                    subtitle),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1661,8 +1685,8 @@ class _QuickStatCard extends StatelessWidget {
             child: Icon(icon, color: iconColor, size: 18),
           ),
           const Spacer(),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             style: const TextStyle(
               color: _HomePalette.navy,
               fontSize: 16,
@@ -1670,8 +1694,8 @@ class _QuickStatCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 1),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1702,8 +1726,8 @@ class _CompactSectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(
-            title,
+          child: Text(AppLanguage.text(
+            title),
             style: const TextStyle(
               color: _HomePalette.navy,
               fontSize: 14,
@@ -1797,7 +1821,7 @@ class _ActiveMissionPreview extends StatelessWidget {
                         color: const Color(0xFFEAF9F5),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Text(
+                      child: const LocalizedText(
                         'In progress',
                         style: TextStyle(
                           color: _HomePalette.tealDark,
@@ -1816,8 +1840,8 @@ class _ActiveMissionPreview extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1862,7 +1886,7 @@ class _ActiveMissionPreview extends StatelessWidget {
                           const Icon(Icons.calendar_today_outlined,
                               size: 13, color: _HomePalette.muted),
                           const SizedBox(width: 4),
-                          const Text(
+                          const LocalizedText(
                             '3 days left',
                             style: TextStyle(
                               color: _HomePalette.muted,
@@ -2123,14 +2147,14 @@ class _ReferenceEmptyApplicants extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _HomePalette.line),
       ),
-      child: const Row(
+      child:  Row(
         children: [
           Icon(Icons.people_outline_rounded,
               color: _HomePalette.teal, size: 21),
           SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'New pilot applications will appear here.',
+            child: Text(AppLanguage.text(
+              'New pilot applications will appear here.'),
               style: TextStyle(
                 color: _HomePalette.muted,
                 fontSize: 11.5,
@@ -2166,8 +2190,8 @@ class _InlineRefreshWarning extends StatelessWidget {
               color: _HomePalette.orange, size: 18),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              message,
+            child: Text(AppLanguage.text(
+              message),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -2178,7 +2202,7 @@ class _InlineRefreshWarning extends StatelessWidget {
           ),
           TextButton(
             onPressed: onRetry,
-            child: const Text(
+            child: const LocalizedText(
               'Retry',
               style: TextStyle(
                 color: _HomePalette.tealDark,
@@ -2220,7 +2244,7 @@ class _DashboardErrorState extends StatelessWidget {
               const Icon(Icons.cloud_off_rounded,
                   color: _HomePalette.teal, size: 30),
               const SizedBox(height: 10),
-              const Text(
+              const LocalizedText(
                 'Dashboard unavailable',
                 style: TextStyle(
                   color: _HomePalette.navy,
@@ -2229,8 +2253,8 @@ class _DashboardErrorState extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                message,
+              Text(AppLanguage.text(
+                message),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: _HomePalette.muted,
@@ -2246,7 +2270,7 @@ class _DashboardErrorState extends StatelessWidget {
                   textStyle: const TextStyle(fontSize: 12),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 17),
-                label: const Text('Try Again'),
+                label: const LocalizedText('Try Again'),
               ),
             ],
           ),

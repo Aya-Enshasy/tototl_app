@@ -10,6 +10,13 @@ import 'package:tototl_app/features/auth/screens/login/login_screen.dart';
 import 'package:tototl_app/features/auth/services/auth_service.dart';
 import 'package:tototl_app/features/company/screens/profile/company_edit_profile_screen.dart';
 import 'package:tototl_app/features/pilot/screens/profile/pilot_edit_profile_screen.dart';
+import 'package:tototl_app/features/pilot/screens/drones/my_drones_screen.dart';
+import 'package:tototl_app/features/pilot/screens/licenses/pilot_licenses_screen.dart';
+import 'package:tototl_app/features/pilot/screens/contract/pilot_contracts_screen.dart';
+import 'package:tototl_app/features/payments/screens/payment_history_screen.dart';
+import 'package:tototl_app/features/payments/services/payment_service.dart';
+import 'package:tototl_app/features/subscriptions/screens/subscription_center_screen.dart';
+import 'legal_identity_screen.dart';
 
 import '../../controllers/logout_controller.dart';
 import '../../services/logout_service.dart';
@@ -274,6 +281,60 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         onTap: _openUpdateProfile,
                       ),
                     ),
+                    if (!widget.isCompany) ...[
+                      const SizedBox(height: 12),
+                      _SectionCard(
+                        title: AppLanguage.text('Pilot Tools'),
+                        subtitle: AppLanguage.text('Manage your aircraft, credentials and work'),
+                        child: Column(
+                          children: [
+                            _SettingsRow(
+                              icon: Icons.flight_takeoff_outlined,
+                              title: AppLanguage.text('My Drones'),
+                              subtitle: AppLanguage.text('View, add, edit and delete drones'),
+                              onTap: () => _go(const MyDronesScreen()),
+                            ),
+                            const _SoftDivider(),
+                            _SettingsRow(
+                              icon: Icons.verified_user_outlined,
+                              title: AppLanguage.text('Pilot Licenses'),
+                              subtitle: AppLanguage.text('Manage licenses and certificates'),
+                              onTap: () => _go(const PilotLicensesScreen()),
+                            ),
+                            const _SoftDivider(),
+                            _SettingsRow(
+                              icon: Icons.assignment_turned_in_outlined,
+                              title: AppLanguage.text('My Contracts'),
+                              subtitle: AppLanguage.text('Review active and completed work'),
+                              onTap: () => _go(const PilotContractsScreen()),
+                            ),
+                            const _SoftDivider(),
+                            _SettingsRow(
+                              icon: Icons.workspace_premium_outlined,
+                              title: AppLanguage.text('Subscription Plans'),
+                              subtitle: AppLanguage.text('View plans and limits'),
+                              onTap: () => _go(const SubscriptionCenterScreen()),
+                            ),
+                            const _SoftDivider(),
+                            _SettingsRow(
+                              icon: Icons.receipt_long_outlined,
+                              title: AppLanguage.text('Payment History'),
+                              subtitle: AppLanguage.text('Review payments and transactions'),
+                              onTap: () => _go(const PaymentHistoryScreen(
+                                audience: PaymentAudience.pilot,
+                              )),
+                            ),
+                            const _SoftDivider(),
+                            _SettingsRow(
+                              icon: Icons.notifications_none_rounded,
+                              title: AppLanguage.text('Notification Preferences'),
+                              subtitle: AppLanguage.text('Choose your notification settings'),
+                              onTap: () => _go(const NotificationPreferencesScreen()),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (widget.isCompany) ...[
                       const SizedBox(height: 12),
                       _SectionCard(
@@ -286,7 +347,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                               title: _subscriptionTitle(locale),
                               subtitle: _subscriptionSubtitle(locale),
                               onTap: () => _go(
-                                const CompanySubscriptionScreen(),
+                                const SubscriptionCenterScreen(),
                               ),
                               accentColor: const Color(0xFF8B65D6),
                               accentBackground: const Color(0xFFF3EEFF),
@@ -313,6 +374,15 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       child: Column(
                         children: [
                           _SettingsRow(
+                            icon: Icons.verified_user_rounded,
+                            title: AppLanguage.locale.value.languageCode == 'ar' ? 'الهوية القانونية' : 'Legal Identity',
+                            subtitle: AppLanguage.locale.value.languageCode == 'ar'
+                                ? 'التوثيق المطلوب لتوقيع العقود'
+                                : 'Verification required for contract signing',
+                            onTap: () => _go(const LegalIdentityScreen()),
+                          ),
+                          const _SoftDivider(),
+                          _SettingsRow(
                             icon: Icons.language_rounded,
                             title: AppLanguage.t('language'),
                             subtitle: {
@@ -320,6 +390,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                               'de': 'Deutsch',
                             }[locale.languageCode] ?? 'English',
                             onTap: () => _go(const LanguageScreen()),
+                          ),
+                          const _SoftDivider(),
+                          _SettingsRow(
+                            icon: Icons.lock_outline_rounded,
+                            title: AppLanguage.t('changePassword'),
+                            subtitle: AppLanguage.text('Update your account password'),
+                            onTap: () => _go(const ChangePasswordScreen()),
                           ),
                           const _SoftDivider(),
                           _SettingsRow(
@@ -715,8 +792,8 @@ class _SectionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 13.8,
@@ -724,8 +801,8 @@ class _SectionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style: const TextStyle(
                     color: AppColors.grey,
                     fontSize: 10.5,
@@ -774,12 +851,12 @@ class _SettingsRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: accentBackground,
                   borderRadius: BorderRadius.circular(14),
@@ -787,19 +864,19 @@ class _SettingsRow extends StatelessWidget {
                 child: Icon(
                   icon,
                   color: accentColor,
-                  size: 20,
+                  size: 18,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AppColors.navy,
-                        fontSize: 12.8,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -811,7 +888,7 @@ class _SettingsRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.grey,
-                          fontSize: 10.6,
+                          fontSize: 10,
                           height: 1.3,
                         ),
                       ),
@@ -898,8 +975,8 @@ class _LogoutRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: Color(0xFFD94A4A),
                         fontSize: 12.8,
@@ -907,8 +984,8 @@ class _LogoutRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style: const TextStyle(
                         color: AppColors.grey,
                         fontSize: 10.6,
@@ -986,8 +1063,8 @@ class _LegalTextCard extends StatelessWidget {
               ),
               const SizedBox(width: 11),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 14.2,

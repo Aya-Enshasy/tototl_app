@@ -4,6 +4,7 @@ import '../models/pilot_profile_model.dart';
 import '../models/pilot_profile_update_model.dart';
 import '../models/profile_document_model.dart';
 import '../services/pilot_profile_service.dart';
+import '../services/pilot_profile_sync.dart';
 
 class PilotProfileController {
   final PilotProfileService service;
@@ -15,22 +16,19 @@ class PilotProfileController {
   String? errorMessage;
 
   Future<PilotProfileViewData> _buildViewData(
-      PilotProfileModel profile,
-      ) async {
-    final userJson =
-    await UserSessionStorage.getUser();
-
-    final photoUrl =
-        await UserSessionStorage
-            .getProfilePhotoUrl() ??
-            '';
-
+    PilotProfileModel profile,
+  ) async {
+    final session = await UserSessionStorage.getSession();
+    final rawUser = session?['user'];
+    final userJson = rawUser is Map
+        ? Map<String, dynamic>.from(rawUser)
+        : null;
     final account = userJson == null
         ? const PilotAccountModel()
-        : PilotAccountModel.fromJson(
-      userJson,
-    );
-
+        : PilotAccountModel.fromJson(userJson);
+    final rawProfile = session?['profile'];
+    final photoUrl = session?['profile_photo_url']?.toString() ??
+        (rawProfile is Map ? rawProfile['profile_photo']?.toString() : null) ?? '';
     return PilotProfileViewData(
       account: account,
       profile: profile,
@@ -42,37 +40,27 @@ class PilotProfileController {
   // LOCAL PROFILE
   // ==========================================================================
 
-  Future<PilotProfileViewData?>
-  loadLocalProfile() async {
+  Future<PilotProfileViewData?> loadLocalProfile() async {
     try {
-      final userJson =
-      await UserSessionStorage.getUser();
-
-      final profileJson =
-      await UserSessionStorage.getProfile();
-
-      final photoUrl =
-          await UserSessionStorage
-              .getProfilePhotoUrl() ??
-              '';
-
-      if (userJson == null &&
-          profileJson == null) {
-        return null;
-      }
-
-      final account = userJson == null
-          ? const PilotAccountModel()
-          : PilotAccountModel.fromJson(
-        userJson,
+      // One encrypted session snapshot, not three separate storage reads.
+      final session = await UserSessionStorage.getSession();
+      // Login can return only user + role; /me may be delayed or offline.
+      // Keep the real account header visible immediately rather than showing
+      // a full-screen "Profile unavailable" error for a valid pilot session.
+      final role = session?['role']?.toString().toLowerCase().trim();
+      if (role != 'pilot') return null;
+      final rawUser = session?['user'];
+      if (rawUser is! Map || rawUser.isEmpty) return null;
+      final account = PilotAccountModel.fromJson(
+        Map<String, dynamic>.from(rawUser),
       );
-
-      final profile = profileJson == null
-          ? const PilotProfileModel()
-          : PilotProfileModel.fromJson(
-        profileJson,
-      );
-
+      if (account.id == null || account.id! <= 0) return null;
+      final rawProfile = session?['profile'];
+      final profile = rawProfile is Map && rawProfile.isNotEmpty
+          ? PilotProfileModel.fromJson(Map<String, dynamic>.from(rawProfile))
+          : PilotProfileModel(userId: account.id);
+      final photoUrl = session?['profile_photo_url']?.toString() ??
+          (rawProfile is Map ? rawProfile['profile_photo']?.toString() : null) ?? '';
       return PilotProfileViewData(
         account: account,
         profile: profile,
@@ -88,23 +76,11 @@ class PilotProfileController {
   // ==========================================================================
 
   Future<PilotProfileViewData?>
-  refreshSilently() async {
-    try {
-      final freshProfile =
-      await service.getMyProfile();
-
-      // The service already caches the complete /me response.
-      // Merge again instead of replacing so extra /me keys are preserved.
-      await UserSessionStorage.mergeProfile(
-        freshProfile.toJson(),
-      );
-
-      return _buildViewData(
-        freshProfile,
-      );
-    } catch (_) {
-      return null;
-    }
+  refreshSilently({bool force = false}) async {
+    // Shared request started at splash/login/registration, if any. Always
+    // return the saved account/profile even when the API is unavailable.
+    await PilotProfileSync.instance.refreshFromApi(force: force);
+    return loadLocalProfile();
   }
 
   // ==========================================================================

@@ -1,4 +1,6 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/shared/models/phase3_account_summary.dart';
 
@@ -93,12 +95,12 @@ class Phase3OverviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Contracts & Payments',
+                  Text(AppLanguage.text(
+                    'Contracts & Payments'),
                     style: TextStyle(
                       color: AppColors.navy,
                       fontSize: 16,
@@ -107,8 +109,8 @@ class Phase3OverviewCard extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 2),
-                  Text(
-                    'Live Phase 3 overview',
+                  Text(AppLanguage.text(
+                    'Live Phase 3 overview'),
                     style: TextStyle(
                       color: AppColors.grey,
                       fontSize: 10.5,
@@ -280,7 +282,7 @@ class Phase3OverviewCard extends StatelessWidget {
                         ),
                       ),
                       icon: const Icon(Icons.description_outlined, size: 17),
-                      label: const Text(
+                      label: const LocalizedText(
                         'Contracts',
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
@@ -300,7 +302,7 @@ class Phase3OverviewCard extends StatelessWidget {
                       ),
                       icon: const Icon(Icons.account_balance_wallet_outlined,
                           size: 17),
-                      label: const Text(
+                      label: const LocalizedText(
                         'Payments',
                         style: TextStyle(fontWeight: FontWeight.w800),
                       ),
@@ -417,8 +419,8 @@ class _MiniSummary extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
+              Text(AppLanguage.text(
+                value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -428,8 +430,8 @@ class _MiniSummary extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 1),
-              Text(
-                label,
+              Text(AppLanguage.text(
+                label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -480,8 +482,8 @@ class _OverviewError extends StatelessWidget {
           const Icon(Icons.cloud_off_rounded, color: AppColors.orange),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
+            child: Text(AppLanguage.text(
+              message),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 10.5,
@@ -489,7 +491,7 @@ class _OverviewError extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
         ],
       ),
     );

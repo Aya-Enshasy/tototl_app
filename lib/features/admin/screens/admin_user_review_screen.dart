@@ -1,4 +1,6 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/admin_controller.dart';
@@ -190,7 +192,7 @@ class _AdminUserReviewScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -404,8 +406,8 @@ class _PremiumHero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -416,8 +418,8 @@ class _PremiumHero extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -497,7 +499,7 @@ class _ActionDock extends StatelessWidget {
               Icons.close_rounded,
               size: 17,
             ),
-            label: const Text(
+            label: const LocalizedText(
               'Reject',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
@@ -527,7 +529,7 @@ class _ActionDock extends StatelessWidget {
               Icons.verified_rounded,
               size: 17,
             ),
-            label: const Text(
+            label: const LocalizedText(
               'Approve',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
@@ -555,7 +557,7 @@ class _ActionDock extends StatelessWidget {
               Icons.restart_alt_rounded,
               size: 18,
             ),
-            label: const Text(
+            label: const LocalizedText(
               'Reactivate Account',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
@@ -583,7 +585,7 @@ class _ActionDock extends StatelessWidget {
               Icons.pause_circle_outline_rounded,
               size: 18,
             ),
-            label: const Text(
+            label: const LocalizedText(
               'Suspend Account',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
@@ -644,7 +646,7 @@ class _HistoryShortcut extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(22),
           ),
-          child: const Row(
+          child:  Row(
             children: [
               Icon(
                 Icons.history_rounded,
@@ -657,8 +659,8 @@ class _HistoryShortcut extends StatelessWidget {
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Verification History',
+                    Text(AppLanguage.text(
+                      'Verification History'),
                       style: TextStyle(
                         color: AdminColors.ink,
                         fontSize: 12.5,
@@ -666,8 +668,8 @@ class _HistoryShortcut extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 3),
-                    Text(
-                      'View every admin action on this account',
+                    Text(AppLanguage.text(
+                      'View every admin action on this account'),
                       style: TextStyle(
                         color: AdminColors.muted,
                         fontSize: 9.8,
@@ -705,7 +707,7 @@ class _BusyOverlay extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: const Row(
+          child:  Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
@@ -717,8 +719,8 @@ class _BusyOverlay extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 11),
-              Text(
-                'Updating account...',
+              Text(AppLanguage.text(
+                'Updating account...'),
                 style: TextStyle(
                   color: AdminColors.ink,
                   fontSize: 11.5,

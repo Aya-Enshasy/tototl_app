@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -25,8 +26,8 @@ class SettingsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: Text(
-          title,
+        title: Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: AppColors.navy,
             fontWeight: FontWeight.w800,
@@ -215,8 +216,8 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
         crossAxisAlignment:
         CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: _label,
           ),
 
@@ -299,7 +300,7 @@ class _ChangePasswordScreenState
 
                   const SizedBox(height: 9),
 
-                  const Text(
+                  const LocalizedText(
                     'Use at least 8 characters to keep your account secure.',
                     style: TextStyle(
                       color: AppColors.grey,
@@ -362,8 +363,8 @@ class _ChangePasswordScreenState
         crossAxisAlignment:
         CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: _label,
           ),
 
@@ -651,7 +652,7 @@ class AboutScreen extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                const Text(
+                const LocalizedText(
                   'TOTOTL',
                   style: TextStyle(
                     color: AppColors.navy,
@@ -661,7 +662,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                 ),
 
-                const Text(
+                const LocalizedText(
                   'I N T G R X',
                   style: TextStyle(
                     color:
@@ -706,7 +707,7 @@ class AboutScreen extends StatelessWidget {
                       tr('version'),
                       style: _label,
                     ),
-                    const Text(
+                    const LocalizedText(
                       '1.0.0',
                       style: TextStyle(
                         color:
@@ -778,12 +779,12 @@ class CompanySubscriptionScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Company Subscription',
+                      Text(AppLanguage.text(
+                        'Company Subscription'),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -791,8 +792,8 @@ class CompanySubscriptionScreen extends StatelessWidget {
                         ),
                       ),
                       SizedBox(height: 4),
-                      Text(
-                        'Plan and billing controls will live here.',
+                      Text(AppLanguage.text(
+                        'Plan and billing controls will live here.'),
                         style: TextStyle(
                           color: Color(0xFFD7E8EF),
                           fontSize: 11.3,
@@ -839,7 +840,7 @@ class CompanySubscriptionScreen extends StatelessWidget {
                 color: const Color(0xFF0FA6B4).withOpacity(.15),
               ),
             ),
-            child: const Row(
+            child:  Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
@@ -849,8 +850,8 @@ class CompanySubscriptionScreen extends StatelessWidget {
                 ),
                 SizedBox(width: 9),
                 Expanded(
-                  child: Text(
-                    'The interface is ready, but no subscription endpoint is currently connected. No plan, price, or billing status is being fabricated locally.',
+                  child: Text(AppLanguage.text(
+                    'The interface is ready, but no subscription endpoint is currently connected. No plan, price, or billing status is being fabricated locally.'),
                     style: TextStyle(
                       color: Color(0xFF356475),
                       fontSize: 10.8,
@@ -942,7 +943,7 @@ class _NotificationPreferencesScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Company alerts',
                   style: TextStyle(
                     color: AppColors.navy,
@@ -951,7 +952,7 @@ class _NotificationPreferencesScreenState
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Text(
+                const LocalizedText(
                   'Choose which activity you want highlighted on this device.',
                   style: TextStyle(
                     color: AppColors.grey,
@@ -1017,7 +1018,7 @@ class _NotificationPreferencesScreenState
               color: AppColors.blueBg,
               borderRadius: BorderRadius.circular(17),
             ),
-            child: const Row(
+            child:  Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
@@ -1027,8 +1028,8 @@ class _NotificationPreferencesScreenState
                 ),
                 SizedBox(width: 9),
                 Expanded(
-                  child: Text(
-                    'These choices are saved locally on this device. Server-side notification preference endpoints can be linked later without changing this screen.',
+                  child: Text(AppLanguage.text(
+                    'These choices are saved locally on this device. Server-side notification preference endpoints can be linked later without changing this screen.'),
                     style: TextStyle(
                       color: AppColors.navy,
                       fontSize: 10.8,
@@ -1080,8 +1081,8 @@ class _NotificationToggle extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 12.3,
@@ -1089,8 +1090,8 @@ class _NotificationToggle extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style: const TextStyle(
                     color: AppColors.grey,
                     fontSize: 10.4,
@@ -1134,8 +1135,8 @@ class _SettingsInfoRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 12.2,
@@ -1143,8 +1144,8 @@ class _SettingsInfoRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   style: const TextStyle(
                     color: AppColors.grey,
                     fontSize: 10.7,
@@ -1280,8 +1281,8 @@ class _SaveButton
             ),
           ),
         ),
-        child: Text(
-          label,
+        child: Text(AppLanguage.text(
+          label),
           style: const TextStyle(
             fontWeight:
             FontWeight.w800,

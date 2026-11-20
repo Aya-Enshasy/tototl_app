@@ -426,8 +426,7 @@ class NotificationService {
           .unknown:
         return fallback;
       case DioExceptionType.transformTimeout:
-        // TODO: Handle this case.
-        throw UnimplementedError();
+        return 'The server response took too long. Please try again.';
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -158,14 +159,14 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
         });
 
         unawaited(_saveCache(fresh));
-      } else if (_jobs.isEmpty && !_cachePresent) {
+      } else if (_jobs.isEmpty) {
         setState(() {
           _errorMessage =
               _controller.errorMessage ?? 'Unable to load jobs.';
         });
       }
     } catch (e) {
-      if (mounted && _jobs.isEmpty && !_cachePresent) {
+      if (mounted && _jobs.isEmpty) {
         setState(() {
           _errorMessage = _controller.errorMessage ?? e.toString();
         });
@@ -255,10 +256,10 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
 
   int get _publishedCount => _statusCount('published');
 
+  // An empty disk snapshot is not proof that the remote list is still empty.
+  // Keep the first-load skeleton until the API confirms it (or fails).
   bool get _showInitialShimmer =>
-      !_cachePresent &&
-          !_firstNetworkAttemptFinished &&
-          (_jobs.isEmpty || !_cacheReadFinished);
+      !_firstNetworkAttemptFinished && _jobs.isEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +293,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              const LocalizedText(
                 'My Jobs',
                 style: TextStyle(
                   color: _JobsPalette.navy,
@@ -328,8 +329,8 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
-                        decoration: const InputDecoration(
-                          hintText: 'Search jobs...',
+                        decoration: InputDecoration(
+                          hintText: AppLanguage.text('Search jobs...'),
                           hintStyle: TextStyle(
                             color: _JobsPalette.muted,
                             fontSize: 11.5,
@@ -443,7 +444,7 @@ class _CompanyJobsScreenState extends State<CompanyJobsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Filter jobs',
                   style: TextStyle(
                     color: _JobsPalette.navy,
@@ -505,7 +506,7 @@ class _PostJobFloatingButton extends StatelessWidget {
           Icons.add_rounded,
           size: 22,
         ),
-        label: const Text(
+        label: const LocalizedText(
           'Post Job',
           style: TextStyle(
             fontSize: 13,
@@ -811,8 +812,8 @@ class _PaymentMeta extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         Expanded(
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -866,8 +867,8 @@ class _ReferenceStatusChip extends StatelessWidget {
                 : null,
           ),
           alignment: Alignment.center,
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
             style: TextStyle(
               color: selected ? Colors.white : _JobsPalette.navy,
               fontSize: 10.5,
@@ -910,8 +911,8 @@ class _EmptyJobsView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          message,
+        Text(AppLanguage.text(
+          message),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.navy,
@@ -956,8 +957,8 @@ class _ErrorView extends StatelessWidget {
               color: AppColors.grey,
             ),
             const SizedBox(height: 12),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

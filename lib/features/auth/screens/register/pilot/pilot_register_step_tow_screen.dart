@@ -743,7 +743,7 @@ class _PilotRegisterStepTwoScreenState
 
                                   _buildSelectField(
                                     hintText:
-                                    'Select Experience Level',
+                                    AppLanguage.text('Select Experience Level'),
                                     icon: Icons
                                         .workspace_premium_outlined,
                                     value:
@@ -864,7 +864,7 @@ class _PilotRegisterStepTwoScreenState
                                         controller:
                                         _otherLanguageController,
                                         hintText:
-                                        'Specify Other Language',
+                                        AppLanguage.text('Specify Other Language'),
                                         prefixIcon:
                                         Icons.translate_rounded,
                                         validator:
@@ -929,7 +929,7 @@ class _PilotRegisterStepTwoScreenState
                                     controller:
                                     _countryController,
                                     hintText:
-                                    'Country',
+                                    AppLanguage.text('Country'),
                                     prefixIcon:
                                     Icons.public_rounded,
                                     textInputAction:
@@ -957,7 +957,7 @@ class _PilotRegisterStepTwoScreenState
                                     controller:
                                     _stateController,
                                     hintText:
-                                    'State / Region',
+                                    AppLanguage.text('State / Region'),
                                     prefixIcon:
                                     Icons
                                         .map_outlined,
@@ -986,7 +986,7 @@ class _PilotRegisterStepTwoScreenState
                                     controller:
                                     _cityController,
                                     hintText:
-                                    'City',
+                                    AppLanguage.text('City'),
                                     prefixIcon:
                                     Icons
                                         .location_city_rounded,
@@ -1099,7 +1099,7 @@ class _PilotRegisterStepTwoScreenState
                                     controller:
                                     _previousCompanyController,
                                     hintText:
-                                    'Enter Previous Company Name',
+                                    AppLanguage.text('Enter Previous Company Name'),
                                     prefixIcon:
                                     Icons
                                         .business_rounded,
@@ -1125,7 +1125,7 @@ class _PilotRegisterStepTwoScreenState
                                     _aboutController,
 
                                     hintText:
-                                    'Describe your drone experience, skills, specialties and professional background...',
+                                    AppLanguage.text('Describe your drone experience, skills, specialties and professional background...'),
 
                                     prefixIcon:
                                     Icons
@@ -2648,10 +2648,10 @@ class _PilotRegisterStepTwoScreenState
                           decoration:
                           InputDecoration(
                             labelText:
-                            'Country',
+                            AppLanguage.text('Country'),
 
                             hintText:
-                            'Select Country',
+                            AppLanguage.text('Select Country'),
 
                             prefixIcon:
                             const Icon(
@@ -2820,7 +2820,7 @@ class _PilotRegisterStepTwoScreenState
                                 decoration:
                                 InputDecoration(
                                   hintText:
-                                  'Search city...',
+                                  AppLanguage.text('Search city...'),
 
                                   hintStyle:
                                   const TextStyle(

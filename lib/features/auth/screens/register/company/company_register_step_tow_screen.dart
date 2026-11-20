@@ -751,7 +751,7 @@ class _CompanyRegisterStepTwoScreenState
                                     controller:
                                     _countryController,
                                     hintText:
-                                    'Country',
+                                    AppLanguage.text('Country'),
                                     prefixIcon:
                                     Icons.public_rounded,
                                     textInputAction:
@@ -779,7 +779,7 @@ class _CompanyRegisterStepTwoScreenState
                                     controller:
                                     _stateController,
                                     hintText:
-                                    'State / Province',
+                                    AppLanguage.text('State / Province'),
                                     prefixIcon:
                                     Icons
                                         .map_outlined,
@@ -808,7 +808,7 @@ class _CompanyRegisterStepTwoScreenState
                                     controller:
                                     _cityController,
                                     hintText:
-                                    'City',
+                                    AppLanguage.text('City'),
                                     prefixIcon:
                                     Icons
                                         .location_city_rounded,
@@ -837,7 +837,7 @@ class _CompanyRegisterStepTwoScreenState
                                     controller:
                                     _addressController,
                                     hintText:
-                                    'Company Address',
+                                    AppLanguage.text('Company Address'),
                                     prefixIcon:
                                     Icons
                                         .home_work_outlined,
@@ -872,7 +872,7 @@ class _CompanyRegisterStepTwoScreenState
                                 controller:
                                 _websiteController,
                                 hintText:
-                                'Website (optional)',
+                                AppLanguage.text('Website (optional)'),
                                 prefixIcon:
                                 Icons.language_rounded,
                                 keyboardType:
@@ -966,7 +966,7 @@ class _CompanyRegisterStepTwoScreenState
                                 controller:
                                 _descriptionController,
                                 hintText:
-                                'Company background, services provided, industry experience...',
+                                AppLanguage.text('Company background, services provided, industry experience...'),
                                 prefixIcon:
                                 Icons
                                     .notes_rounded,
@@ -1955,7 +1955,7 @@ class _CompanyRegisterStepTwoScreenState
                           decoration:
                           InputDecoration(
                             hintText:
-                            'Select Country',
+                            AppLanguage.text('Select Country'),
                             prefixIcon:
                             const Icon(
                               Icons.public_rounded,
@@ -2105,7 +2105,7 @@ class _CompanyRegisterStepTwoScreenState
                                 decoration:
                                 InputDecoration(
                                   hintText:
-                                  'Search city...',
+                                  AppLanguage.text('Search city...'),
                                   hintStyle:
                                   const TextStyle(
                                     color:

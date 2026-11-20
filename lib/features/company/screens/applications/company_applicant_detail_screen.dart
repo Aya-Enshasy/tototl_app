@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -342,9 +343,9 @@ class _CompanyApplicantDetailScreenState
     }
 
     const delays = <Duration>[
-      Duration(seconds: 2),
-      Duration(seconds: 5),
       Duration(seconds: 10),
+      Duration(seconds: 25),
+      Duration(seconds: 45),
     ];
 
     final delay = delays[_recoveryAttempt];
@@ -532,13 +533,15 @@ class _CompanyApplicantDetailScreenState
 
       // If nested relations exist but their important display data/photo is
       // missing, enrich them. All needed support requests start together.
+      // Profile photos are optional: do not poll /company/pilots/{id}
+      // indefinitely just because one was not uploaded.
       final pilotNeedsEnrichment = resolvedPilot == null ||
-          resolvedPilot.displayName.trim().isEmpty ||
-          resolvedPilot.profilePhoto.trim().isEmpty;
+          resolvedPilot.displayName.trim().isEmpty;
 
+      // Drone photos are optional; only fetch if the relation is missing
+      // or an accidentally duplicated pilot photo needs to be corrected.
       final droneNeedsEnrichment = resolvedDrone == null ||
           resolvedDrone.displayName.trim().isEmpty ||
-          resolvedDrone.imageUrl.trim().isEmpty ||
           _droneImageIsPilotPhoto(
             drone: resolvedDrone,
             pilot: resolvedPilot,
@@ -682,17 +685,21 @@ class _CompanyApplicantDetailScreenState
 
         if (earlyContractFuture != null &&
             applicationForContractCheck.id == _application.id) {
-          serverContract = await earlyContractFuture;
+          final refreshedContract = await earlyContractFuture;
+          if (refreshedContract != null) serverContract = refreshedContract;
         } else {
-          serverContract = await _contractController.loadExistingContract(
+          final refreshedContract = await _contractController.loadExistingContract(
             applicationId: applicationForContractCheck.id,
             jobId: contractJobId,
           );
+          if (refreshedContract != null) serverContract = refreshedContract;
         }
 
         contractLookupError =
             _contractController.existingContractErrorMessage;
-      } else {
+      } else if (_createdContract == null) {
+        // Only clear when no known contract exists. Stale applicant statuses
+        // must never resurrect Create Contract after successful POST 201.
         serverContract = null;
         _contractController.clearApplicationContract();
       }
@@ -701,11 +708,11 @@ class _CompanyApplicantDetailScreenState
 
       // Prevent pilot/drone/job images from visibly popping in after the
       // screen is already shown.
-      await _precacheCoreImages(
+      unawaited(_precacheCoreImages(
         job: freshJob ?? _job,
         pilot: resolvedPilot,
         drone: resolvedDrone,
-      );
+      ));
       if (!mounted) return;
 
       setState(() {
@@ -721,12 +728,10 @@ class _CompanyApplicantDetailScreenState
         _pilot = resolvedPilot;
         _committedDrone = resolvedDrone;
 
-        debugPrint(
-          'APPLICANT DETAIL DRONE PHOTO -> '
-              'droneId=${resolvedDrone?.id}, '
-              'droneUrl=${_safeDroneImageUrl(resolvedDrone).isEmpty ? 'EMPTY' : _safeDroneImageUrl(resolvedDrone)}, '
-              'pilotUrl=${resolvedPilot?.profilePhoto.trim().isEmpty == false ? resolvedPilot!.profilePhoto.trim() : 'EMPTY'}',
-        );
+        debugPrint('[TOTOTL][APPLICANT][MEDIA] '
+            'droneId=${resolvedDrone?.id} '
+            'hasDronePhoto=${_safeDroneImageUrl(resolvedDrone).isNotEmpty} '
+            'hasPilotPhoto=${resolvedPilot?.profilePhoto.trim().isNotEmpty == true}');
 
         _credentials = resolvedCredentials;
         _createdContract = serverContract;
@@ -901,11 +906,13 @@ class _CompanyApplicantDetailScreenState
   }
 
   Future<void> _openCreateContract() async {
-    if (!_application.isAccepted ||
-        _createdContract != null ||
-        _openingContractScreen) {
+    if (_createdContract != null) {
+      debugPrint('[TOTOTL][CONTRACT][CREATE_GUARD] '
+          'application=${_application.id} alreadyHasContract=${_createdContract!.id}');
+      await _openContractDetails();
       return;
     }
+    if (!_application.isAccepted || _openingContractScreen) return;
 
     HapticFeedback.selectionClick();
     setState(() {
@@ -915,8 +922,8 @@ class _CompanyApplicantDetailScreenState
     });
 
     try {
-      // Strong pre-flight guard: never open the Create Contract form until the
-      // server confirms that this application/job has no existing contract.
+      // Prefer an existing contract if one can be found. A transient lookup
+      // failure must not block the form; the create endpoint enforces uniqueness.
       final contractJobId = _application.jobPostingId > 0
           ? _application.jobPostingId
           : widget.jobId;
@@ -930,15 +937,18 @@ class _CompanyApplicantDetailScreenState
 
       final lookupError = _contractController.existingContractErrorMessage;
       if (lookupError != null && lookupError.trim().isNotEmpty) {
+        // A GET 503 must not block the company from even opening the form.
+        // The create endpoint remains the authoritative duplicate guard.
+        // Keep a diagnostic, do not pretend the lookup succeeded.
         setState(() {
           _contractLookupLoading = false;
           _contractLookupError = lookupError;
         });
-        _showSnack(
-          'Couldn’t verify the current contract status. Please retry before creating a contract.',
-          isError: true,
-        );
-        return;
+        debugPrint('[TOTOTL][CONTRACT][CREATE_PREFLIGHT] '
+            'application=${_application.id} '
+            'lookupUnavailable=true; openingForm=true');
+        _showSnack('Unable to verify an existing contract right now. '
+            'The server will check again before creating one.');
       }
 
       if (existing != null) {
@@ -1077,7 +1087,8 @@ class _CompanyApplicantDetailScreenState
     if (!mounted) return;
 
     setState(() {
-      _createdContract = contract;
+      // A failed or stale GET cannot invalidate a contract already created.
+      if (contract != null) _createdContract = contract;
       _contractLookupError =
           _contractController.existingContractErrorMessage;
       _contractLookupLoading = false;
@@ -1121,8 +1132,8 @@ class _CompanyApplicantDetailScreenState
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -1132,8 +1143,8 @@ class _CompanyApplicantDetailScreenState
               ),
             ],
           ),
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(
               color: AppColors.grey,
               fontSize: 12.2,
@@ -1349,9 +1360,9 @@ class _CompanyApplicantDetailScreenState
               color: Color(0xFF0A2D46),
             ),
           ),
-          const Expanded(
-            child: Text(
-              'Applicant Details',
+           Expanded(
+            child: Text(AppLanguage.text(
+              'Applicant Details'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFF0A2D46),
@@ -1378,18 +1389,18 @@ class _CompanyApplicantDetailScreenState
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+               PopupMenuItem(
                 value: 'refresh',
-                child: Text(
-                  'Refresh',
+                child: Text(AppLanguage.text(
+                  'Refresh'),
                   style: TextStyle(fontSize: 12),
                 ),
               ),
               if (_application.isAccepted)
-                const PopupMenuItem(
+                 PopupMenuItem(
                   value: 'contracts',
-                  child: Text(
-                    'All contracts',
+                  child: Text(AppLanguage.text(
+                    'All contracts'),
                     style: TextStyle(fontSize: 12),
                   ),
                 ),
@@ -1742,8 +1753,8 @@ class _CompanyApplicantDetailScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1882,7 +1893,7 @@ class _CompanyApplicantDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Proposal from',
                   style: TextStyle(
                     color: Color(0xFF81929F),
@@ -1934,11 +1945,11 @@ class _CompanyApplicantDetailScreenState
     final pilot = _pilot;
 
     if (pilot == null) {
-      return const _ReferenceApplicantCard(
+      return  _ReferenceApplicantCard(
         title: 'Pilot Summary',
         icon: Icons.person_outline_rounded,
-        child: Text(
-          'Pilot profile is loading...',
+        child: Text(AppLanguage.text(
+          'Pilot profile is loading...'),
           style: TextStyle(
             color: Color(0xFF708596),
             fontSize: 11,
@@ -2025,7 +2036,7 @@ class _CompanyApplicantDetailScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      const LocalizedText(
                         'Location',
                         style: TextStyle(
                           color: Color(0xFF8A9AA6),
@@ -2051,7 +2062,7 @@ class _CompanyApplicantDetailScreenState
           ),
           if (pilot.languages.isNotEmpty) ...[
             const SizedBox(height: 10),
-            const Text(
+            const LocalizedText(
               'Languages',
               style: TextStyle(
                 color: Color(0xFF0A2D46),
@@ -2153,11 +2164,11 @@ class _CompanyApplicantDetailScreenState
     final pilot = _pilot;
 
     if (pilot == null) {
-      return const _ReferenceApplicantCard(
+      return  _ReferenceApplicantCard(
         title: 'Pilot',
         icon: Icons.person_outline_rounded,
-        child: Text(
-          'Pilot profile is loading...',
+        child: Text(AppLanguage.text(
+          'Pilot profile is loading...'),
           style: TextStyle(
             color: Color(0xFF708596),
             fontSize: 11,
@@ -2195,7 +2206,7 @@ class _CompanyApplicantDetailScreenState
                 ),
               if (pilot.bio.isNotEmpty) ...[
                 const SizedBox(height: 7),
-                const Text(
+                const LocalizedText(
                   'About',
                   style: TextStyle(
                     color: Color(0xFF0A2D46),
@@ -2423,7 +2434,7 @@ class _CompanyApplicantDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            const LocalizedText(
               'This pilot has been accepted. Create the contract to continue.',
               style: TextStyle(
                 color: Color(0xFF526A7B),
@@ -2433,7 +2444,7 @@ class _CompanyApplicantDetailScreenState
             ),
             if (_contractLookupLoading) ...[
               const SizedBox(height: 8),
-              const Row(
+               Row(
                 children: [
                   SizedBox(
                     width: 12,
@@ -2445,8 +2456,8 @@ class _CompanyApplicantDetailScreenState
                   ),
                   SizedBox(width: 7),
                   Expanded(
-                    child: Text(
-                      'Checking existing contracts in the background…',
+                    child: Text(AppLanguage.text(
+                      'Checking existing contracts in the background…'),
                       style: TextStyle(
                         color: Color(0xFF6C8191),
                         fontSize: 9.5,
@@ -2459,8 +2470,8 @@ class _CompanyApplicantDetailScreenState
             if (_contractLookupError != null &&
                 _contractLookupError!.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(
-                'Contract status could not be refreshed yet. You can still continue; Create Contract verifies again before opening.',
+              Text(AppLanguage.text(
+                'Contract status could not be refreshed yet. You can still continue; Create Contract verifies again before opening.'),
                 style: TextStyle(
                   color: Color(0xFFC97818),
                   fontSize: 9.5,
@@ -2485,7 +2496,7 @@ class _CompanyApplicantDetailScreenState
                   Icons.description_outlined,
                   size: 16,
                 ),
-                label: const Text(
+                label: const LocalizedText(
                   'Create Contract',
                   style: TextStyle(
                     fontSize: 11.1,
@@ -2539,7 +2550,7 @@ class _CompanyApplicantDetailScreenState
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
+            child: const LocalizedText(
               'Open',
               style: TextStyle(
                 fontSize: 10.5,
@@ -2560,8 +2571,8 @@ class _CompanyApplicantDetailScreenState
         children: [
           SizedBox(
             width: 92,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: Color(0xFF81929E),
                 fontSize: 10.2,
@@ -2570,8 +2581,8 @@ class _CompanyApplicantDetailScreenState
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: Color(0xFF0A2D46),
@@ -2708,7 +2719,7 @@ class _CompanyApplicantDetailScreenState
                     Icons.cancel_rounded,
                     size: 16,
                   ),
-                  label: const Text(
+                  label: const LocalizedText(
                     'Reject',
                     style: TextStyle(
                       fontSize: 11.2,
@@ -2754,7 +2765,7 @@ class _CompanyApplicantDetailScreenState
                       Icons.check_rounded,
                       size: 17,
                     ),
-                    label: const Text(
+                    label: const LocalizedText(
                       'Accept pilot',
                       style: TextStyle(
                         fontSize: 11.2,
@@ -3478,7 +3489,7 @@ class _CompanyApplicantDetailScreenState
             color: AppColors.blueBg.withOpacity(0.58),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Row(
+          child:  Row(
             children: [
               SizedBox(
                 width: 18,
@@ -3490,8 +3501,8 @@ class _CompanyApplicantDetailScreenState
               ),
               SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  'Checking the latest contract status from the server...',
+                child: Text(AppLanguage.text(
+                  'Checking the latest contract status from the server...'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 11.2,
@@ -3527,7 +3538,7 @@ class _CompanyApplicantDetailScreenState
             OutlinedButton.icon(
               onPressed: _retryContractLookup,
               icon: const Icon(Icons.refresh_rounded, size: 17),
-              label: const Text('Retry Contract Check'),
+              label: const LocalizedText('Retry Contract Check'),
             ),
           ],
         ),
@@ -3558,7 +3569,7 @@ class _CompanyApplicantDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
@@ -3568,8 +3579,8 @@ class _CompanyApplicantDetailScreenState
                 ),
                 SizedBox(width: 9),
                 Expanded(
-                  child: Text(
-                    'This pilot has been selected. Create the contract to continue Phase 3.',
+                  child: Text(AppLanguage.text(
+                    'This pilot has been selected. Create the contract to continue Phase 3.'),
                     style: TextStyle(
                       color: AppColors.navy,
                       fontSize: 11.2,
@@ -3760,7 +3771,7 @@ class _CompanyApplicantDetailScreenState
                 ),
               ),
               icon: const Icon(Icons.list_alt_rounded, size: 17),
-              label: const Text(
+              label: const LocalizedText(
                 'All Contracts',
                 style: TextStyle(
                   fontSize: 11.4,
@@ -3820,8 +3831,8 @@ class _CompanyApplicantDetailScreenState
               ),
               const SizedBox(width: 9),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 15,
@@ -3856,8 +3867,8 @@ class _CompanyApplicantDetailScreenState
           const SizedBox(width: 7),
           SizedBox(
             width: 78,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 11,
@@ -3865,8 +3876,8 @@ class _CompanyApplicantDetailScreenState
             ),
           ),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: AppColors.navy,
@@ -3889,8 +3900,8 @@ class _CompanyApplicantDetailScreenState
         children: [
           SizedBox(
             width: 92,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 10.5,
@@ -3899,8 +3910,8 @@ class _CompanyApplicantDetailScreenState
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: AppColors.navy,
@@ -3924,8 +3935,8 @@ class _CompanyApplicantDetailScreenState
         color: AppColors.blueBg,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        value,
+      child: Text(AppLanguage.text(
+        value),
         style: const TextStyle(
           color: AppColors.blue,
           fontSize: 10.6,
@@ -4085,8 +4096,8 @@ class _CompanyApplicantDetailScreenState
             borderRadius: BorderRadius.circular(14),
           ),
           margin: const EdgeInsets.all(16),
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(fontSize: 11.5),
           ),
         ),
@@ -4179,7 +4190,7 @@ class _ReferenceEquipmentUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return  Row(
       children: [
         _ReferenceDronePhoto(
           imageUrl: '',
@@ -4188,8 +4199,8 @@ class _ReferenceEquipmentUnavailable extends StatelessWidget {
         ),
         SizedBox(width: 10),
         Expanded(
-          child: Text(
-            'Equipment details are unavailable.',
+          child: Text(AppLanguage.text(
+            'Equipment details are unavailable.'),
             style: TextStyle(
               color: Color(0xFF687E8E),
               fontSize: 10.5,
@@ -4287,8 +4298,8 @@ class _ReferenceApplicantCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: Color(0xFF0A2D46),
                     fontSize: 13,
@@ -4328,8 +4339,8 @@ class _ReferenceApplicantStatusPill extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 9.7,
@@ -4385,16 +4396,16 @@ class _ReferenceProposalStat extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: Color(0xFF81919C),
                     fontSize: 9.2,
                   ),
                 ),
                 const SizedBox(height: 1),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -4481,16 +4492,16 @@ class _MiniStat extends StatelessWidget {
             size: 15,
           ),
           const SizedBox(height: 7),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: AppColors.grey,
               fontSize: 10.4,
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -4528,8 +4539,8 @@ class _StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 10.5,
@@ -4648,8 +4659,8 @@ class _OfflineNotice extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              message,
+            child: Text(AppLanguage.text(
+              message),
               style: const TextStyle(
                 color: AppColors.navy,
                 fontSize: 10.7,

@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
@@ -120,7 +121,7 @@ class _CreateCompanyContractScreenState
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child:  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
@@ -132,8 +133,8 @@ class _CreateCompanyContractScreenState
                         ),
                       ),
                       SizedBox(width: 12),
-                      Text(
-                        'Creating contract...',
+                      Text(AppLanguage.text(
+                        'Creating contract...'),
                         style: TextStyle(
                           color: AppColors.navy,
                           fontSize: 12.5,
@@ -225,7 +226,7 @@ class _CreateCompanyContractScreenState
               color: Colors.white.withOpacity(0.10),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
+            child: const LocalizedText(
               'PHASE 3 · CONTRACT',
               style: TextStyle(
                 color: Color(0xFF83E2C4),
@@ -236,7 +237,7 @@ class _CreateCompanyContractScreenState
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
+          const LocalizedText(
             'Set the final mission agreement',
             style: TextStyle(
               color: Colors.white,
@@ -246,8 +247,8 @@ class _CreateCompanyContractScreenState
             ),
           ),
           const SizedBox(height: 7),
-          Text(
-            'The contract will be sent to the selected pilot and starts in Pending status.',
+          Text(AppLanguage.text(
+            'The contract will be sent to the selected pilot and starts in Pending status.'),
             style: TextStyle(
               color: Colors.white.withOpacity(0.70),
               fontSize: 11.5,
@@ -421,18 +422,18 @@ class _CreateCompanyContractScreenState
               label: 'Payment Type',
               icon: Icons.account_balance_wallet_outlined,
             ),
-            items: const [
+            items:  [
               DropdownMenuItem(
                 value: 'fixed',
-                child: Text('Fixed'),
+                child: Text(AppLanguage.text('Fixed')),
               ),
               DropdownMenuItem(
                 value: 'hourly',
-                child: Text('Hourly'),
+                child: Text(AppLanguage.text('Hourly')),
               ),
               DropdownMenuItem(
                 value: 'daily',
-                child: Text('Daily'),
+                child: Text(AppLanguage.text('Daily')),
               ),
             ],
             onChanged: _submitting
@@ -511,7 +512,7 @@ class _CreateCompanyContractScreenState
           color: AppColors.orange.withOpacity(0.12),
         ),
       ),
-      child: const Row(
+      child:  Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
@@ -521,8 +522,8 @@ class _CreateCompanyContractScreenState
           ),
           SizedBox(width: 9),
           Expanded(
-            child: Text(
-              'After creation, the contract is Pending and waits for the pilot to Accept or Reject it. The company can edit contract terms only while it is still Pending.',
+            child: Text(AppLanguage.text(
+              'After creation, the contract is Pending and waits for the pilot to Accept or Reject it. The company can edit contract terms only while it is still Pending.'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 10.9,
@@ -576,8 +577,8 @@ class _CreateCompanyContractScreenState
               ),
               const SizedBox(width: 9),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 15,
@@ -818,7 +819,7 @@ class _CreateCompanyContractScreenState
           titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
           contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
           actionsPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          title: const Row(
+          title:  Row(
             children: [
               Icon(
                 Icons.handshake_outlined,
@@ -826,8 +827,8 @@ class _CreateCompanyContractScreenState
               ),
               SizedBox(width: 9),
               Expanded(
-                child: Text(
-                  'Create this contract?',
+                child: Text(AppLanguage.text(
+                  'Create this contract?'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16,
@@ -877,8 +878,8 @@ class _CreateCompanyContractScreenState
             borderRadius: BorderRadius.circular(14),
           ),
           margin: const EdgeInsets.all(16),
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(fontSize: 11.5),
           ),
         ),
@@ -953,7 +954,7 @@ class _DateField extends StatelessWidget {
               if (onClear != null)
                 IconButton(
                   onPressed: onClear,
-                  tooltip: 'Clear date',
+                  tooltip: AppLanguage.text('Clear date'),
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(
                     Icons.close_rounded,

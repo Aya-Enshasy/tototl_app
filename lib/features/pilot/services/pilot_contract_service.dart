@@ -292,11 +292,12 @@ class PilotContractService {
         'Unable to load work submissions.',
       );
 
-      final raw = body['data'];
-
-      if (raw is! List) {
-        return const [];
-      }
+      final payload = body['data'];
+      // Accept both plain Laravel lists and nested paginated data.
+      final raw = payload is Map && payload['data'] is List
+          ? payload['data']
+          : payload;
+      if (raw is! List) return const [];
 
       return raw
           .whereType<Map>()
@@ -524,46 +525,42 @@ class PilotContractService {
         ),
       );
 
-      PilotContractModel contract;
-
-      try {
-        final fresh =
-        await getContract(
-          contractId,
-        );
-
-        contract =
-        fresh.isSubmitted
-            ? fresh
-            : fresh.copyWith(
-          status:
-          'submitted',
-          submittedAt:
-          fresh.submittedAt ??
-              DateTime.now()
-                  .toUtc(),
-          updatedAt:
-          DateTime.now()
-              .toUtc(),
-        );
-      } catch (_) {
-        throw const PilotContractException(
-          'Work was submitted, but the contract could not be refreshed. Pull to refresh.',
-        );
-      }
-
-      return PilotSubmitWorkResult(
-        submission: submission,
-        contract: contract,
-      );
+      // The POST 201 is authoritative proof that the work was accepted.
+      // Do NOT wait for GET /contract here: it may be slow, unavailable or
+      // eventually consistent. The detail screen updates immediately and
+      // refreshes in the background without asking the user to POST again.
+      return PilotSubmitWorkResult(submission: submission, contract: null);
     } on DioException catch (e) {
+      // 409/422 (or a lost response) can occur when the upload was actually
+      // accepted but the app did not receive the original response. Confirm
+      // with GET before presenting the action as failed. Never POST twice.
+      if (e.response?.statusCode == 409 || e.response?.statusCode == 422 ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        final restored = await _recoverSubmittedWork(contractId);
+        if (restored != null) return restored;
+      }
       throw PilotContractException(
-        _dioErrorMessage(
-          e,
-          fallback:
-          'Unable to submit completed work.',
-        ),
+        _dioErrorMessage(e, fallback: 'Unable to submit completed work.'),
       );
+    }
+  }
+
+  Future<PilotSubmitWorkResult?> _recoverSubmittedWork(int contractId) async {
+    try {
+      final rounds = await getSubmissions(contractId);
+      if (rounds.isEmpty) return null;
+      final last = rounds.last;
+      if (!last.isSubmitted || last.contractId != contractId) return null;
+      PilotContractModel? contract;
+      try {
+        contract = await getContract(contractId);
+      } catch (_) {
+        // A verified submitted round is enough to stop repeat uploads.
+      }
+      return PilotSubmitWorkResult(submission: last, contract: contract);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -601,6 +598,10 @@ class PilotContractService {
         'Accepted contract data is missing.',
       );
     } on DioException catch (e) {
+      if (e.response?.statusCode == 422 &&
+          ApiClient.errorCodeFromDio(e) == 'LEGAL_IDENTITY_NOT_VERIFIED') {
+        throw const PilotContractException('LEGAL_IDENTITY_NOT_VERIFIED');
+      }
       throw PilotContractException(
         _dioErrorMessage(
           e,
@@ -985,6 +986,13 @@ class PilotContractService {
       DioException error, {
         required String fallback,
       }) {
+    final status = error.response?.statusCode;
+    if (status == 503 || status == 502 || status == 504 || status == 500) {
+      return 'The server is temporarily unavailable. Please try again.';
+    }
+    if (status == 429) {
+      return 'Too many requests. Please try again shortly.';
+    }
     final raw =
         error.response?.data;
 
@@ -1064,7 +1072,8 @@ class PilotContractException
 
 class PilotSubmitWorkResult {
   final ContractSubmissionModel submission;
-  final PilotContractModel contract;
+  // Optional: upload success must not depend on a second network request.
+  final PilotContractModel? contract;
 
   const PilotSubmitWorkResult({
     required this.submission,

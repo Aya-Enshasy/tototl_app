@@ -34,26 +34,43 @@ class PilotJobController extends ChangeNotifier {
 
   bool get isRateLimited => errorStatusCode == 429;
 
+  // Last-write-wins for fast search/filter edits. While one request is in
+  // flight, keep only the newest query rather than showing stale results.
+  int _queryRevision = 0;
+  bool _disposed = false;
+
   Future<void> loadInitial() async {
-    if (isInitialLoading) return;
+    _queryRevision++;
+    if (isInitialLoading || _disposed) return;
 
     isInitialLoading = true;
     _clearError();
-    notifyListeners();
+    _safeNotify();
 
     try {
-      final result = await service.browseJobs(
-        filters: filters,
-        page: 1,
-      );
-
-      _replaceWith(result);
-      _clearError();
-    } catch (e) {
-      _captureError(e);
+      while (!_disposed) {
+        final revision = _queryRevision;
+        final requestedFilters = filters;
+        try {
+          final result = await service.browseJobs(
+            filters: requestedFilters,
+            page: 1,
+          );
+          if (revision == _queryRevision && !_disposed) {
+            _replaceWith(result);
+            _clearError();
+          }
+        } catch (e) {
+          if (revision == _queryRevision && !_disposed) {
+            _captureError(e);
+          }
+        }
+        // A newer query arrived: fetch it now and don't publish stale data.
+        if (revision == _queryRevision) break;
+      }
     } finally {
       isInitialLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -62,7 +79,7 @@ class PilotJobController extends ChangeNotifier {
 
     isRefreshing = true;
     _clearError();
-    notifyListeners();
+    _safeNotify();
 
     try {
       final result = await service.browseJobs(
@@ -76,7 +93,7 @@ class PilotJobController extends ChangeNotifier {
       _captureError(e);
     } finally {
       isRefreshing = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -84,7 +101,7 @@ class PilotJobController extends ChangeNotifier {
     if (!canLoadMore) return;
 
     isLoadingMore = true;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final result = await service.browseJobs(
@@ -109,7 +126,7 @@ class PilotJobController extends ChangeNotifier {
       _captureError(e);
     } finally {
       isLoadingMore = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -155,5 +172,16 @@ class PilotJobController extends ChangeNotifier {
     errorMessage = error.toString();
     errorCode = null;
     errorStatusCode = null;
+  }
+
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

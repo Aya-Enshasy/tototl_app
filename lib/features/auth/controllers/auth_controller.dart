@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
+import '../../pilot/services/pilot_profile_sync.dart';
+import 'package:flutter/foundation.dart';
+import 'package:tototl_app/core/notifications/notification_inbox_state.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
 
 import '../models/LoginResponseModel.dart';
@@ -53,6 +57,11 @@ class AuthController {
           'role': response.data!.role,
         },
       );
+      NotificationInboxState.instance.clear();
+      if (response.data!.role.trim().toLowerCase() == 'pilot') {
+        // Keep the UI responsive while /me populates the encrypted snapshot.
+        unawaited(PilotProfileSync.instance.refreshFromApi(force: true));
+      }
       return response;
     } on DioException catch (e) {
       errorMessage = _extractErrorMessage(
@@ -61,11 +70,11 @@ class AuthController {
       );
 
       print('LOGIN ERROR STATUS: ${e.response?.statusCode}');
-      print('LOGIN ERROR DATA: ${e.response?.data}');
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][LOGIN] failed http=${e.response?.statusCode} type=${e.type.name}');
       return null;
     } catch (e) {
       errorMessage = 'Something went wrong. Please try again.';
-      print('LOGIN ERROR: $e');
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][LOGIN] errorType=${e.runtimeType}');
       return null;
     } finally {
       isLoading = false;
@@ -83,23 +92,7 @@ class AuthController {
       isLoading = true;
       errorMessage = null;
 
-      print('================================================');
-      print('PILOT REGISTRATION STARTED');
-      print('Name: ${request.name}');
-      print('Email: ${request.email}');
-      print('Username: ${request.username}');
-      print('Phone: ${request.phone}');
-      print('Nationality: ${request.nationality}');
-      print('Date of Birth: ${request.dateOfBirth}');
-      print('Experience Years: ${request.experienceYears}');
-      print('Languages: ${request.languages}');
-      print('Current Country: ${request.currentCountry}');
-      print('Current State: ${request.currentState}');
-      print('Current City: ${request.currentCity}');
-      print('Work Regions Count: ${request.workRegions.length}');
-      print('Has Drone: ${request.drone != null}');
-      print('Has Pilot License: ${request.pilotLicense != null}');
-      print('================================================');
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER_PILOT] start');
 
       final response = await authService.registerPilot(request);
       return await _handleRegisterResponse(
@@ -115,8 +108,7 @@ class AuthController {
       errorMessage = 'Something went wrong. Please try again.';
       print('================================================');
       print('PILOT REGISTER ERROR');
-      print(e);
-      print(stackTrace);
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER] errorType=${e.runtimeType}');
       print('================================================');
       return null;
     } finally {
@@ -135,20 +127,7 @@ class AuthController {
       isLoading = true;
       errorMessage = null;
 
-      print('================================================');
-      print('COMPANY REGISTRATION STARTED');
-      print('Representative Name: ${request.name}');
-      print('Company Name: ${request.companyName}');
-      print('Email: ${request.email}');
-      print('Username: ${request.username}');
-      print('Phone: ${request.phone}');
-      print('Industry Type: ${request.industryType}');
-      print('Country: ${request.country}');
-      print('State: ${request.state}');
-      print('City: ${request.city}');
-      print('Work Regions Count: ${request.workRegions.length}');
-      print('Has Logo: ${request.logoPath != null}');
-      print('================================================');
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER_COMPANY] start');
 
       final response = await authService.registerCompany(request);
       return await _handleRegisterResponse(
@@ -164,8 +143,7 @@ class AuthController {
       errorMessage = 'Something went wrong. Please try again.';
       print('================================================');
       print('COMPANY REGISTER ERROR');
-      print(e);
-      print(stackTrace);
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER] errorType=${e.runtimeType}');
       print('================================================');
       return null;
     } finally {
@@ -226,6 +204,9 @@ class AuthController {
         await UserSessionStorage.saveSession(
           sessionData,
         );
+        if (sessionData['role']?.toString().toLowerCase().trim() == 'pilot') {
+          unawaited(PilotProfileSync.instance.refreshFromApi(force: true));
+        }
 
         print(
           '$label REGISTER USER SESSION SAVED SUCCESSFULLY',
@@ -246,9 +227,7 @@ class AuthController {
             '$label REGISTER USER STATUS: ${user['status']}',
           );
 
-          print(
-            '$label REGISTER USER NAME: ${user['name']}',
-          );
+          if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER] user session stored');
         }
       }
     }
@@ -278,9 +257,9 @@ class AuthController {
     print('================================================');
     print('$label REGISTER DIO ERROR');
     print('STATUS CODE: $statusCode');
-    print('ERROR DATA: $data');
+    if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER] responseType=${data.runtimeType}');
     print('ERROR MESSAGE: $errorMessage');
-    print('DIO MESSAGE: ${e.message}');
+    if (kDebugMode) debugPrint('[TOTOTL][AUTH][REGISTER] dioType=${e.type.name}');
     print('================================================');
 
     return null;
@@ -359,8 +338,8 @@ class AuthController {
       print('======================================');
       print('FORGOT PASSWORD ERROR');
       print('STATUS CODE: ${e.response?.statusCode}');
-      print('REQUEST URL: ${e.requestOptions.uri}');
-      print('RESPONSE DATA: ${e.response?.data}');
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][RESET] path=${e.requestOptions.path}');
+      if (kDebugMode) debugPrint('[TOTOTL][AUTH][RESET] http=${e.response?.statusCode}');
       print('======================================');
 
       errorMessage = _extractErrorMessage(

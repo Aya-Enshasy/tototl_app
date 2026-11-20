@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/material.dart';
 
 class AdminColors {
@@ -222,8 +223,8 @@ class AdminPageTitle extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -234,8 +235,8 @@ class AdminPageTitle extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -344,8 +345,8 @@ class AdminSectionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AdminColors.ink,
                         fontSize: 14.5,
@@ -413,8 +414,8 @@ class AdminInfoRow extends StatelessWidget {
                 const SizedBox(width: 8),
               ],
               Expanded(
-                child: Text(
-                  label,
+                child: Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: AdminColors.muted,
                     fontSize: 11,
@@ -568,8 +569,8 @@ class AdminEmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            title,
+          Text(AppLanguage.text(
+            title),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AdminColors.ink,
@@ -578,8 +579,8 @@ class AdminEmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 7),
-          Text(
-            message,
+          Text(AppLanguage.text(
+            message),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AdminColors.muted,

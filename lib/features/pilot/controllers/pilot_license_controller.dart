@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../../../core/storage/user_session_storage.dart';
 
 import '../models/pilot_license_form_request.dart';
 import '../models/pilot_license_model.dart';
@@ -8,6 +13,52 @@ class PilotLicenseController extends ChangeNotifier {
   PilotLicenseController(this.service);
 
   final PilotLicenseService service;
+  static const FlutterSecureStorage _cache = FlutterSecureStorage();
+  static const String _cachePrefix = 'tototl_pilot_licenses_v1_';
+  static final Map<int, List<PilotLicenseModel>> _memoryByUser = {};
+  static final Map<int, DateTime> _refreshedAtByUser = {};
+  bool _disposed = false;
+  int? _loadedForUserId;
+
+  void _notifyIfActive() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  Future<void> _restoreFromCache(int userId) async {
+    final inMemory = _memoryByUser[userId];
+    if (inMemory != null) {
+      licenses = List<PilotLicenseModel>.of(inMemory);
+      _notifyIfActive();
+      return;
+    }
+    try {
+      final raw = await _cache.read(key: '$_cachePrefix$userId');
+      if (raw == null) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      final loaded = decoded.whereType<Map>().map((item) =>
+          PilotLicenseModel.fromJson(Map<String, dynamic>.from(item))).toList();
+      _memoryByUser[userId] = loaded;
+      licenses = List<PilotLicenseModel>.of(loaded);
+      _notifyIfActive();
+    } catch (_) { /* Corrupt or unavailable local snapshot: network still works. */ }
+  }
+
+  Future<void> _saveToCache(int userId) async {
+    final snapshot = List<PilotLicenseModel>.of(licenses);
+    _memoryByUser[userId] = snapshot;
+    _refreshedAtByUser[userId] = DateTime.now();
+    try {
+      await _cache.write(key: '$_cachePrefix$userId',
+          value: jsonEncode(snapshot.map((item) => item.toJson()).toList()));
+    } catch (_) { /* Do not fail a successful network read because of storage. */ }
+  }
 
   List<PilotLicenseModel> licenses = <PilotLicenseModel>[];
 
@@ -19,20 +70,41 @@ class PilotLicenseController extends ChangeNotifier {
   String? openingDocumentKey;
   String? errorMessage;
 
-  Future<void> loadLicenses() async {
+  Future<void> loadLicenses({bool force = false}) async {
     if (isLoading) return;
-
     isLoading = true;
     errorMessage = null;
-    notifyListeners();
-
+    _notifyIfActive();
     try {
+      final userId = await UserSessionStorage.getUserId();
+      if (_loadedForUserId != userId) {
+        // Never keep a previous signed-in user's credentials visible.
+        licenses = <PilotLicenseModel>[];
+        _loadedForUserId = userId;
+        _notifyIfActive();
+      }
+      if (userId != null) {
+        if (licenses.isEmpty) await _restoreFromCache(userId);
+        final last = _refreshedAtByUser[userId];
+        // Reopening Profile and View All does not need another GET immediately.
+        if (!force && last != null &&
+            DateTime.now().difference(last) < const Duration(minutes: 2)) {
+          return;
+        }
+      }
       licenses = await service.getMyLicenses();
+      if (userId != null) await _saveToCache(userId);
     } catch (e) {
-      errorMessage = e.toString();
+      if (licenses.isEmpty) {
+        errorMessage = e.toString();
+      } else if (kDebugMode) {
+        debugPrint('[TOTOTL][LICENSES][STALE_SNAPSHOT] '
+            'Showing the last verified list while refresh failed. '
+            'errorType=${e.runtimeType}');
+      }
     } finally {
       isLoading = false;
-      notifyListeners();
+      _notifyIfActive();
     }
   }
 
@@ -43,7 +115,7 @@ class PilotLicenseController extends ChangeNotifier {
       return await service.getLicense(id);
     } catch (e) {
       errorMessage = e.toString();
-      notifyListeners();
+      _notifyIfActive();
       return null;
     }
   }
@@ -55,7 +127,7 @@ class PilotLicenseController extends ChangeNotifier {
 
     isSaving = true;
     errorMessage = null;
-    notifyListeners();
+    _notifyIfActive();
 
     try {
       await service.createLicense(request);
@@ -66,7 +138,7 @@ class PilotLicenseController extends ChangeNotifier {
       return false;
     } finally {
       isSaving = false;
-      notifyListeners();
+      _notifyIfActive();
     }
   }
 
@@ -78,7 +150,7 @@ class PilotLicenseController extends ChangeNotifier {
 
     isSaving = true;
     errorMessage = null;
-    notifyListeners();
+    _notifyIfActive();
 
     try {
       await service.updateLicense(id, request);
@@ -89,7 +161,7 @@ class PilotLicenseController extends ChangeNotifier {
       return false;
     } finally {
       isSaving = false;
-      notifyListeners();
+      _notifyIfActive();
     }
   }
 
@@ -98,18 +170,20 @@ class PilotLicenseController extends ChangeNotifier {
 
     isDeleting = true;
     errorMessage = null;
-    notifyListeners();
+    _notifyIfActive();
 
     try {
       await service.deleteLicense(id);
       licenses.removeWhere((item) => item.id == id);
+      final userId = await UserSessionStorage.getUserId();
+      if (userId != null) await _saveToCache(userId);
       return true;
     } catch (e) {
       errorMessage = e.toString();
       return false;
     } finally {
       isDeleting = false;
-      notifyListeners();
+      _notifyIfActive();
     }
   }
 
@@ -129,7 +203,7 @@ class PilotLicenseController extends ChangeNotifier {
     isOpeningDocument = true;
     openingDocumentKey = documentKey;
     errorMessage = null;
-    notifyListeners();
+    _notifyIfActive();
 
     try {
       return await service.downloadPrivateDocument(
@@ -144,15 +218,19 @@ class PilotLicenseController extends ChangeNotifier {
     } finally {
       isOpeningDocument = false;
       openingDocumentKey = null;
-      notifyListeners();
+      _notifyIfActive();
     }
   }
 
   Future<void> _reloadAfterMutation() async {
     try {
       licenses = await service.getMyLicenses();
+      final userId = await UserSessionStorage.getUserId();
+      if (userId != null) await _saveToCache(userId);
     } catch (_) {
-      // Mutation succeeded. A later screen refresh can re-fetch the list.
+      // The write was successful; keep the old snapshot until next refresh.
+      final userId = await UserSessionStorage.getUserId();
+      if (userId != null) _refreshedAtByUser.remove(userId);
     }
   }
 }

@@ -1,30 +1,44 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child chooseAccount in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:tototl_app/main.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
+import 'package:tototl_app/features/subscriptions/models/subscription_models.dart';
+import 'package:tototl_app/features/subscriptions/models/subscription_plan_catalog.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  tearDown(() {
+    AppLanguage.locale.value = const Locale('en');
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  test('upgrade mode must never offer the free plan', () {
+    const free = SubscriptionPlanModel(
+      id: 1,
+      name: 'Free',
+      price: '0',
+      isActive: true,
+    );
+    final plans = SubscriptionPlanCatalog.visiblePlans(
+      [free],
+      upgradeOnly: true,
+    );
+    expect(plans.every((plan) => !plan.isFree), isTrue);
+    expect(plans.any((plan) => plan.billingPeriod == 'monthly'), isTrue);
+    expect(plans.any((plan) => plan.billingPeriod == 'annual'), isTrue);
+    expect(plans.where(SubscriptionPlanCatalog.isPreview).length, 2);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('paid placeholders have negative IDs and are never active', () {
+    final plans = SubscriptionPlanCatalog.visiblePlans(const []);
+    expect(plans.length, 2);
+    expect(plans.every(SubscriptionPlanCatalog.isPreview), isTrue);
+    expect(plans.every((plan) => plan.id < 0 && !plan.isActive), isTrue);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('language mapping switches and retains English fallback', () {
+    AppLanguage.locale.value = const Locale('ar');
+    expect(AppLanguage.t('settings'), 'الإعدادات');
+    expect(AppLanguage.text('My Contracts'), 'عقودي');
+    expect(AppLanguage.text('Server-provided name'), 'Server-provided name');
+    AppLanguage.locale.value = const Locale('en');
+    expect(AppLanguage.t('settings'), 'Settings');
   });
 }

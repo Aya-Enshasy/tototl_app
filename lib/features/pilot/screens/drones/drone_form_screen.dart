@@ -1,6 +1,8 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'package:image_picker/image_picker.dart';
@@ -99,63 +101,16 @@ class _DroneFormScreenState
 
   bool _saving = false;
 
-  static const List<_CapabilityOption>
-      _capabilityOptions = [
-    _CapabilityOption(
-      value: DroneCapabilities.thermal,
-      label: 'Thermal Camera',
-      icon: Icons.thermostat_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.rtk,
-      label: 'RTK',
-      icon: Icons.gps_fixed_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.zoom,
-      label: 'Zoom',
-      icon: Icons.zoom_in_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.lidar,
-      label: 'LiDAR',
-      icon: Icons.radar_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.laser,
-      label: 'Laser',
-      icon: Icons.center_focus_strong_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.multispectral,
-      label: 'Multispectral',
-      icon: Icons.filter_center_focus_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.nightVision,
-      label: 'Night Vision',
-      icon: Icons.nights_stay_outlined,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.spotlight,
-      label: 'Spotlight',
-      icon: Icons.light_mode_outlined,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.winch,
-      label: 'Winch',
-      icon: Icons.vertical_align_bottom_rounded,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.speaker,
-      label: 'Speaker',
-      icon: Icons.volume_up_outlined,
-    ),
-    _CapabilityOption(
-      value: DroneCapabilities.parachute,
-      label: 'Parachute',
-      icon: Icons.paragliding_rounded,
-    ),
+  static const List<_CapabilityOption> _capabilityOptions = [
+    _CapabilityOption(value: DroneCapabilities.thermal, label: 'Thermal Camera', icon: Icons.thermostat_rounded),
+    _CapabilityOption(value: DroneCapabilities.laser, label: 'Laser', icon: Icons.center_focus_strong_rounded),
+    _CapabilityOption(value: DroneCapabilities.nightVision, label: 'Night Vision', icon: Icons.nights_stay_outlined),
+    _CapabilityOption(value: DroneCapabilities.lidar, label: 'LiDAR', icon: Icons.radar_rounded),
+    _CapabilityOption(value: DroneCapabilities.radar, label: 'Radar', icon: Icons.wifi_tethering_rounded),
+    _CapabilityOption(value: DroneCapabilities.imaging, label: 'Imaging', icon: Icons.camera_alt_outlined),
+    _CapabilityOption(value: DroneCapabilities.rtk, label: 'RTK', icon: Icons.gps_fixed_rounded),
+    _CapabilityOption(value: DroneCapabilities.zoom, label: 'Zoom', icon: Icons.zoom_in_rounded),
+    _CapabilityOption(value: DroneCapabilities.other, label: 'Other', icon: Icons.more_horiz_rounded),
   ];
 
   @override
@@ -289,11 +244,11 @@ class _DroneFormScreenState
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
+                const LocalizedText(
                   'Drone Photo',
                   style: TextStyle(
                     color: _ink,
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight:
                         FontWeight.w800,
                   ),
@@ -513,7 +468,7 @@ class _DroneFormScreenState
               BorderRadius.circular(16),
         ),
         content:
-            Text(message),
+            Text(AppLanguage.text(message)),
       ),
     );
   }
@@ -552,7 +507,7 @@ class _DroneFormScreenState
           style:
               const TextStyle(
             color: _ink,
-            fontSize: 18,
+            fontSize: 16,
             fontWeight:
                 FontWeight.w900,
           ),
@@ -802,12 +757,12 @@ class _DroneFormScreenState
 
                         const SizedBox(height: 18),
 
-                        const Align(
+                         Align(
                           alignment:
                               Alignment.centerLeft,
                           child:
-                              Text(
-                            'Capabilities',
+                              Text(AppLanguage.text(
+                            'Capabilities'),
                             style:
                                 TextStyle(
                               color: _ink,
@@ -856,7 +811,7 @@ class _DroneFormScreenState
                                 ),
                                 label:
                                     Text(
-                                  option.label,
+                                  AppLanguage.text(option.label),
                                   style:
                                       TextStyle(
                                     color: selected
@@ -1239,14 +1194,14 @@ class _DroneImageCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                     Expanded(
                       child:
                           Column(
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Drone photo',
+                          Text(AppLanguage.text(
+                            'Drone photo'),
                             style:
                                 TextStyle(
                               color:
@@ -1258,8 +1213,8 @@ class _DroneImageCard extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: 2),
-                          Text(
-                            'Tap to choose or replace • max 10 MB',
+                          Text(AppLanguage.text(
+                            'Tap to choose or replace • max 10 MB'),
                             style:
                                 TextStyle(
                               color:
@@ -1399,8 +1354,8 @@ class _SectionCard extends StatelessWidget {
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style:
                           const TextStyle(
                         color:
@@ -1412,8 +1367,8 @@ class _SectionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style:
                           const TextStyle(
                         color:
@@ -1489,8 +1444,8 @@ class _Input extends StatelessWidget {
             bottom: 7,
           ),
           child:
-              Text(
-            label,
+              Text(AppLanguage.text(
+            label),
             style:
                 const TextStyle(
               color:
@@ -1762,8 +1717,8 @@ class _SourceButton
             18,
       ),
       label:
-          Text(
-        title,
+          Text(AppLanguage.text(
+        title),
         style:
             const TextStyle(
           fontWeight:

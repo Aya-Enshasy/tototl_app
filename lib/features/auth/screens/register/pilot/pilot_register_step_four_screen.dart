@@ -2477,7 +2477,7 @@ class _PilotRegisterStepFourScreenState
 
                                   _buildSelectField(
                                     hintText:
-                                    'Select License Type',
+                                    AppLanguage.text('Select License Type'),
 
                                     icon: Icons
                                         .card_membership_rounded,
@@ -2520,7 +2520,7 @@ class _PilotRegisterStepFourScreenState
                                     _licenseNumberController,
 
                                     hintText:
-                                    'e.g. C-129384910',
+                                    AppLanguage.text('e.g. C-129384910'),
 
                                     prefixIcon:
                                     Icons
@@ -2558,7 +2558,7 @@ class _PilotRegisterStepFourScreenState
 
                                   _buildSelectField(
                                     hintText:
-                                    'Select Issuing Authority',
+                                    AppLanguage.text('Select Issuing Authority'),
 
                                     icon: Icons
                                         .account_balance_outlined,
@@ -2601,7 +2601,7 @@ class _PilotRegisterStepFourScreenState
                                     _expiryController,
 
                                     hintText:
-                                    'Select Expiration Date',
+                                    AppLanguage.text('Select Expiration Date'),
 
                                     prefixIcon: Icons
                                         .calendar_today_rounded,

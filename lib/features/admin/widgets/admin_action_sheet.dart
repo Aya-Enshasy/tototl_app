@@ -1,3 +1,5 @@
+import 'package:tototl_app/core/localization/app_language.dart';
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
 
 import 'admin_design.dart';
@@ -309,7 +311,7 @@ class _AdminReasonSheetState
                   decoration:
                   InputDecoration(
                     hintText:
-                    'Write the reason...',
+                    AppLanguage.text('Write the reason...'),
                     counterText:
                     '',
                     filled:
@@ -384,7 +386,7 @@ class _AdminReasonSheetState
                           ),
                         ),
                         child:
-                        const Text(
+                        const LocalizedText(
                           'Cancel',
                           style:
                           TextStyle(
@@ -598,8 +600,8 @@ Future<bool> showAdminConfirmSheet({
                     14,
                   ),
 
-                  Text(
-                    title,
+                  Text(AppLanguage.text(
+                    title),
                     textAlign:
                     TextAlign.center,
                     style:
@@ -618,8 +620,8 @@ Future<bool> showAdminConfirmSheet({
                     6,
                   ),
 
-                  Text(
-                    subtitle,
+                  Text(AppLanguage.text(
+                    subtitle),
                     textAlign:
                     TextAlign.center,
                     style:
@@ -674,7 +676,7 @@ Future<bool> showAdminConfirmSheet({
                             ),
                           ),
                           child:
-                          const Text(
+                          const LocalizedText(
                             'Cancel',
                             style:
                             TextStyle(

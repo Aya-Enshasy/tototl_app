@@ -943,7 +943,7 @@ class _PilotRegisterStepOneScreenState
                           decoration:
                           InputDecoration(
                             hintText:
-                            'Search country or code',
+                            AppLanguage.text('Search country or code'),
                             hintStyle:
                             const TextStyle(
                               color:
@@ -1295,7 +1295,7 @@ class _PilotRegisterStepOneScreenState
                           decoration:
                           InputDecoration(
                             hintText:
-                            'Search nationality',
+                            AppLanguage.text('Search nationality'),
                             hintStyle:
                             const TextStyle(
                               color:
@@ -1974,7 +1974,7 @@ class _PilotRegisterStepOneScreenState
                                     controller:
                                     _fullNameController,
                                     hintText:
-                                    'Full Name',
+                                    AppLanguage.text('Full Name'),
                                     prefixIcon:
                                     Icons
                                         .person_outline_rounded,
@@ -2011,7 +2011,7 @@ class _PilotRegisterStepOneScreenState
                                     controller:
                                     _usernameController,
                                     hintText:
-                                    'Username',
+                                    AppLanguage.text('Username'),
                                     prefixIcon:
                                     Icons
                                         .alternate_email_rounded,
@@ -2051,7 +2051,7 @@ class _PilotRegisterStepOneScreenState
                                     controller:
                                     _emailController,
                                     hintText:
-                                    'Email Address',
+                                    AppLanguage.text('Email Address'),
                                     prefixIcon:
                                     Icons
                                         .email_outlined,
@@ -2101,7 +2101,7 @@ class _PilotRegisterStepOneScreenState
                                         ? AutovalidateMode.always
                                         : AutovalidateMode.disabled,
                                     hintText:
-                                    'Password',
+                                    AppLanguage.text('Password'),
                                     prefixIcon:
                                     Icons
                                         .lock_outline_rounded,
@@ -2161,7 +2161,7 @@ class _PilotRegisterStepOneScreenState
                                     controller:
                                     _confirmPasswordController,
                                     hintText:
-                                    'Confirm Password',
+                                    AppLanguage.text('Confirm Password'),
                                     prefixIcon:
                                     Icons
                                         .lock_reset_rounded,
@@ -2244,7 +2244,7 @@ class _PilotRegisterStepOneScreenState
                                     controller:
                                     _dobController,
                                     hintText:
-                                    'Date of Birth',
+                                    AppLanguage.text('Date of Birth'),
                                     prefixIcon:
                                     Icons
                                         .calendar_month_outlined,
@@ -2291,7 +2291,7 @@ class _PilotRegisterStepOneScreenState
                                     controller:
                                     _linkedinController,
                                     hintText:
-                                    'LinkedIn Profile URL (optional)',
+                                    AppLanguage.text('LinkedIn Profile URL (optional)'),
                                     prefixIcon:
                                     Icons
                                         .link_rounded,
@@ -2803,7 +2803,7 @@ class _PilotRegisterStepOneScreenState
       ),
 
       decoration: InputDecoration(
-        hintText: 'Phone Number',
+        hintText: AppLanguage.text('Phone Number'),
 
         hintStyle: const TextStyle(
           color: AppColors.kHint,

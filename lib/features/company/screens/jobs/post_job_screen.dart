@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
@@ -218,16 +219,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
         ),
-        title: Text(
-          title,
+        title: Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: AppColors.navy,
             fontSize: 16,
             fontWeight: FontWeight.w900,
           ),
         ),
-        content: Text(
-          message,
+        content: Text(AppLanguage.text(
+          message),
           style: const TextStyle(
             color: AppColors.grey,
             fontSize: 11.5,
@@ -237,7 +238,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Not now'),
+            child: const LocalizedText('Not now'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -245,7 +246,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
               backgroundColor: AppColors.blue,
             ),
             icon: const Icon(Icons.workspace_premium_rounded, size: 17),
-            label: const Text('View Plans'),
+            label: const LocalizedText('View Plans'),
           ),
         ],
       ),
@@ -274,7 +275,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
         ),
-        title: const Text(
+        title: const LocalizedText(
           'Account verification required',
           style: TextStyle(
             color: AppColors.navy,
@@ -282,7 +283,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             fontWeight: FontWeight.w900,
           ),
         ),
-        content: const Text(
+        content: const LocalizedText(
           'Your company account is still under review. You can continue preparing your information, but this action becomes available after verification.',
           style: TextStyle(
             color: AppColors.grey,
@@ -296,7 +297,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.blue,
             ),
-            child: const Text('Got it'),
+            child: const LocalizedText('Got it'),
           ),
         ],
       ),
@@ -1077,8 +1078,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
             borderRadius: BorderRadius.circular(15),
           ),
           margin: const EdgeInsets.all(16),
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1647,8 +1648,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
           const SizedBox(height: 5),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              'Up to 20 deliverables. Each line is saved as one item.',
+            child: Text(AppLanguage.text(
+              'Up to 20 deliverables. Each line is saved as one item.'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 10.5,
@@ -2177,8 +2178,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 14,
@@ -2186,8 +2187,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style: const TextStyle(
                         color: AppColors.grey,
                         fontSize: 10.5,
@@ -2385,8 +2386,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      label,
+                    Text(AppLanguage.text(
+                      label),
                       style: const TextStyle(
                         color: AppColors.grey,
                         fontSize: 9.5,
@@ -2428,7 +2429,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         final active = selected.contains(item);
 
         return FilterChip(
-          label: Text(item),
+          label: Text(AppLanguage.text(item)),
           selected: active,
           selectedColor: AppColors.blueBg,
           checkmarkColor: AppColors.blue,
@@ -2504,8 +2505,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 11.7,
@@ -2513,8 +2514,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style: const TextStyle(
                     color: AppColors.grey,
                     fontSize: 9.7,
@@ -2755,8 +2756,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
+        Text(AppLanguage.text(
+          label),
           style: const TextStyle(
             color: AppColors.grey,
             fontSize: 9.7,
@@ -2764,8 +2765,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
           ),
         ),
         const SizedBox(height: 3),
-        Text(
-          value,
+        Text(AppLanguage.text(
+          value),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(

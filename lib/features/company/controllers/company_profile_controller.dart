@@ -10,6 +10,8 @@ class CompanyProfileController {
   CompanyProfileController(this.service);
 
   String? errorMessage;
+  static final Map<int, DateTime> _lastSuccessfulRefreshByUser = {};
+
 
   bool isRefreshing = false;
   bool isUpdating = false;
@@ -17,25 +19,23 @@ class CompanyProfileController {
 
   Future<CompanyProfileViewData?> loadLocalProfile() async {
     try {
-      final userJson = await UserSessionStorage.getUser();
-      final profileJson = await UserSessionStorage.getProfile();
-      final photoUrl = await UserSessionStorage.getProfilePhotoUrl() ?? '';
-
-      if (userJson == null && profileJson == null) return null;
-
-      final account = userJson == null
-          ? const CompanyAccountModel()
-          : CompanyAccountModel.fromJson(userJson);
-
-      final profile = profileJson == null
-          ? const CompanyProfileModel()
-          : CompanyProfileModel.fromJson(profileJson);
-
+      final session = await UserSessionStorage.getSession();
+      final rawUser = session?['user'];
+      final rawProfile = session?['profile'];
+      if (rawProfile is! Map || rawProfile.isEmpty) return null;
+      final account = rawUser is Map
+          ? CompanyAccountModel.fromJson(Map<String, dynamic>.from(rawUser))
+          : const CompanyAccountModel();
+      final profile = rawProfile is Map
+          ? CompanyProfileModel.fromJson(Map<String, dynamic>.from(rawProfile))
+          : const CompanyProfileModel();
+      final cachedPhoto = session?['profile_photo_url']?.toString() ?? '';
       return CompanyProfileViewData(
         account: account,
         profile: profile,
-        profilePhotoUrl:
-            photoUrl.isNotEmpty ? photoUrl : profile.profilePhoto,
+        profilePhotoUrl: cachedPhoto.isNotEmpty
+            ? cachedPhoto
+            : profile.profilePhoto,
       );
     } catch (_) {
       return null;
@@ -68,20 +68,28 @@ class CompanyProfileController {
     return CompanyProfileModel.fromJson(mergedJson);
   }
 
-  Future<CompanyProfileViewData?> refreshSilently() async {
+  Future<CompanyProfileViewData?> refreshSilently({bool force = false}) async {
     if (isRefreshing) return null;
+    final userId = await UserSessionStorage.getUserId();
+    final last = userId == null ? null : _lastSuccessfulRefreshByUser[userId];
+    if (!force && last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 3)) {
+      return loadLocalProfile();
+    }
 
     isRefreshing = true;
     errorMessage = null;
 
     try {
       final freshProfile = await service.getMyProfile();
+      if (userId != await UserSessionStorage.getUserId()) return null;
 
       // Preserve local-only values such as profile_photo and work_regions when
       // the GET response does not return them.
       await UserSessionStorage.mergeProfile(freshProfile.toJson());
 
       final mergedProfile = await _readMergedProfile(freshProfile);
+      if (userId != null) _lastSuccessfulRefreshByUser[userId] = DateTime.now();
       return await _buildViewData(mergedProfile);
     } catch (e) {
       errorMessage = e.toString();
@@ -93,9 +101,10 @@ class CompanyProfileController {
 
   Future<CompanyProfileViewData?> loadFreshProfile() async {
     errorMessage = null;
-
+    final owner = await UserSessionStorage.getUserId();
     try {
       final freshProfile = await service.getMyProfile();
+      if (owner != await UserSessionStorage.getUserId()) return null;
       await UserSessionStorage.mergeProfile(freshProfile.toJson());
       final mergedProfile = await _readMergedProfile(freshProfile);
       return await _buildViewData(mergedProfile);
@@ -119,9 +128,11 @@ class CompanyProfileController {
 
     isUpdating = true;
     errorMessage = null;
+    final owner = await UserSessionStorage.getUserId();
 
     try {
       final updatedProfile = await service.updateMyProfile(request);
+      if (owner != await UserSessionStorage.getUserId()) return null;
 
       final cacheData = updatedProfile.toJson();
       cacheData.addAll(request.toJson());

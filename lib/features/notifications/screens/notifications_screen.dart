@@ -1,11 +1,21 @@
+import 'dart:async';
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
+import '../../../core/network/api_endpoints.dart';
+import '../../../core/storage/token_storage.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/notification_inbox_state.dart';
 import '../../../core/storage/user_session_storage.dart';
 import '../../../core/theme/app_colors.dart';
 
 import '../../company/screens/applications/company_application_screen.dart';
+import '../../pilot/screens/applications/applications_screen.dart';
+import '../../pilot/screens/profile/profile_screen.dart';
+import '../../company/screens/profile/company_profile_screen.dart';
 import '../../payments/services/payment_service.dart';
 import '../../reviews/controllers/review_controller.dart';
 import '../controllers/notification_controller.dart';
@@ -29,7 +39,11 @@ import '../../reviews/screens/reviews_screen.dart';
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({
     super.key,
+    this.initialNotification,
   });
+
+  /// Optional FCM payload; server inbox is fetched before routing.
+  final AppNotificationModel? initialNotification;
 
   @override
   State<NotificationsScreen> createState() =>
@@ -62,18 +76,24 @@ class _NotificationsScreenState
     _controller.addListener(
       _onControllerChanged,
     );
-
-    _loadRole();
-
-    WidgetsBinding.instance.addPostFrameCallback(
-          (_) {
-        _controller.loadNotifications();
-      },
+    NotificationInboxState.instance.inboxOpened();
+    NotificationInboxState.instance.incomingRevision.addListener(
+      _onIncomingPush,
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initializeInbox();
+      }
+    });
   }
 
   @override
   void dispose() {
+    NotificationInboxState.instance.incomingRevision.removeListener(
+      _onIncomingPush,
+    );
+    NotificationInboxState.instance.inboxClosed();
     _controller.removeListener(
       _onControllerChanged,
     );
@@ -87,6 +107,32 @@ class _NotificationsScreenState
     _controller.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _initializeInbox() async {
+    await _loadRole();
+    if (!mounted) return;
+    final loading = _controller.loadNotifications();
+    final incoming = widget.initialNotification;
+
+    // With authenticated FCM routing metadata we can navigate immediately;
+    // the API list continues loading without holding the user on a spinner.
+    if (incoming != null &&
+        (incoming.relatedType.trim().isNotEmpty || incoming.type.trim().isNotEmpty)) {
+      await _openNotification(incoming);
+      await loading;
+      return;
+    }
+
+    await loading;
+    if (!mounted || incoming == null || incoming.id.trim().isEmpty) return;
+    // A push with only notification_id can still resolve from the server inbox.
+    for (final item in _controller.notifications) {
+      if (item.id == incoming.id) {
+        await _openNotification(item);
+        return;
+      }
+    }
   }
 
   // ===========================================================================
@@ -118,9 +164,17 @@ class _NotificationsScreenState
   // CONTROLLER
   // ===========================================================================
 
+  void _onIncomingPush() {
+    if (mounted && !_controller.isLoading) {
+      unawaited(_controller.refresh().then((_) {}));
+    }
+  }
+
   void _onControllerChanged() {
     if (!mounted) return;
-
+    if (_controller.data != null) {
+      NotificationInboxState.instance.setCount(_controller.unreadCount);
+    }
     setState(() {});
   }
 
@@ -200,41 +254,39 @@ class _NotificationsScreenState
   // OPEN NOTIFICATION
   // ===========================================================================
 
+  bool _isServerNotificationId(String id) => RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  ).hasMatch(id.trim());
+
+  Future<void> _acknowledgeNotification(String notificationId) async {
+    try {
+      await NotificationService(ApiClient()).markAsRead(notificationId);
+      final old = NotificationInboxState.instance.unreadCount.value;
+      if (old != null && old > 0) {
+        NotificationInboxState.instance.setCount(old - 1);
+      }
+    } catch (error) {
+      debugPrint('Notification read receipt was not confirmed: $error');
+    }
+  }
+
   Future<void> _openNotification(
       AppNotificationModel notification,
       ) async {
-    if (_openingRelated) {
-      return;
-    }
-
+    if (_openingRelated) return;
     HapticFeedback.selectionClick();
 
-    if (notification.isUnread) {
-      final success =
-      await _controller.markAsRead(
-        notification,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (!success &&
-          _controller.errorMessage != null) {
-        _showSnack(
-          _controller.errorMessage!,
-          error: true,
-        );
-
-        return;
-      }
+    // The read receipt must not delay route navigation on a slow server.
+    if (notification.isUnread && _isServerNotificationId(notification.id)) {
+      // Can finish even if the user leaves the screen, because no widget state
+      // is captured by the detached API request.
+      unawaited(_acknowledgeNotification(notification.id));
     }
 
-    if (!mounted) return;
-
-    await _openRelatedEntity(
-      notification,
-    );
+    await _openRelatedEntity(notification);
+    if (mounted && !_controller.isLoading) {
+      await _controller.refresh();
+    }
   }
 
   // ===========================================================================
@@ -353,6 +405,18 @@ class _NotificationsScreenState
       // =====================================================================
 
         case 'contract_submission':
+          // When the sender includes a parent contract ID we can open the
+          // exact mission. Otherwise related_id is the submission ID and
+          // must never be passed as a contract ID.
+          final parentContractId = notification.relatedContractId;
+          if (parentContractId != null && parentContractId > 0) {
+            await Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => _isCompany
+                  ? CompanyContractDetailScreen(contractId: parentContractId)
+                  : PilotContractDetailScreen(contractId: parentContractId),
+            ));
+            return;
+          }
           await _openContractsList();
 
           _showSnack(
@@ -372,7 +436,7 @@ class _NotificationsScreenState
       // =====================================================================
 
         case 'payment':
-          await _openPayments();
+          await _openPayments(contractId: notification.relatedContractId);
           return;
 
       // =====================================================================
@@ -406,13 +470,7 @@ class _NotificationsScreenState
       // =====================================================================
 
         case 'user':
-          _showSnack(
-            notification.displayBody,
-            success:
-            notification
-                .isAccountStatusChanged,
-          );
-
+          await _openOwnProfile();
           return;
 
         default:
@@ -445,6 +503,11 @@ class _NotificationsScreenState
   Future<void> _fallbackForType(
       AppNotificationModel notification,
       ) async {
+    if (notification.isAccountStatusChanged) {
+      await _openOwnProfile();
+      return;
+    }
+
     if (notification.isContractCreated ||
         notification.isContractStatusChanged ||
         notification.isWorkSubmitted ||
@@ -488,21 +551,33 @@ class _NotificationsScreenState
     }
 
     if (notification.isApplicationStatusChanged) {
-      if (_isCompany) {
+      if (_isCompany || _isPilot) {
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) =>
-            const CompanyApplicationsScreen(),
+            builder: (_) => _isCompany
+                ? const CompanyApplicationsScreen()
+                : const ApplicationsScreen(),
           ),
         );
       }
-
       return;
     }
 
     _showSnack(
       notification.displayBody,
     );
+  }
+
+  Future<void> _openOwnProfile() async {
+    if (!_isCompany && !_isPilot) {
+      _showSnack('This account update is available from your account settings.');
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => _isCompany
+          ? const CompanyProfileScreen()
+          : const ProfileScreen(),
+    ));
   }
 
   // ===========================================================================
@@ -541,7 +616,7 @@ class _NotificationsScreenState
   // PAYMENTS
   // ===========================================================================
 
-  Future<void> _openPayments() async {
+  Future<void> _openPayments({int? contractId}) async {
     if (!_isCompany &&
         !_isPilot) {
       _showSnack(
@@ -558,6 +633,7 @@ class _NotificationsScreenState
               audience: _isCompany
                   ? PaymentAudience.company
                   : PaymentAudience.pilot,
+              contractId: contractId,
             ),
       ),
     );
@@ -576,15 +652,36 @@ class _NotificationsScreenState
     final rawId =
     profile?['id'];
 
-    final profileId =
+    var profileId =
     rawId is int
         ? rawId
         : int.tryParse(
       rawId?.toString() ?? '',
     );
 
-    if (profileId == null ||
-        profileId <= 0) {
+    if (profileId == null || profileId <= 0) {
+      try {
+        final token = await TokenStorage.getAccessToken();
+        if (token != null && token.isNotEmpty) {
+          final response = await ApiClient().get(
+            _isCompany ? ApiEndpoints.companyProfile : ApiEndpoints.pilotProfile,
+            options: Options(headers: {'Authorization': 'Bearer $token'}),
+          );
+          final envelope = response.data;
+          if (envelope is Map && envelope['data'] is Map) {
+            final id = (envelope['data'] as Map)['id'];
+            profileId = id is int ? id : int.tryParse('$id');
+          }
+        }
+      } catch (_) { /* UI explains how to retry below. */ }
+    }
+    if (!mounted) return;
+
+    // Capture a final non-null ID before passing it into a route builder.
+    // The original profileId is mutable (it is populated from the API),
+    // and a nullable int cannot be passed to ReviewsScreen.profileId.
+    final resolvedProfileId = profileId;
+    if (resolvedProfileId == null || resolvedProfileId <= 0) {
       _showSnack(
         'Refresh your profile to view this review.',
       );
@@ -620,7 +717,7 @@ class _NotificationsScreenState
         builder: (_) =>
             ReviewsScreen(
               profileId:
-              profileId,
+              resolvedProfileId,
               targetType:
               _isCompany
                   ? ReviewTargetType.company
@@ -663,8 +760,8 @@ class _NotificationsScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(
               color:
               Colors.white,
@@ -880,14 +977,14 @@ class _NotificationsScreenState
             width: 12,
           ),
 
-          const Expanded(
+           Expanded(
             child: Column(
               crossAxisAlignment:
               CrossAxisAlignment
                   .start,
               children: [
-                Text(
-                  'Notifications',
+                Text(AppLanguage.text(
+                  'Notifications'),
                   style:
                   TextStyle(
                     color:
@@ -908,8 +1005,8 @@ class _NotificationsScreenState
                 SizedBox(
                   height: 6,
                 ),
-                Text(
-                  'Stay updated on your activity',
+                Text(AppLanguage.text(
+                  'Stay updated on your activity'),
                   style:
                   TextStyle(
                     color:
@@ -989,7 +1086,7 @@ class _NotificationsScreenState
                       ),
                     ),
                   )
-                      : const Row(
+                      :  Row(
                     mainAxisSize:
                     MainAxisSize
                         .min,
@@ -1008,8 +1105,8 @@ class _NotificationsScreenState
                         width:
                         5,
                       ),
-                      Text(
-                        'Read all',
+                      Text(AppLanguage.text(
+                        'Read all'),
                         style:
                         TextStyle(
                           color:
@@ -1165,8 +1262,8 @@ class _NotificationsScreenState
           ),
           alignment:
           Alignment.center,
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
             style:
             TextStyle(
               color:
@@ -2107,7 +2204,7 @@ class _NotificationsScreenState
           17,
         ),
         label:
-        const Text(
+        const LocalizedText(
           'Try again',
           style:
           TextStyle(
@@ -2384,7 +2481,7 @@ class _NotificationError
                 15,
               ),
 
-              const Text(
+              const LocalizedText(
                 'Couldn’t load notifications',
                 textAlign:
                 TextAlign.center,
@@ -2407,8 +2504,8 @@ class _NotificationError
                 7,
               ),
 
-              Text(
-                message,
+              Text(AppLanguage.text(
+                message),
                 textAlign:
                 TextAlign.center,
                 style:
@@ -2462,7 +2559,7 @@ class _NotificationError
                     18,
                   ),
                   label:
-                  const Text(
+                  const LocalizedText(
                     'Try Again',
                     style:
                     TextStyle(

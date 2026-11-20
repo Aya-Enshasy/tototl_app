@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 
 import 'dart:async';
 
@@ -198,7 +199,7 @@ class _MyDronesScreenState
           BorderRadius.circular(16),
         ),
         content:
-        Text(message),
+        Text(AppLanguage.text(message)),
       ),
     );
   }
@@ -230,7 +231,31 @@ class _MyDronesScreenState
             Expanded(
               child: firstLoad
                   ? const _LoadingState()
-                  : RefreshIndicator(
+                  : !_controller.hasSnapshot && _controller.errorMessage != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.wifi_off_outlined, size: 28, color: _muted),
+                                const SizedBox(height: 10),
+                                Text(
+                                  AppLanguage.text('Unable to load your drones.'),
+                                  style: const TextStyle(fontSize: 12, color: _ink),
+                                  textAlign: TextAlign.center,
+                                ),
+                                TextButton.icon(
+                                  onPressed: () => unawaited(_controller.refresh()),
+                                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                                  label: Text(AppLanguage.text('Retry'),
+                                      style: const TextStyle(fontSize: 11)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : RefreshIndicator(
                 color: _tealDark,
                 onRefresh: _refresh,
                 child: _controller.drones.isEmpty
@@ -489,7 +514,7 @@ class _FleetSummary extends StatelessWidget {
                   style:
                   const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -698,7 +723,7 @@ class _PremiumDroneCard extends StatelessWidget {
                                   style:
                                   const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 19,
+                                    fontSize: 16,
                                     height: 1,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: -0.4,
@@ -1081,8 +1106,8 @@ class _Metric extends StatelessWidget {
 
         const SizedBox(height: 6),
 
-        Text(
-          value,
+        Text(AppLanguage.text(
+          value),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
@@ -1096,8 +1121,8 @@ class _Metric extends StatelessWidget {
 
         const SizedBox(height: 2),
 
-        Text(
-          label,
+        Text(AppLanguage.text(
+          label),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
@@ -1321,7 +1346,7 @@ class _EmptyState extends StatelessWidget {
           style:
           TextStyle(
             color: _ink,
-            fontSize: 21,
+            fontSize: 16,
             fontWeight: FontWeight.w900,
           ),
         ),

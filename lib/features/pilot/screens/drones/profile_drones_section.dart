@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 
 import 'dart:async';
 
@@ -219,7 +220,7 @@ class _ProfileDronesSectionState
                     color:
                     _ink,
                     fontSize:
-                    17,
+                    16,
                     fontWeight:
                     FontWeight.w900,
                     letterSpacing:

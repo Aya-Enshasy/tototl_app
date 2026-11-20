@@ -220,8 +220,8 @@ class _Metric extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      Text(
-        value,
+      Text(AppLanguage.text(
+        value),
         style: const TextStyle(
           color: AppColors.navy,
           fontSize: 17,
@@ -229,8 +229,8 @@ class _Metric extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 3),
-      Text(
-        label,
+      Text(AppLanguage.text(
+        label),
         style: const TextStyle(color: AppColors.grey, fontSize: 10.5),
       ),
     ],
@@ -252,8 +252,8 @@ class _Section extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
+        Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: AppColors.navy,
             fontSize: 16,
@@ -277,8 +277,8 @@ class _SkillChip extends StatelessWidget {
       color: AppColors.greenBg,
       borderRadius: BorderRadius.circular(9),
     ),
-    child: Text(
-      label,
+    child: Text(AppLanguage.text(
+      label),
       style: const TextStyle(
         color: AppColors.green,
         fontSize: 11.5,

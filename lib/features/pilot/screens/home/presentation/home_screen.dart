@@ -1,6 +1,8 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
@@ -18,7 +20,8 @@ import 'package:tototl_app/features/pilot/services/pilot_application_service.dar
 import '../../../../subscriptions/screens/subscription_center_screen.dart';
 import '../../../services/drone_service.dart';
 import '../../drones/my_drones_screen.dart';
-import '../../notification/NotificationsScreen.dart';
+import 'package:tototl_app/core/notifications/notification_inbox_state.dart';
+import '../../../../notifications/screens/notifications_screen.dart';
 import '../../contract/pilot_contracts_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -72,44 +75,22 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _hydrateInitialHome() async {
-    // Keep the real Home completely hidden until the first authoritative
-    // hydration pass is done. This prevents header/fleet/applications/contracts
-    // from "popping in" after the page is already visible.
+    // Hydrate local profile + cached fleet/applications before the first paint.
+    // A slow /dashboard, API retry or image host must never blank the Home.
     await Future.wait<void>([
       _loadPilotIdentity(notify: false),
       _controller.bootstrap(),
-      _loadDashboard(notify: false),
     ]);
 
-    // PilotHomeController is local-first: when cache exists bootstrap() starts
-    // its network refresh in the background. Wait for that refresh too.
-    await _waitForHomeControllerIdle();
-
-    await _precacheInitialImages();
-
     if (!mounted) return;
-
-    setState(() {
-      _initialHydrationComplete = true;
-    });
-
+    setState(() => _initialHydrationComplete = true);
     _entranceController.forward(from: 0);
-  }
 
-  Future<void> _waitForHomeControllerIdle() async {
-    final deadline = DateTime.now().add(
-      const Duration(seconds: 12),
-    );
-
-    while (mounted &&
-        DateTime.now().isBefore(deadline) &&
-        (_controller.isRefreshing ||
-            _controller.isDronesInitialLoading ||
-            _controller.isApplicationsInitialLoading)) {
-      await Future<void>.delayed(
-        const Duration(milliseconds: 45),
-      );
-    }
+    // Enrich the visible screen as soon as independent requests finish.
+    unawaited(_loadDashboard(notify: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_precacheInitialImages());
+    });
   }
 
   Future<void> _loadPilotIdentity({
@@ -249,8 +230,8 @@ class _HomeScreenState extends State<HomeScreen>
         _loadPilotIdentity(notify: false),
       ]);
 
-      await _waitForHomeControllerIdle();
-      await _precacheInitialImages();
+      // Neither idle polling nor network image precaching blocks pull-to-refresh.
+      if (mounted) unawaited(_precacheInitialImages());
     } finally {
       if (mounted) {
         setState(() => _refreshing = false);
@@ -385,9 +366,12 @@ class _HomeScreenState extends State<HomeScreen>
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PilotNotificationsScreen(),
+        builder: (_) => const NotificationsScreen(),
       ),
     );
+    if (mounted) {
+      await NotificationInboxState.instance.refresh(force: true);
+    }
   }
 
   @override
@@ -426,14 +410,15 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       _entry(
                         index: 0,
-                        child: HomeHeader(
-                          name: _pilotName,
-                          photoUrl:
-                          _pilotPhoto,
-                          verified:
-                          _pilotVerified,
-                          onNotificationsTap:
-                          _openNotifications,
+                        child: ValueListenableBuilder<int?>(
+                          valueListenable: NotificationInboxState.instance.unreadCount,
+                          builder: (context, count, _) => HomeHeader(
+                            name: _pilotName,
+                            photoUrl: _pilotPhoto,
+                            verified: _pilotVerified,
+                            unreadNotifications: count ?? 0,
+                            onNotificationsTap: _openNotifications,
+                          ),
                         ),
                       ),
                       const SizedBox(
@@ -501,7 +486,8 @@ class _HomeScreenState extends State<HomeScreen>
                         child: MyDroneCard(
                           drones:
                           snapshot.drones,
-                          loading: false,
+                          loading: _controller.isDronesInitialLoading &&
+                              !_controller.hasDronesSnapshot,
                           errorMessage:
                           !_controller
                               .hasDronesSnapshot
@@ -524,7 +510,8 @@ class _HomeScreenState extends State<HomeScreen>
                           applications:
                           snapshot
                               .applications,
-                          loading: false,
+                          loading: _controller.isApplicationsInitialLoading &&
+                              !_controller.hasApplicationsSnapshot,
                           errorMessage:
                           !_controller
                               .hasApplicationsSnapshot
@@ -731,8 +718,8 @@ class _PilotPhase4Metric extends StatelessWidget {
                 size: 14,
               ),
               const SizedBox(height: 6),
-              Text(
-                value,
+              Text(AppLanguage.text(
+                value),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -742,8 +729,8 @@ class _PilotPhase4Metric extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                label,
+              Text(AppLanguage.text(
+                label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -835,13 +822,13 @@ class _PilotNextStepSummaryCard
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+               Expanded(
                 child: Column(
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Next step',
+                    Text(AppLanguage.text(
+                      'Next step'),
                       style: TextStyle(
                         color:
                         Color(0xFFD9790D),
@@ -851,8 +838,8 @@ class _PilotNextStepSummaryCard
                       ),
                     ),
                     SizedBox(height: 3),
-                    Text(
-                      'Review contract',
+                    Text(AppLanguage.text(
+                      'Review contract'),
                       style: TextStyle(
                         color:
                         _PilotHomePalette
@@ -916,7 +903,7 @@ class _PilotNextStepSummaryCard
                       10),
                 ),
               ),
-              child: const Text(
+              child: const LocalizedText(
                 'Review contract',
                 style: TextStyle(
                   fontSize: 10.5,
@@ -1014,8 +1001,8 @@ class _PilotMissionActivityCard
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      title,
+                    child: Text(AppLanguage.text(
+                      title),
                       style:
                       const TextStyle(
                         color:
@@ -1027,7 +1014,7 @@ class _PilotMissionActivityCard
                       ),
                     ),
                   ),
-                  const Text(
+                  const LocalizedText(
                     'View all',
                     style: TextStyle(
                       color:
@@ -1259,7 +1246,7 @@ class _NextStepCard extends StatelessWidget {
                                 .circular(20),
                           ),
                           child:
-                          const Text(
+                          const LocalizedText(
                             'Next step',
                             style:
                             TextStyle(
@@ -1309,7 +1296,7 @@ class _NextStepCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    const LocalizedText(
                       'Review contract',
                       style: TextStyle(
                         color:
@@ -1440,12 +1427,12 @@ class _NextStepCard extends StatelessWidget {
                   horizontal: 12,
                 ),
               ),
-              child: const Row(
+              child:  Row(
                 mainAxisAlignment:
                 MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Review contract',
+                  Text(AppLanguage.text(
+                    'Review contract'),
                     style: TextStyle(
                       fontSize: 10.7,
                       fontWeight:
@@ -1528,15 +1515,15 @@ class _ExploreJobsCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+               Expanded(
                 child: Column(
                   mainAxisAlignment:
                   MainAxisAlignment.center,
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Explore jobs',
+                    Text(AppLanguage.text(
+                      'Explore jobs'),
                       style: TextStyle(
                         color:
                         _PilotHomePalette
@@ -1547,8 +1534,8 @@ class _ExploreJobsCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 2),
-                    Text(
-                      'Find new drone opportunities',
+                    Text(AppLanguage.text(
+                      'Find new drone opportunities'),
                       style: TextStyle(
                         color:
                         _PilotHomePalette
@@ -1660,9 +1647,9 @@ class _ActiveMissionCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Active mission',
+                   Expanded(
+                    child: Text(AppLanguage.text(
+                      'Active mission'),
                       style: TextStyle(
                         color:
                         _PilotHomePalette
@@ -1675,11 +1662,11 @@ class _ActiveMissionCard extends StatelessWidget {
                   ),
                   GestureDetector(
                     onTap: onViewAll,
-                    child: const Padding(
+                    child:  Padding(
                       padding:
                       EdgeInsets.all(4),
-                      child: Text(
-                        'View all',
+                      child: Text(AppLanguage.text(
+                        'View all'),
                         style: TextStyle(
                           color:
                           _PilotHomePalette
@@ -1943,8 +1930,8 @@ class _InlineHomeNotice extends StatelessWidget {
           ),
           const SizedBox(width: 7),
           Expanded(
-            child: Text(
-              message,
+            child: Text(AppLanguage.text(
+              message),
               style: const TextStyle(
                 color:
                 _PilotHomePalette.muted,
@@ -1962,7 +1949,7 @@ class _InlineHomeNotice extends StatelessWidget {
               visualDensity:
               VisualDensity.compact,
             ),
-            child: const Text(
+            child: const LocalizedText(
               'Retry',
               style: TextStyle(
                 fontSize: 9.3,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/features/pilot/models/pilot_home_snapshot.dart';
 
@@ -94,9 +95,9 @@ class RecentApplicationsSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Recent application',
+               Expanded(
+                child: Text(AppLanguage.text(
+                  'Recent application'),
                   style: TextStyle(
                     color:
                     Color(0xFF0A2D46),
@@ -112,11 +113,11 @@ class RecentApplicationsSection extends StatelessWidget {
                       .selectionClick();
                   onSeeAll();
                 },
-                child: const Padding(
+                child:  Padding(
                   padding:
                   EdgeInsets.all(4),
-                  child: Text(
-                    'View all',
+                  child: Text(AppLanguage.text(
+                    'View all'),
                     style: TextStyle(
                       color:
                       Color(0xFF078FA5),
@@ -399,8 +400,8 @@ class _SimpleState extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style:
                   const TextStyle(
                     color:
@@ -411,8 +412,8 @@ class _SimpleState extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   style:
                   const TextStyle(
                     color:

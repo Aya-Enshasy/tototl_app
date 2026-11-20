@@ -60,7 +60,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
 
     if (changed == true) {
       _changed = true;
-      await _controller.loadLicenses();
+      await _controller.loadLicenses(force: true);
     }
   }
 
@@ -78,7 +78,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
 
     if (changed == true) {
       _changed = true;
-      await _controller.loadLicenses();
+      await _controller.loadLicenses(force: true);
     }
   }
 
@@ -93,7 +93,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
 
     if (changed == true) {
       _changed = true;
-      await _controller.loadLicenses();
+      await _controller.loadLicenses(force: true);
     }
   }
 
@@ -225,7 +225,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        content: Text(message),
+        content: Text(AppLanguage.text(message)),
       ),
     );
   }
@@ -336,7 +336,7 @@ class _PilotLicensesScreenState extends State<PilotLicensesScreen> {
                         title: AppLanguage.text('Could not load licenses'),
                         message: _controller.errorMessage!,
                         buttonLabel: 'Try Again',
-                        onPressed: _controller.loadLicenses,
+                        onPressed: () => _controller.loadLicenses(force: true),
                       ),
                     )
                   else if (licenses.isEmpty)
@@ -483,8 +483,8 @@ class _OverviewStat extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(
-            value,
+          Text(AppLanguage.text(
+            value),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -492,8 +492,8 @@ class _OverviewStat extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            label,
+          Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: Color(0xFFCFECEF),
               fontSize: 8.5,
@@ -718,8 +718,8 @@ class _MiniInfo extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
+        Text(AppLanguage.text(
+          label),
           style: const TextStyle(
             color: _muted2,
             fontSize: 8.5,
@@ -727,8 +727,8 @@ class _MiniInfo extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          value,
+        Text(AppLanguage.text(
+          value),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -775,8 +775,8 @@ class _ActionButton extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 16),
               const SizedBox(width: 5),
-              Text(
-                label,
+              Text(AppLanguage.text(
+                label),
                 style: TextStyle(
                   color: color,
                   fontSize: 10.5,
@@ -824,8 +824,8 @@ class _StateMessage extends StatelessWidget {
               child: Icon(icon, color: _tealDark, size: 32),
             ),
             const SizedBox(height: 16),
-            Text(
-              title,
+            Text(AppLanguage.text(
+              title),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: _ink,
@@ -834,8 +834,8 @@ class _StateMessage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 7),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: _muted,

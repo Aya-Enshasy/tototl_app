@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/storage/user_session_storage.dart';
@@ -131,7 +132,7 @@ class _AdminSettingsScreenState
                         borderRadius:
                             BorderRadius.circular(30),
                       ),
-                      child: const Text(
+                      child: const LocalizedText(
                         'ADMINISTRATOR',
                         style: TextStyle(
                           color: Color(0xFFB9F5F2),

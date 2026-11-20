@@ -1,9 +1,11 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/network/api_client.dart';
+import 'package:tototl_app/core/network/request_error_message.dart';
 import 'package:tototl_app/core/storage/token_storage.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 
@@ -61,7 +63,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     if (!widget.compact) {
       unawaited(_loadContracts());
       _liveRefreshTimer = Timer.periodic(
-        const Duration(seconds: 10),
+        const Duration(seconds: 45),
         (_) => unawaited(_silentRefresh()),
       );
     }
@@ -82,7 +84,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     super.dispose();
   }
 
-  Future<List<PilotContractModel>> _fetchContracts() async {
+  Future<List<PilotContractModel>> _fetchContracts({
+    void Function(List<PilotContractModel> firstPage)? onFirstPage,
+  }) async {
     final token = await TokenStorage.getAccessToken();
 
     if (token == null || token.trim().isEmpty) {
@@ -158,6 +162,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         result.add(contract);
       }
 
+      if (page == 1) {
+        onFirstPage?.call(List<PilotContractModel>.unmodifiable(result));
+      }
       page++;
     } while (page <= lastPage && page <= 50);
 
@@ -194,7 +201,16 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     }
 
     try {
-      final contracts = await _fetchContracts();
+      final contracts = await _fetchContracts(
+        onFirstPage: silent ? null : (firstPage) {
+          if (!mounted) return;
+          setState(() {
+            _contracts = firstPage;
+            _contractsLoading = false;
+            _contractsError = null;
+          });
+        },
+      );
 
       if (!mounted) return;
 
@@ -207,8 +223,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
 
       if (!silent || _contracts.isEmpty) {
         setState(() {
-          _contractsError =
-              e.toString().replaceFirst('Bad state: ', '');
+          _contractsError = RequestErrorMessage.from(e,
+              fallback: 'Could not refresh your contracts.');
         });
       }
     } finally {
@@ -229,10 +245,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
     final lifecycle =
         WidgetsBinding.instance.lifecycleState;
 
-    if (!force &&
-        lifecycle != AppLifecycleState.resumed) {
-      return;
-    }
+    if (!force && lifecycle != AppLifecycleState.resumed) return;
+    if (!force && !TickerMode.of(context)) return;
+    if (!force && ModalRoute.of(context)?.isCurrent == false) return;
 
     _liveRefreshInFlight = true;
 
@@ -366,7 +381,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -579,7 +594,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen>
         title: AppLanguage.text(
           'Couldn’t load contracts',
         ),
-        text: _contractsError!,
+        text: AppLanguage.text(_contractsError!),
         actionLabel: 'Try Again',
         onAction: () {
           unawaited(_loadContracts());
@@ -885,8 +900,8 @@ class _PilotWorkTab extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               Flexible(
-                child: Text(
-                  label,
+                child: Text(AppLanguage.text(
+                  label),
                   maxLines: 1,
                   overflow:
                       TextOverflow.ellipsis,
@@ -1046,7 +1061,7 @@ class _PilotContractsOverview
                   size: 14,
                 ),
                 const SizedBox(width: 6),
-                const Text(
+                const LocalizedText(
                   'Contract overview',
                   style: TextStyle(
                     color: Colors.white,
@@ -1190,8 +1205,8 @@ class _PilotContractMetric
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   maxLines: 1,
                   overflow:
                       TextOverflow.ellipsis,
@@ -1481,8 +1496,8 @@ class _PilotContractInfo
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style:
                       const TextStyle(
                     color:
@@ -1493,8 +1508,8 @@ class _PilotContractInfo
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow:
                       TextOverflow.ellipsis,
@@ -1558,7 +1573,7 @@ class _EmptyPilotContracts
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
+        const LocalizedText(
           'No contracts yet',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -1568,7 +1583,7 @@ class _EmptyPilotContracts
           ),
         ),
         const SizedBox(height: 7),
-        const Text(
+        const LocalizedText(
           'Accepted applications will appear here once the company creates a contract.',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -2035,8 +2050,8 @@ class _PipelineMetric extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -2268,8 +2283,8 @@ class _ApplicationCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                child: Text(
-                                  title,
+                                child: Text(AppLanguage.text(
+                                  title),
                                   maxLines: compact ? 1 : 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -2374,11 +2389,11 @@ class _ApplicationCard extends StatelessWidget {
                         color: const Color(0xFFE9F8F8),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Row(
+                      child:  Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'View details',
+                          Text(AppLanguage.text(
+                            'View details'),
                             style: TextStyle(
                               color: Color(0xFF078FA5),
                               fontSize: 8.8,
@@ -2586,8 +2601,8 @@ class _StatusPill extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Flexible(
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -2972,8 +2987,8 @@ class _FullMessage extends StatelessWidget {
               child: Icon(icon, color: AppColors.logoTurquoiseDark, size: 30),
             ),
             const SizedBox(height: 17),
-            Text(
-              title,
+            Text(AppLanguage.text(
+              title),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.navy,

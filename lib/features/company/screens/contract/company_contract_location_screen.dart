@@ -1,4 +1,6 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -186,7 +188,7 @@ class _CompanyContractLocationScreenState
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const Text(
+            const LocalizedText(
               'Private contract location',
               style: TextStyle(
                 color: AppColors.grey,
@@ -272,7 +274,7 @@ class _CompanyContractLocationScreenState
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const Row(
+                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
@@ -282,8 +284,8 @@ class _CompanyContractLocationScreenState
                         ),
                         SizedBox(width: 7),
                         Expanded(
-                          child: Text(
-                            'The API requires both coordinates. They are revealed only through the protected contract-location flow.',
+                          child: Text(AppLanguage.text(
+                            'The API requires both coordinates. They are revealed only through the protected contract-location flow.'),
                             style: TextStyle(
                               color: AppColors.grey,
                               fontSize: 10.3,
@@ -315,7 +317,7 @@ class _CompanyContractLocationScreenState
                           Icons.map_outlined,
                           size: 18,
                         ),
-                        label: const Text(
+                        label: const LocalizedText(
                           'Open in Maps',
                           style: TextStyle(
                             fontWeight:
@@ -404,7 +406,7 @@ class _CompanyContractLocationScreenState
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.green.withOpacity(0.12)),
       ),
-      child: const Row(
+      child:  Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.lock_outline_rounded, color: AppColors.green, size: 20),
@@ -413,8 +415,8 @@ class _CompanyContractLocationScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Private operational location',
+                Text(AppLanguage.text(
+                  'Private operational location'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 12.5,
@@ -422,8 +424,8 @@ class _CompanyContractLocationScreenState
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  'This exact location is not part of the public job post. It becomes available to the contracted pilot through the active contract workflow.',
+                Text(AppLanguage.text(
+                  'This exact location is not part of the public job post. It becomes available to the contracted pilot through the active contract workflow.'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 10.5,
@@ -465,8 +467,8 @@ class _CompanyContractLocationScreenState
                 child: Icon(icon, color: AppColors.blue, size: 18),
               ),
               const SizedBox(width: 9),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 12.5,
@@ -536,7 +538,7 @@ class _CompanyContractLocationScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }

@@ -3,73 +3,60 @@ import 'package:tototl_app/core/storage/user_session_storage.dart';
 
 import 'company_profile_service.dart';
 
-/// Silent company-profile network synchronizer.
-///
-/// The UI always paints cached login/register data first. This class only
-/// refreshes the authoritative profile in the background and writes it back to
-/// [UserSessionStorage]. The storage revision notifier then updates mounted
-/// screens automatically.
+/// Uses the persisted per-account snapshot for first paint and refreshes
+/// it in the background. No failed request is allowed to erase the cache.
 class CompanyProfileSync {
   CompanyProfileSync._();
-
   static final CompanyProfileSync instance = CompanyProfileSync._();
 
   Future<bool>? _inFlight;
-  DateTime? _lastSuccessfulRefresh;
-
-  static const Duration _freshnessWindow = Duration(seconds: 5);
+  int? _inFlightUserId;
+  final Map<int, DateTime> _refreshedAtByUser = {};
+  static const Duration _freshnessWindow = Duration(minutes: 2);
 
   String? lastError;
 
-  Future<bool> refreshFromApi({
-    bool force = false,
-  }) {
+  Future<bool> refreshFromApi({bool force = false}) async {
+    final userId = await UserSessionStorage.getUserId();
+    if (userId == null || userId <= 0) return false;
     final running = _inFlight;
-    if (running != null) return running;
+    if (running != null && _inFlightUserId == userId) return running;
 
-    final last = _lastSuccessfulRefresh;
-    if (!force &&
-        last != null &&
+    final last = _refreshedAtByUser[userId];
+    if (!force && last != null &&
         DateTime.now().difference(last) < _freshnessWindow) {
-      return Future<bool>.value(true);
+      return true;
     }
 
-    final future = _refresh();
+    final future = _refresh(userId);
     _inFlight = future;
-
+    _inFlightUserId = userId;
     future.whenComplete(() {
       if (identical(_inFlight, future)) {
         _inFlight = null;
+        _inFlightUserId = null;
       }
     });
-
     return future;
   }
 
-  Future<bool> _refresh() async {
+  Future<bool> _refresh(int userId) async {
     lastError = null;
-
     try {
-      final fresh =
-      await CompanyProfileService(ApiClient()).getMyProfile();
-
-      // Preserve cached keys omitted by partial GET responses.
-      await UserSessionStorage.mergeProfile(
-        fresh.toJson(),
-      );
-
-      // Keep the top-level photo cache consistent because profile screens use
-      // it for the fastest first paint.
+      final fresh = await CompanyProfileService(ApiClient()).getMyProfile();
+      // Account switching/logging out during a request must not write the
+      // former company's profile into the new session.
+      if (userId != await UserSessionStorage.getUserId()) return false;
+      await UserSessionStorage.mergeProfile(fresh.toJson());
+      if (userId != await UserSessionStorage.getUserId()) return false;
       final photo = fresh.profilePhoto.trim();
       if (photo.isNotEmpty) {
         await UserSessionStorage.updateProfilePhotoUrl(photo);
       }
-
-      _lastSuccessfulRefresh = DateTime.now();
+      _refreshedAtByUser[userId] = DateTime.now();
       return true;
     } catch (e) {
-      // Never block login/home because a background refresh failed.
-      lastError = e.toString();
+      lastError = e.runtimeType.toString();
       return false;
     }
   }

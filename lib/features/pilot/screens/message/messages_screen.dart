@@ -340,8 +340,8 @@ class _ChatBridgeError extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 7),
-                      Text(
-                        message,
+                      Text(AppLanguage.text(
+                        message),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: AppColors.grey,

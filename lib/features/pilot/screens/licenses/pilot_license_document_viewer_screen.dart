@@ -304,8 +304,8 @@ class _ViewerMessage extends StatelessWidget {
               child: Icon(icon, color: _viewerTeal, size: 29),
             ),
             const SizedBox(height: 14),
-            Text(
-              title,
+            Text(AppLanguage.text(
+              title),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: _viewerInk,
@@ -314,8 +314,8 @@ class _ViewerMessage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: _viewerMuted,

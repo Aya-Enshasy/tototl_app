@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/app_language.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter/services.dart';
 //
@@ -75,7 +76,7 @@
 //   void _showSnack(String message) {
 //     ScaffoldMessenger.of(context).showSnackBar(
 //       SnackBar(
-//         content: Text(message),
+//         content: Text(AppLanguage.text(message)),
 //         behavior: SnackBarBehavior.floating,
 //         backgroundColor: kTextDark,
 //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -450,7 +451,7 @@
 //                 ),
 //                 const SizedBox(height: 12),
 //                 _buildMultiSelectField(
-//                   hintText: 'Select job types',
+//                   hintText: AppLanguage.text('Select job types'),
 //                   icon: Icons.work_outline_rounded,
 //                   selectedItems: _selectedJobTypes,
 //                   items: _jobTypes,
@@ -462,7 +463,7 @@
 //                   const SizedBox(height: 10),
 //                   _buildTextField(
 //                     controllers: _otherJobTypeController,
-//                     hintText: 'Please specify the job type',
+//                     hintText: AppLanguage.text('Please specify the job type'),
 //                   ),
 //                 ],
 //                 const SizedBox(height: 24),
@@ -483,7 +484,7 @@
 //                 ),
 //                 const SizedBox(height: 12),
 //                 _buildMultiSelectField(
-//                   hintText: 'Select equipment & sensors',
+//                   hintText: AppLanguage.text('Select equipment & sensors'),
 //                   icon: Icons.sensors_rounded,
 //                   selectedItems: _selectedDroneRequirements,
 //                   items: _droneRequirements,

@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
@@ -56,7 +57,7 @@ class CompanyPublicProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 13),
-                const Text(
+                const LocalizedText(
                   'SunTech Energy Ltd.',
                   style: TextStyle(
                     color: AppColors.navy,
@@ -98,7 +99,7 @@ class CompanyPublicProfileScreen extends StatelessWidget {
           const SizedBox(height: 14),
           _Section(
             title: AppLanguage.text('About'),
-            child: const Text(
+            child: const LocalizedText(
               'SunTech Energy delivers large-scale solar applications, inspections, and field intelligence across California. Every field mission is planned with safety and deliverable quality in mind.',
               style: TextStyle(
                 color: AppColors.text,
@@ -139,8 +140,8 @@ class _Metric extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      Text(
-        value,
+      Text(AppLanguage.text(
+        value),
         style: const TextStyle(
           color: AppColors.navy,
           fontSize: 17,
@@ -148,8 +149,8 @@ class _Metric extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 3),
-      Text(
-        label,
+      Text(AppLanguage.text(
+        label),
         style: const TextStyle(color: AppColors.grey, fontSize: 10.5),
       ),
     ],
@@ -171,8 +172,8 @@ class _Section extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
+        Text(AppLanguage.text(
+          title),
           style: const TextStyle(
             color: AppColors.navy,
             fontSize: 16,

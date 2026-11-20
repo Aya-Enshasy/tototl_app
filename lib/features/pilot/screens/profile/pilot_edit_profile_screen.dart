@@ -1029,8 +1029,8 @@ class _PilotEditProfileScreenState
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              title,
+                            child: Text(AppLanguage.text(
+                              title),
 
                               style:
                               const TextStyle(
@@ -2984,8 +2984,8 @@ class _PilotEditProfileScreenState
             ),
 
             Expanded(
-              child: Text(
-                message,
+              child: Text(AppLanguage.text(
+                message),
 
                 style:
                 const TextStyle(
@@ -3292,8 +3292,8 @@ class _StepItem
             width: 7,
           ),
 
-          Text(
-            title,
+          Text(AppLanguage.text(
+            title),
 
             style:
             TextStyle(
@@ -3686,8 +3686,8 @@ class _SectionCard
                   CrossAxisAlignment.start,
 
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
 
                       style:
                       const TextStyle(
@@ -3706,8 +3706,8 @@ class _SectionCard
                       height: 2,
                     ),
 
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
 
                       style:
                       const TextStyle(
@@ -3822,8 +3822,8 @@ class _LockedField
               CrossAxisAlignment.start,
 
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
 
                   style:
                   const TextStyle(
@@ -3841,8 +3841,8 @@ class _LockedField
                   height: 3,
                 ),
 
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
 
                   maxLines: 1,
 
@@ -4002,8 +4002,8 @@ class _FormField
             bottom: 7,
           ),
 
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
 
             style:
             const TextStyle(
@@ -4204,8 +4204,8 @@ class _TapFormField
             bottom: 7,
           ),
 
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
 
             style:
             const TextStyle(
@@ -4279,8 +4279,8 @@ class _TapFormField
                   ),
 
                   Expanded(
-                    child: Text(
-                      value,
+                    child: Text(AppLanguage.text(
+                      value),
 
                       style:
                       const TextStyle(
@@ -4704,8 +4704,8 @@ class _SheetSelectField
       CrossAxisAlignment.start,
 
       children: [
-        Text(
-          label,
+        Text(AppLanguage.text(
+          label),
 
           style:
           const TextStyle(
@@ -4839,8 +4839,8 @@ class _RegionTextField
             left: 2,
             bottom: 7,
           ),
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
             style: const TextStyle(
               color: _text,
               fontSize: 11.4,

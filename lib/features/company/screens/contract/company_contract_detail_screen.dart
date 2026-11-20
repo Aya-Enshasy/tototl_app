@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,6 +6,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/storage/user_session_storage.dart';
 import 'package:tototl_app/features/chat/screens/chat_screen.dart';
@@ -32,6 +34,7 @@ import '../../services/company_job_service.dart';
 import 'company_contract_location_screen.dart';
 import 'company_contracts_screen.dart';
 import 'company_submission_review_screen.dart';
+import 'company_funding_checkout_screen.dart';
 import '../applications/company_document_viewer_screen.dart';
 
 class CompanyContractDetailScreen extends StatefulWidget {
@@ -77,9 +80,12 @@ class _CompanyContractDetailScreenState
   bool _refreshing = false;
   bool _changed = false;
   bool _openingChat = false;
+  bool _openingFundingCheckout = false;
   bool _openingExternal = false;
   bool _retryingLocation = false;
   bool _retryingSubmissions = false;
+  bool _loadingSubmissionSection = false;
+  int _contractLoadSerial = 0;
   bool _checkingReviewStatus = false;
   bool _hasSubmittedReview = false;
   String? _reviewStatusError;
@@ -116,10 +122,9 @@ class _CompanyContractDetailScreenState
 
     _reviewNotesController = TextEditingController();
 
-    // Seed the objects passed by Applications / Contracts, but do NOT paint a
-    // half-hydrated mission. The first visible frame remains shimmer until
-    // contract + exact location + submissions + pilot/drone display context
-    // have completed their first hydration pass.
+    // Render the real contract supplied by the previous screen immediately.
+    // Missing location, submission files and applicant context load separately.
+    // Do not block the full page on secondary API requests.
     _contract = widget.initialContract;
     _job = widget.initialJob;
     _application = widget.initialApplication;
@@ -128,7 +133,9 @@ class _CompanyContractDetailScreenState
       _controller.seed(_contract!);
     }
 
-    _initialLoading = true;
+    _initialLoading = _contract == null;
+    _loadingSubmissionSection = _contract != null &&
+        _contractCanHaveSubmissions(_contract!);
     unawaited(_load(initial: true));
   }
 
@@ -284,10 +291,12 @@ class _CompanyContractDetailScreenState
       );
     }
 
+    // The documented company GET is authoritative. A 404 means the company
+    // has not saved a location. Trying the pilot route after a 404 caused a
+    // valid missing-location state to turn into 403/503 and an error banner.
     final endpoints = <String>[
       ApiEndpoints.companyContractLocation(contractId),
-      ApiEndpoints.contractLocation(contractId),
-    ].toSet().toList(growable: false);
+    ];
 
     DioException? lastDioError;
     Object? lastOtherError;
@@ -368,7 +377,10 @@ class _CompanyContractDetailScreenState
           lastDioError = e;
           final status = e.response?.statusCode;
 
-          if (status == 401) {
+          if (status == 401 || status == 429 ||
+              (status != null && status >= 500)) {
+            // Same backend serves both routes. A 503/429 cannot be fixed by
+            // immediately hitting the alternate route or retrying repeatedly.
             return (
             value: null,
             success: false,
@@ -380,7 +392,7 @@ class _CompanyContractDetailScreenState
             passNotFoundOnly = false;
           }
 
-          // Try the other documented company-readable route.
+          // A 404 is a normal "not set" response; no alternate endpoint.
           continue;
         } catch (e) {
           lastOtherError = e;
@@ -422,8 +434,11 @@ class _CompanyContractDetailScreenState
     // readable a moment later.
     if (allowRetry &&
         (allNotFound ||
-            lastDioError == null ||
-            _isTransientRequestError(lastDioError!))) {
+            (lastDioError == null && lastOtherError != null) ||
+            (lastDioError != null &&
+                lastDioError!.response?.statusCode != 429 &&
+                lastDioError!.response?.statusCode != 503 &&
+                _isTransientRequestError(lastDioError!)))) {
       await Future<void>.delayed(
         _requestRetryDelay(
           lastDioError,
@@ -462,11 +477,7 @@ class _CompanyContractDetailScreenState
 
       return (
       value: null,
-      error: _responseMessage(
-        lastDioError!.response?.data,
-        fallback:
-        'The exact location could not be refreshed right now.',
-      ),
+      error: 'The exact location could not be refreshed right now.',
       );
     }
 
@@ -555,6 +566,8 @@ class _CompanyContractDetailScreenState
       );
     } on DioException catch (e) {
       if (allowRetry &&
+          e.response?.statusCode != 429 &&
+          e.response?.statusCode != 503 &&
           _isTransientRequestError(e)) {
         await Future<void>.delayed(
           _requestRetryDelay(
@@ -678,14 +691,15 @@ class _CompanyContractDetailScreenState
   }
 
   Future<void> _load({bool initial = false}) async {
+    final loadSerial = ++_contractLoadSerial;
     final hadContract =
         _contract != null;
 
     if (mounted) {
       setState(() {
-        if (initial) {
+        if (initial && !hadContract) {
           _initialLoading = true;
-        } else {
+        } else if (!initial) {
           _refreshing = true;
         }
 
@@ -710,7 +724,7 @@ class _CompanyContractDetailScreenState
         : _contract;
 
     if (freshContract == null) {
-      if (!mounted) return;
+      if (!mounted || loadSerial != _contractLoadSerial) return;
 
       setState(() {
         if (!hadContract) {
@@ -725,138 +739,133 @@ class _CompanyContractDetailScreenState
       return;
     }
 
-    // Start location and submissions immediately after the contract resolves.
-    // They are intentionally independent: a location failure must NEVER stop
-    // submitted files from loading, and a submissions failure must NEVER stop
-    // the location from loading.
-    final locationFuture =
-    _fetchExactLocation(
-      freshContract.id,
-      allowRetry: initial,
-    );
-
-    final submissionsFuture =
-    _contractCanHaveSubmissions(
-      freshContract,
-    )
-        ? _fetchSubmissions(
-      freshContract.id,
-      allowRetry: initial,
-    )
-        : Future.value(
-      (
-      value:
-      const <ContractSubmissionModel>[],
-      error: null as String?,
-      ),
-    );
-
-    CompanyJobApplicationModel? freshApplication =
-        _application;
-    CompanyJobPostingModel? freshJob =
-        _job;
-
-    // Only ask for applicant context if the opening route did not already
-    // provide it. This avoids duplicate calls and the 429/503 behavior seen
-    // earlier in this flow.
-    if (freshApplication == null ||
-        freshJob == null) {
-      final contextOk =
-      await _jobController.loadCompanyApplicants(
-        perPage: 100,
-      );
-
-      if (contextOk) {
-        for (final item
-        in _jobController.companyApplicants) {
-          final application =
-              item.application;
-
-          final sameApplication =
-              freshContract.jobApplicationId > 0 &&
-                  application.id ==
-                      freshContract.jobApplicationId;
-
-          final sameJobAndPilot =
-              application.jobPostingId ==
-                  freshContract.jobPostingId &&
-                  application.pilotProfileId ==
-                      freshContract.pilotProfileId;
-
-          if (sameApplication ||
-              sameJobAndPilot) {
-            freshApplication =
-                application;
-            freshJob =
-                item.jobPosting ?? freshJob;
-            break;
-          }
-        }
-      }
-    }
-
-    freshApplication =
-    await _enrichDroneImage(
-      freshApplication,
-    );
-
-    final locationResult =
-    await locationFuture;
-
-    final submissionsResult =
-    await submissionsFuture;
-
-    await _precacheMissionImages(
-      freshApplication,
-    );
-
-    if (!mounted) return;
-
+    // Paint the authoritative contract immediately. Supporting API calls are
+    // independent and MUST NOT delay the lifecycle controls or other sections.
+    if (!mounted || loadSerial != _contractLoadSerial) return;
     setState(() {
       _contract = freshContract;
-
-      // Preserve a previously successful value if a refresh later fails.
-      if (locationResult.error == null) {
-        _location =
-            locationResult.value;
-      }
-
-      if (submissionsResult.error == null) {
-        _submissions =
-            List.unmodifiable(
-              submissionsResult.value,
-            );
-      }
-
-      _locationLoadError =
-          locationResult.error;
-      _submissionsLoadError =
-          submissionsResult.error;
-
-      if (freshJob != null) {
-        _job = freshJob;
-      }
-
-      if (freshApplication != null) {
-        _application =
-            freshApplication;
-      }
-
       _initialLoading = false;
       _refreshing = false;
     });
 
+    unawaited(_refreshLocationSection(freshContract,
+        initial: initial, loadSerial: loadSerial));
+    unawaited(_refreshSubmissionSection(freshContract,
+        initial: initial, loadSerial: loadSerial));
+    unawaited(_refreshApplicantContext(freshContract,
+        loadSerial: loadSerial));
     if (freshContract.isCompleted) {
-      await _loadReviewStatus(freshContract);
+      unawaited(_loadReviewStatus(freshContract));
     } else if (mounted &&
-        (_hasSubmittedReview ||
-            _checkingReviewStatus ||
+        (_hasSubmittedReview || _checkingReviewStatus ||
             _reviewStatusError != null)) {
       setState(() {
         _checkingReviewStatus = false;
         _hasSubmittedReview = false;
         _reviewStatusError = null;
       });
+    }
+  }
+
+  Future<void> _refreshLocationSection(
+    CompanyContractModel contract, {required bool initial,
+      required int loadSerial}
+  ) async {
+    try {
+      final result = await _fetchExactLocation(
+        contract.id, allowRetry: initial,
+      );
+      if (!mounted || loadSerial != _contractLoadSerial ||
+          _contract?.id != contract.id) return;
+      setState(() {
+        if (result.error == null) _location = result.value;
+        _locationLoadError = result.error;
+      });
+    } catch (e) {
+      if (!mounted || loadSerial != _contractLoadSerial ||
+          _contract?.id != contract.id) return;
+      setState(() => _locationLoadError =
+          'Could not refresh exact location. You can retry this section.');
+      debugPrint('[TOTOTL][CONTRACT][LOCATION] id=${contract.id} '
+          'failure=${e.runtimeType}');
+    }
+  }
+
+  Future<void> _refreshSubmissionSection(
+    CompanyContractModel contract, {required bool initial,
+      required int loadSerial}
+  ) async {
+    if (!_contractCanHaveSubmissions(contract)) {
+      if (mounted && _contract?.id == contract.id) {
+        setState(() {
+          _submissions = const <ContractSubmissionModel>[];
+          _submissionsLoadError = null;
+          _loadingSubmissionSection = false;
+        });
+      }
+      return;
+    }
+    if (mounted && loadSerial == _contractLoadSerial) {
+      setState(() => _loadingSubmissionSection = true);
+    }
+    try {
+      final result = await _fetchSubmissions(
+        contract.id, allowRetry: initial,
+      );
+      if (!mounted || loadSerial != _contractLoadSerial ||
+          _contract?.id != contract.id) return;
+      setState(() {
+        if (result.error == null) {
+          _submissions = List<ContractSubmissionModel>.unmodifiable(result.value);
+        }
+        _submissionsLoadError = result.error;
+        _loadingSubmissionSection = false;
+      });
+    } catch (e) {
+      if (!mounted || loadSerial != _contractLoadSerial ||
+          _contract?.id != contract.id) return;
+      setState(() {
+        _submissionsLoadError =
+            'Could not refresh submitted files. Please retry this section.';
+        _loadingSubmissionSection = false;
+      });
+      debugPrint('[TOTOTL][CONTRACT][SUBMISSIONS] id=${contract.id} '
+          'failure=${e.runtimeType}');
+    }
+  }
+
+  Future<void> _refreshApplicantContext(CompanyContractModel contract,
+      {required int loadSerial}) async {
+    try {
+      CompanyJobApplicationModel? freshApplication = _application;
+      CompanyJobPostingModel? freshJob = _job;
+      if (freshApplication == null || freshJob == null) {
+        final ok = await _jobController.loadCompanyApplicants(perPage: 100);
+        if (ok) {
+          for (final item in _jobController.companyApplicants) {
+            final app = item.application;
+            if (app.id == contract.jobApplicationId ||
+                (app.jobPostingId == contract.jobPostingId &&
+                    app.pilotProfileId == contract.pilotProfileId)) {
+              freshApplication = app;
+              freshJob = item.jobPosting ?? freshJob;
+              break;
+            }
+          }
+        }
+      }
+      freshApplication = await _enrichDroneImage(freshApplication);
+      if (!mounted || loadSerial != _contractLoadSerial ||
+          _contract?.id != contract.id) return;
+      setState(() {
+        if (freshJob != null) _job = freshJob;
+        if (freshApplication != null) _application = freshApplication;
+      });
+      // Images are optional: never await their preload before rendering.
+      unawaited(_precacheMissionImages(freshApplication));
+    } catch (e) {
+      debugPrint('[TOTOTL][CONTRACT][CONTEXT] id=${contract.id} '
+          'failure=${e.runtimeType}');
     }
   }
 
@@ -1112,105 +1121,43 @@ class _CompanyContractDetailScreenState
 
   Future<void> _fund() async {
     final contract = _contract;
-    if (contract == null || !contract.canFund || _controller.isFunding) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.account_balance_wallet_rounded,
-                color: AppColors.green,
-              ),
-              SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  'Fund Contract',
-                  style: TextStyle(
-                    color: AppColors.navy,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'Confirm funding ${contract.amountLabel}. The current backend payment gateway is a stub, so this request has no card/body fields. On success the contract becomes Active.',
-            style: const TextStyle(
-              color: AppColors.grey,
-              fontSize: 12.2,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.green,
-              ),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Fund Contract'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    HapticFeedback.mediumImpact();
-    setState(() {});
-
-    final updated = await _controller.fundContract(contract.id);
-    if (!mounted) return;
-
-    if (updated == null) {
-      setState(() {});
-      _snack(
-        _controller.actionErrorMessage ?? 'Unable to fund this contract.',
-        error: true,
-      );
+    if (contract == null || !contract.canFund || _openingFundingCheckout) {
       return;
     }
 
-    final locationResult =
-    await _fetchExactLocation(
-      updated.id,
-      allowRetry: true,
-    );
+    setState(() => _openingFundingCheckout = true);
+    try {
+      // The payment screen gets a server quote before calling the new
+      // /fund {quote_reference, method: redirect} Stripe endpoint.
+      final outcome = await Navigator.of(context).push<CompanyFundingOutcome>(
+        MaterialPageRoute(
+          builder: (_) => CompanyFundingCheckoutScreen(
+            contractId: contract.id,
+            amountLabel: contract.amountLabel,
+          ),
+        ),
+      );
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    setState(() {
-      _contract = updated;
-
-      if (locationResult.error == null) {
-        _location =
-            locationResult.value;
+      if (outcome != null) {
+        debugPrint('[TOTOTL][PAYMENT][RECONCILE] '
+            'contract=${contract.id} outcome=${outcome.name}');
+        final message = switch (outcome) {
+          CompanyFundingOutcome.fundingConfirmed =>
+            'Funding confirmed by the server. The mission is ready for the next step.',
+          CompanyFundingOutcome.collectionStarted =>
+            'Stripe payment started. Waiting for provider confirmation.',
+          CompanyFundingOutcome.collectionUnconfirmed =>
+            'No payment confirmation yet. Check status before attempting another charge.',
+        };
+        _snack(message, error: outcome == CompanyFundingOutcome.collectionUnconfirmed);
       }
-
-      _locationLoadError =
-          locationResult.error;
-      _changed = true;
-    });
-
-    _snack(
-      _location == null
-          ? 'Funding confirmed. Contract is Active.'
-          : 'Funding confirmed. Contract is Active and the saved exact location is ready.',
-      success: true,
-    );
+      // Refresh the authoritative contract regardless of whether the payment
+      // view was closed or submitted. Never fabricate Active locally.
+      await _load();
+    } finally {
+      if (mounted) setState(() => _openingFundingCheckout = false);
+    }
   }
 
   bool _canCompanyEditExactLocation(
@@ -1305,8 +1252,8 @@ class _CompanyContractDetailScreenState
       title: 'Cancel Contract?',
       message:
       'Cancellation is only available before work starts. This action cannot be undone.',
-      hint: 'Optional cancellation reason...',
-      reasonRequired: false,
+      hint: 'Describe why the contract is being cancelled...',
+      reasonRequired: true,
       confirmLabel: 'Cancel Contract',
     );
     if (reason == null || !mounted) return;
@@ -1400,8 +1347,8 @@ class _CompanyContractDetailScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(22),
               ),
-              title: Text(
-                title,
+              title: Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 16,
@@ -1412,8 +1359,8 @@ class _CompanyContractDetailScreenState
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    message,
+                  Text(AppLanguage.text(
+                    message),
                     style: const TextStyle(
                       color: AppColors.grey,
                       fontSize: 11,
@@ -1455,7 +1402,7 @@ class _CompanyContractDetailScreenState
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Keep Contract'),
+                  child: const LocalizedText('Keep Contract'),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -1483,8 +1430,50 @@ class _CompanyContractDetailScreenState
   }
 
 
-  ContractSubmissionModel? get _latestSubmission =>
-      _submissions.isEmpty ? null : _submissions.last;
+  ContractSubmissionModel? get _latestSubmission {
+    if (_submissions.isEmpty) return null;
+    final ordered = [..._submissions]..sort((a, b) {
+      final byDate = (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0));
+      return byDate != 0 ? byDate : a.id.compareTo(b.id);
+    });
+    return ordered.last;
+  }
+
+  /// The action buttons may display cached status while another device has
+  /// already reviewed this submission. Never submit an outdated round.
+  Future<ContractSubmissionModel?> _validateFreshReviewRound(
+      CompanyContractModel contract) async {
+    try {
+      final results = await Future.wait<dynamic>([
+        _controller.service.getContract(contract.id),
+        _controller.service.getSubmissions(contract.id),
+      ]);
+      final freshContract = results[0] as CompanyContractModel;
+      final freshSubmissions = results[1] as List<ContractSubmissionModel>;
+      if (!mounted) return null;
+      setState(() {
+        _contract = freshContract;
+        _submissions = List.unmodifiable(freshSubmissions);
+      });
+      final latest = _latestSubmission;
+      if (!freshContract.canReviewSubmission ||
+          latest == null || !latest.isSubmitted) {
+        _snack('This submission has already changed status. '
+            'The mission has been refreshed.', error: true);
+        return null;
+      }
+      return latest;
+    } catch (e) {
+      if (mounted) {
+        _snack('Could not verify the latest submission. '
+            'Please retry before approving.', error: true);
+      }
+      debugPrint('[TOTOTL][CONTRACT][REVIEW_PREFLIGHT] '
+          'contract=${contract.id} failure=${e.runtimeType}');
+      return null;
+    }
+  }
 
   Future<void> _referenceRequestRevision() async {
     final contract = _contract;
@@ -1506,12 +1495,15 @@ class _CompanyContractDetailScreenState
       return;
     }
 
+    final freshSubmission = await _validateFreshReviewRound(contract);
+    if (freshSubmission == null || !mounted) return;
+
     HapticFeedback.mediumImpact();
     setState(() {});
 
     final result = await _controller.requestRevision(
       contract.id,
-      submission.id,
+      freshSubmission.id,
       reviewNotes: note,
     );
 
@@ -1546,6 +1538,9 @@ class _CompanyContractDetailScreenState
       return;
     }
 
+    final freshSubmission = await _validateFreshReviewRound(contract);
+    if (freshSubmission == null || !mounted) return;
+
     HapticFeedback.mediumImpact();
     setState(() {});
 
@@ -1553,7 +1548,7 @@ class _CompanyContractDetailScreenState
 
     final result = await _controller.approveSubmission(
       contract.id,
-      submission.id,
+      freshSubmission.id,
       reviewNotes: note.isEmpty ? null : note,
     );
 
@@ -2043,8 +2038,8 @@ class _CompanyContractDetailScreenState
           Expanded(
             child: Column(
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -2133,9 +2128,9 @@ class _CompanyContractDetailScreenState
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+               PopupMenuItem(
                 value: 'refresh',
-                child: Text('Refresh', style: TextStyle(fontSize: 12)),
+                child: Text(AppLanguage.text('Refresh'), style: TextStyle(fontSize: 12)),
               ),
               if (contract != null &&
                   _canCompanyEditExactLocation(contract))
@@ -2148,25 +2143,25 @@ class _CompanyContractDetailScreenState
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
-              const PopupMenuItem(
+               PopupMenuItem(
                 value: 'payments',
-                child: Text(
-                  'Payment history',
+                child: Text(AppLanguage.text(
+                  'Payment history'),
                   style: TextStyle(fontSize: 12),
                 ),
               ),
-              const PopupMenuItem(
+               PopupMenuItem(
                 value: 'contracts',
-                child: Text(
-                  'All contracts',
+                child: Text(AppLanguage.text(
+                  'All contracts'),
                   style: TextStyle(fontSize: 12),
                 ),
               ),
               if (contract?.canCancelBeforeWork == true)
-                const PopupMenuItem(
+                 PopupMenuItem(
                   value: 'cancel',
-                  child: Text(
-                    'Cancel contract',
+                  child: Text(AppLanguage.text(
+                    'Cancel contract'),
                     style: TextStyle(
                       fontSize: 12,
                       color: _ReferenceMissionPalette.red,
@@ -2174,10 +2169,10 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
               if (contract?.canTerminateMidWork == true)
-                const PopupMenuItem(
+                 PopupMenuItem(
                   value: 'terminate',
-                  child: Text(
-                    'Terminate contract',
+                  child: Text(AppLanguage.text(
+                    'Terminate contract'),
                     style: TextStyle(
                       fontSize: 12,
                       color: _ReferenceMissionPalette.red,
@@ -2237,7 +2232,7 @@ class _CompanyContractDetailScreenState
               icon: Icons.account_balance_wallet_outlined,
               title: 'Pilot accepted the agreement',
               message:
-              'Fund the contract to activate the mission. You can set the exact location before funding; the pilot only sees it once the contract is Active.',
+              'Review the company payment quote and wait for server-confirmed funding; then provide the pilot with the exact location.',
             ),
             const SizedBox(height: 10),
           ] else if (contract.isCompleted) ...[
@@ -2260,13 +2255,38 @@ class _CompanyContractDetailScreenState
           const SizedBox(height: 10),
           _referenceLocationCard(contract),
 
-          if (latest != null) ...[
+          // Submitted files are independent of exact location. The card
+          // must not disappear while the submissions API is loading or fails.
+          if (_contractCanHaveSubmissions(contract)) ...[
             const SizedBox(height: 10),
-            _referenceSubmittedFiles(latest),
-          ] else if (_contractCanHaveSubmissions(contract) &&
-              _submissionsLoadError != null) ...[
-            const SizedBox(height: 10),
-            _referenceSubmittedFilesError(),
+            if (latest != null)
+              _referenceSubmittedFiles(latest)
+            else if (_submissionsLoadError != null)
+              _referenceSubmittedFilesError()
+            else
+              _ReferenceMissionCard(
+                title: 'Submitted Files',
+                icon: Icons.folder_rounded,
+                child: Row(
+                  children: [
+                    if (_loadingSubmissionSection) ...[
+                      const SizedBox(
+                        height: 15, width: 15,
+                        child: CircularProgressIndicator(strokeWidth: 1.7),
+                      ),
+                      const SizedBox(width: 9),
+                    ],
+                    Expanded(child: Text(AppLanguage.text(
+                      _loadingSubmissionSection
+                          ? 'Loading submitted files...'
+                          : 'No work files have been submitted yet.',
+                    ), style: const TextStyle(
+                      fontSize: 10.5,
+                      color: _ReferenceMissionPalette.muted,
+                    ))),
+                  ],
+                ),
+              ),
           ],
 
           if (contract.isSubmitted &&
@@ -2330,7 +2350,7 @@ class _CompanyContractDetailScreenState
             ),
           ],
         ),
-        child: const Row(
+        child:  Row(
           children: [
             SizedBox(
               width: 20,
@@ -2342,8 +2362,8 @@ class _CompanyContractDetailScreenState
             ),
             SizedBox(width: 11),
             Expanded(
-              child: Text(
-                'Checking your review status...',
+              child: Text(AppLanguage.text(
+                'Checking your review status...'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 11,
@@ -2390,12 +2410,12 @@ class _CompanyContractDetailScreenState
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Review submitted',
+                  Text(AppLanguage.text(
+                    'Review submitted'),
                     style: TextStyle(
                       color: AppColors.navy,
                       fontSize: 12.4,
@@ -2403,8 +2423,8 @@ class _CompanyContractDetailScreenState
                     ),
                   ),
                   SizedBox(height: 4),
-                  Text(
-                    'Your verified feedback is now part of this pilot’s rating history.',
+                  Text(AppLanguage.text(
+                    'Your verified feedback is now part of this pilot’s rating history.'),
                     style: TextStyle(
                       color: AppColors.grey,
                       fontSize: 10.2,
@@ -2494,7 +2514,7 @@ class _CompanyContractDetailScreenState
                           color: Colors.white.withOpacity(.09),
                           borderRadius: BorderRadius.circular(30),
                         ),
-                        child: const Text(
+                        child: const LocalizedText(
                           'VERIFIED CONTRACT',
                           style: TextStyle(
                             color: Colors.white70,
@@ -2543,7 +2563,7 @@ class _CompanyContractDetailScreenState
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      const Text(
+                      const LocalizedText(
                         'Leave a review',
                         style: TextStyle(
                           color: Color(0xFFFFE6A1),
@@ -2729,7 +2749,7 @@ class _CompanyContractDetailScreenState
         color: const Color(0xFFEAF8F7),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Row(
+      child:  Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ReferenceMissionIconBox(
@@ -2740,8 +2760,8 @@ class _CompanyContractDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Work submitted — your review is needed',
+                Text(AppLanguage.text(
+                  'Work submitted — your review is needed'),
                   style: TextStyle(
                     color: _ReferenceMissionPalette.navy,
                     fontSize: 11.6,
@@ -2749,8 +2769,8 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
                 SizedBox(height: 2),
-                Text(
-                  'The pilot submitted the deliverables for this mission. Review the files, then approve or request a revision.',
+                Text(AppLanguage.text(
+                  'The pilot submitted the deliverables for this mission. Review the files, then approve or request a revision.'),
                   style: TextStyle(
                     color: _ReferenceMissionPalette.muted,
                     fontSize: 9.9,
@@ -2785,8 +2805,8 @@ class _CompanyContractDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: _ReferenceMissionPalette.navy,
                     fontSize: 11.4,
@@ -2794,8 +2814,8 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   style: const TextStyle(
                     color: _ReferenceMissionPalette.muted,
                     fontSize: 9.9,
@@ -2858,14 +2878,14 @@ class _CompanyContractDetailScreenState
         crossAxisAlignment:
         CrossAxisAlignment.start,
         children: [
-          const Row(
+           Row(
             children: [
               _ReferenceMissionIconBox(
                 icon: Icons.dashboard_customize_outlined,
               ),
               SizedBox(width: 8),
-              Text(
-                'Mission Details',
+              Text(AppLanguage.text(
+                'Mission Details'),
                 style: TextStyle(
                   color:
                   _ReferenceMissionPalette.navy,
@@ -2912,7 +2932,7 @@ class _CompanyContractDetailScreenState
                         crossAxisAlignment:
                         CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          const LocalizedText(
                             'Mission location',
                             style: TextStyle(
                               color:
@@ -3058,7 +3078,7 @@ class _CompanyContractDetailScreenState
                     crossAxisAlignment:
                     CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      const LocalizedText(
                         'Selected drone',
                         style: TextStyle(
                           color:
@@ -3213,7 +3233,7 @@ class _CompanyContractDetailScreenState
                           ),
                           const SizedBox(
                               height: 5),
-                          const Text(
+                          const LocalizedText(
                             'Tap to open in Maps',
                             style:
                             TextStyle(
@@ -3277,7 +3297,7 @@ class _CompanyContractDetailScreenState
         crossAxisAlignment:
         CrossAxisAlignment.start,
         children: [
-          const Text(
+          const LocalizedText(
             'The exact location could not be refreshed right now.',
             style: TextStyle(
               color:
@@ -3349,9 +3369,9 @@ class _CompanyContractDetailScreenState
         crossAxisAlignment:
         CrossAxisAlignment.center,
         children: [
-          const Expanded(
-            child: Text(
-              'Submitted files could not be refreshed right now.',
+           Expanded(
+            child: Text(AppLanguage.text(
+              'Submitted files could not be refreshed right now.'),
               style: TextStyle(
                 color:
                 _ReferenceMissionPalette.text,
@@ -3417,7 +3437,7 @@ class _CompanyContractDetailScreenState
         ),
       ),
       child: submission.files.isEmpty
-          ? const Text(
+          ? const LocalizedText(
         'No files were included in this submission.',
         style: TextStyle(
           color: _ReferenceMissionPalette.muted,
@@ -3449,7 +3469,7 @@ class _CompanyContractDetailScreenState
     return _ReferenceMissionCard(
       title: 'Review Notes',
       icon: Icons.chat_bubble_outline_rounded,
-      trailing: const Text(
+      trailing: const LocalizedText(
         '(optional for approval)',
         style: TextStyle(
           color: _ReferenceMissionPalette.muted,
@@ -3469,7 +3489,7 @@ class _CompanyContractDetailScreenState
         decoration: InputDecoration(
           counterText: '',
           hintText:
-          'Add notes about the work, or revision instructions if needed...',
+          AppLanguage.text('Add notes about the work, or revision instructions if needed...'),
           hintStyle: const TextStyle(
             color: Color(0xFFA2AFB8),
             fontSize: 10.2,
@@ -3533,10 +3553,10 @@ class _CompanyContractDetailScreenState
       'No company action is required. Release is backend-managed after approved completion when the release window is reached.';
     } else if (payment.isFunded ||
         payment.isHeld) {
-      title = 'Funded';
+      title = 'Funds recorded';
       subtitle = contract.isSubmitted
-          ? 'Funds are secured. Review the submitted work; release follows approved completion.'
-          : 'Funds are secured for this mission.';
+          ? 'The server reports the contract was funded. Review the submitted work; pilot payout is handled separately by the backend.'
+          : 'The server reports the contract was funded; check payment history for the recorded transaction.';
     } else {
       title = payment.statusLabel;
       subtitle =
@@ -3567,8 +3587,8 @@ class _CompanyContractDetailScreenState
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color:
                     _ReferenceMissionPalette
@@ -3579,8 +3599,8 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style: const TextStyle(
                     color:
                     _ReferenceMissionPalette
@@ -3606,7 +3626,7 @@ class _CompanyContractDetailScreenState
                 horizontal: 7,
               ),
             ),
-            child: const Text(
+            child: const LocalizedText(
               'History',
               style: TextStyle(
                 fontSize: 9.8,
@@ -3774,8 +3794,8 @@ class _CompanyContractDetailScreenState
         children: [
           SizedBox(
             width: 68,
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: _ReferenceMissionPalette.muted,
                 fontSize: 9.9,
@@ -3784,8 +3804,8 @@ class _CompanyContractDetailScreenState
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               style: const TextStyle(
                 color: _ReferenceMissionPalette.text,
                 fontSize: 10.2,
@@ -3896,7 +3916,7 @@ class _CompanyContractDetailScreenState
                     Icons.replay_rounded,
                     size: 16,
                   ),
-                  label: const Text(
+                  label: const LocalizedText(
                     'Request revision',
                     style: TextStyle(
                       fontSize: 10.5,
@@ -3944,7 +3964,7 @@ class _CompanyContractDetailScreenState
                       Icons.check_rounded,
                       size: 17,
                     ),
-                    label: const Text(
+                    label: const LocalizedText(
                       'Approve & complete',
                       style: TextStyle(
                         fontSize: 10.5,
@@ -4052,8 +4072,8 @@ class _CompanyContractDetailScreenState
                           ),
                         ),
                         const SizedBox(height: 1),
-                        Text(
-                          'Share your verified contract experience',
+                        Text(AppLanguage.text(
+                          'Share your verified contract experience'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -4107,7 +4127,7 @@ class _CompanyContractDetailScreenState
             ),
             child: ElevatedButton.icon(
               onPressed:
-              _controller.isFunding ? null : _fund,
+              _openingFundingCheckout ? null : _fund,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
@@ -4116,7 +4136,7 @@ class _CompanyContractDetailScreenState
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              icon: _controller.isFunding
+              icon: _openingFundingCheckout
                   ? const SizedBox(
                 width: 16,
                 height: 16,
@@ -4130,9 +4150,11 @@ class _CompanyContractDetailScreenState
                 size: 17,
               ),
               label: Text(
-                _controller.isFunding
-                    ? 'Funding...'
-                    : 'Fund contract · ${contract.amountLabel}',
+                _openingFundingCheckout
+                    ? 'Opening checkout...'
+                    : contract.latestPayment?.status.toLowerCase() == 'pending'
+                        ? 'Continue Stripe payment'
+                        : 'Review payment & fees',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -4155,12 +4177,12 @@ class _CompanyContractDetailScreenState
             onTap: _back,
           ),
           const SizedBox(width: 10),
-          const Expanded(
+           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Contract Details',
+                Text(AppLanguage.text(
+                  'Contract Details'),
                   style: TextStyle(
                     color: AppColors.navy,
                     fontSize: 16.5,
@@ -4169,8 +4191,8 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
                 SizedBox(height: 3),
-                Text(
-                  'Funding, location & work lifecycle',
+                Text(AppLanguage.text(
+                  'Funding, location & work lifecycle'),
                   style: TextStyle(
                     color: AppColors.grey,
                     fontSize: 9.8,
@@ -4283,7 +4305,7 @@ class _CompanyContractDetailScreenState
               ),
             ),
             icon: const Icon(Icons.list_alt_rounded),
-            label: const Text('All Contracts'),
+            label: const LocalizedText('All Contracts'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
               foregroundColor: AppColors.navy,
@@ -4426,8 +4448,8 @@ class _CompanyContractDetailScreenState
       color = AppColors.orange;
       background = AppColors.orangeBg;
     } else if (contract.isAccepted) {
-      title = 'Ready for funding';
-      message = 'The pilot accepted. Fund the contract to activate the work stage.';
+      title = 'Ready to review payment';
+      message = 'The pilot accepted. Review the server quote, confirm the charge, and wait for provider confirmation before work starts.';
       icon = Icons.account_balance_wallet_rounded;
       color = AppColors.green;
       background = AppColors.greenBg;
@@ -4436,7 +4458,7 @@ class _CompanyContractDetailScreenState
           ? 'Active • Location required'
           : 'Active • Ready for pilot';
       message = _location == null
-          ? 'Funding is complete. Add the private exact location before the pilot starts work.'
+          ? 'The server marked the contract active. Add the exact location before the pilot starts work.'
           : 'The pilot can see the exact location and use Start Work.';
       icon = Icons.location_on_rounded;
       color = AppColors.blue;
@@ -4502,8 +4524,8 @@ class _CompanyContractDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style: TextStyle(
                     color: color,
                     fontSize: 11.8,
@@ -4511,8 +4533,8 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   style: const TextStyle(
                     color: AppColors.text,
                     fontSize: 10.7,
@@ -4534,7 +4556,7 @@ class _CompanyContractDetailScreenState
       return _section(
         title: 'Exact Job Location',
         icon: Icons.location_searching_rounded,
-        child: const Row(
+        child:  Row(
           children: [
             SizedBox(
               width: 18,
@@ -4546,8 +4568,8 @@ class _CompanyContractDetailScreenState
             ),
             SizedBox(width: 10),
             Expanded(
-              child: Text(
-                'Loading protected location...',
+              child: Text(AppLanguage.text(
+                'Loading protected location...'),
                 style: TextStyle(
                   color: AppColors.grey,
                   fontSize: 11,
@@ -4573,14 +4595,14 @@ class _CompanyContractDetailScreenState
                 color: AppColors.redBg.withOpacity(0.55),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
+              child:  Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.sync_problem_rounded, color: AppColors.red, size: 19),
                   SizedBox(width: 9),
                   Expanded(
-                    child: Text(
-                      'The saved location could not be verified from the server. The app will not treat this as a missing location.',
+                    child: Text(AppLanguage.text(
+                      'The saved location could not be verified from the server. The app will not treat this as a missing location.'),
                       style: TextStyle(
                         color: AppColors.text,
                         fontSize: 10.8,
@@ -4608,7 +4630,7 @@ class _CompanyContractDetailScreenState
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text(
+              label: const LocalizedText(
                 'Retry Location Check',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
@@ -4684,7 +4706,7 @@ class _CompanyContractDetailScreenState
                 ),
               ),
               icon: const Icon(Icons.add_location_alt_rounded, size: 18),
-              label: const Text(
+              label: const LocalizedText(
                 'Add Exact Location',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
@@ -4752,7 +4774,7 @@ class _CompanyContractDetailScreenState
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Copy coordinates',
+                      tooltip: AppLanguage.text('Copy coordinates'),
                       visualDensity: VisualDensity.compact,
                       onPressed: () {
                         Clipboard.setData(
@@ -4795,7 +4817,7 @@ class _CompanyContractDetailScreenState
                 ),
               ),
               icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
-              label: const Text(
+              label: const LocalizedText(
                 'Edit Exact Location',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
@@ -4816,7 +4838,7 @@ class _CompanyContractDetailScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_controller.isLoadingSubmissions && latest == null)
-            const Row(
+             Row(
               children: [
                 SizedBox(
                   width: 17,
@@ -4827,8 +4849,8 @@ class _CompanyContractDetailScreenState
                   ),
                 ),
                 SizedBox(width: 9),
-                Text(
-                  'Loading submission history...',
+                Text(AppLanguage.text(
+                  'Loading submission history...'),
                   style: TextStyle(color: AppColors.grey, fontSize: 10.5),
                 ),
               ],
@@ -4841,7 +4863,7 @@ class _CompanyContractDetailScreenState
                 color: AppColors.blueBg.withOpacity(0.62),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Text(
+              child: const LocalizedText(
                 'No submission yet. The pilot will be able to submit work while the contract is In Progress.',
                 style: TextStyle(
                   color: AppColors.text,
@@ -5123,7 +5145,7 @@ class _CompanyContractDetailScreenState
                 Expanded(
                   child: Text(
                     contract.isAccepted
-                        ? 'Ready to fund ${contract.amountLabel}. Use Fund Contract below.'
+                        ? 'Review the payment quote and final fees to initiate funding for ${contract.amountLabel}.'
                         : 'No payment record returned for this contract yet.',
                     style: TextStyle(
                       color: contract.isAccepted ? AppColors.green : AppColors.grey,
@@ -5227,7 +5249,7 @@ class _CompanyContractDetailScreenState
         ),
       ),
       icon: const Icon(Icons.receipt_long_outlined, size: 17),
-      label: const Text(
+      label: const LocalizedText(
         'View Payment History',
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
@@ -5259,7 +5281,7 @@ class _CompanyContractDetailScreenState
   }
 
   static const String contractPaymentFundedText =
-      'Funding is secured. After the company approves the final work, release eligibility is calculated by the backend.';
+      'The server reports that funding is confirmed. Payment-provider settlement and pilot payouts are managed by the backend.';
 
   Widget _reviewBar(CompanyContractModel contract) {
     return SafeArea(
@@ -5288,7 +5310,7 @@ class _CompanyContractDetailScreenState
             ),
           ),
           icon: const Icon(Icons.fact_check_outlined, size: 19),
-          label: const Text(
+          label: const LocalizedText(
             'Review Submitted Work',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
@@ -5316,7 +5338,7 @@ class _CompanyContractDetailScreenState
           ],
         ),
         child: FilledButton.icon(
-          onPressed: _controller.isFunding ? null : _fund,
+          onPressed: _openingFundingCheckout ? null : _fund,
           style: FilledButton.styleFrom(
             minimumSize: const Size(double.infinity, 54),
             backgroundColor: AppColors.green,
@@ -5325,7 +5347,7 @@ class _CompanyContractDetailScreenState
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          icon: _controller.isFunding
+          icon: _openingFundingCheckout
               ? const SizedBox(
             width: 18,
             height: 18,
@@ -5336,9 +5358,11 @@ class _CompanyContractDetailScreenState
           )
               : const Icon(Icons.account_balance_wallet_rounded, size: 19),
           label: Text(
-            _controller.isFunding
-                ? 'Funding...'
-                : 'Fund Contract • ${contract.amountLabel}',
+            _openingFundingCheckout
+                ? 'Opening checkout...'
+                : contract.latestPayment?.status.toLowerCase() == 'pending'
+                    ? 'Continue Stripe payment'
+                    : 'Review payment & fees',
             style: const TextStyle(fontWeight: FontWeight.w900),
           ),
         ),
@@ -5381,8 +5405,8 @@ class _CompanyContractDetailScreenState
                 child: Icon(icon, color: AppColors.blue, size: 17),
               ),
               const SizedBox(width: 9),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 12.5,
@@ -5404,8 +5428,8 @@ class _CompanyContractDetailScreenState
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: AppColors.grey,
                 fontSize: 10.5,
@@ -5415,8 +5439,8 @@ class _CompanyContractDetailScreenState
           ),
           const SizedBox(width: 10),
           Flexible(
-            child: Text(
-              value,
+            child: Text(AppLanguage.text(
+              value),
               textAlign: TextAlign.end,
               style: const TextStyle(
                 color: AppColors.navy,
@@ -5457,7 +5481,7 @@ class _CompanyContractDetailScreenState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }
@@ -5555,8 +5579,8 @@ class _ReferenceMissionCard extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               Expanded(
-                child: Text(
-                  title,
+                child: Text(AppLanguage.text(
+                  title),
                   style: const TextStyle(
                     color: _ReferenceMissionPalette.navy,
                     fontSize: 11.8,
@@ -5907,16 +5931,16 @@ class _ReferenceMissionInfoTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color: _ReferenceMissionPalette.muted,
                     fontSize: 9,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: fullWidth ? 2 : 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -6019,8 +6043,8 @@ class _ErrorState extends StatelessWidget {
               size: 38,
             ),
             const SizedBox(height: 12),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,
@@ -6032,7 +6056,7 @@ class _ErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+              label: const LocalizedText('Retry'),
             ),
           ],
         ),

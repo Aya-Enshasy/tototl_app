@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -73,12 +74,18 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     _entitlements = SubscriptionEntitlementsController(
       SubscriptionEntitlementsService(api),
     );
+    _entitlements.addListener(_entitlementsChanged);
 
     _loadPlans();
   }
 
+  void _entitlementsChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _entitlements.removeListener(_entitlementsChanged);
     _entitlements.dispose();
     super.dispose();
   }
@@ -88,8 +95,9 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
       setState(() => _loading = true);
     }
 
+    // Entitlements refresh in parallel; displaying plans does not wait for it.
+    unawaited(_entitlements.load(force: true));
     final loaded = await _subscription.loadAll();
-    await _entitlements.load(force: true);
 
     if (!mounted) return;
 
@@ -174,8 +182,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          message,
+        content: Text(AppLanguage.text(
+          message),
           style: const TextStyle(fontSize: 11),
         ),
         backgroundColor: error ? AppColors.red : primary,
@@ -195,7 +203,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
         ),
-        title: const Text(
+        title: const LocalizedText(
           'Secure payment coming soon',
           style: TextStyle(
             fontSize: 15,
@@ -218,7 +226,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text(
+            child: const LocalizedText(
               'Got it',
               style: TextStyle(fontSize: 12),
             ),
@@ -294,7 +302,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           TextButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, false),
-            child: const Text(
+            child: const LocalizedText(
               'Cancel',
               style: TextStyle(fontSize: 12),
             ),
@@ -302,7 +310,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           FilledButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, true),
-            child: const Text(
+            child: const LocalizedText(
               'Confirm',
               style: TextStyle(fontSize: 12),
             ),
@@ -352,14 +360,14 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text(
+        title: const LocalizedText(
           'Cancel Subscription?',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w800,
           ),
         ),
-        content: const Text(
+        content: const LocalizedText(
           'Your subscription benefits and limits may change.',
           style: TextStyle(fontSize: 11.5),
         ),
@@ -367,12 +375,12 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
           TextButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, false),
-            child: const Text('Keep Plan'),
+            child: const LocalizedText('Keep Plan'),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, true),
-            child: const Text('Cancel Plan'),
+            child: const LocalizedText('Cancel Plan'),
           ),
         ],
       ),
@@ -406,6 +414,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
   }
 
   Future<void> _showManageSheet() async {
+    final detailsFuture = _subscription.loadOptionalDetails();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -417,7 +426,18 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
         ),
       ),
       builder: (sheetContext) {
-        return SafeArea(
+        return FutureBuilder<void>(
+          future: detailsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SafeArea(
+                child: SizedBox(
+                  height: 180,
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+              );
+            }
+            return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: ConstrainedBox(
@@ -428,7 +448,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  const Text(
+                  const LocalizedText(
                     'Manage Subscription',
                     style: TextStyle(
                       fontSize: 16,
@@ -449,7 +469,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
                   const SizedBox(height: 16),
 
-                  const Text(
+                  const LocalizedText(
                     'Subscription History',
                     style: TextStyle(
                       fontSize: 13,
@@ -458,10 +478,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   ),
 
                   if (_subscription.history.isEmpty)
-                    const ListTile(
+                     ListTile(
                       dense: true,
-                      title: Text(
-                        'No history available.',
+                      title: Text(AppLanguage.text(
+                        'No history available.'),
                         style: TextStyle(fontSize: 11),
                       ),
                     ),
@@ -490,7 +510,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
                   const Divider(height: 20),
 
-                  const Text(
+                  const LocalizedText(
                     'Payments',
                     style: TextStyle(
                       fontSize: 13,
@@ -499,10 +519,10 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                   ),
 
                   if (_subscription.payments.isEmpty)
-                    const ListTile(
+                     ListTile(
                       dense: true,
-                      title: Text(
-                        'No recorded payments.',
+                      title: Text(AppLanguage.text(
+                        'No recorded payments.'),
                         style: TextStyle(fontSize: 11),
                       ),
                     ),
@@ -537,7 +557,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                         Icons.cancel_outlined,
                         size: 17,
                       ),
-                      label: const Text(
+                      label: const LocalizedText(
                         'Cancel Current Subscription',
                         style: TextStyle(fontSize: 12),
                       ),
@@ -547,6 +567,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
               ),
             ),
           ),
+            );
+          },
         );
       },
     );
@@ -1163,7 +1185,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                         borderRadius:
                         BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child:  Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -1172,8 +1194,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                             color: primary,
                           ),
                           SizedBox(width: 5),
-                          Text(
-                            'SUBSCRIPTION PLANS',
+                          Text(AppLanguage.text(
+                            'SUBSCRIPTION PLANS'),
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
@@ -1192,7 +1214,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                         ? 'Upgrade Your Plan'
                         : 'Choose Your Plan',
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w900,
                       color: dark,
                     ),
@@ -1245,7 +1267,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                           crossAxisAlignment:
                           CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            const LocalizedText(
                               'Available Plans',
                               style: TextStyle(
                                 fontSize: 13.5,
@@ -1321,7 +1343,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                           ),
                           TextButton(
                             onPressed: _loadPlans,
-                            child: const Text(
+                            child: const LocalizedText(
                               'Try Again',
                               style:
                               TextStyle(fontSize: 11),
@@ -1349,7 +1371,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                         Icons.settings_outlined,
                         size: 16,
                       ),
-                      label: const Text(
+                      label: const LocalizedText(
                         'Manage Subscription & Payments',
                         style: TextStyle(fontSize: 11),
                       ),
@@ -1359,7 +1381,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                     TextButton(
                       onPressed:
                       _working ? null : _goHome,
-                      child: const Text(
+                      child: const LocalizedText(
                         'Skip for now — Go to Dashboard',
                         style: TextStyle(fontSize: 11),
                       ),
@@ -1367,7 +1389,7 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
 
                   const SizedBox(height: 15),
 
-                  const Row(
+                   Row(
                     mainAxisAlignment:
                     MainAxisAlignment.center,
                     children: [
@@ -1378,8 +1400,8 @@ class _PlanSelectionScreenState extends State<PlanSelectionScreen> {
                       ),
                       SizedBox(width: 5),
                       Flexible(
-                        child: Text(
-                          'You can change your subscription later.',
+                        child: Text(AppLanguage.text(
+                          'You can change your subscription later.'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10,

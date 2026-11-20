@@ -11,6 +11,11 @@ enum ReviewTargetType {
 
 class ReviewController extends ChangeNotifier {
   final ReviewService service;
+  // Verified successful reads only: never convert API errors into "0 reviews".
+  static final Map<String, ReviewListModel> _lastGoodByProfile = {};
+
+  static String _cacheKey(ReviewTargetType type, int id) =>
+      '${type.name}:$id';
 
   ReviewController(this.service);
 
@@ -262,8 +267,9 @@ class ReviewController extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
 
-    if (!refresh) {
-      _data = null;
+    final cacheKey = _cacheKey(targetType, targetProfileId);
+    if (_data == null || !refresh) {
+      _data = _lastGoodByProfile[cacheKey];
     }
 
     notifyListeners();
@@ -277,8 +283,8 @@ class ReviewController extends ChangeNotifier {
         perPage: 15,
       );
 
-      _data =
-          result;
+      _data = result;
+      _lastGoodByProfile[cacheKey] = result;
 
       _isLoading = false;
 

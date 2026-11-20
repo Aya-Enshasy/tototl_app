@@ -201,12 +201,10 @@ class PilotContractController {
         filePaths: filePaths,
       );
 
-      selectedContract =
-          result.contract;
-
-      _replaceContract(
-        result.contract,
-      );
+      if (result.contract != null) {
+        selectedContract = result.contract;
+        _replaceContract(result.contract!);
+      }
 
       final list =
       List<ContractSubmissionModel>.from(

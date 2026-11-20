@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 class DroneModel {
   final int id;
   final int? pilotProfileId;
@@ -102,7 +103,7 @@ class DroneModel {
       weightKg:
       _asDouble(json['weight_kg']),
       capabilities:
-      capabilities,
+      DroneCapabilities.canonicalizeAll(capabilities),
       flightTimePerBatteryMinutes:
       _asInt(
         json['flight_time'] ??

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -45,19 +46,16 @@ class _CompanyContractsScreenState extends State<CompanyContractsScreen> {
   }
 
   Future<void> _load() async {
-    await Future.wait<dynamic>([
-      _controller.loadContracts(
-        status: _filter == 'all'
-            ? null
-            : _filter,
-      ),
-      _jobController.loadCompanyApplicants(
-        perPage: 100,
-      ),
-    ]);
-
+    // The applicants endpoint enriches display names but is NOT a prerequisite
+    // for rendering contracts. Do not make users wait for a second slow GET.
+    final contractsFuture = _controller.loadContracts(
+      status: _filter == 'all' ? null : _filter,
+    );
+    unawaited(_jobController.loadCompanyApplicants(perPage: 100).then((_) {
+      if (mounted) setState(() {});
+    }));
+    await contractsFuture;
     if (!mounted) return;
-
     setState(() => _firstLoad = false);
   }
 
@@ -126,13 +124,13 @@ class _CompanyContractsScreenState extends State<CompanyContractsScreen> {
       children: [
         _circleButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
         const SizedBox(width: 12),
-        const Expanded(
+         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Contracts', style: TextStyle(color: AppColors.navy, fontSize: 18, fontWeight: FontWeight.w900)),
+              Text(AppLanguage.text('Contracts'), style: TextStyle(color: AppColors.navy, fontSize: 18, fontWeight: FontWeight.w900)),
               SizedBox(height: 3),
-              Text('Manage contract lifecycle & funding', style: TextStyle(color: AppColors.grey, fontSize: 10.5, fontWeight: FontWeight.w600)),
+              Text(AppLanguage.text('Manage contract lifecycle & funding'), style: TextStyle(color: AppColors.grey, fontSize: 10.5, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -296,8 +294,8 @@ class _CompanyContractsScreenState extends State<CompanyContractsScreen> {
                       crossAxisAlignment:
                       CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          title,
+                        Text(AppLanguage.text(
+                          title),
                           maxLines: 1,
                           overflow:
                           TextOverflow.ellipsis,
@@ -382,7 +380,7 @@ class _CompanyContractsScreenState extends State<CompanyContractsScreen> {
                     borderRadius:
                     BorderRadius.circular(13),
                   ),
-                  child: const Row(
+                  child:  Row(
                     children: [
                       Icon(
                         Icons.bolt_rounded,
@@ -391,8 +389,8 @@ class _CompanyContractsScreenState extends State<CompanyContractsScreen> {
                       ),
                       SizedBox(width: 7),
                       Expanded(
-                        child: Text(
-                          'Ready to fund — open mission',
+                        child: Text(AppLanguage.text(
+                          'Ready to fund — open mission'),
                           style: TextStyle(
                             color: AppColors.green,
                             fontSize: 10.8,
@@ -412,9 +410,9 @@ class _CompanyContractsScreenState extends State<CompanyContractsScreen> {
     );
   }
 
-  Widget _metric(String label,String value,IconData icon)=>Container(padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:AppColors.bg,borderRadius:BorderRadius.circular(13)),child:Row(children:[Icon(icon,size:15,color:AppColors.blue),const SizedBox(width:7),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:AppColors.grey,fontSize:9.2)),const SizedBox(height:2),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:AppColors.navy,fontSize:10.8,fontWeight:FontWeight.w800))]))]));
+  Widget _metric(String label,String value,IconData icon)=>Container(padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:AppColors.bg,borderRadius:BorderRadius.circular(13)),child:Row(children:[Icon(icon,size:15,color:AppColors.blue),const SizedBox(width:7),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(AppLanguage.text(label),style:const TextStyle(color:AppColors.grey,fontSize:9.2)),const SizedBox(height:2),Text(AppLanguage.text(value),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:AppColors.navy,fontSize:10.8,fontWeight:FontWeight.w800))]))]));
 
-  Widget _centerState(IconData icon,String title,String text,String? action,Future<void> Function()? onTap)=>Center(child:Padding(padding:const EdgeInsets.all(28),child:Column(mainAxisSize:MainAxisSize.min,children:[Container(width:64,height:64,decoration:BoxDecoration(color:AppColors.blueBg,borderRadius:BorderRadius.circular(20)),child:Icon(icon,color:AppColors.blue,size:29)),const SizedBox(height:14),Text(title,style:const TextStyle(color:AppColors.navy,fontSize:16,fontWeight:FontWeight.w900)),const SizedBox(height:6),Text(text,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.grey,fontSize:11.5,height:1.45)),if(action!=null&&onTap!=null)...[const SizedBox(height:14),FilledButton(onPressed:()=>onTap(),child:Text(action))]])));
+  Widget _centerState(IconData icon,String title,String text,String? action,Future<void> Function()? onTap)=>Center(child:Padding(padding:const EdgeInsets.all(28),child:Column(mainAxisSize:MainAxisSize.min,children:[Container(width:64,height:64,decoration:BoxDecoration(color:AppColors.blueBg,borderRadius:BorderRadius.circular(20)),child:Icon(icon,color:AppColors.blue,size:29)),const SizedBox(height:14),Text(AppLanguage.text(title),style:const TextStyle(color:AppColors.navy,fontSize:16,fontWeight:FontWeight.w900)),const SizedBox(height:6),Text(text,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.grey,fontSize:11.5,height:1.45)),if(action!=null&&onTap!=null)...[const SizedBox(height:14),FilledButton(onPressed:()=>onTap(),child:Text(action))]])));
   Widget _circleButton(IconData icon,VoidCallback? onTap)=>Material(color:Colors.white,shape:const CircleBorder(),child:InkWell(onTap:onTap,customBorder:const CircleBorder(),child:Container(width:42,height:42,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:AppColors.cardBorder)),child:Icon(icon,color:onTap==null?AppColors.lightGrey:AppColors.navy,size:18))));
 }
 

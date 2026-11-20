@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -92,7 +93,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen>
   void _startLiveRefresh() {
     _liveRefreshTimer?.cancel();
     _liveRefreshTimer = Timer.periodic(
-      const Duration(seconds: 12),
+      const Duration(seconds: 45),
           (_) {
         if (!_canAutoRefresh) return;
         unawaited(_refreshLiveData());
@@ -681,7 +682,7 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Applications',
                   style: TextStyle(
                     color: _ApplicationsPalette.navy,
@@ -1129,8 +1130,8 @@ class _CompanyApplicationsScreenState extends State<CompanyApplicationsScreen>
         SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: isError ? Colors.red.shade700 : AppColors.navy,
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(fontSize: 12.5),
           ),
         ),
@@ -1180,8 +1181,8 @@ class _JobApplicationsGroup extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
+                  Text(AppLanguage.text(
+                    title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1633,8 +1634,8 @@ class _CompactDetail extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1645,8 +1646,8 @@ class _CompactDetail extends StatelessWidget {
               ),
               if (subtitle.trim().isNotEmpty) ...[
                 const SizedBox(height: 1),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1723,8 +1724,8 @@ class _PrimarySectionTab extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Flexible(
-                child: Text(
-                  label,
+                child: Text(AppLanguage.text(
+                  label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1805,8 +1806,8 @@ class _CompactContractFilter extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
+              Text(AppLanguage.text(
+                label),
                 style: TextStyle(
                   color: selected
                       ? Colors.white
@@ -1960,8 +1961,8 @@ class _ReferenceContractCard extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                title,
+                              child: Text(AppLanguage.text(
+                                title),
                                 maxLines: 1,
                                 overflow:
                                 TextOverflow.ellipsis,
@@ -2176,8 +2177,8 @@ class _ContractMetricTile extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style: const TextStyle(
                     color:
                     _ApplicationsPalette.muted,
@@ -2185,8 +2186,8 @@ class _ContractMetricTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 1),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -2286,8 +2287,8 @@ class _ReferenceEmptyContracts extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Text(
-          title,
+        Text(AppLanguage.text(
+          title),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: _ApplicationsPalette.navy,
@@ -2418,8 +2419,8 @@ class _ReferenceFilterButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Flexible(
-                  child: Text(
-                    label,
+                  child: Text(AppLanguage.text(
+                    label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2482,8 +2483,8 @@ class _LiveCountBadge extends StatelessWidget {
         shape: singleDigit ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: singleDigit ? null : BorderRadius.circular(10),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         maxLines: 1,
         textAlign: TextAlign.center,
         style: TextStyle(
@@ -2529,8 +2530,8 @@ class _ReviewAlertStrip extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              label,
+            child: Text(AppLanguage.text(
+              label),
               style: const TextStyle(
                 color: _ApplicationsPalette.orange,
                 fontSize: 11.4,
@@ -2568,8 +2569,8 @@ class _ReferenceStatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 9.8,
@@ -2766,8 +2767,8 @@ class _ReferenceInfoCell extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -2778,8 +2779,8 @@ class _ReferenceInfoCell extends StatelessWidget {
               ),
               if (subtitle.trim().isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2887,8 +2888,8 @@ class _ContractStatePill extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 9.3,
@@ -3086,8 +3087,8 @@ class _ReferenceActionButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
+              Text(AppLanguage.text(
+                label),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10.6,
@@ -3140,8 +3141,8 @@ class _ReferenceEmptyApplications extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Text(
-          title,
+        Text(AppLanguage.text(
+          title),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: _ApplicationsPalette.navy,
@@ -3273,7 +3274,7 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChoiceChip(
-      label: Text(label),
+      label: Text(AppLanguage.text(label)),
       selected: selected,
       onSelected: (_) => onTap(),
       selectedColor: AppColors.blue,
@@ -3338,8 +3339,8 @@ class _StatusBadge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
+      child: Text(AppLanguage.text(
+        label),
         style: TextStyle(
           color: foreground,
           fontSize: 9.8,
@@ -3410,8 +3411,8 @@ class _EmptyApplications extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          message,
+        Text(AppLanguage.text(
+          message),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.navy,
@@ -3472,8 +3473,8 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              message,
+            Text(AppLanguage.text(
+              message),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.grey,

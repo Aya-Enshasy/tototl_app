@@ -36,6 +36,8 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String? _userId;
+  bool _sessionLoaded = false;
+  Stream<List<ChatConversation>>? _conversationsStream;
   String _userName = _ui('User');
   String _userPhotoUrl = '';
   String _query = '';
@@ -61,6 +63,11 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
 
     setState(() {
       _userId = id?.toString();
+      _sessionLoaded = true;
+      // Keep the Firebase subscription stable when typing into search.
+      _conversationsStream = id == null
+          ? null
+          : FirebaseChatService.instance.conversationsFor(id.toString());
       _userName = name?.trim().isNotEmpty == true
           ? name!.trim()
           : _ui('User');
@@ -89,14 +96,21 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_userId == null) {
+    if (!_sessionLoaded) {
       return const ColoredBox(
         color: AppColors.bg,
-        child: Center(
-          child: CircularProgressIndicator(
-            color: AppColors.logoTurquoiseDark,
-          ),
-        ),
+        child: Center(child: CircularProgressIndicator(
+          color: AppColors.logoTurquoiseDark,
+        )),
+      );
+    }
+    if (_userId == null) {
+      return ColoredBox(
+        color: AppColors.bg,
+        child: Center(child: Text(AppLanguage.text(
+          'Please sign in to use messages.'),
+          style: const TextStyle(color: AppColors.navy, fontSize: 12),
+        )),
       );
     }
 
@@ -122,10 +136,16 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
 
               Expanded(
                 child: StreamBuilder<List<ChatConversation>>(
-                  stream: FirebaseChatService.instance.conversationsFor(
-                    _userId!,
-                  ),
+                  stream: _conversationsStream,
                   builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData && !snapshot.hasError) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.logoTurquoiseDark,
+                        ),
+                      );
+                    }
                     if (snapshot.hasError) {
                       return RefreshIndicator(
                         color: AppColors.logoTurquoiseDark,
@@ -579,7 +599,7 @@ class _InboxError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return  Padding(
       padding: EdgeInsets.all(24),
       child: Column(
         children: [
@@ -589,8 +609,8 @@ class _InboxError extends StatelessWidget {
             size: 30,
           ),
           SizedBox(height: 10),
-          Text(
-            'Could not load conversations.',
+          Text(AppLanguage.text(
+            'Could not load conversations.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.navy,

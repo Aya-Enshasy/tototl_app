@@ -1271,7 +1271,7 @@ class _PilotRegisterStepThreeScreenState
                                     _makeController,
 
                                     hintText:
-                                    'e.g. DJI, Autel Robotics',
+                                    AppLanguage.text('e.g. DJI, Autel Robotics'),
 
                                     prefixIcon: Icons
                                         .precision_manufacturing_outlined,
@@ -1312,7 +1312,7 @@ class _PilotRegisterStepThreeScreenState
                                     _modelController,
 
                                     hintText:
-                                    'e.g. Mavic 3 Enterprise',
+                                    AppLanguage.text('e.g. Mavic 3 Enterprise'),
 
                                     prefixIcon: Icons
                                         .airplanemode_active_rounded,
@@ -1350,7 +1350,7 @@ class _PilotRegisterStepThreeScreenState
 
                                   _buildSelectField(
                                     hintText:
-                                    'Select Year',
+                                    AppLanguage.text('Select Year'),
 
                                     icon: Icons
                                         .calendar_month_rounded,
@@ -1389,7 +1389,7 @@ class _PilotRegisterStepThreeScreenState
                                     _serialController,
 
                                     hintText:
-                                    'e.g. 1581F4ARX2109',
+                                    AppLanguage.text('e.g. 1581F4ARX2109'),
 
                                     prefixIcon: Icons
                                         .confirmation_number_outlined,
@@ -1430,7 +1430,7 @@ class _PilotRegisterStepThreeScreenState
                                     _weightController,
 
                                     hintText:
-                                    'e.g. 1.2',
+                                    AppLanguage.text('e.g. 1.2'),
 
                                     prefixIcon: Icons
                                         .fitness_center_rounded,
@@ -1476,7 +1476,7 @@ class _PilotRegisterStepThreeScreenState
 
                                   // Accessories
                                   _buildSmallLabel(
-                                    'Accessories & Payload',
+                                    'Drone Capabilities',
                                   ),
 
                                   const SizedBox(
@@ -1485,7 +1485,7 @@ class _PilotRegisterStepThreeScreenState
 
                                   _buildMultiSelectField(
                                     hintText:
-                                    'Select accessories',
+                                    AppLanguage.text('Select capabilities'),
 
                                     icon: Icons
                                         .add_box_outlined,
@@ -1560,7 +1560,7 @@ class _PilotRegisterStepThreeScreenState
                                     _flightTimeController,
 
                                     hintText:
-                                    'e.g. 45',
+                                    AppLanguage.text('e.g. 45'),
 
                                     prefixIcon:
                                     Icons
@@ -1608,7 +1608,7 @@ class _PilotRegisterStepThreeScreenState
                                     _totalBatteriesController,
 
                                     hintText:
-                                    'e.g. 4',
+                                    AppLanguage.text('e.g. 4'),
 
                                     prefixIcon: Icons
                                         .battery_full_rounded,
@@ -1652,7 +1652,7 @@ class _PilotRegisterStepThreeScreenState
                                     _batteryTypeController,
 
                                     hintText:
-                                    'e.g. Lithium',
+                                    AppLanguage.text('e.g. Lithium'),
 
                                     prefixIcon: Icons
                                         .battery_charging_full_rounded,
@@ -1716,7 +1716,7 @@ class _PilotRegisterStepThreeScreenState
                                     _batteryUsageController,
 
                                     hintText:
-                                    'e.g. 50',
+                                    AppLanguage.text('e.g. 50'),
 
                                     prefixIcon: Icons
                                         .battery_saver_rounded,
@@ -1751,7 +1751,7 @@ class _PilotRegisterStepThreeScreenState
                                     _hourlyRateController,
 
                                     hintText:
-                                    'e.g. 50',
+                                    AppLanguage.text('e.g. 50'),
 
                                     prefixIcon: Icons
                                         .attach_money_rounded,
@@ -1799,7 +1799,7 @@ class _PilotRegisterStepThreeScreenState
                                     _dailyRateController,
 
                                     hintText:
-                                    'e.g. 350',
+                                    AppLanguage.text('e.g. 350'),
 
                                     prefixIcon: Icons
                                         .calendar_today_rounded,
@@ -1847,7 +1847,7 @@ class _PilotRegisterStepThreeScreenState
                                     _emergencyFeeController,
 
                                     hintText:
-                                    'e.g. 100',
+                                    AppLanguage.text('e.g. 100'),
 
                                     prefixIcon:
                                     Icons
@@ -3370,7 +3370,7 @@ class _PilotRegisterStepThreeScreenState
           : () {
         _openMultiSelectSheet(
           title:
-          'Accessories & Payload',
+          'Drone Capabilities',
 
           items: items,
 

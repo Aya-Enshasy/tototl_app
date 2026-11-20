@@ -882,7 +882,7 @@ class _ForgotPasswordScreenState
   _inputDecoration() {
     return InputDecoration(
       hintText:
-      'Enter your email',
+      AppLanguage.text('Enter your email'),
 
       hintStyle:
       const TextStyle(

@@ -1,8 +1,10 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -46,18 +48,22 @@ class _CompanySubmissionReviewScreenState
 
   bool get _busy => _loading || _controller.isReviewingSubmission;
 
-  Future<void> _loadFresh() async {
-    if (_loading) return;
+  Future<bool> _loadFresh() async {
+    if (_loading) return false;
     setState(() => _loading = true);
     try {
       final fresh = await _controller.service.getSubmission(
         widget.contractId,
         widget.submission.id,
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _submission = fresh);
-    } catch (_) {
-      // Keep the submission already supplied by the contract detail screen.
+      return true;
+    } catch (e) {
+      debugPrint('[TOTOTL][SUBMISSION][REFRESH] '
+          'contract=${widget.contractId} submission=${widget.submission.id} '
+          'errorType=${e.runtimeType}');
+      return false;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -72,6 +78,13 @@ class _CompanySubmissionReviewScreenState
       destructive: false,
     );
     if (notes == null || !mounted) return;
+    final verified = await _loadFresh();
+    if (!verified || !mounted || !_submission.isSubmitted) {
+      if (mounted) _snack(verified
+          ? 'The submission status changed. Refresh to see the latest round.'
+          : 'Could not verify the submission. Please retry.', error: true);
+      return;
+    }
 
     HapticFeedback.mediumImpact();
     setState(() {});
@@ -101,6 +114,13 @@ class _CompanySubmissionReviewScreenState
       destructive: true,
     );
     if (notes == null || !mounted) return;
+    final verified = await _loadFresh();
+    if (!verified || !mounted || !_submission.isSubmitted) {
+      if (mounted) _snack(verified
+          ? 'The submission status changed. Refresh to see the latest round.'
+          : 'Could not verify the submission. Please retry.', error: true);
+      return;
+    }
 
     HapticFeedback.mediumImpact();
     setState(() {});
@@ -140,8 +160,8 @@ class _CompanySubmissionReviewScreenState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(22),
             ),
-            title: Text(
-              title,
+            title: Text(AppLanguage.text(
+              title),
               style: const TextStyle(
                 color: AppColors.navy,
                 fontWeight: FontWeight.w900,
@@ -196,7 +216,7 @@ class _CompanySubmissionReviewScreenState
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
+                child: const LocalizedText('Cancel'),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
@@ -236,19 +256,19 @@ class _CompanySubmissionReviewScreenState
         surfaceTintColor: AppColors.bg,
         elevation: 0,
         titleSpacing: 0,
-        title: const Column(
+        title:  Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Review Submission',
+            Text(AppLanguage.text(
+              'Review Submission'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            Text(
-              'Pilot delivery & review decision',
+            Text(AppLanguage.text(
+              'Pilot delivery & review decision'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 9.5,
@@ -297,7 +317,7 @@ class _CompanySubmissionReviewScreenState
             title: 'Attachments (${submission.files.length})',
             icon: Icons.attach_file_rounded,
             child: submission.files.isEmpty
-                ? const Text(
+                ? const LocalizedText(
               'No attachments were included in this submission.',
               style: TextStyle(color: AppColors.grey, fontSize: 11),
             )
@@ -345,7 +365,7 @@ class _CompanySubmissionReviewScreenState
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   icon: const Icon(Icons.replay_rounded, size: 18),
-                  label: const Text('Revision', style: TextStyle(fontWeight: FontWeight.w900)),
+                  label: const LocalizedText('Revision', style: TextStyle(fontWeight: FontWeight.w900)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -365,7 +385,7 @@ class _CompanySubmissionReviewScreenState
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                       : const Icon(Icons.verified_rounded, size: 18),
-                  label: const Text('Approve & Complete', style: TextStyle(fontWeight: FontWeight.w900)),
+                  label: const LocalizedText('Approve & Complete', style: TextStyle(fontWeight: FontWeight.w900)),
                 ),
               ),
             ],
@@ -415,7 +435,7 @@ class _CompanySubmissionReviewScreenState
             ],
           ),
           const SizedBox(height: 18),
-          const Text(
+          const LocalizedText(
             'Work Submission',
             style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
           ),
@@ -857,7 +877,7 @@ class _CompanySubmissionReviewScreenState
                 child: Icon(icon, color: AppColors.blue, size: 18),
               ),
               const SizedBox(width: 10),
-              Text(title, style: const TextStyle(color: AppColors.navy, fontSize: 13.5, fontWeight: FontWeight.w900)),
+              Text(AppLanguage.text(title), style: const TextStyle(color: AppColors.navy, fontSize: 13.5, fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 14),
@@ -876,7 +896,7 @@ class _CompanySubmissionReviewScreenState
           backgroundColor: error ? AppColors.red : AppColors.navy,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }

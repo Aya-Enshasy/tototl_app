@@ -1,4 +1,6 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
@@ -161,7 +163,7 @@ class _AdminWorkspaceScreenState
                       14,
                 ),
 
-                const Text(
+                const LocalizedText(
                   'Log out of Admin?',
                   textAlign:
                       TextAlign.center,
@@ -181,7 +183,7 @@ class _AdminWorkspaceScreenState
                       7,
                 ),
 
-                const Text(
+                const LocalizedText(
                   'Your current administrative session will end and you will return to the sign-in screen.',
                   textAlign:
                       TextAlign.center,
@@ -234,7 +236,7 @@ class _AdminWorkspaceScreenState
                           ),
                         ),
                         child:
-                            const Text(
+                            const LocalizedText(
                           'Cancel',
                           style:
                               TextStyle(
@@ -284,7 +286,7 @@ class _AdminWorkspaceScreenState
                               17,
                         ),
                         label:
-                            const Text(
+                            const LocalizedText(
                           'Log out',
                           style:
                               TextStyle(
@@ -706,7 +708,7 @@ class _AdminHero
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'ADMIN WORKSPACE',
                   style:
                       TextStyle(
@@ -839,7 +841,7 @@ class _SecurityCard
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          const Text(
+          const LocalizedText(
             'Session & Security',
             style:
                 TextStyle(
@@ -855,7 +857,7 @@ class _SecurityCard
             height:
                 4,
           ),
-          const Text(
+          const LocalizedText(
             'Securely manage the current administrator session.',
             style:
                 TextStyle(
@@ -885,7 +887,7 @@ class _SecurityCard
                 17,
               ),
               child:
-                  const Padding(
+                   Padding(
                 padding:
                     EdgeInsets.all(
                   14,
@@ -910,8 +912,8 @@ class _SecurityCard
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Log out',
+                          Text(AppLanguage.text(
+                            'Log out'),
                             style:
                                 TextStyle(
                               color:
@@ -926,8 +928,8 @@ class _SecurityCard
                             height:
                                 3,
                           ),
-                          Text(
-                            'End this admin session securely',
+                          Text(AppLanguage.text(
+                            'End this admin session securely'),
                             style:
                                 TextStyle(
                               color:
@@ -1010,7 +1012,7 @@ class _LogoutOverlay
             ],
           ),
           child:
-              const Row(
+               Row(
             mainAxisSize:
                 MainAxisSize.min,
             children: [
@@ -1033,8 +1035,8 @@ class _LogoutOverlay
               ),
               Flexible(
                 child:
-                    Text(
-                  'Signing out...',
+                    Text(AppLanguage.text(
+                  'Signing out...'),
                   style:
                       TextStyle(
                     color:

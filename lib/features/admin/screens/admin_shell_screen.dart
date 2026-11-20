@@ -1,4 +1,8 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/notifications/push_notification_coordinator.dart';
+import 'package:tototl_app/core/notifications/notification_inbox_state.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
@@ -8,9 +12,11 @@ import '../services/admin_service.dart';
 import '../widgets/admin_design.dart';
 
 import 'admin_accounts_screen.dart';
+import '../../notifications/screens/notifications_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_reviews_screen.dart';
 import 'admin_workspace_screen.dart';
+import 'admin_legal_identity_screen.dart';
 
 class AdminShellScreen extends StatefulWidget {
   const AdminShellScreen({
@@ -51,6 +57,7 @@ class _AdminShellScreenState
     );
 
     _load();
+    PushNotificationCoordinator.instance.onAuthenticatedScreenReady();
   }
 
   Future<void> _load() async {
@@ -134,6 +141,41 @@ class _AdminShellScreenState
             false,
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    tooltip: AppLanguage.locale.value.languageCode == 'ar' ? 'طلبات الهوية القانونية' : 'Legal Identity Approvals',
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AdminLegalIdentityScreen(),
+                    )),
+                    icon: const Icon(Icons.verified_user_outlined),
+                  ),
+                  ValueListenableBuilder<int?>(
+                  valueListenable: NotificationInboxState.instance.unreadCount,
+                  builder: (context, count, _) => IconButton(
+                    tooltip: AppLanguage.text('Notifications'),
+                    onPressed: () async {
+                      await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ));
+                      if (mounted) {
+                        await NotificationInboxState.instance.refresh(force: true);
+                      }
+                    },
+                    icon: Badge(
+                      isLabelVisible: (count ?? 0) > 0,
+                      label: Text('${count != null && count > 99 ? '99+' : (count ?? 0)}',
+                          style: const TextStyle(fontSize: 9)),
+                      child: const Icon(Icons.notifications_none_rounded),
+                    ),
+                  ),
+                ),
+                ]),
+              ),
+            ),
             if (_controller.errorMessage != null)
               Container(
                 width: double.infinity,
@@ -159,7 +201,7 @@ class _AdminShellScreenState
                     ),
                     TextButton(
                       onPressed: _controller.loading ? null : _refresh,
-                      child: const Text('Retry'),
+                      child: const LocalizedText('Retry'),
                     ),
                   ],
                 ),
@@ -441,8 +483,8 @@ class _NavItem
                 fit:
                     BoxFit.scaleDown,
                 child:
-                    Text(
-                  label,
+                    Text(AppLanguage.text(
+                  label),
                   maxLines:
                       1,
                   style:
@@ -518,7 +560,7 @@ class _AdminBootScreen
                   ),
                 ),
                 child:
-                    const Center(
+                     Center(
                   child:
                       Column(
                     mainAxisSize:
@@ -537,8 +579,8 @@ class _AdminBootScreen
                         height:
                             11,
                       ),
-                      Text(
-                        'Admin Control Center',
+                      Text(AppLanguage.text(
+                        'Admin Control Center'),
                         style:
                             TextStyle(
                           color:
@@ -553,8 +595,8 @@ class _AdminBootScreen
                         height:
                             5,
                       ),
-                      Text(
-                        'Preparing your workspace...',
+                      Text(AppLanguage.text(
+                        'Preparing your workspace...'),
                         style:
                             TextStyle(
                           color:

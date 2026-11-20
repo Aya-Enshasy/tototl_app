@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'package:dio/dio.dart';
 import 'package:tototl_app/core/network/api_client.dart';
 import 'package:tototl_app/core/storage/token_storage.dart';
@@ -279,7 +280,7 @@ class PilotJobService {
     add('payment_min', filters.paymentMin);
     add('payment_max', filters.paymentMax);
 
-    for (final capability in filters.capabilities) {
+    for (final capability in DroneCapabilities.canonicalizeAll(filters.capabilities)) {
       add('capabilities[]', capability);
     }
 

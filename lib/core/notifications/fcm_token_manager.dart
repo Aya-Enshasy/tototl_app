@@ -30,21 +30,31 @@ class FcmTokenManager {
     // PERMISSION
     // ============================================================
 
-    await _messaging.requestPermission();
+    try {
+      await _messaging.requestPermission();
+    } catch (error) {
+      print('Notification permission request failed: $error');
+    }
 
     // ============================================================
     // CURRENT TOKEN
     // ============================================================
 
-    final currentToken =
-    await _messaging.getToken();
+    String? currentToken;
+    try {
+      currentToken = await _messaging.getToken();
+    } catch (error) {
+      // On iOS the APNs token can arrive after app startup. Keep the token
+      // refresh listener registered so future tokens are not missed.
+      print('FCM token is not ready yet: $error');
+    }
 
     if (currentToken != null &&
         currentToken.trim().isNotEmpty) {
       print(
         '================ FCM CURRENT TOKEN ================',
       );
-      print(currentToken);
+      // Never write device push tokens to logs.
       print(
         '===================================================',
       );
@@ -104,7 +114,9 @@ class FcmTokenManager {
       print(
         'FCM TOKEN SAVED LOCALLY.',
       );
-
+      // The API requires old_token + token to rotate. There is currently
+      // no endpoint to register a first token outside login. Login sends
+      // fcm_token; the server should add a separate register-token endpoint.
       return;
     }
 
@@ -143,7 +155,8 @@ class FcmTokenManager {
       print(
         'FCM NEW TOKEN SAVED — NO OLD TOKEN AVAILABLE.',
       );
-
+      // A newly issued token after login cannot be attached with /refresh,
+      // because its old_token parameter is mandatory. Needs backend support.
       return;
     }
 
@@ -282,9 +295,8 @@ class FcmTokenService {
     print(
       'FCM REFRESH STATUS: ${response.statusCode}',
     );
-    print(
-      'FCM REFRESH RESPONSE: ${response.data}',
-    );
+    // Do not log raw token-refresh responses or any device credentials.
+    print('FCM REFRESH RESPONSE RECEIVED.');
 
     final raw =
         response.data;

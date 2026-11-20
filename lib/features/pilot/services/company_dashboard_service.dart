@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_endpoints.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
+import '../../../core/storage/token_storage.dart';
 import '../../company/models/company_dashboard_model.dart';
 
 class CompanyDashboardService {

@@ -23,15 +23,13 @@ class SubscriptionController {
     currentLoaded = false;
     errorMessage = null;
     try {
-      // Plans and current status are essential; history/payments are not.
+      // Start independent requests together. History and payments must never
+      // block the plan picker from opening (especially after a quota hit).
+      final currentRequest = _loadCurrentSafe();
       plans = List.unmodifiable(await service.getPlans());
-      try {
-        current = await service.getCurrent();
-        currentLoaded = true;
-      } catch (e) {
-        errorMessage = 'Could not verify current subscription: $e';
-      }
-      await Future.wait<void>([_loadHistorySafe(), _loadPaymentsSafe()]);
+      await currentRequest;
+      // Fetch history/payments only when Manage is opened, to avoid
+      // unnecessary API bursts and Cloudflare rate limiting.
       return plans.isNotEmpty && currentLoaded;
     } catch (e) {
       errorMessage = e.toString();
@@ -39,6 +37,19 @@ class SubscriptionController {
     } finally {
       isLoading = false;
     }
+  }
+
+  Future<void> _loadCurrentSafe() async {
+    try {
+      current = await service.getCurrent();
+      currentLoaded = true;
+    } catch (e) {
+      errorMessage = 'Could not verify current subscription: $e';
+    }
+  }
+
+  Future<void> loadOptionalDetails() async {
+    await Future.wait<void>([_loadHistorySafe(), _loadPaymentsSafe()]);
   }
 
   Future<bool> choosePlan(SubscriptionPlanModel plan) async {

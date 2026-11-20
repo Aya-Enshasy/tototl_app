@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:tototl_app/core/theme/app_colors.dart';
 import 'package:tototl_app/features/pilot/models/pilot_home_snapshot.dart';
@@ -102,9 +103,9 @@ class MyDroneCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'My fleet',
+                   Expanded(
+                    child: Text(AppLanguage.text(
+                      'My fleet'),
                       style: TextStyle(
                         color:
                         Color(0xFF0A2D46),
@@ -398,8 +399,8 @@ class _FleetStateCard extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style:
                   const TextStyle(
                     color:
@@ -410,8 +411,8 @@ class _FleetStateCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  message,
+                Text(AppLanguage.text(
+                  message),
                   style:
                   const TextStyle(
                     color:

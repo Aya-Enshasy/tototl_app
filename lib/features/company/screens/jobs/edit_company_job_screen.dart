@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 import 'package:flutter/material.dart';
 import 'package:tototl_app/core/localization/app_language.dart';
 
@@ -184,9 +185,9 @@ class _EditCompanyJobScreenState
         ? null
         : job.requiredExperience;
 
-    _requiredCapabilities
-        .addAll(
-      job.requiredCapabilities,
+    _requiredCapabilities.addAll(
+      DroneCapabilities.canonicalizeAll(job.requiredCapabilities)
+          .map(DroneCapabilities.labelFor),
     );
 
     _requiredCertifications
@@ -541,8 +542,7 @@ class _EditCompanyJobScreenState
       max,
 
       requiredCapabilities:
-      _requiredCapabilities
-          .toList(),
+      DroneCapabilities.canonicalizeAll(_requiredCapabilities),
 
       requiredExperience:
       _emptyToNull(
@@ -1501,12 +1501,12 @@ class _EditCompanyJobScreenState
                                 height: 7,
                               ),
 
-                              const Align(
+                               Align(
                                 alignment:
                                 Alignment.centerLeft,
                                 child:
-                                Text(
-                                  'Up to 20 deliverables · 255 characters each.',
+                                Text(AppLanguage.text(
+                                  'Up to 20 deliverables · 255 characters each.'),
                                   style:
                                   TextStyle(
                                     color:
@@ -1647,16 +1647,7 @@ class _EditCompanyJobScreenState
 
                               _chips(
                                 items:
-                                const [
-                                  'Thermal Camera',
-                                  'RTK',
-                                  'Zoom',
-                                  'LiDAR',
-                                  'Multispectral',
-                                  'Night Vision',
-                                  'Spotlight',
-                                  'Winch',
-                                ],
+                                DroneCapabilities.labels,
 
                                 selected:
                                 _requiredCapabilities,
@@ -2308,8 +2299,8 @@ class _EditCompanyJobScreenState
                   CrossAxisAlignment
                       .start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style:
                       const TextStyle(
                         color:
@@ -2326,8 +2317,8 @@ class _EditCompanyJobScreenState
                       2,
                     ),
 
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style:
                       const TextStyle(
                         color:
@@ -2830,8 +2821,8 @@ class _EditCompanyJobScreenState
                   CrossAxisAlignment
                       .start,
                   children: [
-                    Text(
-                      label,
+                    Text(AppLanguage.text(
+                      label),
                       style:
                       const TextStyle(
                         color:
@@ -2908,8 +2899,8 @@ class _EditCompanyJobScreenState
 
           return FilterChip(
             label:
-            Text(
-              item,
+            Text(AppLanguage.text(
+              item),
             ),
 
             selected:
@@ -3053,8 +3044,8 @@ class _EditCompanyJobScreenState
               CrossAxisAlignment
                   .start,
               children: [
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style:
                   const TextStyle(
                     color:
@@ -3071,8 +3062,8 @@ class _EditCompanyJobScreenState
                   2,
                 ),
 
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style:
                   const TextStyle(
                     color:
@@ -3747,8 +3738,8 @@ class _EditCompanyJobScreenState
               : AppColors.navy,
 
           content:
-          Text(
-            message,
+          Text(AppLanguage.text(
+            message),
             style:
             const TextStyle(
               fontSize:

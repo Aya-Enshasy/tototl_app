@@ -1,176 +1,136 @@
+import 'package:tototl_app/core/localization/app_language.dart';
+
 class DroneCapabilityItem {
   final String value;
   final String label;
 
-  const DroneCapabilityItem({
-    required this.value,
-    required this.label,
-  });
+  const DroneCapabilityItem({required this.value, required this.label});
 }
+
+/// Canonical capability values shared by registration, drone CRUD, job posting,
+/// pilot search, job details and application matching.
+/// All network requests must carry a list of these exact values, not labels.
 class DroneCapabilities {
   DroneCapabilities._();
 
   static const String thermal = 'thermal';
+  static const String laser = 'laser';
+  static const String nightVision = 'night_vision';
+  static const String lidar = 'lidar';
+  static const String radar = 'radar';
+  static const String imaging = 'imaging';
   static const String rtk = 'rtk';
   static const String zoom = 'zoom';
-  static const String lidar = 'lidar';
-  static const String laser = 'laser';
-  static const String multispectral = 'multispectral';
-  static const String nightVision = 'night_vision';
-  static const String spotlight = 'spotlight';
-  static const String winch = 'winch';
-  static const String speaker = 'speaker';
-  static const String parachute = 'parachute';
+  static const String other = 'other';
 
-  static const List<DroneCapabilityItem> options = <DroneCapabilityItem>[
+  static const List<DroneCapabilityItem> options = [
     DroneCapabilityItem(value: thermal, label: 'Thermal Camera'),
+    DroneCapabilityItem(value: laser, label: 'Laser'),
+    DroneCapabilityItem(value: nightVision, label: 'Night Vision'),
+    DroneCapabilityItem(value: lidar, label: 'LiDAR'),
+    DroneCapabilityItem(value: radar, label: 'Radar'),
+    DroneCapabilityItem(value: imaging, label: 'Imaging'),
     DroneCapabilityItem(value: rtk, label: 'RTK'),
     DroneCapabilityItem(value: zoom, label: 'Zoom'),
-    DroneCapabilityItem(value: lidar, label: 'LiDAR'),
-    DroneCapabilityItem(value: laser, label: 'Laser'),
-    DroneCapabilityItem(value: multispectral, label: 'Multispectral'),
-    DroneCapabilityItem(value: nightVision, label: 'Night Vision'),
-    DroneCapabilityItem(value: spotlight, label: 'Spotlight'),
-    DroneCapabilityItem(value: winch, label: 'Winch'),
-    DroneCapabilityItem(value: speaker, label: 'Speaker'),
-    DroneCapabilityItem(value: parachute, label: 'Parachute'),
+    DroneCapabilityItem(value: other, label: 'Other'),
   ];
 
-  static const List<String> labels = <String>[
-    'Thermal Camera',
-    'RTK',
-    'Zoom',
-    'LiDAR',
-    'Laser',
-    'Multispectral',
-    'Night Vision',
-    'Spotlight',
-    'Winch',
-    'Speaker',
-    'Parachute',
+  static const List<String> labels = [
+    'Thermal Camera', 'Laser', 'Night Vision', 'LiDAR', 'Radar',
+    'Imaging', 'RTK', 'Zoom', 'Other',
   ];
 
-  /// Converts all known legacy/UI variants to the same API value.
-  ///
-  /// Examples:
-  /// Zoom / Zoom Camera / zoom -> zoom
-  /// Night Vision / night_vision -> night_vision
-  /// Thermal Camera / Thermal / thermal -> thermal
+  static const List<String> values = [
+    thermal, laser, nightVision, lidar, radar, imaging, rtk, zoom, other,
+  ];
+
+  static const _allowed = {
+    thermal, laser, nightVision, lidar, radar, imaging, rtk, zoom, other,
+  };
+
+  /// `other` must be explicitly present in the data, not inferred from an
+  /// unsupported legacy accessory. Otherwise the mobile UI reports a full
+  /// match while the Laravel application endpoint correctly rejects the drone.
+  /// Do not turn values such as spotlight/multispectral/speaker into `other`.
   static String canonicalize(String raw) {
-    var value = raw.trim().toLowerCase();
-
-    if (value.isEmpty) return '';
-
-    value = value
+    final value = raw.trim().toLowerCase()
         .replaceAll('&', ' and ')
         .replaceAll('/', ' ')
         .replaceAll(RegExp(r'[_\s-]+'), ' ')
         .trim();
-
+    if (value.isEmpty) return '';
     switch (value) {
       case 'thermal':
       case 'thermal camera':
       case 'thermal sensor':
         return thermal;
-
-      case 'rtk':
-      case 'rtk module':
-        return rtk;
-
-      case 'zoom':
-      case 'zoom camera':
-        return zoom;
-
-      case 'lidar':
-      case 'li dar':
-        return lidar;
-
       case 'laser':
         return laser;
-
-      case 'multispectral':
-      case 'multispectral sensor':
-      case 'multispectral camera':
-        return multispectral;
-
       case 'night vision':
       case 'nightvision':
         return nightVision;
-
-      case 'spotlight':
-        return spotlight;
-
-      case 'winch':
-      case 'winch release mechanism':
-      case 'release mechanism':
-        return winch;
-
-      case 'speaker':
-      case 'loudspeaker':
-      case 'speaker loudspeaker':
-        return speaker;
-
-      case 'parachute':
-      case 'parachute safety system':
-        return parachute;
+      case 'lidar':
+      case 'li dar':
+        return lidar;
+      case 'radar':
+        return radar;
+      case 'imaging':
+      case 'imaging camera':
+      case 'camera':
+        return imaging;
+      case 'rtk':
+      case 'rtk module':
+        return rtk;
+      case 'zoom':
+      case 'zoom camera':
+        return zoom;
+      case 'other':
+        return other;
+      default:
+        // Reject unknown legacy accessories rather than fabricating `other`.
+        // This is essential for matching the backend's exact capability values.
+        return '';
     }
-
-    // Defensive fallback for future controlled values.
-    return value.replaceAll(' ', '_');
   }
 
-  static List<String> canonicalizeAll(Iterable<String> values) {
-    final result = <String>[];
-    final seen = <String>{};
+  static bool isAllowed(String value) => _allowed.contains(value);
 
-    for (final item in values) {
-      final canonical = canonicalize(item);
-      if (canonical.isEmpty || !seen.add(canonical)) continue;
-      result.add(canonical);
+  static List<String> canonicalizeAll(Iterable<String> capabilities) {
+    final found = <String>{};
+    for (final item in capabilities) {
+      final value = canonicalize(item);
+      if (value.isNotEmpty) found.add(value);
     }
-
-    return result;
+    // Keep a stable order matching the server's documented enum.
+    return List.unmodifiable(values.where(found.contains));
   }
 
   static bool isFullMatch({
     required Iterable<String> required,
     required Iterable<String> available,
   }) {
-    final requiredSet = canonicalizeAll(required).toSet();
-    if (requiredSet.isEmpty) return true;
-
     final availableSet = canonicalizeAll(available).toSet();
-    return requiredSet.every(availableSet.contains);
+    return canonicalizeAll(required).every(availableSet.contains);
   }
 
   static List<String> missing({
     required Iterable<String> required,
     required Iterable<String> available,
   }) {
-    final requiredSet = canonicalizeAll(required).toSet();
     final availableSet = canonicalizeAll(available).toSet();
-
-    return requiredSet
-        .where((item) => !availableSet.contains(item))
+    return canonicalizeAll(required)
+        .where((value) => !availableSet.contains(value))
         .toList(growable: false);
   }
 
   static String labelFor(String raw) {
     final value = canonicalize(raw);
-
+    if (value.isEmpty) return '';
     for (final option in options) {
       if (option.value == value) return option.label;
     }
-
-    if (value.isEmpty) return '';
-
-    return value
-        .split('_')
-        .where((part) => part.isNotEmpty)
-        .map(
-          (part) =>
-              '${part.substring(0, 1).toUpperCase()}${part.substring(1)}',
-        )
-        .join(' ');
+    return 'Other';
   }
+
+  static String localizedLabelFor(String raw) => AppLanguage.text(labelFor(raw));
 }

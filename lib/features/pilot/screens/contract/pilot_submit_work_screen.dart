@@ -1,7 +1,9 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -38,6 +40,28 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
   void initState() {
     super.initState();
     _controller = PilotContractController(PilotContractService(ApiClient()));
+    // Re-entry after a lost POST response: detect an already submitted round
+    // and return to the contract instead of inviting a duplicate upload.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _recoverExistingSubmission();
+    });
+  }
+
+  Future<void> _recoverExistingSubmission() async {
+    try {
+      final rounds = await _controller.loadSubmissions(widget.contractId);
+      if (!mounted || _controller.submissionErrorMessage != null ||
+          rounds.isEmpty) return;
+      final latest = rounds.last;
+      if (latest.isSubmitted && latest.contractId == widget.contractId) {
+        Navigator.of(context).pop(PilotSubmitWorkResult(
+          submission: latest,
+          contract: null,
+        ));
+      }
+    } catch (_) {
+      // The offline form remains usable when submission lookup fails.
+    }
   }
 
   @override
@@ -118,7 +142,7 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: const Text(
+        title: const LocalizedText(
           'Submit completed work?',
           style: TextStyle(
             color: AppColors.navy,
@@ -138,12 +162,12 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: const LocalizedText('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.blue),
-            child: const Text('Submit Work'),
+            child: const LocalizedText('Submit Work'),
           ),
         ],
       ),
@@ -187,19 +211,19 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
         surfaceTintColor: AppColors.bg,
         elevation: 0,
         titleSpacing: 0,
-        title: const Column(
+        title:  Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Submit Work',
+            Text(AppLanguage.text(
+              'Submit Work'),
               style: TextStyle(
                 color: AppColors.navy,
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            Text(
-              'Deliverables & completion notes',
+            Text(AppLanguage.text(
+              'Deliverables & completion notes'),
               style: TextStyle(
                 color: AppColors.grey,
                 fontSize: 9.5,
@@ -241,8 +265,8 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Images, PDF reports, MP4 or MOV video • up to 10 files • 20 MB each',
+                  Text(AppLanguage.text(
+                    'Images, PDF reports, MP4 or MOV video • up to 10 files • 20 MB each'),
                     style: TextStyle(
                       color: AppColors.grey.withOpacity(0.95),
                       fontSize: 10.5,
@@ -341,7 +365,7 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
         ),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: const Row(
+      child:  Row(
         children: [
           Icon(Icons.flight_rounded, color: Color(0xFF7BE4D8), size: 28),
           SizedBox(width: 13),
@@ -349,8 +373,8 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Work round ready for review',
+                Text(AppLanguage.text(
+                  'Work round ready for review'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14.5,
@@ -358,8 +382,8 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  'Add completion notes and the evidence or deliverables agreed for this mission.',
+                Text(AppLanguage.text(
+                  'Add completion notes and the evidence or deliverables agreed for this mission.'),
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 10.5,
@@ -391,7 +415,7 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'Revision requested',
                   style: TextStyle(
                     color: AppColors.orange,
@@ -462,7 +486,7 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Remove',
+            tooltip: AppLanguage.text('Remove'),
             onPressed: _busy ? null : () => setState(() => _files.removeAt(index)),
             icon: const Icon(Icons.close_rounded, color: AppColors.red, size: 19),
           ),
@@ -498,8 +522,8 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
                 child: Icon(icon, color: AppColors.blue, size: 18),
               ),
               const SizedBox(width: 10),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style: const TextStyle(
                   color: AppColors.navy,
                   fontSize: 13.5,
@@ -558,7 +582,7 @@ class _PilotSubmitWorkScreenState extends State<PilotSubmitWorkScreen> {
           backgroundColor: error ? AppColors.red : AppColors.navy,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          content: Text(message),
+          content: Text(AppLanguage.text(message)),
         ),
       );
   }

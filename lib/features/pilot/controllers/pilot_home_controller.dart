@@ -91,15 +91,10 @@ class PilotHomeController extends ChangeNotifier {
 
       _safeNotify();
 
-      if (hasAnySnapshot) {
-        // The user already has something useful to look at. Do not make Home
-        // wait for the internet; refresh silently in the background.
-        unawaited(_refreshFromNetwork());
-      } else {
-        // True first-use path: there is no local snapshot yet, so keep the
-        // skeletons visible while the first authoritative requests complete.
-        await _refreshFromNetwork();
-      }
+      // Never hold the whole Home page while the network is slow. When no
+      // cache exists each section keeps its own skeleton until its API returns.
+      // No-data is displayed only when that section has a confirmed snapshot.
+      unawaited(_refreshFromNetwork());
     } finally {
       _bootstrapping = false;
     }

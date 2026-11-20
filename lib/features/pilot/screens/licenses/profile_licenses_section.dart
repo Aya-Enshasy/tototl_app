@@ -67,7 +67,7 @@ class _ProfileLicensesSectionState extends State<ProfileLicensesSection>
     );
 
     if (!mounted) return;
-    await _controller.loadLicenses();
+    await _controller.loadLicenses(force: true);
   }
 
   Future<void> _openAdd() async {
@@ -80,7 +80,7 @@ class _ProfileLicensesSectionState extends State<ProfileLicensesSection>
     );
 
     if (changed == true && mounted) {
-      await _controller.loadLicenses();
+      await _controller.loadLicenses(force: true);
     }
   }
 
@@ -99,7 +99,7 @@ class _ProfileLicensesSectionState extends State<ProfileLicensesSection>
     );
 
     if (changed == true && mounted) {
-      await _controller.loadLicenses();
+      await _controller.loadLicenses(force: true);
     }
   }
 
@@ -140,7 +140,7 @@ class _ProfileLicensesSectionState extends State<ProfileLicensesSection>
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: _ink,
-                        fontSize: 17,
+                        fontSize: 16,
                         height: 1,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.3,
@@ -197,7 +197,8 @@ class _ProfileLicensesSectionState extends State<ProfileLicensesSection>
               else if (_controller.errorMessage != null && licenses.isEmpty)
                 _SectionError(
                   message: _controller.errorMessage!,
-                  onRetry: _controller.loadLicenses,
+                  onRetry: () => _controller.loadLicenses(force: true),
+                  onAdd: _openAdd,
                 )
               else if (licenses.isEmpty)
                   _EmptyLicenses(onAdd: _openAdd)
@@ -678,10 +679,12 @@ class _SectionError extends StatelessWidget {
   const _SectionError({
     required this.message,
     required this.onRetry,
+    required this.onAdd,
   });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -702,8 +705,8 @@ class _SectionError extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           Expanded(
-            child: Text(
-              message,
+            child: Text(AppLanguage.text(
+              message),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -712,9 +715,20 @@ class _SectionError extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(AppLanguage.text('Retry')),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: onRetry,
+                child: Text(AppLanguage.text('Retry')),
+              ),
+              TextButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add_rounded, size: 13),
+                label: Text(AppLanguage.text('Add License'),
+                    style: const TextStyle(fontSize: 10.5)),
+              ),
+            ],
           ),
         ],
       ),

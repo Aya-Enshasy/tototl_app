@@ -24,7 +24,7 @@ android {
         applicationId = "com.ayahinshasi.tototl_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(24, flutter.minSdkVersion) // webview_flutter requires Android API 24+
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName

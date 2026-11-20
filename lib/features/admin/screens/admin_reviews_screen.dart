@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/admin_controller.dart';
@@ -338,8 +339,8 @@ class _Segment
                 width:
                     6,
               ),
-              Text(
-                label,
+              Text(AppLanguage.text(
+                label),
                 style:
                     TextStyle(
                   color:
@@ -702,8 +703,8 @@ class _ReviewCard
                       height:
                           5,
                     ),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       maxLines:
                           1,
                       overflow:

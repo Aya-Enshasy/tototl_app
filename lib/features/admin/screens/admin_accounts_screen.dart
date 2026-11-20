@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/admin_controller.dart';
@@ -513,8 +514,8 @@ class _SummaryMini
             alignment:
                 Alignment.centerLeft,
             child:
-                Text(
-              label,
+                Text(AppLanguage.text(
+              label),
               style:
                   TextStyle(
                 color:
@@ -596,8 +597,8 @@ class _FilterChip
               ),
             ),
             child:
-                Text(
-              label,
+                Text(AppLanguage.text(
+              label),
               style:
                   TextStyle(
                 color:
@@ -703,8 +704,8 @@ class _StatusChip
               ),
             ),
             child:
-                Text(
-              label,
+                Text(AppLanguage.text(
+              label),
               style:
                   TextStyle(
                 color:

@@ -1,3 +1,4 @@
+import 'package:tototl_app/core/constants/drone_capabilities.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -177,7 +178,7 @@ class _DroneDetailsScreenState
                     color:
                     _ink,
                     fontSize:
-                    18,
+                    16,
                     fontWeight:
                     FontWeight.w900,
                   ),
@@ -336,7 +337,7 @@ class _DroneDetailsScreenState
           BorderRadius.circular(16),
         ),
         content:
-        Text(message),
+        Text(AppLanguage.text(message)),
       ),
     );
   }
@@ -646,7 +647,7 @@ class _Hero extends StatelessWidget {
                     color:
                     Colors.white,
                     fontSize:
-                    22,
+                    16,
                     fontWeight:
                     FontWeight.w900,
                   ),
@@ -790,8 +791,8 @@ class _PriceCard extends StatelessWidget {
             fit:
             BoxFit.scaleDown,
             child:
-            Text(
-              value,
+            Text(AppLanguage.text(
+              value),
               style:
               TextStyle(
                 color:
@@ -808,8 +809,8 @@ class _PriceCard extends StatelessWidget {
             fit:
             BoxFit.scaleDown,
             child:
-            Text(
-              label,
+            Text(AppLanguage.text(
+              label),
               style:
               const TextStyle(
                 color:
@@ -881,8 +882,8 @@ class _Section extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                title,
+              Text(AppLanguage.text(
+                title),
                 style:
                 const TextStyle(
                   color:
@@ -935,8 +936,8 @@ class _InfoRow extends StatelessWidget {
             children: [
               Expanded(
                 child:
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style:
                   const TextStyle(
                     color:

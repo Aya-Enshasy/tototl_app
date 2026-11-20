@@ -606,8 +606,8 @@ class _CompanyEditProfileScreenState
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              title,
+                            child: Text(AppLanguage.text(
+                              title),
                               style:
                               const TextStyle(
                                 color: _text,
@@ -998,8 +998,8 @@ class _CompanyEditProfileScreenState
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                message,
+              child: Text(AppLanguage.text(
+                message),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11.5,
@@ -1647,8 +1647,8 @@ class _IntroCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  title,
+                Text(AppLanguage.text(
+                  title),
                   style:
                   const TextStyle(
                     color: Colors.white,
@@ -1659,8 +1659,8 @@ class _IntroCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  subtitle,
+                Text(AppLanguage.text(
+                  subtitle),
                   style: TextStyle(
                     color: Colors.white
                         .withOpacity(0.72),
@@ -1750,8 +1750,8 @@ class _SectionCard extends StatelessWidget {
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
+                    Text(AppLanguage.text(
+                      title),
                       style:
                       const TextStyle(
                         color: _text,
@@ -1761,8 +1761,8 @@ class _SectionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
+                    Text(AppLanguage.text(
+                      subtitle),
                       style:
                       const TextStyle(
                         color: _textMuted,
@@ -1946,8 +1946,8 @@ class _DisabledInfo extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                Text(AppLanguage.text(
+                  label),
                   style:
                   const TextStyle(
                     color: _hint,
@@ -1957,8 +1957,8 @@ class _DisabledInfo extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                Text(AppLanguage.text(
+                  value),
                   style:
                   const TextStyle(
                     color: _textMuted,
@@ -2023,8 +2023,8 @@ class _FormField extends StatelessWidget {
             left: 2,
             bottom: 7,
           ),
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
             style:
             const TextStyle(
               color: _text,
@@ -2146,8 +2146,8 @@ class _PickerField extends StatelessWidget {
             left: 2,
             bottom: 7,
           ),
-          child: Text(
-            label,
+          child: Text(AppLanguage.text(
+            label),
             style:
             const TextStyle(
               color: _text,
@@ -2582,8 +2582,8 @@ class _SimpleSelectionSheet
             Align(
               alignment:
               Alignment.centerLeft,
-              child: Text(
-                title,
+              child: Text(AppLanguage.text(
+                title),
                 style:
                 const TextStyle(
                   color: _text,
@@ -2622,8 +2622,8 @@ class _SimpleSelectionSheet
                       size: 17,
                     ),
                   ),
-                  title: Text(
-                    value,
+                  title: Text(AppLanguage.text(
+                    value),
                     style:
                     TextStyle(
                       color: isSelected

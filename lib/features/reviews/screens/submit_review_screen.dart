@@ -1,4 +1,6 @@
+import 'package:tototl_app/core/localization/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:tototl_app/core/localization/app_language.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
@@ -230,8 +232,8 @@ class _SubmitReviewScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
+          content: Text(AppLanguage.text(
+            message),
             style: const TextStyle(
               color: Colors.white,
               fontWeight:
@@ -292,7 +294,7 @@ class _SubmitReviewScreenState
               size: 20,
             ),
           ),
-          title: const Text(
+          title: const LocalizedText(
             'Leave a Review',
             style: TextStyle(
               color: AppColors.navy,
@@ -340,7 +342,7 @@ class _SubmitReviewScreenState
                 const SizedBox(
                   height: 12,
                 ),
-                const Text(
+                const LocalizedText(
                   'A review can only be submitted once for this contract.',
                   textAlign:
                   TextAlign.center,
@@ -447,8 +449,8 @@ class _SubmitReviewScreenState
           const SizedBox(
             height: 13,
           ),
-          Text(
-            'How was your experience?',
+          Text(AppLanguage.text(
+            'How was your experience?'),
             textAlign:
             TextAlign.center,
             style:
@@ -512,7 +514,7 @@ class _SubmitReviewScreenState
       ),
       child: Column(
         children: [
-          const Text(
+          const LocalizedText(
             'Your rating',
             style: TextStyle(
               color:
@@ -618,7 +620,7 @@ class _SubmitReviewScreenState
         CrossAxisAlignment
             .start,
         children: [
-          const Text(
+          const LocalizedText(
             'Comment',
             style: TextStyle(
               color:
@@ -631,7 +633,7 @@ class _SubmitReviewScreenState
           const SizedBox(
             height: 5,
           ),
-          const Text(
+          const LocalizedText(
             'Optional · Maximum 2000 characters',
             style: TextStyle(
               color:
@@ -659,7 +661,7 @@ class _SubmitReviewScreenState
             decoration:
             InputDecoration(
               hintText:
-              'Share your experience...',
+              AppLanguage.text('Share your experience...'),
               hintStyle:
               const TextStyle(
                 color:
@@ -763,7 +765,7 @@ class _SubmitReviewScreenState
           ),
         )
             : _submitted
-            ? const Row(
+            ?  Row(
           mainAxisAlignment:
           MainAxisAlignment
               .center,
@@ -776,8 +778,8 @@ class _SubmitReviewScreenState
             SizedBox(
               width: 8,
             ),
-            Text(
-              'Review Submitted',
+            Text(AppLanguage.text(
+              'Review Submitted'),
               style:
               TextStyle(
                 fontSize:
@@ -789,7 +791,7 @@ class _SubmitReviewScreenState
             ),
           ],
         )
-            : const Row(
+            :  Row(
           mainAxisAlignment:
           MainAxisAlignment
               .center,
@@ -802,8 +804,8 @@ class _SubmitReviewScreenState
             SizedBox(
               width: 8,
             ),
-            Text(
-              'Submit Review',
+            Text(AppLanguage.text(
+              'Submit Review'),
               style:
               TextStyle(
                 fontSize:
